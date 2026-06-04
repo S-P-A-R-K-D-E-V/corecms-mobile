@@ -110,6 +110,42 @@ export interface IShiftAssignment {
   note?: string;
 }
 
+// Maps to MyScheduleResponse from the API — richer than IShiftAssignment
+export interface IMyScheduleItem {
+  assignmentId: string;
+  shiftScheduleId: string;
+  shiftName: string;
+  shiftType: string;
+  date: string;       // "yyyy-MM-dd"
+  startTime: string;  // "HH:mm"
+  endTime: string;    // "HH:mm"
+  totalHours: number;
+  checkInAllowedMinutesBefore: number;
+  note?: string;
+  hasCheckedIn: boolean;
+  hasCheckedOut: boolean;
+  checkInTime?: string;
+  checkOutTime?: string;
+  workedHours?: number;
+}
+
+// ======================================================================
+// Shift Schedule (versioned shift definition used for registration)
+// ======================================================================
+
+export interface IShiftSchedule {
+  id: string;
+  shiftTemplateId: string;
+  templateName: string;
+  color: string;
+  startTime: string;   // "HH:mm"
+  endTime: string;     // "HH:mm"
+  fromDate: string;    // "yyyy-MM-dd"
+  toDate?: string;     // "yyyy-MM-dd"
+  repeatDays: number;  // WeekDays bitmask: Mon=1,Tue=2,Wed=4,Thu=8,Fri=16,Sat=32,Sun=64
+  isActive: boolean;
+}
+
 // ======================================================================
 // Shift Registration
 // ======================================================================
@@ -117,30 +153,24 @@ export interface IShiftAssignment {
 export interface IShiftRegistration {
   id: string;
   staffId: string;
-  shiftTemplateId: string;
-  shiftTemplateName: string;
-  date: string;
+  shiftScheduleId: string;
+  shiftName: string;
   startTime: string;
   endTime: string;
-  status: 'Pending' | 'Approved' | 'Rejected';
+  date: string;
   note?: string;
   createdAt: string;
 }
 
 export interface IRegisterShiftRequest {
-  shiftTemplateId: string;
+  shiftScheduleId: string;
   date: string;
   note?: string;
 }
 
 export interface IUnregisterShiftRequest {
-  registrationId: string;
-}
-
-export interface IBulkRegisterShiftRequest {
-  shiftTemplateId: string;
-  dates: string[];
-  note?: string;
+  shiftScheduleId: string;
+  date: string;
 }
 
 // ======================================================================
@@ -188,18 +218,19 @@ export interface ICheckOutRequest {
 export interface ISmartCheckInRequest {
   latitude?: number;
   longitude?: number;
-  wifiSSID?: string;
+  accuracy?: number;
   ipAddress?: string;
-  note?: string;
-  faceImageBase64?: string;
+  wifiName?: string;
+  faceVerified: boolean;
 }
 
 export interface ISmartCheckOutRequest {
   latitude?: number;
   longitude?: number;
-  wifiSSID?: string;
+  accuracy?: number;
   ipAddress?: string;
-  note?: string;
+  wifiName?: string;
+  faceVerified?: boolean;
 }
 
 export interface IAttendanceRequest {
@@ -227,6 +258,21 @@ export interface ICreateAttendanceRequestDto {
 export interface IProcessAttendanceRequestDto {
   status: 'Approved' | 'Rejected';
   reviewNote?: string;
+}
+
+export interface ICheckinFaceRequest {
+  candidateName: string;
+  imageBase64: string;
+  lat?: number;
+  lng?: number;
+  time?: string;
+}
+
+export interface ICheckinFaceResponse {
+  id: string;
+  candidateName: string;
+  checkinTime: string;
+  notificationSent: boolean;
 }
 
 export interface IAttendanceReport {

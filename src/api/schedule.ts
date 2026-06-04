@@ -1,10 +1,10 @@
 import axios, { endpoints } from './axios';
-import type { IShiftAssignment, IShiftTemplate } from 'src/types/corecms-api';
+import type { IMyScheduleItem, IShiftSchedule, IShiftTemplate } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 
-export async function getMySchedule(fromDate: string, toDate: string): Promise<IShiftAssignment[]> {
-  const response = await axios.get<IShiftAssignment[]>(endpoints.shiftAssignments.mySchedule, {
+export async function getMySchedule(fromDate: string, toDate: string): Promise<IMyScheduleItem[]> {
+  const response = await axios.get<IMyScheduleItem[]>(endpoints.shiftAssignments.mySchedule, {
     params: { fromDate, toDate },
   });
   return response.data;
@@ -12,5 +12,12 @@ export async function getMySchedule(fromDate: string, toDate: string): Promise<I
 
 export async function getAllShiftTemplates(): Promise<IShiftTemplate[]> {
   const response = await axios.get<IShiftTemplate[]>(endpoints.shiftTemplates.list);
+  return response.data;
+}
+
+export async function getShiftSchedules(fromDate: string, toDate: string): Promise<IShiftSchedule[]> {
+  const response = await axios.get<IShiftSchedule[]>(endpoints.shiftSchedules.list, {
+    params: { fromDate, toDate },
+  });
   return response.data;
 }
