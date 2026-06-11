@@ -1,21 +1,29 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, Vibration,
+  TouchableOpacity, Vibration, Alert,
 } from 'react-native';
-import { Text, Card, Chip, Button, Surface, useTheme, Divider, Snackbar } from 'react-native-paper';
+import {
+  Text, Card, Chip, Button, Surface, useTheme, Divider, Snackbar,
+  Portal, Dialog, TextInput, HelperText, ActivityIndicator,
+} from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import dayjs, { Dayjs } from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 dayjs.extend(isToday);
 
 import { getMySchedule } from 'src/api/schedule';
 import { getMyShiftRegistrations } from 'src/api/shiftRegistration';
-import { getOpenPoolPosts, getMyPoolPosts, getMyClaims } from 'src/api/shiftPool';
+import {
+  getOpenPoolPosts, getMyPoolPosts, getMyClaims,
+  createShiftPoolPost, claimShiftPoolPost, cancelShiftPoolPost, reviewShiftPoolPost,
+} from 'src/api/shiftPool';
 import type { IMyScheduleItem, IShiftRegistration, IShiftPoolPost, PoolNeedType, PoolPostStatus } from 'src/types/corecms-api';
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
+import { useAuthContext } from 'src/auth/auth-context';
 import type { INotification } from 'src/api/notifications';
 
 // ----------------------------------------------------------------------
@@ -26,7 +34,7 @@ const TENTATIVE_COLOR = '#7986cb';
 
 const NEED_TYPE_LABEL: Record<PoolNeedType, string> = {
   Swap: 'Đổi ca',
-  FullCover: 'Làm hộ',
+  FullCover: 'Làm hộ cả ca',
   PartialCover: 'Làm hộ 1 phần',
 };
 
@@ -49,6 +57,16 @@ const STATUS_HEX: Record<PoolPostStatus, string> = {
   Approved: '#00A76F',
   Cancelled: '#637381',
 };
+
+const NEED_OPTIONS: { value: PoolNeedType; label: string; desc: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'] }[] = [
+  { value: 'FullCover', label: 'Làm hộ cả ca', desc: 'Nhờ người khác làm toàn bộ ca', icon: 'account-arrow-right-outline' },
+  { value: 'PartialCover', label: 'Làm hộ một phần', desc: 'Chỉ nhờ làm một khoảng giờ', icon: 'clock-outline' },
+  { value: 'Swap', label: 'Đổi ca', desc: 'Muốn đổi lấy ca của người nhận', icon: 'swap-horizontal' },
+];
+
+function fmtMoney(v?: number) {
+  return v != null ? `${v.toLocaleString('vi-VN')}đ` : '';
+}
 
 // ── Custom Calendar Strip ──────────────────────────────────────────────
 
@@ -203,37 +221,44 @@ function LayerChips({
 
 // ── Shift Cards ────────────────────────────────────────────────────────
 
-function ShiftCard({ item, poolPost }: { item: IMyScheduleItem; poolPost?: IShiftPoolPost }) {
+function ShiftCard({ item, poolPost, onPress }: { item: IMyScheduleItem; poolPost?: IShiftPoolPost; onPress?: () => void }) {
   const theme = useTheme();
   const status = item.hasCheckedOut ? 'Hoàn thành' : item.hasCheckedIn ? 'Đang làm' : 'Đã xếp';
   const color = item.hasCheckedOut ? '#00A76F' : item.hasCheckedIn ? '#FFAB00' : '#00B8D9';
   const barColor = poolPost ? POOL_POSTED_COLOR : color;
 
   return (
-    <Surface style={[styles.shiftCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-      <View style={[styles.shiftBar, { backgroundColor: barColor }]} />
-      <View style={styles.shiftBody}>
-        <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>{item.shiftName}</Text>
-        <Text variant="bodySmall" style={{ color: '#637381' }}>{item.startTime} – {item.endTime}</Text>
-        <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
-          <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start' }}
-            textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-            {status}
-          </Chip>
-          {poolPost && (
-            <Chip compact style={{ backgroundColor: `${POOL_POSTED_COLOR}18`, alignSelf: 'flex-start' }}
-              textStyle={{ color: POOL_POSTED_COLOR, fontSize: 11, fontWeight: '600' }}>
-              🔄 {NEED_TYPE_LABEL[poolPost.needType]}
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress} disabled={!onPress}>
+      <Surface style={[styles.shiftCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <View style={[styles.shiftBar, { backgroundColor: barColor }]} />
+        <View style={styles.shiftBody}>
+          <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>{item.shiftName}</Text>
+          <Text variant="bodySmall" style={{ color: '#637381' }}>{item.startTime} – {item.endTime}</Text>
+          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
+            <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start' }}
+              textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
+              {status}
             </Chip>
+            {poolPost && (
+              <Chip compact style={{ backgroundColor: `${POOL_POSTED_COLOR}18`, alignSelf: 'flex-start' }}
+                textStyle={{ color: POOL_POSTED_COLOR, fontSize: 11, fontWeight: '600' }}>
+                🔄 {NEED_TYPE_LABEL[poolPost.needType]}
+              </Chip>
+            )}
+          </View>
+          {poolPost?.status === 'WaitingApproval' && poolPost.claimerName && (
+            <Text variant="bodySmall" style={{ color: '#FF9800', marginTop: 4 }}>
+              Người nhận: {poolPost.claimerName} · Chờ bạn duyệt
+            </Text>
           )}
         </View>
-        {poolPost?.status === 'WaitingApproval' && poolPost.claimerName && (
-          <Text variant="bodySmall" style={{ color: '#FF9800', marginTop: 4 }}>
-            Người nhận: {poolPost.claimerName} · Chờ duyệt
-          </Text>
+        {onPress && (
+          <View style={styles.cardChevron}>
+            <MaterialCommunityIcons name="chevron-right" size={22} color="#C4CDD5" />
+          </View>
         )}
-      </View>
-    </Surface>
+      </Surface>
+    </TouchableOpacity>
   );
 }
 
@@ -255,103 +280,114 @@ function RegCard({ item }: { item: IShiftRegistration }) {
   );
 }
 
-function PoolOpenCard({ post }: { post: IShiftPoolPost }) {
+function PoolOpenCard({ post, onPress }: { post: IShiftPoolPost; onPress: () => void }) {
   const theme = useTheme();
   const color = NEED_TYPE_COLOR[post.needType];
   return (
-    <Surface style={[styles.shiftCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-      <View style={[styles.shiftBar, { backgroundColor: color }]} />
-      <View style={styles.shiftBody}>
-        <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>
-          {NEED_TYPE_LABEL[post.needType]} · {post.shiftName}
-        </Text>
-        <Text variant="bodySmall" style={{ color: '#637381' }}>
-          {post.shiftStartTime} – {post.shiftEndTime} · {post.posterName}
-        </Text>
-        {post.needType === 'PartialCover' && post.partialStartTime && (
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
+      <Surface style={[styles.shiftCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <View style={[styles.shiftBar, { backgroundColor: color }]} />
+        <View style={styles.shiftBody}>
+          <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>
+            {NEED_TYPE_LABEL[post.needType]} · {post.shiftName}
+          </Text>
           <Text variant="bodySmall" style={{ color: '#637381' }}>
-            Làm hộ: {post.partialStartTime} – {post.partialEndTime}
+            {post.shiftStartTime} – {post.shiftEndTime} · {post.posterName}
           </Text>
-        )}
-        {!!post.extraPayAmount && (
-          <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 2, fontWeight: '600' }}>
-            Phụ cấp: {post.extraPayAmount.toLocaleString('vi-VN')}đ
-          </Text>
-        )}
-        <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
-          textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-          Chờ người nhận
-        </Chip>
-      </View>
-    </Surface>
+          {post.needType === 'PartialCover' && post.partialStartTime && (
+            <Text variant="bodySmall" style={{ color: '#637381' }}>
+              Làm hộ: {post.partialStartTime} – {post.partialEndTime}
+            </Text>
+          )}
+          {!!post.extraPayAmount && (
+            <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 2, fontWeight: '600' }}>
+              Phụ cấp: {fmtMoney(post.extraPayAmount)}
+            </Text>
+          )}
+          <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
+            textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
+            Nhấn để nhận
+          </Chip>
+        </View>
+        <View style={styles.cardChevron}>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#C4CDD5" />
+        </View>
+      </Surface>
+    </TouchableOpacity>
   );
 }
 
-function PoolClaimCard({ post }: { post: IShiftPoolPost }) {
-  const theme = useTheme();
+function PoolClaimCard({ post, onPress }: { post: IShiftPoolPost; onPress: () => void }) {
   const color = TENTATIVE_COLOR;
   return (
-    <Surface
-      style={[styles.shiftCard, { backgroundColor: `${color}08`, borderWidth: 1, borderColor: `${color}55`, borderStyle: 'dashed' }]}
-      elevation={0}
-    >
-      <View style={[styles.shiftBar, { backgroundColor: color }]} />
-      <View style={styles.shiftBody}>
-        <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>
-          ⏳ {NEED_TYPE_LABEL[post.needType]} · {post.shiftName}
-        </Text>
-        <Text variant="bodySmall" style={{ color: '#637381' }}>
-          {post.shiftStartTime} – {post.shiftEndTime} · Người đăng: {post.posterName}
-        </Text>
-        <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
-          textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-          Chờ duyệt
-        </Chip>
-      </View>
-    </Surface>
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
+      <Surface
+        style={[styles.shiftCard, { backgroundColor: `${color}08`, borderWidth: 1, borderColor: `${color}55`, borderStyle: 'dashed' }]}
+        elevation={0}
+      >
+        <View style={[styles.shiftBar, { backgroundColor: color }]} />
+        <View style={styles.shiftBody}>
+          <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>
+            ⏳ {NEED_TYPE_LABEL[post.needType]} · {post.shiftName}
+          </Text>
+          <Text variant="bodySmall" style={{ color: '#637381' }}>
+            {post.shiftStartTime} – {post.shiftEndTime} · Người đăng: {post.posterName}
+          </Text>
+          <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
+            textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
+            Chờ duyệt
+          </Chip>
+        </View>
+        <View style={styles.cardChevron}>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#C4CDD5" />
+        </View>
+      </Surface>
+    </TouchableOpacity>
   );
 }
 
-function HistoryCard({ role, post }: { role: 'poster' | 'claimer'; post: IShiftPoolPost }) {
+function HistoryCard({ role, post, onPress }: { role: 'poster' | 'claimer'; post: IShiftPoolPost; onPress: () => void }) {
   const theme = useTheme();
   const color = STATUS_HEX[post.status];
   const isPoster = role === 'poster';
 
   return (
-    <Surface style={[styles.shiftCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-      <View style={[styles.shiftBar, { backgroundColor: color }]} />
-      <View style={styles.shiftBody}>
-        <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>
-          {NEED_TYPE_LABEL[post.needType]} · {post.shiftName}
-        </Text>
-        <Text variant="bodySmall" style={{ color: '#637381' }}>
-          {dayjs(post.shiftDate).format('DD/MM/YYYY')} ·{' '}
-          {isPoster
-            ? (post.claimerName ? `Người nhận: ${post.claimerName}` : 'Chưa có người nhận')
-            : `Người đăng: ${post.posterName}`}
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-          <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start' }}
-            textStyle={{ color, fontSize: 10, fontWeight: '600' }}>
-            {POOL_STATUS_LABEL[post.status]}
-          </Chip>
-          <Chip compact style={{ backgroundColor: '#63738118', alignSelf: 'flex-start' }}
-            textStyle={{ color: '#637381', fontSize: 10 }}>
-            {isPoster ? 'Bài đăng' : 'Tôi nhận'}
-          </Chip>
+    <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
+      <Surface style={[styles.shiftCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
+        <View style={[styles.shiftBar, { backgroundColor: color }]} />
+        <View style={styles.shiftBody}>
+          <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>
+            {NEED_TYPE_LABEL[post.needType]} · {post.shiftName}
+          </Text>
+          <Text variant="bodySmall" style={{ color: '#637381' }}>
+            {dayjs(post.shiftDate).format('DD/MM/YYYY')} ·{' '}
+            {isPoster
+              ? (post.claimerName ? `Người nhận: ${post.claimerName}` : 'Chưa có người nhận')
+              : `Người đăng: ${post.posterName}`}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
+            <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start' }}
+              textStyle={{ color, fontSize: 10, fontWeight: '600' }}>
+              {POOL_STATUS_LABEL[post.status]}
+            </Chip>
+            <Chip compact style={{ backgroundColor: '#63738118', alignSelf: 'flex-start' }}
+              textStyle={{ color: '#637381', fontSize: 10 }}>
+              {isPoster ? 'Bài đăng' : 'Tôi nhận'}
+            </Chip>
+          </View>
+          {!!post.extraPayAmount && (
+            <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 4, fontWeight: '600' }}>
+              Phụ cấp: {fmtMoney(post.extraPayAmount)}
+            </Text>
+          )}
+          {post.reviewNote && (
+            <Text variant="bodySmall" style={{ color: '#9EA3AE', marginTop: 2 }}>
+              Phản hồi: {post.reviewNote}
+            </Text>
+          )}
         </View>
-        {!!post.extraPayAmount && (
-          <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 4, fontWeight: '600' }}>
-            Phụ cấp: {post.extraPayAmount.toLocaleString('vi-VN')}đ
-          </Text>
-        )}
-        {post.reviewNote && (
-          <Text variant="bodySmall" style={{ color: '#9EA3AE', marginTop: 2 }}>
-            Phản hồi: {post.reviewNote}
-          </Text>
-        )}
-      </View>
-    </Surface>
+      </Surface>
+    </TouchableOpacity>
   );
 }
 
@@ -359,6 +395,7 @@ function HistoryCard({ role, post }: { role: 'poster' | 'claimer'; post: IShiftP
 
 export default function ScheduleScreen() {
   const theme = useTheme();
+  const { user } = useAuthContext();
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [assignments, setAssignments] = useState<IMyScheduleItem[]>([]);
   const [registrations, setRegistrations] = useState<IShiftRegistration[]>([]);
@@ -370,6 +407,20 @@ export default function ScheduleScreen() {
     new Set(['personal', 'my-claim'])
   );
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+
+  // ── Dialog state ──
+  const [postTarget, setPostTarget] = useState<IMyScheduleItem | null>(null);
+  const [postNeedType, setPostNeedType] = useState<PoolNeedType>('FullCover');
+  const [partialStart, setPartialStart] = useState('');
+  const [partialEnd, setPartialEnd] = useState('');
+  const [postNote, setPostNote] = useState('');
+  const [postErrors, setPostErrors] = useState<Record<string, string>>({});
+
+  const [managePost, setManagePost] = useState<IShiftPoolPost | null>(null);
+  const [claimTarget, setClaimTarget] = useState<IShiftPoolPost | null>(null);
+  const [offeredId, setOfferedId] = useState('');
+  const [detailTarget, setDetailTarget] = useState<IShiftPoolPost | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const startOfRange = dayjs(selectedDate).subtract(1, 'month').startOf('month').format('YYYY-MM-DD');
   const endOfRange = dayjs(selectedDate).add(1, 'month').endOf('month').format('YYYY-MM-DD');
@@ -385,11 +436,11 @@ export default function ScheduleScreen() {
       ]);
       setAssignments(sched);
       setRegistrations(regs);
-      setOpenPoolPosts(openPosts);
+      setOpenPoolPosts(openPosts.filter((p) => p.posterId !== user?.id));
       setMyPoolPosts(myPosts);
       setMyClaims(claims);
     } catch {}
-  }, [startOfRange, endOfRange]);
+  }, [startOfRange, endOfRange, user?.id]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -433,7 +484,6 @@ export default function ScheduleScreen() {
     ...registrations.map((r) => r.date),
   ]), [assignments, registrations]);
 
-  // Dates with active pool activity (open posts OR waiting claims)
   const poolActiveDates = useMemo(() => new Set<string>([
     ...myPoolPosts.filter((p) => p.status === 'Open' || p.status === 'WaitingApproval').map((p) => p.shiftDate),
     ...myClaims.filter((p) => p.status === 'WaitingApproval').map((p) => p.shiftDate),
@@ -457,12 +507,123 @@ export default function ScheduleScreen() {
     [myClaims, selectedDate]
   );
 
-  // History: all my pool transactions (poster + claimer), sorted by date desc
   const historyItems = useMemo(() => [
     ...myPoolPosts.map((p) => ({ role: 'poster' as const, post: p })),
     ...myClaims.map((p) => ({ role: 'claimer' as const, post: p })),
   ].sort((a, b) => b.post.shiftDate.localeCompare(a.post.shiftDate)).slice(0, 30),
   [myPoolPosts, myClaims]);
+
+  // My upcoming shifts available as a "đổi lại" (offered) shift for Swap claims
+  const offerableShifts = useMemo(() => {
+    if (!claimTarget) return [];
+    return assignments.filter((a) =>
+      !a.hasCheckedIn &&
+      a.assignmentId !== claimTarget.shiftAssignmentId &&
+      dayjs(`${a.date}T${(a.startTime || '00:00').slice(0, 5)}`).isAfter(dayjs())
+    );
+  }, [assignments, claimTarget]);
+
+  // ── Action helpers ──
+  const runAction = useCallback(async (fn: () => Promise<unknown>, successMsg: string, onDone: () => void) => {
+    setBusy(true);
+    try {
+      await fn();
+      onDone();
+      await loadData();
+      if (successMsg) setSnackbar({ visible: true, message: successMsg });
+    } catch (err: any) {
+      Alert.alert('Lỗi', err?.title || err?.message || 'Thao tác thất bại. Vui lòng thử lại.');
+    } finally {
+      setBusy(false);
+    }
+  }, [loadData]);
+
+  // Open the post / manage dialog for a personal shift
+  const onPressPersonal = useCallback((item: IMyScheduleItem) => {
+    const existing = postedMap.get(item.assignmentId);
+    if (existing) {
+      setManagePost(existing);
+      return;
+    }
+    // Default need type based on whether shift already started
+    const started = !dayjs(`${item.date}T${(item.startTime || '00:00').slice(0, 5)}`).isAfter(dayjs());
+    setPostTarget(item);
+    setPostNeedType(started ? 'PartialCover' : 'FullCover');
+    setPartialStart('');
+    setPartialEnd('');
+    setPostNote('');
+    setPostErrors({});
+  }, [postedMap]);
+
+  const closePostDialog = useCallback(() => { setPostTarget(null); }, []);
+
+  const shiftStarted = useMemo(
+    () => postTarget ? !dayjs(`${postTarget.date}T${(postTarget.startTime || '00:00').slice(0, 5)}`).isAfter(dayjs()) : false,
+    [postTarget]
+  );
+
+  const handleSubmitPost = useCallback(() => {
+    if (!postTarget) return;
+    const e: Record<string, string> = {};
+    if (postNeedType !== 'PartialCover' && shiftStarted) {
+      e.type = 'Ca đã bắt đầu — chỉ có thể đăng "Làm hộ một phần".';
+    }
+    if (postNeedType === 'PartialCover') {
+      if (!/^\d{2}:\d{2}$/.test(partialStart)) e.partialStart = 'Giờ bắt đầu không hợp lệ (HH:mm)';
+      if (!/^\d{2}:\d{2}$/.test(partialEnd)) e.partialEnd = 'Giờ kết thúc không hợp lệ (HH:mm)';
+      if (!e.partialStart && !e.partialEnd && partialStart >= partialEnd) {
+        e.partialEnd = 'Giờ kết thúc phải sau giờ bắt đầu';
+      }
+    }
+    setPostErrors(e);
+    if (Object.keys(e).length > 0) return;
+
+    runAction(
+      () => createShiftPoolPost({
+        shiftAssignmentId: postTarget.assignmentId,
+        needType: postNeedType,
+        partialStartTime: postNeedType === 'PartialCover' ? partialStart : undefined,
+        partialEndTime: postNeedType === 'PartialCover' ? partialEnd : undefined,
+        note: postNote.trim() || undefined,
+      }),
+      'Đã đăng ca lên chợ. Khi có người nhận, bạn sẽ xác nhận lại.',
+      closePostDialog
+    );
+  }, [postTarget, postNeedType, shiftStarted, partialStart, partialEnd, postNote, runAction, closePostDialog]);
+
+  // Manage my post: cancel (Open) or review (WaitingApproval)
+  const handleCancelPost = useCallback(() => {
+    if (!managePost) return;
+    runAction(() => cancelShiftPoolPost(managePost.id), 'Đã huỷ bài đăng.', () => setManagePost(null));
+  }, [managePost, runAction]);
+
+  const handleReviewPost = useCallback((action: 'Approve' | 'RejectClaim') => {
+    if (!managePost) return;
+    runAction(
+      () => reviewShiftPoolPost(managePost.id, { action }),
+      action === 'Approve' ? 'Đã xác nhận đổi ca / làm hộ!' : 'Đã từ chối người nhận. Bài đăng mở lại.',
+      () => setManagePost(null)
+    );
+  }, [managePost, runAction]);
+
+  // Claim an open post
+  const openClaimDialog = useCallback((post: IShiftPoolPost) => {
+    setClaimTarget(post);
+    setOfferedId('');
+  }, []);
+
+  const handleSubmitClaim = useCallback(() => {
+    if (!claimTarget) return;
+    if (claimTarget.needType === 'Swap' && !offeredId) {
+      Alert.alert('Chọn ca đổi lại', 'Với đổi ca, bạn cần chọn một ca của mình để đưa lại cho người đăng.');
+      return;
+    }
+    runAction(
+      () => claimShiftPoolPost(claimTarget.id, claimTarget.needType === 'Swap' ? { offeredAssignmentId: offeredId } : {}),
+      'Đã nhận ca. Chờ người đăng xác nhận.',
+      () => setClaimTarget(null)
+    );
+  }, [claimTarget, offeredId, runAction]);
 
   const hasPoolToday = dayOpenPosts.length > 0 || dayMyClaims.length > 0;
   const showEmpty = dayAssignments.length === 0 && dayRegistrations.length === 0 && !hasPoolToday;
@@ -479,7 +640,6 @@ export default function ScheduleScreen() {
           poolActiveDates={poolActiveDates}
         />
 
-        {/* Layer visibility chips */}
         <LayerChips visible={visibleLayers} onToggle={toggleLayer} />
 
         <View style={styles.registerRow}>
@@ -496,12 +656,17 @@ export default function ScheduleScreen() {
         </View>
 
         <View style={styles.daySection}>
-          {/* Personal assignments */}
+          {/* Personal assignments — clickable to post/manage pool */}
           {visibleLayers.has('personal') && dayAssignments.length > 0 && (
             <>
-              <Text variant="labelMedium" style={styles.sectionLabel}>CA ĐƯỢC XẾP</Text>
+              <Text variant="labelMedium" style={styles.sectionLabel}>CA ĐƯỢC XẾP · nhấn để đổi ca / làm hộ</Text>
               {dayAssignments.map((a) => (
-                <ShiftCard key={a.assignmentId} item={a} poolPost={postedMap.get(a.assignmentId)} />
+                <ShiftCard
+                  key={a.assignmentId}
+                  item={a}
+                  poolPost={postedMap.get(a.assignmentId)}
+                  onPress={a.hasCheckedOut ? undefined : () => onPressPersonal(a)}
+                />
               ))}
             </>
           )}
@@ -512,8 +677,8 @@ export default function ScheduleScreen() {
               {(visibleLayers.has('personal') && dayAssignments.length > 0) && (
                 <Divider style={{ marginVertical: 12 }} />
               )}
-              <Text variant="labelMedium" style={styles.sectionLabel}>CHỢ CA</Text>
-              {dayOpenPosts.map((p) => <PoolOpenCard key={p.id} post={p} />)}
+              <Text variant="labelMedium" style={styles.sectionLabel}>CHỢ CA · nhấn để nhận</Text>
+              {dayOpenPosts.map((p) => <PoolOpenCard key={p.id} post={p} onPress={() => openClaimDialog(p)} />)}
             </>
           )}
 
@@ -524,7 +689,7 @@ export default function ScheduleScreen() {
                 <Divider style={{ marginVertical: 12 }} />
               )}
               <Text variant="labelMedium" style={styles.sectionLabel}>CA TÔI CHỜ NHẬN</Text>
-              {dayMyClaims.map((p) => <PoolClaimCard key={p.id} post={p} />)}
+              {dayMyClaims.map((p) => <PoolClaimCard key={p.id} post={p} onPress={() => setDetailTarget(p)} />)}
             </>
           )}
 
@@ -556,12 +721,283 @@ export default function ScheduleScreen() {
             </Text>
             <View style={{ paddingHorizontal: 16, gap: 8 }}>
               {historyItems.map(({ role, post }) => (
-                <HistoryCard key={`${role}-${post.id}`} role={role} post={post} />
+                <HistoryCard key={`${role}-${post.id}`} role={role} post={post} onPress={() => setDetailTarget(post)} />
               ))}
             </View>
           </View>
         )}
       </ScrollView>
+
+      {/* ════════════════ DIALOGS ════════════════ */}
+      <Portal>
+        {/* Post to pool dialog */}
+        <Dialog visible={!!postTarget} onDismiss={closePostDialog} style={styles.dialog}>
+          <Dialog.Title>Đăng ca lên chợ</Dialog.Title>
+          {postTarget && (
+            <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 8 }} keyboardShouldPersistTaps="handled">
+                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                  {postTarget.shiftName} · {postTarget.startTime} – {postTarget.endTime}
+                </Text>
+                <Text variant="bodySmall" style={{ color: '#637381', marginBottom: 12 }}>
+                  {dayjs(postTarget.date).format('dddd, DD/MM/YYYY')}
+                </Text>
+
+                <Text variant="labelLarge" style={{ marginBottom: 8 }}>Bạn cần gì?</Text>
+                <View style={{ gap: 8 }}>
+                  {NEED_OPTIONS.map((opt) => {
+                    const disabled = opt.value !== 'PartialCover' && shiftStarted;
+                    const active = postNeedType === opt.value;
+                    const c = NEED_TYPE_COLOR[opt.value];
+                    return (
+                      <TouchableOpacity
+                        key={opt.value}
+                        disabled={disabled}
+                        activeOpacity={0.75}
+                        onPress={() => { setPostNeedType(opt.value); setPostErrors((p) => ({ ...p, type: '' })); }}
+                        style={[
+                          styles.optRow,
+                          {
+                            opacity: disabled ? 0.4 : 1,
+                            backgroundColor: active ? `${c}14` : theme.colors.surface,
+                            borderColor: active ? c : theme.colors.outline,
+                            borderWidth: active ? 2 : 1,
+                          },
+                        ]}
+                      >
+                        <MaterialCommunityIcons name={opt.icon} size={24} color={active ? c : '#637381'} />
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text variant="bodyMedium" style={{ fontWeight: active ? '700' : '500', color: active ? c : theme.colors.onSurface }}>
+                            {opt.label}
+                          </Text>
+                          <Text variant="labelSmall" style={{ color: '#9EA3AE' }}>{opt.desc}</Text>
+                        </View>
+                        {active && <MaterialCommunityIcons name="check-circle" size={20} color={c} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                {!!postErrors.type && <HelperText type="error">{postErrors.type}</HelperText>}
+
+                {postNeedType === 'PartialCover' && (
+                  <View style={{ marginTop: 12 }}>
+                    <Text variant="labelLarge" style={{ marginBottom: 4 }}>Khoảng giờ cần làm hộ</Text>
+                    <Text variant="labelSmall" style={{ color: '#9EA3AE', marginBottom: 8 }}>
+                      Trong ca: {postTarget.startTime} – {postTarget.endTime}
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <View style={{ flex: 1 }}>
+                        <TextInput
+                          mode="outlined" dense label="Từ (HH:mm)" value={partialStart}
+                          onChangeText={(v) => { setPartialStart(v); setPostErrors((p) => ({ ...p, partialStart: '' })); }}
+                          placeholder="18:00" keyboardType="numbers-and-punctuation" error={!!postErrors.partialStart}
+                        />
+                        {!!postErrors.partialStart && <HelperText type="error">{postErrors.partialStart}</HelperText>}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <TextInput
+                          mode="outlined" dense label="Đến (HH:mm)" value={partialEnd}
+                          onChangeText={(v) => { setPartialEnd(v); setPostErrors((p) => ({ ...p, partialEnd: '' })); }}
+                          placeholder="22:00" keyboardType="numbers-and-punctuation" error={!!postErrors.partialEnd}
+                        />
+                        {!!postErrors.partialEnd && <HelperText type="error">{postErrors.partialEnd}</HelperText>}
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                <TextInput
+                  mode="outlined" label="Ghi chú (không bắt buộc)" value={postNote} onChangeText={setPostNote}
+                  multiline numberOfLines={2} maxLength={500} style={{ marginTop: 12 }}
+                  placeholder="VD: Mình bận đột xuất, ai nhận giúp với..."
+                />
+              </ScrollView>
+            </Dialog.ScrollArea>
+          )}
+          <Dialog.Actions>
+            <Button onPress={closePostDialog} disabled={busy}>Huỷ</Button>
+            <Button mode="contained" onPress={handleSubmitPost} loading={busy} disabled={busy} icon="bullhorn-outline">
+              Đăng lên chợ
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Manage my post dialog */}
+        <Dialog visible={!!managePost} onDismiss={() => setManagePost(null)} style={styles.dialog}>
+          <Dialog.Title>Bài đăng của tôi</Dialog.Title>
+          {managePost && (
+            <Dialog.Content>
+              <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                {NEED_TYPE_LABEL[managePost.needType]} · {managePost.shiftName}
+              </Text>
+              <Text variant="bodySmall" style={{ color: '#637381', marginTop: 2 }}>
+                {dayjs(managePost.shiftDate).format('dddd, DD/MM/YYYY')} · {managePost.shiftStartTime} – {managePost.shiftEndTime}
+              </Text>
+              <Chip compact style={{ backgroundColor: `${STATUS_HEX[managePost.status]}18`, alignSelf: 'flex-start', marginTop: 8 }}
+                textStyle={{ color: STATUS_HEX[managePost.status], fontSize: 11, fontWeight: '700' }}>
+                {POOL_STATUS_LABEL[managePost.status]}
+              </Chip>
+              {!!managePost.claimerName && (
+                <Text variant="bodySmall" style={{ color: '#1C252E', marginTop: 10 }}>
+                  Người nhận: <Text style={{ fontWeight: '700' }}>{managePost.claimerName}</Text>
+                  {managePost.claimerOfferedShiftName
+                    ? ` · đề nghị đổi: ${managePost.claimerOfferedShiftName}${managePost.claimerOfferedShiftDate ? ` (${dayjs(managePost.claimerOfferedShiftDate).format('DD/MM')})` : ''}`
+                    : ''}
+                </Text>
+              )}
+              {managePost.status === 'WaitingApproval' && (
+                <Text variant="labelSmall" style={{ color: '#9EA3AE', marginTop: 8 }}>
+                  Xác nhận để hoàn tất đổi ca / làm hộ với người nhận, hoặc từ chối để mở lại bài đăng.
+                </Text>
+              )}
+            </Dialog.Content>
+          )}
+          <Dialog.Actions>
+            <Button onPress={() => setManagePost(null)} disabled={busy}>Đóng</Button>
+            {managePost?.status === 'Open' && (
+              <Button textColor="#FF5630" onPress={handleCancelPost} loading={busy} disabled={busy}>
+                Huỷ bài đăng
+              </Button>
+            )}
+            {managePost?.status === 'WaitingApproval' && (
+              <>
+                <Button textColor="#FF5630" onPress={() => handleReviewPost('RejectClaim')} disabled={busy}>
+                  Từ chối
+                </Button>
+                <Button mode="contained" onPress={() => handleReviewPost('Approve')} loading={busy} disabled={busy}>
+                  Xác nhận
+                </Button>
+              </>
+            )}
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Claim open post dialog */}
+        <Dialog visible={!!claimTarget} onDismiss={() => setClaimTarget(null)} style={styles.dialog}>
+          <Dialog.Title>{claimTarget ? `Nhận ${claimTarget.needType === 'Swap' ? 'đổi ca' : 'làm hộ'}` : ''}</Dialog.Title>
+          {claimTarget && (
+            <Dialog.ScrollArea style={{ paddingHorizontal: 0 }}>
+              <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingVertical: 8 }}>
+                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                  {claimTarget.shiftName} · {claimTarget.shiftStartTime} – {claimTarget.shiftEndTime}
+                </Text>
+                <Text variant="bodySmall" style={{ color: '#637381', marginTop: 2 }}>
+                  {dayjs(claimTarget.shiftDate).format('dddd, DD/MM/YYYY')} · Người đăng: {claimTarget.posterName}
+                </Text>
+                {claimTarget.needType === 'PartialCover' && claimTarget.partialStartTime && (
+                  <Text variant="bodySmall" style={{ color: '#637381', marginTop: 2 }}>
+                    Khoảng làm hộ: {claimTarget.partialStartTime} – {claimTarget.partialEndTime}
+                  </Text>
+                )}
+                {!!claimTarget.extraPayAmount && (
+                  <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 4, fontWeight: '700' }}>
+                    Phụ cấp làm hộ: {fmtMoney(claimTarget.extraPayAmount)}
+                    {claimTarget.coveringHours ? ` (${claimTarget.coveringHours}h)` : ''}
+                  </Text>
+                )}
+                {!!claimTarget.note && (
+                  <Text variant="bodySmall" style={{ color: '#637381', marginTop: 6 }}>Ghi chú: {claimTarget.note}</Text>
+                )}
+
+                {claimTarget.needType === 'Swap' && (
+                  <View style={{ marginTop: 14 }}>
+                    <Text variant="labelLarge" style={{ marginBottom: 8 }}>Chọn ca của bạn để đổi lại</Text>
+                    {offerableShifts.length === 0 ? (
+                      <Text variant="bodySmall" style={{ color: '#FF5630' }}>
+                        Bạn không có ca sắp tới nào để đổi lại.
+                      </Text>
+                    ) : (
+                      <View style={{ gap: 8 }}>
+                        {offerableShifts.map((s) => {
+                          const active = offeredId === s.assignmentId;
+                          return (
+                            <TouchableOpacity
+                              key={s.assignmentId}
+                              activeOpacity={0.75}
+                              onPress={() => setOfferedId(s.assignmentId)}
+                              style={[
+                                styles.optRow,
+                                {
+                                  backgroundColor: active ? `${theme.colors.primary}12` : theme.colors.surface,
+                                  borderColor: active ? theme.colors.primary : theme.colors.outline,
+                                  borderWidth: active ? 2 : 1,
+                                },
+                              ]}
+                            >
+                              <View style={{ flex: 1 }}>
+                                <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                                  {s.shiftName} ({s.startTime} – {s.endTime})
+                                </Text>
+                                <Text variant="labelSmall" style={{ color: '#637381' }}>
+                                  {dayjs(s.date).format('dddd, DD/MM/YYYY')}
+                                </Text>
+                              </View>
+                              {active && <MaterialCommunityIcons name="check-circle" size={20} color={theme.colors.primary} />}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </ScrollView>
+            </Dialog.ScrollArea>
+          )}
+          <Dialog.Actions>
+            <Button onPress={() => setClaimTarget(null)} disabled={busy}>Huỷ</Button>
+            <Button
+              mode="contained"
+              onPress={handleSubmitClaim}
+              loading={busy}
+              disabled={busy || (claimTarget?.needType === 'Swap' && offerableShifts.length === 0)}
+              icon="hand-back-right-outline"
+            >
+              {claimTarget?.needType === 'Swap' ? 'Đổi ca' : 'Nhận làm hộ'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+
+        {/* Read-only detail dialog (my claims / history) */}
+        <Dialog visible={!!detailTarget} onDismiss={() => setDetailTarget(null)} style={styles.dialog}>
+          <Dialog.Title>Chi tiết ca</Dialog.Title>
+          {detailTarget && (
+            <Dialog.Content>
+              <Text variant="bodyMedium" style={{ fontWeight: '600' }}>
+                {NEED_TYPE_LABEL[detailTarget.needType]} · {detailTarget.shiftName}
+              </Text>
+              <Text variant="bodySmall" style={{ color: '#637381', marginTop: 2 }}>
+                {dayjs(detailTarget.shiftDate).format('dddd, DD/MM/YYYY')} · {detailTarget.shiftStartTime} – {detailTarget.shiftEndTime}
+              </Text>
+              <Text variant="bodySmall" style={{ color: '#637381', marginTop: 4 }}>
+                Người đăng: {detailTarget.posterName}
+              </Text>
+              {detailTarget.needType === 'PartialCover' && detailTarget.partialStartTime && (
+                <Text variant="bodySmall" style={{ color: '#637381', marginTop: 2 }}>
+                  Khoảng làm hộ: {detailTarget.partialStartTime} – {detailTarget.partialEndTime}
+                </Text>
+              )}
+              {!!detailTarget.extraPayAmount && (
+                <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 4, fontWeight: '700' }}>
+                  Phụ cấp: {fmtMoney(detailTarget.extraPayAmount)}
+                  {detailTarget.coveringHours ? ` (${detailTarget.coveringHours}h)` : ''}
+                </Text>
+              )}
+              <Chip compact style={{ backgroundColor: `${STATUS_HEX[detailTarget.status]}18`, alignSelf: 'flex-start', marginTop: 8 }}
+                textStyle={{ color: STATUS_HEX[detailTarget.status], fontSize: 11, fontWeight: '700' }}>
+                {POOL_STATUS_LABEL[detailTarget.status]}
+              </Chip>
+              {!!detailTarget.reviewNote && (
+                <Text variant="bodySmall" style={{ color: '#637381', marginTop: 8 }}>
+                  Phản hồi: {detailTarget.reviewNote}
+                </Text>
+              )}
+            </Dialog.Content>
+          )}
+          <Dialog.Actions>
+            <Button onPress={() => setDetailTarget(null)}>Đóng</Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
 
       <Snackbar
         visible={snackbar.visible}
@@ -608,11 +1044,20 @@ const styles = StyleSheet.create({
   },
   sectionLabel: { color: '#637381', marginBottom: 8 },
   daySection: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
-  shiftCard: { flexDirection: 'row', borderRadius: 12, overflow: 'hidden', marginBottom: 4 },
-  shiftBar: { width: 5 },
+  shiftCard: { flexDirection: 'row', borderRadius: 12, overflow: 'hidden', marginBottom: 4, alignItems: 'center' },
+  shiftBar: { width: 5, alignSelf: 'stretch' },
   shiftBody: { flex: 1, padding: 12 },
+  cardChevron: { paddingRight: 8, justifyContent: 'center' },
   empty: { alignItems: 'center', paddingVertical: 32 },
 
   historySection: { paddingBottom: 32 },
   snackbar: { marginBottom: 8 },
+
+  dialog: { maxHeight: '85%' },
+  optRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+  },
 });
