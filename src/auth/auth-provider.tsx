@@ -1,9 +1,10 @@
 import React, { useReducer, useCallback, useMemo, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
-import axiosInstance, { endpoints } from 'src/api/axios';
+import axiosInstance, { endpoints, getStorageUrl } from 'src/api/axios';
 import type { IAuthResponse, ILoginRequest, IRegisterRequest, IVerifyOtpRequest, IResendOtpRequest, IRestoreSessionRequest } from 'src/types/corecms-api';
 import { AuthContext, type AuthUser } from './auth-context';
+import { unregisterCurrentPushToken } from 'src/hooks/use-push-registration';
 
 // ----------------------------------------------------------------------
 
@@ -128,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: data.role || data.roles?.[0] || 'User',
           roles: data.roles || [],
           permissions: data.permissions || [],
+          photoURL: data.profileImageUrl ? getStorageUrl(data.profileImageUrl) : undefined,
           accessToken,
         };
         dispatch({ type: Types.INITIAL, payload: { user } });
@@ -144,6 +146,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  const loginWithSessionToken = useCallback(async (sessionToken: string) => {
+    const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.restoreSession, { sessionToken });
+    const { token: accessToken, refreshToken, sessionToken: newSessionToken } = res.data;
+    await setSession(accessToken, refreshToken);
+    if (newSessionToken) await SecureStore.setItemAsync(SESSION_KEY, newSessionToken);
+    dispatch({ type: Types.LOGIN, payload: { user: buildUserFromResponse(res.data) } });
+  }, []);
 
   const login = useCallback(async (email: string, password: string) => {
     const data: ILoginRequest = { email, password };
@@ -191,7 +201,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await axiosInstance.post(endpoints.auth.resendOtp, data);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const meRes = await axiosInstance.get(endpoints.users.me);
+      const data = meRes.data;
+      const accessToken = (await SecureStore.getItemAsync(STORAGE_KEY)) ?? '';
+      const user: AuthUser = {
+        id: data.id,
+        email: data.email,
+        displayName: data.fullName || `${data.firstName} ${data.lastName}`,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        role: data.role || data.roles?.[0] || 'User',
+        roles: data.roles || [],
+        permissions: data.permissions || [],
+        photoURL: data.profileImageUrl ? getStorageUrl(data.profileImageUrl) : undefined,
+        accessToken,
+      };
+      dispatch({ type: Types.LOGIN, payload: { user } });
+    } catch {}
+  }, []);
+
   const logout = useCallback(async () => {
+    // Unregister push token before clearing session so the request still has auth header
+    await unregisterCurrentPushToken().catch(() => {});
     try {
       if (state.user?.id) {
         await axiosInstance.post(endpoints.auth.logout, { userId: state.user.id });
@@ -215,12 +248,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unauthenticated: status === 'unauthenticated',
       pendingVerification,
       login,
+      loginWithSessionToken,
       register,
       logout,
       verifyOtp,
       resendOtp,
+      refreshUser,
     }),
-    [state.user, status, pendingVerification, login, register, logout, verifyOtp, resendOtp]
+    [state.user, status, pendingVerification, login, loginWithSessionToken, register, logout, verifyOtp, resendOtp, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

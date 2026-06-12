@@ -37,3 +37,11 @@ export async function markAsRead(id: string): Promise<void> {
 export async function markAllAsRead(): Promise<void> {
   await axios.patch(endpoints.notifications.markAllAsRead);
 }
+
+export async function registerPushToken(token: string, platform: string): Promise<void> {
+  await axios.post(endpoints.notifications.pushToken, { token, platform });
+}
+
+export async function unregisterPushToken(token: string): Promise<void> {
+  await axios.delete(endpoints.notifications.pushToken, { data: { token } });
+}

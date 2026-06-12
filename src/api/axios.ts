@@ -42,6 +42,7 @@ export const endpoints = {
     verifyOtp: '/auth/verify-otp',
     resendOtp: '/auth/resend-otp',
     restoreSession: '/auth/restore-session',
+    oauthLogin: '/auth/oauth-login',
   },
   users: {
     list: '/users',
@@ -49,6 +50,8 @@ export const endpoints = {
     me: '/users/me',
     updateProfile: '/users/me/profile',
     changePassword: '/users/me/change-password',
+    uploadAvatar: '/users/me/avatar',
+    uploadMyIdCard: '/users/me/id-card',
   },
   shifts: {
     list: '/shifts',
@@ -105,6 +108,7 @@ export const endpoints = {
     unreadCount: '/notifications/unread-count',
     markAsRead: (id: string) => `/notifications/${id}/read`,
     markAllAsRead: '/notifications/read-all',
+    pushToken: '/notifications/push-token',
   },
   messenger: {
     conversations: '/messenger/conversations',
@@ -120,4 +124,28 @@ export const endpoints = {
   checkinFace: {
     face: '/checkin/face',
   },
+  shiftSwap: {
+    create: '/shift-swap',
+    myRequests: '/shift-swap/my-requests',
+    myConfirmationRequests: '/shift-swap/my-confirmation-requests',
+    targetConfirm: (id: string) => `/shift-swap/${id}/target-confirm`,
+  },
+  shiftPool: {
+    create: '/shift-pool',
+    open: '/shift-pool/open',
+    myPosts: '/shift-pool/my-posts',
+    myClaims: '/shift-pool/my-claims',
+    claim: (id: string) => `/shift-pool/${id}/claim`,
+    cancel: (id: string) => `/shift-pool/${id}/cancel`,
+    review: (id: string) => `/shift-pool/${id}/review`,
+  },
 };
+
+// ----------------------------------------------------------------------
+
+// Object key (R2/S3) → URL hiển thị được, proxy qua API /media/{key}
+export function getStorageUrl(path?: string | null): string {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  return `${HOST_API}/media/${path}`;
+}
