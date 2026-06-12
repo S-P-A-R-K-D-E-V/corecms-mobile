@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, Vibration } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from 'react-native';
 import {
   Text, useTheme, ActivityIndicator, Appbar, Surface, Snackbar,
 } from 'react-native-paper';
@@ -19,6 +19,7 @@ import {
   type INotification,
 } from 'src/api/notifications';
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
+import { useNotificationSettings } from 'src/hooks/use-notification-settings';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -146,6 +147,7 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
+  const { prefs } = useNotificationSettings();
 
   const load = useCallback(async () => {
     try {
@@ -163,14 +165,14 @@ export default function NotificationsScreen() {
     load();
   }, [load]);
 
-  // Real-time: prepend new notification when SignalR fires
+  // Real-time: prepend new notification when SignalR fires (filtering + vibration handled by hook)
   useNotificationHub({
+    preferences: prefs,
     onNewNotification: useCallback((n: INotification) => {
       setNotifications((prev) => {
         if (prev.some((p) => p.id === n.id)) return prev;
         return [n, ...prev];
       });
-      Vibration.vibrate([0, 80, 40, 80]);
       setSnackbar({ visible: true, message: `${n.title}${n.body ? `\n${n.body}` : ''}` });
     }, []),
   });

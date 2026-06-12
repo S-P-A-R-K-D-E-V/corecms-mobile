@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, StyleSheet, ScrollView, RefreshControl,
-  TouchableOpacity, Vibration, Alert,
+  TouchableOpacity, Alert,
 } from 'react-native';
 import {
-  Text, Card, Chip, Button, Surface, useTheme, Divider, Snackbar,
+  Text, Card, Button, Surface, useTheme, Divider, Snackbar,
   Portal, Dialog, TextInput, HelperText, ActivityIndicator,
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +23,7 @@ import {
 } from 'src/api/shiftPool';
 import type { IMyScheduleItem, IShiftRegistration, IShiftPoolPost, PoolNeedType, PoolPostStatus } from 'src/types/corecms-api';
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
+import { useNotificationSettings } from 'src/hooks/use-notification-settings';
 import { useAuthContext } from 'src/auth/auth-context';
 import type { INotification } from 'src/api/notifications';
 
@@ -66,6 +67,15 @@ const NEED_OPTIONS: { value: PoolNeedType; label: string; desc: string; icon: Re
 
 function fmtMoney(v?: number) {
   return v != null ? `${v.toLocaleString('vi-VN')}đ` : '';
+}
+
+// Lightweight badge — avoids Chip's "compact" prop / Fragment warning in RNP 5.15.x
+function MiniChip({ label, color, style }: { label: string; color: string; style?: object }) {
+  return (
+    <View style={[{ backgroundColor: `${color}18`, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, alignSelf: 'flex-start' }, style]}>
+      <Text style={{ color, fontSize: 11, fontWeight: '600', lineHeight: 16 }}>{label}</Text>
+    </View>
+  );
 }
 
 // ── Custom Calendar Strip ──────────────────────────────────────────────
@@ -235,16 +245,8 @@ function ShiftCard({ item, poolPost, onPress }: { item: IMyScheduleItem; poolPos
           <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>{item.shiftName}</Text>
           <Text variant="bodySmall" style={{ color: '#637381' }}>{item.startTime} – {item.endTime}</Text>
           <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginTop: 4, alignItems: 'center' }}>
-            <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start' }}
-              textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-              {status}
-            </Chip>
-            {poolPost && (
-              <Chip compact style={{ backgroundColor: `${POOL_POSTED_COLOR}18`, alignSelf: 'flex-start' }}
-                textStyle={{ color: POOL_POSTED_COLOR, fontSize: 11, fontWeight: '600' }}>
-                🔄 {NEED_TYPE_LABEL[poolPost.needType]}
-              </Chip>
-            )}
+            <MiniChip label={status} color={color} />
+            {poolPost && <MiniChip label={`🔄 ${NEED_TYPE_LABEL[poolPost.needType]}`} color={POOL_POSTED_COLOR} />}
           </View>
           {poolPost?.status === 'WaitingApproval' && poolPost.claimerName && (
             <Text variant="bodySmall" style={{ color: '#FF9800', marginTop: 4 }}>
@@ -271,10 +273,7 @@ function RegCard({ item }: { item: IShiftRegistration }) {
       <View style={styles.shiftBody}>
         <Text variant="titleSmall" style={{ fontWeight: 'bold' }}>{item.shiftName}</Text>
         <Text variant="bodySmall" style={{ color: '#637381' }}>{item.startTime} – {item.endTime}</Text>
-        <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
-          textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-          Đã đăng ký
-        </Chip>
+        <MiniChip label="Đã đăng ký" color={color} style={{ marginTop: 4 }} />
       </View>
     </Surface>
   );
@@ -304,10 +303,7 @@ function PoolOpenCard({ post, onPress }: { post: IShiftPoolPost; onPress: () => 
               Phụ cấp: {fmtMoney(post.extraPayAmount)}
             </Text>
           )}
-          <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
-            textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-            Nhấn để nhận
-          </Chip>
+          <MiniChip label="Nhấn để nhận" color={color} style={{ marginTop: 4 }} />
         </View>
         <View style={styles.cardChevron}>
           <MaterialCommunityIcons name="chevron-right" size={22} color="#C4CDD5" />
@@ -333,10 +329,7 @@ function PoolClaimCard({ post, onPress }: { post: IShiftPoolPost; onPress: () =>
           <Text variant="bodySmall" style={{ color: '#637381' }}>
             {post.shiftStartTime} – {post.shiftEndTime} · Người đăng: {post.posterName}
           </Text>
-          <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start', marginTop: 4 }}
-            textStyle={{ color, fontSize: 11, fontWeight: '600' }}>
-            Chờ duyệt
-          </Chip>
+          <MiniChip label="Chờ duyệt" color={color} style={{ marginTop: 4 }} />
         </View>
         <View style={styles.cardChevron}>
           <MaterialCommunityIcons name="chevron-right" size={22} color="#C4CDD5" />
@@ -366,14 +359,8 @@ function HistoryCard({ role, post, onPress }: { role: 'poster' | 'claimer'; post
               : `Người đăng: ${post.posterName}`}
           </Text>
           <View style={{ flexDirection: 'row', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-            <Chip compact style={{ backgroundColor: `${color}18`, alignSelf: 'flex-start' }}
-              textStyle={{ color, fontSize: 10, fontWeight: '600' }}>
-              {POOL_STATUS_LABEL[post.status]}
-            </Chip>
-            <Chip compact style={{ backgroundColor: '#63738118', alignSelf: 'flex-start' }}
-              textStyle={{ color: '#637381', fontSize: 10 }}>
-              {isPoster ? 'Bài đăng' : 'Tôi nhận'}
-            </Chip>
+            <MiniChip label={POOL_STATUS_LABEL[post.status]} color={color} />
+            <MiniChip label={isPoster ? 'Bài đăng' : 'Tôi nhận'} color="#637381" />
           </View>
           {!!post.extraPayAmount && (
             <Text variant="bodySmall" style={{ color: '#00A76F', marginTop: 4, fontWeight: '600' }}>
@@ -396,6 +383,7 @@ function HistoryCard({ role, post, onPress }: { role: 'poster' | 'claimer'; post
 export default function ScheduleScreen() {
   const theme = useTheme();
   const { user } = useAuthContext();
+  const { prefs } = useNotificationSettings();
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [assignments, setAssignments] = useState<IMyScheduleItem[]>([]);
   const [registrations, setRegistrations] = useState<IShiftRegistration[]>([]);
@@ -444,12 +432,12 @@ export default function ScheduleScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Real-time refresh when Shift notification arrives
+  // Real-time refresh when Shift notification arrives (vibration handled by hub)
   useNotificationHub({
+    preferences: prefs,
     onNewNotification: useCallback((n: INotification) => {
       const isShift = n.category === 'Shift' || n.type === 'Shift';
       if (!isShift) return;
-      Vibration.vibrate([0, 80, 40, 80]);
       setSnackbar({ visible: true, message: `${n.title}${n.body ? `\n${n.body}` : ''}` });
       loadData();
     }, [loadData]),
@@ -833,10 +821,7 @@ export default function ScheduleScreen() {
               <Text variant="bodySmall" style={{ color: '#637381', marginTop: 2 }}>
                 {dayjs(managePost.shiftDate).format('dddd, DD/MM/YYYY')} · {managePost.shiftStartTime} – {managePost.shiftEndTime}
               </Text>
-              <Chip compact style={{ backgroundColor: `${STATUS_HEX[managePost.status]}18`, alignSelf: 'flex-start', marginTop: 8 }}
-                textStyle={{ color: STATUS_HEX[managePost.status], fontSize: 11, fontWeight: '700' }}>
-                {POOL_STATUS_LABEL[managePost.status]}
-              </Chip>
+              <MiniChip label={POOL_STATUS_LABEL[managePost.status]} color={STATUS_HEX[managePost.status]} style={{ marginTop: 8 }} />
               {!!managePost.claimerName && (
                 <Text variant="bodySmall" style={{ color: '#1C252E', marginTop: 10 }}>
                   Người nhận: <Text style={{ fontWeight: '700' }}>{managePost.claimerName}</Text>
@@ -982,10 +967,7 @@ export default function ScheduleScreen() {
                   {detailTarget.coveringHours ? ` (${detailTarget.coveringHours}h)` : ''}
                 </Text>
               )}
-              <Chip compact style={{ backgroundColor: `${STATUS_HEX[detailTarget.status]}18`, alignSelf: 'flex-start', marginTop: 8 }}
-                textStyle={{ color: STATUS_HEX[detailTarget.status], fontSize: 11, fontWeight: '700' }}>
-                {POOL_STATUS_LABEL[detailTarget.status]}
-              </Chip>
+              <MiniChip label={POOL_STATUS_LABEL[detailTarget.status]} color={STATUS_HEX[detailTarget.status]} style={{ marginTop: 8 }} />
               {!!detailTarget.reviewNote && (
                 <Text variant="bodySmall" style={{ color: '#637381', marginTop: 8 }}>
                   Phản hồi: {detailTarget.reviewNote}
@@ -1044,8 +1026,8 @@ const styles = StyleSheet.create({
   },
   sectionLabel: { color: '#637381', marginBottom: 8 },
   daySection: { paddingHorizontal: 16, paddingBottom: 24, gap: 8 },
-  shiftCard: { flexDirection: 'row', borderRadius: 12, overflow: 'hidden', marginBottom: 4, alignItems: 'center' },
-  shiftBar: { width: 5, alignSelf: 'stretch' },
+  shiftCard: { flexDirection: 'row', borderRadius: 12, marginBottom: 4, alignItems: 'center' },
+  shiftBar: { width: 5, alignSelf: 'stretch', borderTopLeftRadius: 12, borderBottomLeftRadius: 12 },
   shiftBody: { flex: 1, padding: 12 },
   cardChevron: { paddingRight: 8, justifyContent: 'center' },
   empty: { alignItems: 'center', paddingVertical: 32 },
