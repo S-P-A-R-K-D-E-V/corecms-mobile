@@ -56,12 +56,33 @@ export interface IUser {
   lastName: string;
   fullName: string;
   phoneNumber?: string;
+  address?: string;
+  bankCode?: string;
+  bankNo?: string;
   avatarUrl?: string;
+  profileImageUrl?: string;
+  idCardFrontUrl?: string;
+  idCardBackUrl?: string;
   role: string;
   roles: string[];
   permissions: string[];
   isActive: boolean;
   createdAt: string;
+}
+
+export interface IUpdateProfileRequest {
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  address?: string;
+  bankCode?: string;
+  bankNo?: string;
+  profileImageUrl?: string;
+}
+
+export interface IChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
 }
 
 // ======================================================================
@@ -378,6 +399,107 @@ export interface IWaivePenaltyResponse {
 // ======================================================================
 // Salary
 // ======================================================================
+
+// ======================================================================
+// Shift Swap (Đổi ca)
+// ======================================================================
+
+export interface IShiftSwapRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  currentShiftAssignmentId: string;
+  currentShiftName: string;
+  currentShiftDate: string;
+  targetUserId?: string;
+  targetUserName?: string;
+  targetShiftAssignmentId?: string;
+  targetShiftName?: string;
+  targetShiftDate?: string;
+  reason?: string;
+  status: string;
+  reviewedBy?: string;
+  reviewerName?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  targetConfirmedAt?: string;
+  targetDeclineReason?: string;
+  createdAt: string;
+}
+
+export interface ICreateShiftSwapRequestRequest {
+  currentShiftAssignmentId: string;
+  targetUserId: string;
+  targetShiftAssignmentId?: string;
+  reason?: string;
+}
+
+export interface IConfirmShiftSwapTargetRequest {
+  isAccepted: boolean;
+  declineReason?: string;
+}
+
+// ======================================================================
+// Shift Pool (Đổi ca & làm hộ hợp nhất)
+// ======================================================================
+
+export type PoolNeedType = 'Swap' | 'FullCover' | 'PartialCover';
+export type PoolPostStatus = 'Open' | 'WaitingApproval' | 'Approved' | 'Cancelled';
+export type PartialCoverSide = 'LateArrive' | 'EarlyLeave';
+
+export interface IShiftPoolPost {
+  id: string;
+  posterId: string;
+  posterName: string;
+  shiftAssignmentId: string;
+  shiftName: string;
+  shiftDate: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  needType: PoolNeedType;
+  partialSide?: PartialCoverSide;
+  partialStartTime?: string;
+  partialEndTime?: string;
+  note?: string;
+  status: PoolPostStatus;
+  claimerId?: string;
+  claimerName?: string;
+  claimerOfferedAssignmentId?: string;
+  claimerOfferedShiftName?: string;
+  claimerOfferedShiftDate?: string;
+  claimerAdjacentAssignmentId?: string;
+  claimedAt?: string;
+  coveringHours?: number;
+  hourlyRate?: number;
+  extraPayAmount?: number;
+  actualCoverStart?: string;
+  actualCoverEnd?: string;
+  reviewedBy?: string;
+  reviewerName?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  lastClaimRejectedNote?: string;
+  lastClaimRejectedAt?: string;
+  createdAt: string;
+}
+
+export interface ICreateShiftPoolPostDto {
+  shiftAssignmentId: string;
+  needType: PoolNeedType;
+  partialSide?: PartialCoverSide;   // bắt buộc khi PartialCover (thay cho set giờ)
+  partialStartTime?: string;        // [deprecated]
+  partialEndTime?: string;          // [deprecated]
+  note?: string;
+}
+
+export interface IClaimShiftPoolPostDto {
+  offeredAssignmentId?: string;
+}
+
+export interface IReviewShiftPoolPostDto {
+  action: string; // "Approve" | "RejectClaim"
+  reviewNote?: string;
+}
 
 export interface ISalaryConfiguration {
   id: string;

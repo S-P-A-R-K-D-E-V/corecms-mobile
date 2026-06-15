@@ -1,17 +1,23 @@
 {
   "expo": {
-    "name": "CoreCMS Mobile",
-    "slug": "corecms-mobile",
+    "name": "CiCi",
+    "slug": "cms",
     "version": "1.0.0",
+    "runtimeVersion": "54.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/dcddb7bc-4b64-4205-9fc1-60bb269e6273",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "corecms",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1C252E"
+      "backgroundColor": "#FFFFFF"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -20,16 +26,17 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.corecms.mobile",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "CoreCMS cần vị trí để xác minh check-in của bạn.",
-        "NSCameraUsageDescription": "CoreCMS cần camera để chụp ảnh xác thực khuôn mặt khi check-in.",
-        "NSPhotoLibraryUsageDescription": "CoreCMS cần quyền truy cập ảnh để cập nhật ảnh đại diện.",
-        "NSFaceIDUsageDescription": "CoreCMS sử dụng Face ID để xác thực nhanh hơn."
+        "NSLocationWhenInUseUsageDescription": "CiCi cần vị trí để xác minh check-in của bạn.",
+        "NSCameraUsageDescription": "CiCi cần camera để chụp ảnh xác thực khuôn mặt khi check-in.",
+        "NSPhotoLibraryUsageDescription": "CiCi cần quyền truy cập ảnh để cập nhật ảnh đại diện.",
+        "NSFaceIDUsageDescription": "CiCi sử dụng Face ID để xác thực nhanh hơn.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1C252E"
+        "backgroundColor": "#FFFFFF"
       },
       "package": "com.corecms.mobile",
       "permissions": [
@@ -56,22 +63,23 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "CoreCMS cần vị trí để xác minh check-in."
+          "locationAlwaysAndWhenInUsePermission": "CiCi cần vị trí để xác minh check-in."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "CoreCMS cần camera để xác thực khuôn mặt."
+          "cameraPermission": "CiCi cần camera để xác thực khuôn mặt."
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#00A76F"
+          "color": "#C84D71"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
@@ -81,8 +89,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "7d92a563-a2fb-4115-a22c-6095caf32a4c"
+        "projectId": "dcddb7bc-4b64-4205-9fc1-60bb269e6273"
       }
-    }
+    },
+    "owner": "s-p-a-r-k-d-e-v"
   }
 }

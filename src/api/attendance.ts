@@ -6,6 +6,8 @@ import type {
   IBranchLocation,
   ICheckInRequest,
   ICheckOutRequest,
+  ICheckinFaceRequest,
+  ICheckinFaceResponse,
   ICreateAttendanceRequestDto,
   IProcessAttendanceRequestDto,
   ISmartCheckInRequest,
@@ -64,5 +66,10 @@ export async function processAttendanceRequest(id: string, data: IProcessAttenda
 
 export async function getBranchLocations(): Promise<IBranchLocation[]> {
   const response = await axios.get<IBranchLocation[]>(endpoints.branches.list);
+  return response.data;
+}
+
+export async function checkinFace(data: ICheckinFaceRequest): Promise<ICheckinFaceResponse> {
+  const response = await axios.post<ICheckinFaceResponse>(endpoints.checkinFace.face, data);
   return response.data;
 }
