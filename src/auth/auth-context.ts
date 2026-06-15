@@ -23,10 +23,12 @@ export type AuthContextType = {
   unauthenticated: boolean;
   pendingVerification: { email: string } | null;
   login: (email: string, password: string) => Promise<void>;
+  loginWithSessionToken: (sessionToken: string) => Promise<void>;
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
   verifyOtp: (email: string, otpCode: string) => Promise<void>;
   resendOtp: (email: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | null>(null);

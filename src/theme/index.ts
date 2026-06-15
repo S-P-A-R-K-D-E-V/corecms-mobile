@@ -1,47 +1,45 @@
-import { MD3LightTheme, MD3DarkTheme } from 'react-native-paper';
+// Typed accessor over the shared JS tokens (single source: ./tokens.js).
+// Use this in code that needs raw hex values (StatusBar, navigation tab colors,
+// icon `color` props) — everything else should use NativeWind className strings.
+import tokens from './tokens';
 
-// Brand colors matching core-fe (Material Design 3)
-const palette = {
-  primary: '#00A76F',
-  primaryDark: '#007867',
-  secondary: '#8E33FF',
-  error: '#FF5630',
-  warning: '#FFAB00',
-  info: '#00B8D9',
-  success: '#22C55E',
-  background: '#F4F6F8',
-  backgroundDark: '#161C24',
-  surface: '#FFFFFF',
-  surfaceDark: '#212B36',
-  text: '#1C252E',
-  textSecondary: '#637381',
+export const { colors, radius, spacing, shadow, blur } = tokens as {
+  colors: Record<string, any>;
+  radius: Record<string, number>;
+  spacing: Record<string, number>;
+  shadow: { color: string; opacity: number; radius: number; offsetY: number };
+  blur: { tab: number; header: number; sheet: number; card: number };
 };
 
-export const lightTheme = {
-  ...MD3LightTheme,
-  colors: {
-    ...MD3LightTheme.colors,
-    primary: palette.primary,
-    secondary: palette.secondary,
-    error: palette.error,
-    background: palette.background,
-    surface: palette.surface,
-    onSurface: palette.text,
-    outline: '#E0E0E0',
-  },
+/** Apple-soft elevation as a React Native style object. */
+export const softShadow = {
+  shadowColor: shadow.color,
+  shadowOpacity: shadow.opacity,
+  shadowRadius: shadow.radius,
+  shadowOffset: { width: 0, height: shadow.offsetY },
+  elevation: 4,
 };
 
-export const darkTheme = {
-  ...MD3DarkTheme,
-  colors: {
-    ...MD3DarkTheme.colors,
-    primary: palette.primary,
-    secondary: palette.secondary,
-    error: palette.error,
-    background: palette.backgroundDark,
-    surface: palette.surfaceDark,
-    onSurface: '#F4F6F8',
-  },
+/** Flattened brand hex values for imperative use. */
+export const brand = {
+  primary: colors.primary.DEFAULT as string,
+  primaryDark: colors.primary[700] as string,
+  navy: colors.navy.DEFAULT as string,
+  secondary: colors.secondary.DEFAULT as string,
+  error: colors.error.DEFAULT as string,
+  warning: colors.warning.DEFAULT as string,
+  info: colors.info.DEFAULT as string,
+  success: colors.success.DEFAULT as string,
+  ink: colors.ink as string,
+  muted: colors.muted as string,
+  faint: colors.faint as string,
+  line: colors.line as string,
+  bg: colors.bg as string,
+  surface: colors.surface as string,
+  bgDark: colors['bg-dark'] as string,
+  surfaceDark: colors['surface-dark'] as string,
+  inkDark: colors['ink-dark'] as string,
+  lineDark: colors['line-dark'] as string,
 };
 
-export { palette };
+export default tokens;

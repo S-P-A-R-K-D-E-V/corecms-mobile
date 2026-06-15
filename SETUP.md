@@ -50,47 +50,37 @@ eas build -p android --profile preview
 eas build -p ios --profile preview
 ```
 
-## Cấu trúc project
+## Kiến trúc & cấu trúc project
+
+App theo mô hình **Shared Framework (80%) + Core Feature (20%)**.
+
+- **UI:** [NativeWind](https://www.nativewind.dev/) (Tailwind cho RN) + bộ design-system tự dựng theo idiom Gluestack (copy-in tại `src/components/ui`). KHÔNG còn react-native-paper.
+- **Routing:** Expo Router, thư mục routes ở **`src/app/`** (mỏng — chỉ compose feature).
+- **Data:** `@tanstack/react-query` + Axios. **State:** Zustand + Immer.
+- **Theme:** tokens duy nhất ở `src/theme/tokens.js` (Tailwind + code dùng chung), Light/Dark qua `src/theme/ThemeProvider`.
+- **i18n:** `src/i18n` (VN, sẵn sàng đa ngữ).
 
 ```
 app-mobile/
-├── app/                    # Expo Router (file-based routing)
-│   ├── _layout.tsx         # Root: AuthProvider + PaperProvider
-│   ├── index.tsx           # Redirect → auth/tabs
-│   ├── (auth)/             # Màn hình không cần đăng nhập
-│   │   ├── login.tsx
-│   │   └── verify-otp.tsx
-│   └── (tabs)/             # Màn hình chính (bottom tabs)
-│       ├── checkin.tsx     # Tab Check-in/out
-│       ├── schedule/
-│       │   ├── index.tsx   # Xem lịch làm
-│       │   └── register.tsx # Đăng ký ca
-│       ├── payroll/
-│       │   ├── index.tsx   # Danh sách kỳ lương
-│       │   └── [id].tsx    # Chi tiết kỳ lương
-│       └── chat/
-│           ├── index.tsx   # Danh sách cuộc trò chuyện
-│           └── [id].tsx    # Màn hình chat
+├── tailwind.config.js · global.css · metro.config.js · babel.config.js   # nền NativeWind
 ├── src/
-│   ├── api/                # Ported từ core-fe — giữ nguyên contract
-│   │   ├── axios.ts        # Axios + JWT interceptor (SecureStore)
-│   │   ├── attendance.ts
-│   │   ├── messenger.ts
-│   │   ├── payroll.ts
-│   │   ├── schedule.ts
-│   │   └── shiftRegistration.ts
-│   ├── auth/               # JWT auth (SecureStore thay localStorage)
-│   │   ├── auth-context.ts
-│   │   └── auth-provider.tsx
-│   ├── hooks/
-│   │   └── use-signalr.ts  # SignalR real-time connection
-│   ├── store/
-│   │   └── messenger-store.ts # Ported từ core-fe (không thay đổi)
-│   ├── theme/
-│   │   └── index.ts        # Material Design 3 (màu giống core-fe)
-│   └── types/
-│       └── corecms-api.ts  # TypeScript types (subset từ core-fe)
+│   ├── app/                    # ROUTES (expo-router)
+│   │   ├── _layout.tsx         # Providers: ErrorBoundary · Theme · QueryClient · RemoteConfig · Auth
+│   │   ├── index.tsx           # boot gate: onboarding | auth | tabs
+│   │   ├── (onboarding)/  (auth)/                       # giới thiệu · login · verify-otp
+│   │   ├── (tabs)/             # checkin · schedule · payroll · chat · profile
+│   │   ├── attendance/ · shift-swap/ · shift-pool/ · account/ · settings/ · notifications.tsx
+│   ├── features/               # logic + UI mỗi tính năng (checkin, schedule, payroll, chat, ...)
+│   ├── components/ui/          # design-system primitives (Button, Card, Text, TextField, ...)
+│   ├── components/shared/      # Screen, AppHeader, SectionCard, EmptyState, Sheet, ToggleRow, ...
+│   ├── services/               # storage · error(+ErrorBoundary) · logger · analytics · remote-config · app-update · query
+│   ├── api/                    # contract với .NET backend (axios + endpoints theo domain) — giữ nguyên
+│   ├── auth/                   # JWT + session (SecureStore)
+│   ├── hooks/ · store/         # use-signalr, push, notifications · messenger-store (zustand)
+│   ├── i18n/ · theme/ · types/
 ```
+
+> **Lưu ý build native:** đổi UI stack KHÔNG thêm native module mới (NativeWind = babel/metro). 8 patch trong `ANDROID_SETUP.md` vẫn còn hiệu lực, `eas.json`/bundle id giữ nguyên. Có thêm `react-native-reanimated` + `react-native-worklets` (auto-link, không cần patch tay).
 
 ## Backend CORS
 
