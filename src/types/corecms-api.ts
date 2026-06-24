@@ -223,9 +223,12 @@ export interface ICheckInRequest {
   shiftAssignmentId?: string;
   latitude?: number;
   longitude?: number;
+  accuracy?: number;
   ipAddress?: string;
   note?: string;
   faceImageBase64?: string;
+  faceVerified?: boolean;
+  isOvertime?: boolean;
 }
 
 export interface ICheckOutRequest {

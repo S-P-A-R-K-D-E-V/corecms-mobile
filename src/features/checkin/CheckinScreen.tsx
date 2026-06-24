@@ -10,7 +10,7 @@ import { Screen, SectionCard, StatCard, EmptyState } from 'src/components/shared
 import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { useAuthContext } from 'src/auth/auth-context';
-import { smartCheckIn, smartCheckOut, checkinFace } from 'src/api/attendance';
+import { smartCheckIn, smartCheckOut, checkIn, checkinFace } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
@@ -132,6 +132,10 @@ export function CheckinScreen() {
   // GPS
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>('idle');
   const [coords, setCoords] = useState<Coords | null>(null);
+  // Check-in ngoài giờ + fallback khi GPS lỗi (đồng bộ hành vi core-fe)
+  const [checkinMode, setCheckinMode] = useState<'smart' | 'overtime'>('smart');
+  const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
+  const [gpsFallback, setGpsFallback] = useState(false);
 
   // Camera
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -167,40 +171,99 @@ export function CheckinScreen() {
     }
   }
 
-  async function openCheckInCamera() {
+  // Tự lấy GPS khi mở màn để hiện trạng thái + kích hoạt đếm ngược fallback nếu lỗi
+  useEffect(() => {
+    fetchGps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // GPS lỗi → đếm ngược 5s rồi cho phép check-in chỉ-ảnh (không kèm toạ độ)
+  useEffect(() => {
+    if (gpsStatus === 'error') {
+      setGpsCountdown((c) => (c === null ? 5 : c));
+    } else if (gpsStatus === 'ready') {
+      setGpsCountdown(null);
+      setGpsFallback(false);
+    }
+  }, [gpsStatus]);
+
+  useEffect(() => {
+    if (gpsCountdown === null) return;
+    if (gpsCountdown <= 0) {
+      setGpsFallback(true);
+      return;
+    }
+    const tmr = setTimeout(() => setGpsCountdown((n) => (n !== null ? n - 1 : null)), 1000);
+    return () => clearTimeout(tmr);
+  }, [gpsCountdown]);
+
+  async function openCheckInCamera(mode: 'smart' | 'overtime' = 'smart') {
     let granted = cameraPermission?.granted;
     if (!granted) granted = (await requestCameraPermission()).granted;
     if (!granted) {
       Alert.alert(t('checkin.cameraPermTitle'), t('checkin.cameraPermMsg'));
       return;
     }
+    setCheckinMode(mode);
     setSubmitting(true);
     const c = await fetchGps();
     setSubmitting(false);
-    if (!c) {
-      Alert.alert('Không lấy được GPS', 'Vui lòng bật GPS và cấp quyền vị trí, rồi thử lại.');
+    // Cho phép tiếp tục nếu có GPS, hoặc đã bật fallback (sau 5s GPS lỗi)
+    if (!c && !gpsFallback) {
+      Alert.alert(
+        'Đang lấy GPS…',
+        'Chưa lấy được vị trí. Nếu GPS lỗi, nút sẽ tự cho phép check-in không kèm vị trí sau vài giây — vui lòng thử lại.'
+      );
       return;
     }
     setModalOpen(true);
   }
 
+  function handleOvertimePress() {
+    Alert.alert(
+      'Check-in ngoài giờ',
+      'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: 'Check-in ngoài giờ', onPress: () => openCheckInCamera('overtime') },
+      ]
+    );
+  }
+
   async function handleConfirmCheckIn(base64: string, captureTime: Date) {
-    if (!coords) return;
     setSubmitting(true);
     try {
       // 1. Create attendance log first; abort before Telegram if it fails.
-      await smartCheckIn({ latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy, faceVerified: true });
+      if (checkinMode === 'overtime') {
+        await checkIn({
+          isOvertime: true,
+          latitude: coords?.latitude,
+          longitude: coords?.longitude,
+          accuracy: coords?.accuracy,
+          faceVerified: true,
+        });
+      } else {
+        await smartCheckIn({
+          latitude: coords?.latitude,
+          longitude: coords?.longitude,
+          accuracy: coords?.accuracy,
+          faceVerified: true,
+        });
+      }
       // 2. Fire Telegram face notification.
       await checkinFace({
         candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
         imageBase64: `data:image/jpeg;base64,${base64}`,
-        lat: coords.latitude,
-        lng: coords.longitude,
+        lat: coords?.latitude,
+        lng: coords?.longitude,
         time: captureTime.toISOString(),
       });
       setModalOpen(false);
       track(AnalyticsEvent.CheckInSuccess);
-      Alert.alert('✅ ' + t('common.success'), t('checkin.checkInSuccess'));
+      Alert.alert(
+        '✅ ' + t('common.success'),
+        checkinMode === 'overtime' ? 'Check-in ngoài giờ thành công!' : t('checkin.checkInSuccess')
+      );
       await refetch();
     } catch (err: any) {
       Alert.alert(t('checkin.checkInFailed'), extractApiError(err));
@@ -270,7 +333,7 @@ export function CheckinScreen() {
           shadowRadius: 16,
           shadowOffset: { width: 0, height: 8 },
         }}
-        variant="transparent"
+        variant="brand"
       >
         {/* Inner top glow (glass light-source simulation) */}
         <View
@@ -318,11 +381,19 @@ export function CheckinScreen() {
                 className="mt-4"
                 loading={submitting}
                 disabled={!canCheckIn}
-                onPress={openCheckInCamera}
+                onPress={() => openCheckInCamera('smart')}
                 icon={canCheckIn ? 'camera-account' : 'clock-outline'}
               >
                 {canCheckIn ? t('checkin.checkInBtn') : t('checkin.notYetBtn')}
               </Button>
+
+              {/* Check-in ngoài giờ — khi không có ca phù hợp lúc này */}
+              {!canCheckIn ? (
+                <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5">
+                  <Icon name="clock-plus-outline" size={16} color="rgba(255,255,255,0.92)" />
+                  <Text className="text-white/90 font-semibold">Check-in ngoài giờ</Text>
+                </Pressable>
+              ) : null}
             </>
           )}
         </View>
@@ -357,6 +428,18 @@ export function CheckinScreen() {
           ) : null}
         </View>
       </Pressable>
+
+      {/* GPS lỗi → đếm ngược rồi cho phép check-in không cần GPS (giống core-fe) */}
+      {gpsStatus === 'error' ? (
+        <View className={cn('flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl', gpsFallback ? 'bg-success-soft' : 'bg-warning-soft')}>
+          <Icon name={(gpsFallback ? 'camera-check' : 'timer-sand') as IconName} size={16} tone={gpsFallback ? 'success' : 'warning'} />
+          <Text variant="bodySmall" tone={gpsFallback ? 'success' : 'warning'} className="font-semibold flex-1">
+            {gpsFallback
+              ? 'Đã bật check-in không cần GPS — bạn có thể chụp ảnh để check-in.'
+              : `Không lấy được GPS. Cho phép check-in không cần GPS sau ${gpsCountdown ?? 0}s…`}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Shifts */}
       <SectionCard title={t('checkin.todayShifts')} icon="calendar-clock" count={shifts.length} collapsible bodyClassName="pt-0">

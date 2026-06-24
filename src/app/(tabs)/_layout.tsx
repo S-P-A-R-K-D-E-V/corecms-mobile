@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from 'src/auth/auth-context';
+import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { spring } from 'src/theme/motion';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -231,16 +232,18 @@ export default function TabsLayout() {
   if (!authenticated) return <Redirect href="/(auth)/login" />;
 
   return (
-    <Tabs
-      screenOptions={{ headerShown: false }}
-      tabBar={(props) => <CiCiTabBar {...props} />}
-    >
-      {/* Order must match TABS array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) */}
-      <Tabs.Screen name="schedule" />
-      <Tabs.Screen name="payroll" />
-      <Tabs.Screen name="checkin" />
-      <Tabs.Screen name="chat" />
-      <Tabs.Screen name="profile" />
-    </Tabs>
+    <MessengerProvider>
+      <Tabs
+        screenOptions={{ headerShown: false }}
+        tabBar={(props) => <CiCiTabBar {...props} />}
+      >
+        {/* Order must match TABS array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) */}
+        <Tabs.Screen name="schedule" />
+        <Tabs.Screen name="payroll" />
+        <Tabs.Screen name="checkin" />
+        <Tabs.Screen name="chat" />
+        <Tabs.Screen name="profile" />
+      </Tabs>
+    </MessengerProvider>
   );
 }
