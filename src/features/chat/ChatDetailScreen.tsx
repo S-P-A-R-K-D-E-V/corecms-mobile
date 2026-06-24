@@ -120,7 +120,9 @@ export function ChatDetailScreen() {
     if (!hasMore || loadingMore || messages.length === 0) return;
     setLoadingMore(true);
     try {
-      const older = await fetchMessages(conversationId!, { limit: 30, before: messages[0].id });
+      // BE nhận `before` là MỐC THỜI GIAN (DateTime), KHÔNG phải message id —
+      // truyền id sẽ bind lỗi → BE trả lại tin mới nhất → loadMore lặp vô hạn (loading liên tục).
+      const older = await fetchMessages(conversationId!, { limit: 30, before: messages[0].createdAt });
       if (older.length === 0) setHasMore(false);
       else prependMessages(conversationId!, older);
     } catch {} finally {

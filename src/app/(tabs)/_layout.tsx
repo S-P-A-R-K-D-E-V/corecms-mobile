@@ -28,6 +28,12 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 8);
 
+  // Ẩn tab bar khi đang ở màn chi tiết hội thoại (chat/[id]) để không che ô nhập tin nhắn.
+  const focusedTab = state.routes[state.index];
+  const nested = focusedTab?.state;
+  const nestedRoute = nested?.routes?.[nested.index ?? (nested.routes?.length ?? 1) - 1];
+  if (focusedTab?.name === 'chat' && nestedRoute?.name === '[id]') return null;
+
   return (
     // Normal-flow container so React Navigation auto-adds content padding.
     // Background matches darkest gradient stop — covers safe-area zone on all devices.
