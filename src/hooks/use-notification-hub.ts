@@ -9,16 +9,7 @@ import { HOST_API } from 'src/api/axios';
 import type { INotification } from 'src/api/notifications';
 import type { NotificationPreferences } from './use-notification-settings';
 
-// ----------------------------------------------------------------------
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: true,
-  }),
-});
+// Handler thông báo OS được đăng ký tập trung ở src/services/message-notifications.ts
 
 // ----------------------------------------------------------------------
 

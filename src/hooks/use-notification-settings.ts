@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 
+import { setMessageNotifyPrefs } from 'src/services/message-notifications';
+
 // ----------------------------------------------------------------------
 
 const STORAGE_KEY = 'notification_preferences';
@@ -16,6 +18,7 @@ export interface NotificationPreferences {
     Payroll: boolean;
     Leave: boolean;
     System: boolean;
+    Messages: boolean;
   };
 }
 
@@ -29,8 +32,13 @@ const DEFAULT_PREFS: NotificationPreferences = {
     Payroll: true,
     Leave: true,
     System: true,
+    Messages: true,
   },
 };
+
+function syncMessageGate(prefs: NotificationPreferences) {
+  setMessageNotifyPrefs({ globalEnabled: prefs.globalEnabled, messagesEnabled: prefs.categories.Messages });
+}
 
 // ----------------------------------------------------------------------
 
@@ -45,11 +53,13 @@ export function useNotificationSettings() {
         const stored = await SecureStore.getItemAsync(STORAGE_KEY);
         if (stored) {
           const parsed = JSON.parse(stored) as Partial<NotificationPreferences>;
-          setPrefs({
+          const merged: NotificationPreferences = {
             ...DEFAULT_PREFS,
             ...parsed,
             categories: { ...DEFAULT_PREFS.categories, ...(parsed.categories ?? {}) },
-          });
+          };
+          setPrefs(merged);
+          syncMessageGate(merged);
         }
       } catch {}
 
@@ -64,6 +74,7 @@ export function useNotificationSettings() {
 
   const save = useCallback(async (next: NotificationPreferences) => {
     setPrefs(next);
+    syncMessageGate(next);
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(next));
     } catch {}

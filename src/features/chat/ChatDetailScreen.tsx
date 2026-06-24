@@ -86,7 +86,7 @@ export function ChatDetailScreen() {
 
   const messages = useMessengerStore(selectMessages(conversationId!));
   const typing = useMessengerStore(selectTyping(conversationId!));
-  const { setMessages, prependMessages, clearUnread } = useMessengerStore();
+  const { setMessages, prependMessages, clearUnread, setActiveConversation } = useMessengerStore();
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -98,6 +98,7 @@ export function ChatDetailScreen() {
 
   useEffect(() => {
     joinConversation(conversationId!);
+    setActiveConversation(conversationId!); // bỏ qua thông báo tin nhắn của cuộc đang mở
     (async () => {
       try {
         const msgs = await fetchMessages(conversationId!, { limit: 50 });
@@ -108,7 +109,10 @@ export function ChatDetailScreen() {
         setLoading(false);
       }
     })();
-    return () => leaveConversation(conversationId!);
+    return () => {
+      leaveConversation(conversationId!);
+      setActiveConversation(null);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
