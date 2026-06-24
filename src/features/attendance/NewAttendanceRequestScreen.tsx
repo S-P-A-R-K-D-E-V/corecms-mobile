@@ -57,7 +57,7 @@ export function NewAttendanceRequestScreen() {
   }
 
   return (
-    <Screen>
+    <Screen tabBarInset={false}>
       <AppHeader title="Tạo yêu cầu" back />
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
         <View className="gap-4">

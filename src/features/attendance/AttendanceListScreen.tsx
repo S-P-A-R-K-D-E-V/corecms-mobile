@@ -43,7 +43,7 @@ export function AttendanceListScreen() {
   const onRefresh = useCallback(async () => { setRefreshing(true); await load(); setRefreshing(false); }, [load]);
 
   return (
-    <Screen scroll refreshing={refreshing} onRefresh={onRefresh}>
+    <Screen scroll tabBarInset={false} refreshing={refreshing} onRefresh={onRefresh}>
       <AppHeader
         title="Yêu cầu chấm công"
         back

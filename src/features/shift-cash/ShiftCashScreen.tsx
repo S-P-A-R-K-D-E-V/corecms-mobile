@@ -173,7 +173,7 @@ export function ShiftCashScreen() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <Screen scroll refreshing={refreshing} onRefresh={refetch}>
+    <Screen scroll tabBarInset={false} refreshing={refreshing} onRefresh={refetch}>
       <AppHeader
         title="Kiểm tiền quầy"
         subtitle="Đối soát tiền mặt cuối ca"

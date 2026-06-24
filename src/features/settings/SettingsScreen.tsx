@@ -18,7 +18,7 @@ export function SettingsScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
-    <Screen scroll>
+    <Screen scroll tabBarInset={false}>
       <AppHeader title={t('settings.title')} back />
 
       <SectionCard title={t('settings.appearance')} bodyClassName="pt-0">
