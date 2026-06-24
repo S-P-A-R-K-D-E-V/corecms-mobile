@@ -1,4 +1,5 @@
 import '../../global.css';
+import 'src/services/message-notifications'; // đăng ký handler thông báo OS (gồm lọc tin nhắn)
 
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';

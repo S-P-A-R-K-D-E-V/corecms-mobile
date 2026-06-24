@@ -14,6 +14,8 @@ type State = {
   typingByConv: Record<string, string[]>;
   userCache: Record<string, InternalUser>;
   onlineIds: string[];
+  /** Hội thoại đang mở — dùng để bỏ qua thông báo tin nhắn của chính cuộc đang xem. */
+  activeConversationId: string | null;
 };
 
 type Actions = {
@@ -34,6 +36,7 @@ type Actions = {
   setTyping: (convId: string, userId: string, active: boolean) => void;
   setUserCache: (users: InternalUser[]) => void;
   setOnline: (userId: string, online: boolean) => void;
+  setActiveConversation: (convId: string | null) => void;
 };
 
 export const useMessengerStore = create<State & Actions>()(
@@ -43,8 +46,11 @@ export const useMessengerStore = create<State & Actions>()(
     typingByConv: {},
     userCache: {},
     onlineIds: [],
+    activeConversationId: null,
 
     setConversations: (list) => set((s) => { s.conversations = list; }),
+
+    setActiveConversation: (convId) => set((s) => { s.activeConversationId = convId; }),
 
     touchConversation: (ev) =>
       set((s) => {
