@@ -569,14 +569,21 @@ export interface IShiftCashSummary {
   finalizations: IShiftCashFinalization[];
 }
 
-export interface IAddShiftCashTransactionRequest {
+/** Toạ độ GPS tuỳ chọn gửi kèm thao tác kiểm tiền (ghi vào audit ở BE). */
+export interface IShiftCashGeoStamp {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+}
+
+export interface IAddShiftCashTransactionRequest extends IShiftCashGeoStamp {
   date: string;
   type: 'Thu' | 'Chi';
   amount: number;
   note?: string;
 }
 
-export interface IUpdateShiftCashTransactionRequest {
+export interface IUpdateShiftCashTransactionRequest extends IShiftCashGeoStamp {
   amount: number;
   note?: string;
 }
@@ -586,12 +593,12 @@ export interface IDenominationItem {
   quantity: number;
 }
 
-export interface IUpdateDenominationBatchRequest {
+export interface IUpdateDenominationBatchRequest extends IShiftCashGeoStamp {
   date: string;
   items: IDenominationItem[];
 }
 
-export interface IFinalizeShiftCashRequest {
+export interface IFinalizeShiftCashRequest extends IShiftCashGeoStamp {
   date: string;
   items: IDenominationItem[];
 }

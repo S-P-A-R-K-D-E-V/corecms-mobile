@@ -1,9 +1,13 @@
 import { View, Animated } from 'react-native';
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef } from 'react';
 
 import { Screen, AppHeader } from 'src/components/shared';
 import { Text, Button, Icon, BrandGradient, type IconName } from 'src/components/ui';
-import { useGpsGate } from 'src/hooks/use-gps-gate';
+import { useGpsGate, type Coords } from 'src/hooks/use-gps-gate';
+
+// Toạ độ đã xác minh ở cổng GPS — màn con đọc để gửi kèm thao tác (ghi audit).
+const ShiftCashGpsContext = createContext<Coords | null>(null);
+export const useShiftCashGps = () => useContext(ShiftCashGpsContext);
 
 // ----------------------------------------------------------------------
 // Cổng GPS cho Kiểm tiền quầy — đồng bộ check-in: bắt buộc xác định vị trí
@@ -26,7 +30,9 @@ export function ShiftCashGpsGate({ children }: { children: React.ReactNode }) {
     return () => loop.stop();
   }, [pulse]);
 
-  if (gps.allowed) return <>{children}</>;
+  if (gps.allowed) {
+    return <ShiftCashGpsContext.Provider value={gps.coords}>{children}</ShiftCashGpsContext.Provider>;
+  }
 
   const isError = gps.status === 'error';
   const icon: IconName = isError ? 'map-marker-alert' : 'map-marker-radius';

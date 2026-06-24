@@ -18,6 +18,7 @@ import {
 } from 'src/api/shiftCash';
 
 import { useShiftCash } from './hooks';
+import { useShiftCashGps } from './GpsGate';
 import { TransactionSheet, type TxDraft } from './TransactionSheet';
 import { DENOMINATIONS, formatCurrency, computeTotalCash, vnToday } from './utils';
 import type { IShiftCashTransaction } from 'src/types/corecms-api';
@@ -52,6 +53,10 @@ function SummaryRow({
 export function ShiftCashScreen() {
   const { user } = useAuthContext();
   const isAdmin = getUserRoles(user).includes('Admin');
+
+  // Toạ độ đã xác minh ở cổng GPS — gửi kèm mọi thao tác ghi để lưu vào audit (BE).
+  const geo = useShiftCashGps();
+  const geoStamp = geo ?? {};
 
   const [date, setDate] = useState(vnToday());
   const isToday = date === vnToday();
@@ -94,7 +99,7 @@ export function ShiftCashScreen() {
 
   async function handleOpenCounter() {
     try {
-      await openCounter(date);
+      await openCounter(date, geo ?? undefined);
       await refetch();
     } catch (err) {
       Alert.alert('Mở quầy thất bại', extractApiError(err));
@@ -106,9 +111,9 @@ export function ShiftCashScreen() {
     try {
       const items = DENOMINATIONS.map((d) => ({ denomination: d, quantity: denomQ[d] || 0 }));
       if (finalize) {
-        await finalizeShiftCash({ date, items });
+        await finalizeShiftCash({ date, items, ...geoStamp });
       } else {
-        await updateDenominationBatch({ date, items });
+        await updateDenominationBatch({ date, items, ...geoStamp });
       }
       setDenomEditing(false);
       await refetch();
@@ -135,9 +140,9 @@ export function ShiftCashScreen() {
     setTxSaving(true);
     try {
       if (tx.mode === 'add') {
-        await addShiftCashTransaction({ date, type: draft.type, amount: draft.amount, note: draft.note });
+        await addShiftCashTransaction({ date, type: draft.type, amount: draft.amount, note: draft.note, ...geoStamp });
       } else if (tx.editing) {
-        await updateShiftCashTransaction(tx.editing.id, { amount: draft.amount, note: draft.note });
+        await updateShiftCashTransaction(tx.editing.id, { amount: draft.amount, note: draft.note, ...geoStamp });
       }
       setTx((s) => ({ ...s, visible: false, editing: null }));
       await refetch();

@@ -1,6 +1,7 @@
 import axios, { endpoints } from './axios';
 import type {
   IShiftCashSummary,
+  IShiftCashGeoStamp,
   IAddShiftCashTransactionRequest,
   IUpdateShiftCashTransactionRequest,
   IUpdateDenominationBatchRequest,
@@ -22,8 +23,8 @@ export async function getKiotVietDailySummary(date: string): Promise<IKiotVietDa
   return res.data;
 }
 
-export async function openCounter(date: string): Promise<void> {
-  await axios.post(endpoints.shiftCash.open, { date });
+export async function openCounter(date: string, geo?: IShiftCashGeoStamp): Promise<void> {
+  await axios.post(endpoints.shiftCash.open, { date, ...geo });
 }
 
 export async function addShiftCashTransaction(data: IAddShiftCashTransactionRequest): Promise<{ id: string }> {
