@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthContext } from 'src/auth/auth-context';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
+import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { spring } from 'src/theme/motion';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -244,6 +245,7 @@ export default function TabsLayout() {
         <Tabs.Screen name="chat" />
         <Tabs.Screen name="profile" />
       </Tabs>
+      <InAppNotificationHost />
     </MessengerProvider>
   );
 }

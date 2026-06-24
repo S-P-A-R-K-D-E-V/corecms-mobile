@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, RefreshControl, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
@@ -118,11 +118,19 @@ function OnlineRow({ onOpen }: { onOpen: (id: string, name: string) => void }) {
 
 export function ChatListScreen() {
   const insets = useSafeAreaInsets();
-  const { conversations, setConversations, setUserCache } = useMessengerStore();
+  const { conversations, setConversations, setUserCache, setOnMessagesScreen } = useMessengerStore();
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  // Đang ở màn Tin nhắn → push OS bị nén, thay bằng thông báo trong app
+  useFocusEffect(
+    useCallback(() => {
+      setOnMessagesScreen(true);
+      return () => setOnMessagesScreen(false);
+    }, [setOnMessagesScreen])
+  );
 
   const load = useCallback(async () => {
     try {

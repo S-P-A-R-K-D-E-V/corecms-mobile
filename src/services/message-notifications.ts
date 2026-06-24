@@ -38,10 +38,12 @@ Notifications.setNotificationHandler({
     const isChat = data.category === 'Messenger' || data.type === 'Messenger';
 
     if (isChat) {
-      const activeConv = useMessengerStore.getState().activeConversationId;
+      const st = useMessengerStore.getState();
+      const activeConv = st.activeConversationId;
       const suppress =
         !globalEnabled ||
         !messagesEnabled ||
+        st.onMessagesScreen || // đang ở màn Tin nhắn → chỉ hiện thông báo trong app
         (!!activeConv && data.conversationId === activeConv);
       return {
         shouldShowBanner: !suppress,

@@ -16,7 +16,13 @@ type State = {
   onlineIds: string[];
   /** Hội thoại đang mở — dùng để bỏ qua thông báo tin nhắn của chính cuộc đang xem. */
   activeConversationId: string | null;
+  /** Đang ở màn danh sách "Tin nhắn" — khi đó hiện thông báo trong app thay vì push OS. */
+  onMessagesScreen: boolean;
+  /** Hàng đợi thông báo tin nhắn hiển thị ngay trong app (toast). */
+  inAppNotifs: InAppNotif[];
 };
+
+export type InAppNotif = { id: string; convId: string; title: string; preview: string; name: string; at: number };
 
 type Actions = {
   setConversations: (list: ConversationSummary[]) => void;
@@ -37,6 +43,9 @@ type Actions = {
   setUserCache: (users: InternalUser[]) => void;
   setOnline: (userId: string, online: boolean) => void;
   setActiveConversation: (convId: string | null) => void;
+  setOnMessagesScreen: (on: boolean) => void;
+  pushInAppNotif: (n: InAppNotif) => void;
+  dismissInAppNotif: (id: string) => void;
 };
 
 export const useMessengerStore = create<State & Actions>()(
@@ -47,10 +56,23 @@ export const useMessengerStore = create<State & Actions>()(
     userCache: {},
     onlineIds: [],
     activeConversationId: null,
+    onMessagesScreen: false,
+    inAppNotifs: [],
 
     setConversations: (list) => set((s) => { s.conversations = list; }),
 
     setActiveConversation: (convId) => set((s) => { s.activeConversationId = convId; }),
+
+    setOnMessagesScreen: (on) => set((s) => { s.onMessagesScreen = on; }),
+
+    pushInAppNotif: (n) =>
+      set((s) => {
+        // Gộp theo hội thoại: bỏ thông báo cũ cùng convId rồi đẩy mới lên
+        s.inAppNotifs = [n, ...s.inAppNotifs.filter((x) => x.convId !== n.convId)].slice(0, 3);
+      }),
+
+    dismissInAppNotif: (id) =>
+      set((s) => { s.inAppNotifs = s.inAppNotifs.filter((x) => x.id !== id); }),
 
     touchConversation: (ev) =>
       set((s) => {
@@ -132,8 +154,14 @@ export const useMessengerStore = create<State & Actions>()(
   }))
 );
 
+// Mảng rỗng dùng chung (ref ổn định) — TRÁNH tạo `[]` mới trong selector,
+// nếu không useSyncExternalStore thấy snapshot đổi mỗi render → vòng lặp vô hạn
+// → crash khi mở hội thoại CHƯA có tin nhắn (đúng lúc bấm vào user để mở chat mới).
+const EMPTY_MESSAGES: DirectMessage[] = [];
+const EMPTY_TYPING: string[] = [];
+
 export const selectMessages = (convId: string) => (s: State & Actions) =>
-  s.messagesByConv[convId] ?? [];
+  s.messagesByConv[convId] ?? EMPTY_MESSAGES;
 export const selectTyping = (convId: string) => (s: State & Actions) =>
-  s.typingByConv[convId] ?? [];
+  s.typingByConv[convId] ?? EMPTY_TYPING;
 export const selectUser = (userId: string) => (s: State & Actions) => s.userCache[userId];

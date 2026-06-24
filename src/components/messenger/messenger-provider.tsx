@@ -77,8 +77,23 @@ export function MessengerProvider({ children }: { children: React.ReactNode }) {
       const store = () => useMessengerStore.getState();
 
       conn.on('message', (ev: any) => {
-        store().addMessage(ev);
-        store().setTyping(ev.conversationId, ev.senderId, false);
+        const s = store();
+        s.addMessage(ev);
+        s.setTyping(ev.conversationId, ev.senderId, false);
+
+        // Khi đang ở màn danh sách "Tin nhắn" (không phải đang mở đúng hội thoại đó),
+        // hiện thông báo NGAY TRONG APP thay vì để push OS bật lên.
+        const fromOther = ev.senderId !== userIdRef.current;
+        if (fromOther && s.onMessagesScreen && s.activeConversationId !== ev.conversationId) {
+          const sender = s.userCache[ev.senderId];
+          const preview =
+            (ev.content && String(ev.content).trim()) ||
+            (ev.attachments?.length
+              ? ev.attachments[0].kind === 'image' ? '📷 Hình ảnh' : '📎 Tệp đính kèm'
+              : '');
+          const name = sender?.fullName ?? 'Tin nhắn mới';
+          s.pushInAppNotif({ id: ev.id, convId: ev.conversationId, title: name, name, preview, at: Date.now() });
+        }
       });
 
       conn.on('conversationTouched', (ev: any) => {
