@@ -9,6 +9,7 @@ import type { IconName } from 'src/components/ui';
 type CategoryKey = keyof NotificationPreferences['categories'];
 
 const CATEGORIES: { key: CategoryKey; label: string; desc: string; icon: IconName; color: string }[] = [
+  { key: 'Messages', label: 'Tin nhắn', desc: 'Thông báo khi có tin nhắn mới', icon: 'message-text-outline', color: brand.primary },
   { key: 'Shift', label: 'Ca làm việc', desc: 'Đổi ca, làm hộ, nhắc ca', icon: 'calendar-clock', color: brand.info },
   { key: 'Attendance', label: 'Chấm công', desc: 'Check-in/out, điều chỉnh giờ', icon: 'fingerprint', color: brand.primary },
   { key: 'Payroll', label: 'Bảng lương', desc: 'Kỳ lương mới, thanh toán', icon: 'cash-multiple', color: brand.success },
