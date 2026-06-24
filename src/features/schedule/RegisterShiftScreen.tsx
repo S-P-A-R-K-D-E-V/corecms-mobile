@@ -16,9 +16,6 @@ import type { IShiftSchedule, IShiftRegistration } from 'src/types/corecms-api';
 
 dayjs.extend(isoWeek);
 
-// Chiều cao pill tab bar nổi (đồng bộ PILL_H trong src/app/(tabs)/_layout.tsx)
-const TAB_PILL_H = 72;
-
 const DAY_BITMASK = [64, 1, 2, 4, 8, 16, 32]; // JS getDay(): 0=Sun
 const VI_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const PALETTE = ['#7C3AED', '#2563EB', '#0891B2', '#059669', '#D97706'];
@@ -124,7 +121,7 @@ export function RegisterShiftScreen() {
   return (
     <View
       className="flex-1 bg-bg dark:bg-bg-dark"
-      style={{ paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 8) + TAB_PILL_H + 12 }}
+      style={{ paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 8) }}
     >
       <View className="px-4 pt-2">
         <AppHeader title="Đăng ký lịch tuần" back />

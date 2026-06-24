@@ -15,7 +15,7 @@ export function AppearanceScreen() {
   const { preference, setPreference } = useThemePreference();
 
   return (
-    <Screen scroll>
+    <Screen scroll tabBarInset={false}>
       <AppHeader title={t('settings.theme')} back />
       <SectionCard title={t('settings.appearance')} bodyClassName="pt-0">
         {OPTIONS.map((opt, i) => (

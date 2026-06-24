@@ -337,7 +337,7 @@ export function ScheduleScreen() {
             icon="plus"
             onPress={() =>
               router.push({
-                pathname: '/(tabs)/schedule/register',
+                pathname: '/shift-register',
                 params: { date: weekStart.format('YYYY-MM-DD') },
               } as any)
             }

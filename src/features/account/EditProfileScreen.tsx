@@ -140,14 +140,14 @@ export function EditProfileScreen() {
   }
 
   if (loading) {
-    return <Screen><AppHeader title={t('profile.editProfile')} back /><Loading /></Screen>;
+    return <Screen tabBarInset={false}><AppHeader title={t('profile.editProfile')} back /><Loading /></Screen>;
   }
 
   const avatarUrl = profile?.profileImageUrl ? getStorageUrl(profile.profileImageUrl) : undefined;
   const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '??';
 
   return (
-    <Screen scroll>
+    <Screen scroll tabBarInset={false}>
       <AppHeader title={t('profile.editProfile')} back />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={80}>
         <View className="gap-4">
