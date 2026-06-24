@@ -514,3 +514,97 @@ export interface ISalaryConfiguration {
   effectiveFrom: string;
   effectiveTo?: string;
 }
+
+// ----------------------------------------------------------------------
+// Shift Cash (Kiểm tiền quầy) — port từ core-fe corecms-api.ts
+// ----------------------------------------------------------------------
+
+export interface IShiftCashTransaction {
+  id: string;
+  date: string;
+  type: 'Thu' | 'Chi';
+  amount: number;
+  note?: string;
+  isDeleted: boolean;
+  createdByName?: string;
+  createdAt: string;
+  updatedByName?: string;
+  updatedAt?: string;
+}
+
+export interface IShiftCashDenomination {
+  id: string;
+  date: string;
+  denomination: number;
+  quantity: number;
+  total: number;
+  lastModifiedByName?: string;
+  lastModifiedAt: string;
+}
+
+export interface IShiftCashFinalization {
+  id: string;
+  openingBalance: number;
+  closingBalance: number;
+  /** Chênh tiền tổng tại thời điểm chốt (dương = thừa, âm = thiếu). */
+  difference: number;
+  finalizedAt?: string;
+  finalizedByName?: string;
+}
+
+export interface IShiftCashSummary {
+  date: string;
+  openingBalance: number;
+  totalCashFromKiot: number;
+  manualIncome: number;
+  manualExpense: number;
+  expectedClosing: number;
+  actualCash: number;
+  difference: number;
+  isFinalized: boolean;
+  finalizedAt?: string;
+  finalizedByName?: string;
+  denominations: IShiftCashDenomination[];
+  transactions: IShiftCashTransaction[];
+  finalizations: IShiftCashFinalization[];
+}
+
+export interface IAddShiftCashTransactionRequest {
+  date: string;
+  type: 'Thu' | 'Chi';
+  amount: number;
+  note?: string;
+}
+
+export interface IUpdateShiftCashTransactionRequest {
+  amount: number;
+  note?: string;
+}
+
+export interface IDenominationItem {
+  denomination: number;
+  quantity: number;
+}
+
+export interface IUpdateDenominationBatchRequest {
+  date: string;
+  items: IDenominationItem[];
+}
+
+export interface IFinalizeShiftCashRequest {
+  date: string;
+  items: IDenominationItem[];
+}
+
+// --- KiotViet (chỉ phần tổng hợp cần cho mobile) ---
+
+export interface IKiotVietDailySummary {
+  date: string;
+  totalInvoices: number;
+  totalRevenue: number;
+  totalCash: number;
+  totalBank: number;
+  totalCard: number;
+  totalReturns: number;
+  netCashImpact: number;
+}

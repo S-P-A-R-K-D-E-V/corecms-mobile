@@ -1,5 +1,10 @@
 import { Stack } from 'expo-router';
+import { InternalAppGuard } from 'src/auth/internal-app-guard';
 
 export default function SettingsLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <InternalAppGuard>
+      <Stack screenOptions={{ headerShown: false }} />
+    </InternalAppGuard>
+  );
 }

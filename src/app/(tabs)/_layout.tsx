@@ -1,10 +1,10 @@
-import { Tabs, Redirect } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { View, Pressable, Text } from 'react-native';
 import { MotiView, MotiText } from 'moti';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthContext } from 'src/auth/auth-context';
+import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { spring } from 'src/theme/motion';
@@ -229,23 +229,23 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
 }
 
 export default function TabsLayout() {
-  const { authenticated } = useAuthContext();
-  if (!authenticated) return <Redirect href="/(auth)/login" />;
-
+  // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
   return (
-    <MessengerProvider>
-      <Tabs
-        screenOptions={{ headerShown: false }}
-        tabBar={(props) => <CiCiTabBar {...props} />}
-      >
-        {/* Order must match TABS array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) */}
-        <Tabs.Screen name="schedule" />
-        <Tabs.Screen name="payroll" />
-        <Tabs.Screen name="checkin" />
-        <Tabs.Screen name="chat" />
-        <Tabs.Screen name="profile" />
-      </Tabs>
-      <InAppNotificationHost />
-    </MessengerProvider>
+    <InternalAppGuard>
+      <MessengerProvider>
+        <Tabs
+          screenOptions={{ headerShown: false }}
+          tabBar={(props) => <CiCiTabBar {...props} />}
+        >
+          {/* Order must match TABS array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) */}
+          <Tabs.Screen name="schedule" />
+          <Tabs.Screen name="payroll" />
+          <Tabs.Screen name="checkin" />
+          <Tabs.Screen name="chat" />
+          <Tabs.Screen name="profile" />
+        </Tabs>
+        <InAppNotificationHost />
+      </MessengerProvider>
+    </InternalAppGuard>
   );
 }

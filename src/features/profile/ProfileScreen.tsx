@@ -15,6 +15,7 @@ const ROLE: Record<string, { label: string; tone: 'error' | 'secondary' | 'prima
 };
 
 const TOOLS = [
+  { icon: 'cash-register' as const, iconTone: 'success' as const, title: 'Kiểm tiền quầy', subtitle: 'Đối soát tiền mặt cuối ca (cần GPS)', route: '/shift-cash' },
   { icon: 'bell-outline' as const, iconTone: 'error' as const, title: 'Thông báo', subtitle: 'Xem tất cả thông báo', route: '/notifications' },
   { icon: 'clipboard-text-outline' as const, iconTone: 'info' as const, title: 'Yêu cầu chấm công', subtitle: 'Nghỉ phép, điều chỉnh giờ', route: '/attendance', disabled: true },
   { icon: 'calendar-sync-outline' as const, iconTone: 'secondary' as const, title: 'Đăng ký ca làm', subtitle: 'Xem lịch và đăng ký ca', route: '/(tabs)/schedule' },
