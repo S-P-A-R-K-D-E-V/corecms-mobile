@@ -29,6 +29,14 @@ export type Conversation = {
   updatedAt: string;
 };
 
+export type MessageAttachment = {
+  objectKey: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  kind: 'image' | 'file';
+};
+
 export type DirectMessage = {
   id: string;
   conversationId: string;
@@ -37,8 +45,11 @@ export type DirectMessage = {
   createdAt: string;
   editedAt?: string | null;
   isDeleted?: boolean;
+  attachments?: MessageAttachment[];
   readBy?: { userId: string; readAt: string }[];
 };
+
+export type ChatFile = { uri: string; name: string; type: string };
 
 export type InternalUser = {
   id: string;
@@ -87,6 +98,20 @@ export async function fetchMessages(
 
 export async function sendMessage(conversationId: string, content: string): Promise<DirectMessage> {
   const res = await axios.post(endpoints.messenger.messages(conversationId), { content });
+  return res.data;
+}
+
+export async function sendAttachment(
+  conversationId: string,
+  files: ChatFile[],
+  caption?: string
+): Promise<DirectMessage> {
+  const formData = new FormData();
+  files.forEach((f) => formData.append('files', f as any));
+  if (caption?.trim()) formData.append('content', caption.trim());
+  const res = await axios.post(endpoints.messenger.attachments(conversationId), formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
   return res.data;
 }
 
