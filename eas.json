@@ -13,6 +13,7 @@
     },
     "testflight": {
       "distribution": "store",
+      "autoIncrement": true,
       "ios": {
         "buildConfiguration": "Release"
       }
@@ -22,6 +23,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "testflight": {
+      "ios": {
+        "ascAppId": "6783600148"
+      }
+    }
   }
 }
