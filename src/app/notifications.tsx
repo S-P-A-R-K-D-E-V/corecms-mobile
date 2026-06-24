@@ -1,5 +1,10 @@
+import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { NotificationsScreen } from 'src/features/notifications/NotificationsScreen';
 
 export default function Notifications() {
-  return <NotificationsScreen />;
+  return (
+    <InternalAppGuard>
+      <NotificationsScreen />
+    </InternalAppGuard>
+  );
 }

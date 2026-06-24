@@ -3,6 +3,7 @@ export { AppHeader } from './AppHeader';
 export type { HeaderAction } from './AppHeader';
 export { EmptyState } from './EmptyState';
 export { ErrorView } from './ErrorView';
+export { Forbidden403 } from './Forbidden403';
 export { Loading } from './Loading';
 export { StatCard } from './StatCard';
 export { SectionCard } from './SectionCard';

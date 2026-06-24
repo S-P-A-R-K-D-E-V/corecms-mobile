@@ -140,6 +140,17 @@ export const endpoints = {
     cancel: (id: string) => `/shift-pool/${id}/cancel`,
     review: (id: string) => `/shift-pool/${id}/review`,
   },
+  shiftCash: {
+    summary: '/shift-cash/summary',
+    transactions: '/shift-cash/transactions',
+    transactionDetail: (id: string) => `/shift-cash/transactions/${id}`,
+    denominationsBatch: '/shift-cash/denominations/batch',
+    finalize: '/shift-cash/finalize',
+    open: '/shift-cash/open',
+  },
+  kiotViet: {
+    dailySummary: '/kiotviet/daily-summary',
+  },
 };
 
 // ----------------------------------------------------------------------

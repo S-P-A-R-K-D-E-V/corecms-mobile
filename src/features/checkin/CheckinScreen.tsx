@@ -66,11 +66,11 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
   );
 }
 
-const QUICK_ACTIONS: { icon: IconName; label: string; tone: 'info' | 'warning' | 'secondary' | 'error'; route: string; disabled?: boolean }[] = [
-  { icon: 'clipboard-text-outline', label: 'Yêu cầu\nđiều chỉnh', tone: 'info', route: '/attendance', disabled: true },
-  { icon: 'calendar-remove-outline', label: 'Xin nghỉ\nphép', tone: 'warning', route: '/attendance/new', disabled: true },
+const QUICK_ACTIONS: { icon: IconName; label: string; tone: 'info' | 'warning' | 'secondary' | 'error' | 'success'; route: string; disabled?: boolean }[] = [
+  { icon: 'cash-register', label: 'Kiểm tiền\nquầy', tone: 'success', route: '/shift-cash' },
   { icon: 'calendar-plus', label: 'Đăng ký\nca', tone: 'secondary', route: '/(tabs)/schedule/register' },
   { icon: 'chart-bar', label: 'Báo cáo\ncông', tone: 'error', route: '/(tabs)/payroll' },
+  { icon: 'clipboard-text-outline', label: 'Yêu cầu\nđiều chỉnh', tone: 'info', route: '/attendance', disabled: true },
 ];
 
 const quickBg: Record<string, string> = {
@@ -78,6 +78,7 @@ const quickBg: Record<string, string> = {
   warning: 'bg-warning-soft dark:bg-[rgba(255,159,10,0.14)]',
   secondary: 'bg-secondary-soft dark:bg-[rgba(10,132,255,0.14)]',
   error: 'bg-error-soft dark:bg-[rgba(255,59,48,0.14)]',
+  success: 'bg-success-soft dark:bg-[rgba(52,199,89,0.14)]',
 };
 
 const quickTextCls: Record<string, string> = {
@@ -85,6 +86,7 @@ const quickTextCls: Record<string, string> = {
   warning: 'text-warning-text',
   secondary: 'text-info',
   error: 'text-error',
+  success: 'text-success',
 };
 
 // ── Screen ───────────────────────────────────────────────────────────────────
