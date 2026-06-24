@@ -14,6 +14,7 @@ import { fetchConversations, fetchUsers, openPrivateConversation, type Conversat
 import { useMessengerStore } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { NewConversationSheet } from './NewConversationSheet';
+import { ChatAvatar } from './ChatAvatar';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -26,17 +27,12 @@ function formatTime(iso: string | null) {
   return d.format('DD/MM');
 }
 
-function initialsOf(name: string) {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-}
-
 function ConversationRow({ conv }: { conv: ConversationSummary }) {
   const { userCache } = useMessengerStore();
   const { user } = useAuthContext();
   const otherId = conv.participantIds.find((id) => id !== user?.id) ?? '';
   const other = userCache[otherId];
   const name = conv.type === 'Group' ? conv.name ?? 'Nhóm chat' : other?.fullName ?? 'Người dùng';
-  const initials = initialsOf(name);
   const online = other?.online ?? false;
   const unread = conv.unreadCount > 0;
 
@@ -45,14 +41,12 @@ function ConversationRow({ conv }: { conv: ConversationSummary }) {
       onPress={() => router.push({ pathname: '/(tabs)/chat/[id]', params: { id: conv.id, name } })}
       className="flex-row items-center gap-3 px-4 py-3"
     >
-      <View className="relative">
-        <View className="w-12 h-12 rounded-full bg-primary-50 items-center justify-center">
-          <Text className="text-primary font-bold">{initials}</Text>
-        </View>
-        {conv.type === 'Private' && online ? (
-          <View className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-primary border-2 border-surface dark:border-surface-dark" />
-        ) : null}
-      </View>
+      <ChatAvatar
+        name={name}
+        avatarUrl={conv.type === 'Private' ? other?.avatarUrl : null}
+        size={48}
+        online={conv.type === 'Private' && online}
+      />
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center gap-2">
           <Text variant="subtitle" className={cn('flex-1', !unread && 'font-semibold')} numberOfLines={1}>{name}</Text>
@@ -102,12 +96,7 @@ function OnlineRow({ onOpen }: { onOpen: (id: string, name: string) => void }) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="px-4 gap-3">
         {online.map((u) => (
           <Pressable key={u.id} onPress={() => open(u)} className="items-center w-16">
-            <View className="relative">
-              <View className="w-12 h-12 rounded-full bg-primary-50 items-center justify-center">
-                <Text className="text-primary font-bold">{initialsOf(u.fullName)}</Text>
-              </View>
-              <View className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-primary border-2 border-surface dark:border-surface-dark" />
-            </View>
+            <ChatAvatar name={u.fullName} avatarUrl={u.avatarUrl} size={48} online />
             <Text variant="caption" numberOfLines={1} className="mt-1 text-center">{u.fullName.split(' ').slice(-1)[0]}</Text>
           </Pressable>
         ))}

@@ -7,16 +7,13 @@ import { cn } from 'src/components/ui/utils';
 import { fetchUsers, openPrivateConversation, type InternalUser } from 'src/api/messenger';
 import { useMessengerStore } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
+import { ChatAvatar } from './ChatAvatar';
 
 type Props = {
   visible: boolean;
   onClose: () => void;
   onOpened: (conversationId: string, name: string) => void;
 };
-
-function initialsOf(name: string) {
-  return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
-}
 
 export function NewConversationSheet({ visible, onClose, onOpened }: Props) {
   const { user } = useAuthContext();
@@ -76,14 +73,7 @@ export function NewConversationSheet({ visible, onClose, onOpened }: Props) {
             onPress={() => handlePick(u)}
             className="flex-row items-center gap-3 py-2.5"
           >
-            <View className="relative">
-              <View className="w-11 h-11 rounded-full bg-primary-50 items-center justify-center">
-                <Text className="text-primary font-bold">{initialsOf(u.fullName)}</Text>
-              </View>
-              {u.online ? (
-                <View className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-primary border-2 border-surface dark:border-surface-dark" />
-              ) : null}
-            </View>
+            <ChatAvatar name={u.fullName} avatarUrl={u.avatarUrl} size={44} online={u.online} />
             <View className="flex-1">
               <Text variant="subtitle" numberOfLines={1}>{u.fullName}</Text>
               <Text variant="caption" tone="muted" numberOfLines={1}>{u.email}</Text>
