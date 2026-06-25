@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, ScrollView } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -124,7 +125,13 @@ export function RegisterShiftScreen() {
       style={{ paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 8) }}
     >
       <View className="px-4 pt-2">
-        <AppHeader title="Đăng ký lịch tuần" back />
+        {/* Mở từ Điểm danh (khác tab) đôi khi không còn history để back() —
+            luôn đảm bảo thoát được: back nếu có history, nếu không thì về Lịch làm. */}
+        <AppHeader
+          title="Đăng ký lịch tuần"
+          back
+          onBack={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/schedule'))}
+        />
       </View>
 
       {/* Week nav */}
