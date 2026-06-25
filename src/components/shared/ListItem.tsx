@@ -9,12 +9,12 @@ type IconTone = NonNullable<React.ComponentProps<typeof Icon>['tone']>;
 
 // Soft tinted icon containers per tone — gives settings/menu rows colour.
 const tintBg: Partial<Record<IconTone, string>> = {
-  primary: 'bg-primary-50 dark:bg-[rgba(200,77,113,0.18)]',
-  secondary: 'bg-secondary-soft dark:bg-[rgba(10,132,255,0.18)]',
-  info: 'bg-info-soft dark:bg-[rgba(10,132,255,0.18)]',
-  success: 'bg-success-soft dark:bg-[rgba(52,199,89,0.18)]',
-  warning: 'bg-warning-soft dark:bg-[rgba(255,159,10,0.18)]',
-  error: 'bg-error-soft dark:bg-[rgba(255,59,48,0.18)]',
+  primary: 'bg-primary-soft',
+  secondary: 'bg-secondary-soft',
+  info: 'bg-info-soft',
+  success: 'bg-success-soft',
+  warning: 'bg-warning-soft',
+  error: 'bg-error-soft',
 };
 
 export type ListItemProps = {

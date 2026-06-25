@@ -81,11 +81,11 @@ const QUICK_ACTIONS: { icon: IconName; label: string; tone: 'info' | 'warning' |
 ];
 
 const quickBg: Record<string, string> = {
-  info: 'bg-info-soft dark:bg-[rgba(10,132,255,0.14)]',
-  warning: 'bg-warning-soft dark:bg-[rgba(255,159,10,0.14)]',
-  secondary: 'bg-secondary-soft dark:bg-[rgba(10,132,255,0.14)]',
-  error: 'bg-error-soft dark:bg-[rgba(255,59,48,0.14)]',
-  success: 'bg-success-soft dark:bg-[rgba(52,199,89,0.14)]',
+  info: 'bg-info-soft',
+  warning: 'bg-warning-soft',
+  secondary: 'bg-secondary-soft',
+  error: 'bg-error-soft',
+  success: 'bg-success-soft',
 };
 
 const quickTextCls: Record<string, string> = {

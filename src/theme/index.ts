@@ -3,22 +3,35 @@
 // icon `color` props) — everything else should use NativeWind className strings.
 import tokens from './tokens';
 
-export const { colors, radius, spacing, shadow, blur } = tokens as {
+export const { colors, grey, radius, spacing, shadow, blur } = tokens as {
   colors: Record<string, any>;
+  grey: Record<string, string>;
   radius: Record<string, number>;
   spacing: Record<string, number>;
   shadow: { color: string; opacity: number; radius: number; offsetY: number };
   blur: { tab: number; header: number; sheet: number; card: number };
 };
 
-/** Apple-soft elevation as a React Native style object. */
+/** Minimal "card" elevation as a React Native style object (grey-tinted). */
 export const softShadow = {
   shadowColor: shadow.color,
   shadowOpacity: shadow.opacity,
   shadowRadius: shadow.radius,
   shadowOffset: { width: 0, height: shadow.offsetY },
-  elevation: 4,
+  elevation: 6,
 };
+
+/** Minimal colored elevation — `0 8px 16px alpha(color, 0.24)`. Use for the
+ *  primary CTA / hero surfaces (pass a brand or semantic hex). */
+export function coloredShadow(hex: string) {
+  return {
+    shadowColor: hex,
+    shadowOpacity: 0.24,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  };
+}
 
 /** Flattened brand hex values for imperative use. */
 export const brand = {
