@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Modal, View } from 'react-native';
 import { MotiView } from 'moti';
 import { Text } from './text';
@@ -20,12 +20,18 @@ export type SuccessOverlayProps = {
 /** Celebratory success animation: spring check + confetti burst. Pure moti/SVG
  *  (no Lottie dep). Calls `onDone` after `duration`. */
 export function SuccessOverlay({ visible, message, onDone, duration = 1600 }: SuccessOverlayProps) {
+  // Keep onDone in a ref so the auto-dismiss timer does NOT reset on every parent
+  // re-render (e.g. the check-in screen's 1s clock would otherwise restart the
+  // timer forever and the overlay never closes). Effect depends only on visible.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+
   useEffect(() => {
     if (!visible) return;
     haptics.success();
-    const t = setTimeout(() => onDone?.(), duration);
+    const t = setTimeout(() => onDoneRef.current?.(), duration);
     return () => clearTimeout(t);
-  }, [visible, duration, onDone]);
+  }, [visible, duration]);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDone}>
