@@ -29,11 +29,14 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 8);
 
-  // Ẩn tab bar khi đang ở màn chi tiết hội thoại (chat/[id]) để không che ô nhập tin nhắn.
+  // Ẩn tab bar trên MỌI màn chi tiết bên trong 1 tab (route khác 'index') —
+  // ví dụ chat/[id], payroll/[id]. Giữ tab bar trên 5 màn chính (index).
   const focusedTab = state.routes[state.index];
   const nested = focusedTab?.state;
-  const nestedRoute = nested?.routes?.[nested.index ?? (nested.routes?.length ?? 1) - 1];
-  if (focusedTab?.name === 'chat' && nestedRoute?.name === '[id]') return null;
+  if (nested && typeof nested.index === 'number') {
+    const activeName = nested.routes?.[nested.index]?.name;
+    if (activeName && activeName !== 'index') return null;
+  }
 
   return (
     // Normal-flow container so React Navigation auto-adds content padding.

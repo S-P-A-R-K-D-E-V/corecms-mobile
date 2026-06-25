@@ -23,7 +23,7 @@ export function PayrollDetailScreen() {
   const { data: details, isLoading, isError, refetch } = usePayrollShiftDetails(id!);
 
   return (
-    <Screen scroll>
+    <Screen scroll tabBarInset={false}>
       <AppHeader title="Chi tiết lương" subtitle={rec?.cycleName} back />
 
       {rec ? (

@@ -13,7 +13,9 @@ import { cn } from 'src/components/ui/utils';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
-import { smartCheckIn, smartCheckOut, checkIn, checkinFace } from 'src/api/attendance';
+import { useQuery } from '@tanstack/react-query';
+
+import { smartCheckIn, smartCheckOut, checkIn, checkinFace, getBranchLocations } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
@@ -26,6 +28,8 @@ import {
   getNextUpcomingShift,
   formatTime,
   formatCountdown,
+  nearestBranchDistance,
+  formatDistance,
   type Coords,
   type GpsStatus,
 } from './utils';
@@ -71,7 +75,7 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
 
 const QUICK_ACTIONS: { icon: IconName; label: string; tone: 'info' | 'warning' | 'secondary' | 'error' | 'success'; route: string; disabled?: boolean }[] = [
   { icon: 'cash-register', label: 'Kiểm tiền\nquầy', tone: 'success', route: '/shift-cash' },
-  { icon: 'calendar-plus', label: 'Đăng ký\nca', tone: 'secondary', route: '/(tabs)/schedule/register' },
+  { icon: 'calendar-plus', label: 'Đăng ký\nca', tone: 'secondary', route: '/shift-register' },
   { icon: 'chart-bar', label: 'Báo cáo\ncông', tone: 'error', route: '/(tabs)/payroll' },
   { icon: 'clipboard-text-outline', label: 'Yêu cầu\nđiều chỉnh', tone: 'info', route: '/attendance', disabled: true },
 ];
@@ -137,6 +141,9 @@ export function CheckinScreen() {
   // GPS
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>('idle');
   const [coords, setCoords] = useState<Coords | null>(null);
+  // Chi nhánh (cửa hàng) để tính & hiển thị khoảng cách GPS cho người dùng
+  const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
+  const branchDistanceM = coords && branchesQ.data ? nearestBranchDistance(coords, branchesQ.data) : null;
   // Check-in ngoài giờ + fallback khi GPS lỗi (đồng bộ hành vi core-fe)
   const [checkinMode, setCheckinMode] = useState<'smart' | 'overtime'>('smart');
   const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
@@ -415,7 +422,11 @@ export function CheckinScreen() {
           <Icon name={gpsChip.icon} size={16} tone={gpsChip.tone} />
           <Text variant="bodySmall" tone={gpsChip.tone} className="font-semibold flex-1">{gpsChip.label}</Text>
           {gpsStatus === 'ready' && coords ? (
-            <Text variant="caption" tone={gpsChip.tone}>{coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}</Text>
+            <Text variant="caption" tone={gpsChip.tone}>
+              {branchDistanceM != null
+                ? `Cách cửa hàng ${formatDistance(branchDistanceM)}`
+                : `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`}
+            </Text>
           ) : null}
         </View>
       </Pressable>

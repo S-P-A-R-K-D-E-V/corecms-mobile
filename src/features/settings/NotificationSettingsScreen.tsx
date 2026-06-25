@@ -29,7 +29,7 @@ export function NotificationSettingsScreen() {
   }
 
   return (
-    <Screen scroll>
+    <Screen scroll tabBarInset={false}>
       <AppHeader title="Cài đặt thông báo" back />
       {!loaded ? (
         <Loading />

@@ -49,7 +49,7 @@ export function VerifyOtpScreen() {
   }
 
   return (
-    <Screen>
+    <Screen tabBarInset={false}>
       <AppHeader title={t('auth.otpTitle')} back />
       <View className="flex-1 justify-center gap-4">
         <Text tone="muted">{t('auth.otpSubtitle', { email: email ?? '' })}</Text>

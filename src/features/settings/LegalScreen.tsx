@@ -145,7 +145,7 @@ export function LegalScreen() {
   const content = CONTENT[(doc ?? 'privacy') as Doc] ?? CONTENT.privacy;
 
   return (
-    <Screen scroll>
+    <Screen scroll tabBarInset={false}>
       <AppHeader title={content.title} back />
       <Card className="p-5 gap-4">
         <Text variant="caption" tone="muted">

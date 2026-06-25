@@ -1,5 +1,5 @@
 import { RegisterShiftScreen } from 'src/features/schedule/RegisterShiftScreen';
 
-export default function Register() {
+export default function ShiftRegister() {
   return <RegisterShiftScreen />;
 }
