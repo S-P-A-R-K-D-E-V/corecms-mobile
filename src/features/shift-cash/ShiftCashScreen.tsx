@@ -333,9 +333,15 @@ export function ShiftCashScreen() {
 
                 {denomEditing ? (
                   <View className="flex-row gap-2 mt-3">
-                    <Button size="sm" variant="outline" action="neutral" onPress={() => setDenomEditing(false)} className="flex-1">Huỷ</Button>
-                    <Button size="sm" variant="outline" icon="content-save-outline" loading={savingDenom} onPress={() => persistDenominations(false)} className="flex-1">Lưu tạm</Button>
-                    <Button size="sm" action="primary" icon="check-circle-outline" loading={savingDenom} onPress={confirmFinalize} className="flex-1">Chốt ca</Button>
+                    <View className="flex-1">
+                      <Button size="sm" variant="soft" action="neutral" onPress={() => setDenomEditing(false)}>Huỷ</Button>
+                    </View>
+                    <View className="flex-1">
+                      <Button size="sm" variant="soft" icon="content-save-outline" loading={savingDenom} onPress={() => persistDenominations(false)}>Lưu tạm</Button>
+                    </View>
+                    <View className="flex-1">
+                      <Button size="sm" action="primary" icon="check-circle-outline" loading={savingDenom} onPress={confirmFinalize}>Chốt ca</Button>
+                    </View>
                   </View>
                 ) : null}
               </View>
@@ -345,8 +351,12 @@ export function ShiftCashScreen() {
           {/* Transactions */}
           <SectionCard title="Thu chi quầy" icon="cash-sync" count={summary?.transactions?.length ?? 0}>
             <View className="flex-row gap-2 mb-1">
-              <Button size="sm" action="primary" variant="outline" icon="plus" disabled={!canEdit} onPress={() => setTx({ visible: true, mode: 'add', type: 'Thu', editing: null })} className="flex-1">Thêm thu</Button>
-              <Button size="sm" action="error" variant="outline" icon="plus" disabled={!canEdit} onPress={() => setTx({ visible: true, mode: 'add', type: 'Chi', editing: null })} className="flex-1">Thêm chi</Button>
+              <View className="flex-1">
+                <Button size="sm" action="primary" variant="soft" icon="plus" disabled={!canEdit} onPress={() => setTx({ visible: true, mode: 'add', type: 'Thu', editing: null })}>Thêm thu</Button>
+              </View>
+              <View className="flex-1">
+                <Button size="sm" action="error" variant="soft" icon="plus" disabled={!canEdit} onPress={() => setTx({ visible: true, mode: 'add', type: 'Chi', editing: null })}>Thêm chi</Button>
+              </View>
             </View>
 
             {(summary?.transactions?.length ?? 0) === 0 ? (

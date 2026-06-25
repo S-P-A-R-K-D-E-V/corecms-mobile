@@ -30,6 +30,15 @@ export function SettingsScreen() {
           onPress={() => router.push('/settings/appearance')}
           showChevron
         />
+        <Divider className="ml-12" />
+        <ListItem
+          icon="format-size"
+          iconTone="primary"
+          title="Phông chữ & cỡ chữ"
+          subtitle="Kiểu chữ, cỡ chữ"
+          onPress={() => router.push('/settings/font' as any)}
+          showChevron
+        />
       </SectionCard>
 
       <SectionCard title={t('settings.notifications')} bodyClassName="pt-0">

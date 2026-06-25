@@ -8,8 +8,9 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
 import { Screen, SectionCard, StatCard, EmptyState } from 'src/components/shared';
-import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, SuccessOverlay, type IconName } from 'src/components/ui';
+import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, SuccessOverlay, Spinner, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
+import { brand, softShadow } from 'src/theme';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
@@ -338,58 +339,76 @@ export function CheckinScreen() {
           }}
         />
 
-        <View className="p-7 items-center gap-1.5">
+        <View className="px-6 pt-6 pb-5 items-center gap-2">
           {isCheckedIn ? (
             <>
-              <View className="flex-row items-center gap-2 mb-1.5">
+              {/* Status pill */}
+              <View className="flex-row items-center gap-2 px-3 py-1 rounded-full bg-white/20 mb-1">
                 <MotiView
-                  from={{ scale: 1 }}
-                  animate={{ scale: 1.4 }}
+                  from={{ scale: 0.7, opacity: 0.6 }}
+                  animate={{ scale: 1.25, opacity: 1 }}
                   transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 800 }}
-                  className="w-3 h-3 rounded-full bg-primary/40 items-center justify-center"
-                >
-                  <View className="w-1.5 h-1.5 rounded-full bg-primary" />
-                </MotiView>
-                <Text className="text-white font-bold tracking-widest text-sm">{t('checkin.working')}</Text>
+                  className="w-2.5 h-2.5 rounded-full bg-white"
+                />
+                <Text className="text-white font-bold tracking-wider text-[12px]">{t('checkin.working')}</Text>
               </View>
-              <Text className="text-white text-5xl font-bold" style={{ fontVariant: ['tabular-nums'] }}>{formatTime(activeLog?.checkInTime)}</Text>
-              <Text className="text-white/60 text-[13px] text-center">
+              <Text className="text-white text-[52px] leading-[58px] font-bold" style={{ fontVariant: ['tabular-nums'] }}>{formatTime(activeLog?.checkInTime)}</Text>
+              <Text className="text-white/85 text-[13px] text-center">
                 Check-in lúc {formatTime(activeLog?.checkInTime)}
                 {activeLog?.isLate ? `  ·  ${t('checkin.late', { n: activeLog.lateMinutes })}` : `  ·  ${t('checkin.onTime')}`}
               </Text>
-              <Button action="error" size="lg" className="mt-4" loading={submitting} onPress={handleCheckOut} icon="logout">
-                {t('checkin.checkOutBtn')}
-              </Button>
+              {/* White CTA — stays legible on the rose hero */}
+              <Pressable
+                onPress={handleCheckOut}
+                disabled={submitting}
+                className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                style={softShadow}
+              >
+                {submitting ? <Spinner color={brand.error} /> : <Icon name="logout" size={20} color={brand.error} />}
+                <Text className="text-error font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
+              </Pressable>
             </>
           ) : (
             <>
-              <Text className="text-white/70 font-semibold tracking-widest text-[13px] mb-1">
-                {canCheckIn ? t('checkin.ready') : t('checkin.notYet')}
-              </Text>
-              <Text className="text-white text-5xl font-bold" style={{ fontVariant: ['tabular-nums'] }}>
+              {/* Status pill */}
+              <View className={cn('flex-row items-center gap-1.5 px-3 py-1 rounded-full mb-1', canCheckIn ? 'bg-white/25' : 'bg-white/15')}>
+                <Icon name={canCheckIn ? 'check-circle' : 'clock-outline'} size={14} color="#FFFFFF" />
+                <Text className="text-white font-bold tracking-wider text-[12px]">
+                  {canCheckIn ? t('checkin.ready') : t('checkin.notYet')}
+                </Text>
+              </View>
+              <Text className="text-white text-[52px] leading-[58px] font-bold" style={{ fontVariant: ['tabular-nums'] }}>
                 {now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
               </Text>
-              <Text className={cn('text-[13px] text-center', canCheckIn ? 'text-white/60' : 'text-white/50')}>
+              <Text className="text-white/85 text-[13px] text-center leading-[18px]">
                 {canCheckIn
-                  ? `Ca ${activeCheckinShift?.shiftName} · ${activeCheckinShift?.startTime} – ${activeCheckinShift?.endTime}\nĐang trong khung giờ check-in ✓`
+                  ? `Ca ${activeCheckinShift?.shiftName} · ${activeCheckinShift?.startTime} – ${activeCheckinShift?.endTime}`
                   : disabledReason ?? 'Hệ thống tự nhận diện ca phù hợp'}
               </Text>
-              <Button
-                size="lg"
-                className="mt-4"
-                loading={submitting}
-                disabled={!canCheckIn}
-                onPress={() => openCheckInCamera('smart')}
-                icon={canCheckIn ? 'camera-account' : 'clock-outline'}
-              >
-                {canCheckIn ? t('checkin.checkInBtn') : t('checkin.notYetBtn')}
-              </Button>
+
+              {canCheckIn ? (
+                <Pressable
+                  onPress={() => openCheckInCamera('smart')}
+                  disabled={submitting}
+                  className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                  style={softShadow}
+                >
+                  {submitting ? <Spinner color={brand.primary} /> : <Icon name="camera-account" size={20} color={brand.primary} />}
+                  <Text className="text-primary font-bold text-[16px]">{t('checkin.checkInBtn')}</Text>
+                </Pressable>
+              ) : (
+                // Disabled state — translucent glass so it stays visible on rose
+                <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
+                  <Icon name="clock-outline" size={18} color="rgba(255,255,255,0.9)" />
+                  <Text className="text-white/90 font-bold text-[15px]">{t('checkin.notYetBtn')}</Text>
+                </View>
+              )}
 
               {/* Check-in ngoài giờ — khi không có ca phù hợp lúc này */}
               {!canCheckIn ? (
-                <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5">
-                  <Icon name="clock-plus-outline" size={16} color="rgba(255,255,255,0.92)" />
-                  <Text className="text-white/90 font-semibold">Check-in ngoài giờ</Text>
+                <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15">
+                  <Icon name="clock-plus-outline" size={16} color="#FFFFFF" />
+                  <Text className="text-white font-semibold text-[13px]">Check-in ngoài giờ</Text>
                 </Pressable>
               ) : null}
             </>

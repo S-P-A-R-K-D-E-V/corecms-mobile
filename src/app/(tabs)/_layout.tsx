@@ -147,7 +147,7 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                       />
                     )}
                   </MotiView>
-                  <Text style={{ color: 'white', fontFamily: 'PublicSans', fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}>{tab.label}</Text>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}>{tab.label}</Text>
                 </Pressable>
               );
             }
@@ -190,7 +190,7 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                           exit={{ opacity: 0, translateX: -6 }}
                           transition={{ type: 'timing', duration: 200 }}
                           numberOfLines={1}
-                          style={{ color: 'white', fontFamily: 'PublicSans', fontSize: 13, fontWeight: '700', letterSpacing: 0.1 }}
+                          style={{ color: 'white', fontSize: 13, fontWeight: '700', letterSpacing: 0.1 }}
                         >
                           {tab.label}
                         </MotiText>

@@ -17,6 +17,7 @@ import { RootErrorBoundary } from 'src/services/error/ErrorBoundary';
 import { checkForUpdate } from 'src/services/app-update';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { ThemeProvider } from 'src/theme/ThemeProvider';
+import { FontProvider } from 'src/theme/FontProvider';
 import { OverlayHost } from 'src/components/overlay';
 
 // Keep the native splash up until the Minimal font is ready.
@@ -53,6 +54,7 @@ export default function RootLayout() {
     <RootErrorBoundary>
       <SafeAreaProvider>
         <ThemeProvider>
+          <FontProvider>
           <QueryClientProvider client={queryClient}>
             <RemoteConfigProvider>
               <AuthProvider>
@@ -63,6 +65,7 @@ export default function RootLayout() {
               </AuthProvider>
             </RemoteConfigProvider>
           </QueryClientProvider>
+          </FontProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </RootErrorBoundary>
