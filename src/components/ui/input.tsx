@@ -39,7 +39,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           flexDirection: 'row',
           alignItems: multiline ? 'flex-start' : 'center',
           gap: 8,
-          borderRadius: 14,
+          borderRadius: 10,
           borderWidth: 1,
           minHeight: 48,
           paddingHorizontal: 14,
@@ -54,7 +54,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           multiline={multiline}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); onBlur?.(e); }}
-          className={cn('flex-1 text-[16px] text-ink dark:text-ink-dark', className)}
+          className={cn('font-sans flex-1 text-[16px] text-ink dark:text-ink-dark', className)}
           {...props}
         />
       </MotiView>
