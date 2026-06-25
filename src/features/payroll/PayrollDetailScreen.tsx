@@ -3,8 +3,8 @@ import { useLocalSearchParams } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, SectionCard, Loading, ErrorView } from 'src/components/shared';
-import { Text, Badge, Divider, BrandGradient } from 'src/components/ui';
-import { softShadow } from 'src/theme';
+import { Text, Badge, Divider, BrandGradient, CountUp, Donut } from 'src/components/ui';
+import { softShadow, brand } from 'src/theme';
 import { useMyPayroll, usePayrollShiftDetails, fmtMoney } from './hooks';
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'default' | 'success' | 'error' }) {
@@ -29,11 +29,43 @@ export function PayrollDetailScreen() {
       {rec ? (
         <BrandGradient className="rounded-card p-5 gap-1" style={softShadow}>
           <Text className="text-white/70 text-xs">Thực nhận kỳ này</Text>
-          <Text className="text-white text-3xl font-bold">{fmtMoney(rec.totalSalary)}</Text>
+          <CountUp className="text-white text-3xl font-bold" value={rec.totalSalary} format={(n) => fmtMoney(Math.round(n))} />
           <Text className="text-white/70 text-xs mt-1">
             {dayjs(rec.periodStart).format('DD/MM')} – {dayjs(rec.periodEnd).format('DD/MM/YYYY')}
           </Text>
         </BrandGradient>
+      ) : null}
+
+      {rec ? (
+        <SectionCard title="Cơ cấu lương" icon="chart-donut" bodyClassName="pt-0">
+          <View className="flex-row items-center gap-4 py-1">
+            <Donut
+              size={130}
+              stroke={20}
+              segments={[
+                { value: rec.baseSalary, color: brand.primary },
+                { value: rec.overtimeSalary, color: brand.secondary },
+                { value: rec.bonus, color: brand.success },
+              ]}
+            >
+              <Text variant="caption" tone="muted">Tổng</Text>
+              <Text variant="subtitle" tone="primary" style={{ fontVariant: ['tabular-nums'] }}>{fmtMoney(rec.totalSalary)}</Text>
+            </Donut>
+            <View className="flex-1 gap-2.5">
+              {[
+                { label: 'Lương cơ bản', value: rec.baseSalary, color: brand.primary },
+                { label: 'Tăng ca', value: rec.overtimeSalary, color: brand.secondary },
+                { label: 'Thưởng', value: rec.bonus, color: brand.success },
+              ].map((s) => (
+                <View key={s.label} className="flex-row items-center gap-2">
+                  <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: s.color }} />
+                  <Text variant="bodySmall" tone="muted" className="flex-1">{s.label}</Text>
+                  <Text variant="bodySmall" className="font-semibold" style={{ fontVariant: ['tabular-nums'] }}>{fmtMoney(s.value)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </SectionCard>
       ) : null}
 
       {rec ? (

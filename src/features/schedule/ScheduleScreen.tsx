@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { View, Alert } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
@@ -8,6 +8,8 @@ import isToday from 'dayjs/plugin/isToday';
 import { Screen, Sheet } from 'src/components/shared';
 import { Text, Button, Badge, Icon, Pressable, Divider } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
+import { brand } from 'src/theme';
+import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import {
   createShiftPoolPost, claimShiftPoolPost, cancelShiftPoolPost, reviewShiftPoolPost,
@@ -37,6 +39,11 @@ const DOT_OUTLINE: Record<EventTone, boolean> = {
   done: false, working: false, scheduled: false, pool: true, claim: true, reg: false,
 };
 
+const ACCENT: Record<EventTone, string> = {
+  done: brand.success, working: brand.warning, scheduled: brand.info,
+  pool: brand.info, claim: brand.secondary, reg: brand.faint,
+};
+
 function shiftTone(item: IMyScheduleItem): EventTone {
   return item.hasCheckedOut ? 'done' : item.hasCheckedIn ? 'working' : 'scheduled';
 }
@@ -56,7 +63,8 @@ function AgendaRow({
     <Pressable
       onPress={onPress}
       disabled={!onPress}
-      className="flex flex-row justify-between items-center gap-3 py-2.5 px-1 rounded-xl active:bg-ink/5 dark:active:bg-white/5"
+      className="flex flex-row justify-between items-center gap-3 py-2.5 pl-2.5 pr-1 rounded-xl active:bg-ink/5 dark:active:bg-white/5"
+      style={{ borderLeftWidth: 3, borderLeftColor: ACCENT[tone] }}
     >
       {/* Time range */}
       <Text
@@ -266,7 +274,7 @@ export function ScheduleScreen() {
     async (fn: () => Promise<unknown>, onDone: () => void) => {
       setBusy(true);
       try { await fn(); onDone(); await refetch(); }
-      catch (err: any) { Alert.alert(t('common.error'), extractApiError(err)); }
+      catch (err: any) { toast.error(extractApiError(err)); }
       finally { setBusy(false); }
     },
     [refetch],
@@ -329,22 +337,19 @@ export function ScheduleScreen() {
         
       </View>
       {/* Single register button for the whole week */}
-      <View style={{ marginVertical: 12 }}>
-        <View style={{ width: 220, alignSelf: 'center' }}>
-          <Button
-            size="sm"
-            fullWidth={false}
-            icon="plus"
-            onPress={() =>
-              router.push({
-                pathname: '/(tabs)/schedule/register',
-                params: { date: weekStart.format('YYYY-MM-DD') },
-              } as any)
-            }
-          >
-            Đăng ký ca
-          </Button>
-        </View>
+      <View style={{ marginTop: 4 }}>
+        <Button
+          size="sm"
+          icon="plus"
+          onPress={() =>
+            router.push({
+              pathname: '/(tabs)/schedule/register',
+              params: { date: weekStart.format('YYYY-MM-DD') },
+            } as any)
+          }
+        >
+          Đăng ký ca
+        </Button>
       </View>
       {/* 7-day agenda */}
       <View>
@@ -447,7 +452,7 @@ export function ScheduleScreen() {
             onPress={() => {
               if (!claimTarget) return;
               if (claimTarget.needType === 'Swap' && !offeredId) {
-                Alert.alert('Chọn ca đổi lại', 'Với đổi ca, hãy chọn một ca của bạn để đưa lại.');
+                toast.warning('Với đổi ca, hãy chọn một ca của bạn để đưa lại.', 'Chọn ca đổi lại');
                 return;
               }
               runAction(

@@ -1,13 +1,14 @@
 import { useCallback, useState } from 'react';
-import { View, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { AppHeader, EmptyState, Loading, Sheet } from 'src/components/shared';
-import { Card, Text, Badge, Button, Icon, Pressable, Divider, TextField } from 'src/components/ui';
-import { cn } from 'src/components/ui/utils';
-import { brand } from 'src/theme';
+import { Card, Text, Badge, Button, Icon, Divider, TextField, SegmentedControl, Appear } from 'src/components/ui';
+import { brand, softShadow } from 'src/theme';
+import { toast, confirm } from 'src/components/overlay';
+import { SwapIllustration } from 'src/components/illustrations';
 import { getMyShiftSwapRequests, getMyConfirmationRequests, confirmShiftSwapTarget } from 'src/api/shiftSwap';
 import { extractApiError } from 'src/services/error';
 import type { IShiftSwapRequest } from 'src/types/corecms-api';
@@ -79,7 +80,7 @@ export function ShiftSwapScreen() {
       setMine(m);
       setConfirms(c);
     } catch {
-      Alert.alert('Lỗi', 'Không thể tải danh sách đổi ca.');
+      toast.error('Không thể tải danh sách đổi ca.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -92,20 +93,23 @@ export function ShiftSwapScreen() {
     setResponding(true);
     try {
       await confirmShiftSwapTarget(item.id, { isAccepted: accepted, declineReason: reason });
+      if (accepted) toast.success('Đã đồng ý đổi ca — chờ quản lý duyệt.');
       await fetchData();
     } catch (err: any) {
-      Alert.alert('Lỗi', extractApiError(err));
+      toast.error(extractApiError(err));
     } finally {
       setResponding(false);
     }
   }
 
-  function handleConfirm(item: IShiftSwapRequest, accepted: boolean) {
+  async function handleConfirm(item: IShiftSwapRequest, accepted: boolean) {
     if (accepted) {
-      Alert.alert('Đồng ý đổi ca', 'Xác nhận đồng ý đổi ca? Yêu cầu sẽ chuyển cho quản lý duyệt.', [
-        { text: 'Huỷ', style: 'cancel' },
-        { text: 'Đồng ý', onPress: () => respond(item, true) },
-      ]);
+      const ok = await confirm({
+        title: 'Đồng ý đổi ca',
+        message: 'Xác nhận đồng ý đổi ca? Yêu cầu sẽ chuyển cho quản lý duyệt.',
+        confirmText: 'Đồng ý',
+      });
+      if (ok) respond(item, true);
     } else {
       setDeclineReason('');
       setDeclineTarget(item);
@@ -119,13 +123,15 @@ export function ShiftSwapScreen() {
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <View className="px-4 pt-2">
         <AppHeader title="Đổi ca" back />
-        <View className="flex-row bg-surface dark:bg-surface-dark rounded-xl p-1 mb-2 border border-line/60 dark:border-line-dark">
-          {([['mine', `Của tôi (${mine.length})`], ['confirm', `Chờ xác nhận (${pendingConfirm})`]] as const).map(([key, label]) => (
-            <Pressable key={key} onPress={() => setTab(key)} className={cn('flex-1 py-2 rounded-lg items-center', tab === key && 'bg-primary')}>
-              <Text variant="bodySmall" className={cn('font-semibold', tab === key ? 'text-white' : 'text-muted')}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SegmentedControl
+          className="mb-2"
+          value={tab}
+          onChange={(k) => setTab(k as 'mine' | 'confirm')}
+          segments={[
+            { key: 'mine', label: `Của tôi (${mine.length})` },
+            { key: 'confirm', label: `Chờ xác nhận (${pendingConfirm})` },
+          ]}
+        />
       </View>
 
       {loading ? (
@@ -136,14 +142,18 @@ export function ShiftSwapScreen() {
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-4 pb-24 gap-3"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[brand.primary]} tintColor={brand.primary} />}
-          renderItem={({ item }) => <SwapCard item={item} mode={tab} onConfirm={handleConfirm} />}
-          ListEmptyComponent={<EmptyState icon="swap-horizontal-circle-outline" title={tab === 'mine' ? 'Bạn chưa có yêu cầu đổi ca' : 'Không có yêu cầu chờ bạn xác nhận'} description={tab === 'mine' ? 'Tạo đổi ca từ màn Lịch làm (nhấn vào ca).' : undefined} />}
+          renderItem={({ item, index }) => (
+            <Appear index={Math.min(index, 8)}>
+              <SwapCard item={item} mode={tab} onConfirm={handleConfirm} />
+            </Appear>
+          )}
+          ListEmptyComponent={<EmptyState illustration={<SwapIllustration />} title={tab === 'mine' ? 'Bạn chưa có yêu cầu đổi ca' : 'Không có yêu cầu chờ bạn xác nhận'} description={tab === 'mine' ? 'Tạo đổi ca từ màn Lịch làm (nhấn vào ca).' : undefined} />}
         />
       )}
 
       {tab === 'mine' ? (
-        <View className="absolute right-4 bottom-6">
-          <Button fullWidth={false} icon="plus" onPress={() => router.push('/(tabs)/schedule')} className="px-5 rounded-2xl shadow-lg">Tạo đổi ca</Button>
+        <View className="absolute right-4 bottom-6" style={softShadow}>
+          <Button fullWidth={false} icon="plus" onPress={() => router.push('/(tabs)/schedule')} className="px-5 rounded-2xl">Tạo đổi ca</Button>
         </View>
       ) : null}
 

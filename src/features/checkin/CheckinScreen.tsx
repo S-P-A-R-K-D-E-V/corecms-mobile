@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Alert, Animated } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { MotiView } from 'moti';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
@@ -7,8 +8,10 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
 import { Screen, SectionCard, StatCard, EmptyState } from 'src/components/shared';
-import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, type IconName } from 'src/components/ui';
+import { Text, Button, Badge, Card, Icon, Pressable, PressableScale, Divider, BrandGradient, Appear, SuccessOverlay, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
+import { toast, confirm } from 'src/components/overlay';
+import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { smartCheckIn, smartCheckOut, checkIn, checkinFace } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
@@ -143,19 +146,7 @@ export function CheckinScreen() {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // Pulse animation for "working" dot
-  const pulse = useRef(new Animated.Value(1)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.4, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [pulse]);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   async function fetchGps(): Promise<Coords | null> {
     setGpsStatus('loading');
@@ -203,33 +194,29 @@ export function CheckinScreen() {
     let granted = cameraPermission?.granted;
     if (!granted) granted = (await requestCameraPermission()).granted;
     if (!granted) {
-      Alert.alert(t('checkin.cameraPermTitle'), t('checkin.cameraPermMsg'));
+      toast.error(t('checkin.cameraPermMsg'), t('checkin.cameraPermTitle'));
       return;
     }
+    haptics.light();
     setCheckinMode(mode);
     setSubmitting(true);
     const c = await fetchGps();
     setSubmitting(false);
     // Cho phép tiếp tục nếu có GPS, hoặc đã bật fallback (sau 5s GPS lỗi)
     if (!c && !gpsFallback) {
-      Alert.alert(
-        'Đang lấy GPS…',
-        'Chưa lấy được vị trí. Nếu GPS lỗi, nút sẽ tự cho phép check-in không kèm vị trí sau vài giây — vui lòng thử lại.'
-      );
+      toast.warning('Chưa lấy được vị trí. Nếu GPS lỗi, nút sẽ tự cho phép check-in không kèm vị trí sau vài giây.', 'Đang lấy GPS…');
       return;
     }
     setModalOpen(true);
   }
 
-  function handleOvertimePress() {
-    Alert.alert(
-      'Check-in ngoài giờ',
-      'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: 'Check-in ngoài giờ', onPress: () => openCheckInCamera('overtime') },
-      ]
-    );
+  async function handleOvertimePress() {
+    const ok = await confirm({
+      title: 'Check-in ngoài giờ',
+      message: 'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
+      confirmText: 'Check-in ngoài giờ',
+    });
+    if (ok) openCheckInCamera('overtime');
   }
 
   async function handleConfirmCheckIn(base64: string, captureTime: Date) {
@@ -262,45 +249,42 @@ export function CheckinScreen() {
       });
       setModalOpen(false);
       track(AnalyticsEvent.CheckInSuccess);
-      Alert.alert(
-        '✅ ' + t('common.success'),
-        checkinMode === 'overtime' ? 'Check-in ngoài giờ thành công!' : t('checkin.checkInSuccess')
-      );
+      setSuccessMsg(checkinMode === 'overtime' ? 'Check-in ngoài giờ thành công!' : t('checkin.checkInSuccess'));
       await refetch();
     } catch (err: any) {
-      Alert.alert(t('checkin.checkInFailed'), extractApiError(err));
+      haptics.error();
+      toast.error(extractApiError(err), t('checkin.checkInFailed'));
     } finally {
       setSubmitting(false);
     }
   }
 
-  function handleCheckOut() {
-    Alert.alert(t('common.confirm'), t('checkin.confirmCheckOut'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('checkin.checkOutBtn'),
-        style: 'destructive',
-        onPress: async () => {
-          setSubmitting(true);
-          try {
-            const { status } = await Location.requestForegroundPermissionsAsync();
-            let c: Coords | undefined;
-            if (status === 'granted') {
-              const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-              c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
-            }
-            await smartCheckOut({ latitude: c?.latitude, longitude: c?.longitude, accuracy: c?.accuracy });
-            track(AnalyticsEvent.CheckOutSuccess);
-            Alert.alert('✅ ' + t('common.success'), t('checkin.checkOutSuccess'));
-            await refetch();
-          } catch (err: any) {
-            Alert.alert(t('checkin.checkOutFailed'), extractApiError(err));
-          } finally {
-            setSubmitting(false);
-          }
-        },
-      },
-    ]);
+  async function handleCheckOut() {
+    const ok = await confirm({
+      title: t('common.confirm'),
+      message: t('checkin.confirmCheckOut'),
+      confirmText: t('checkin.checkOutBtn'),
+      destructive: true,
+    });
+    if (!ok) return;
+    setSubmitting(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      let c: Coords | undefined;
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
+      }
+      await smartCheckOut({ latitude: c?.latitude, longitude: c?.longitude, accuracy: c?.accuracy });
+      track(AnalyticsEvent.CheckOutSuccess);
+      setSuccessMsg(t('checkin.checkOutSuccess'));
+      await refetch();
+    } catch (err: any) {
+      haptics.error();
+      toast.error(extractApiError(err), t('checkin.checkOutFailed'));
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const gpsChip = {
@@ -351,9 +335,14 @@ export function CheckinScreen() {
           {isCheckedIn ? (
             <>
               <View className="flex-row items-center gap-2 mb-1.5">
-                <Animated.View style={{ transform: [{ scale: pulse }] }} className="w-3 h-3 rounded-full bg-primary/40 items-center justify-center">
+                <MotiView
+                  from={{ scale: 1 }}
+                  animate={{ scale: 1.4 }}
+                  transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 800 }}
+                  className="w-3 h-3 rounded-full bg-primary/40 items-center justify-center"
+                >
                   <View className="w-1.5 h-1.5 rounded-full bg-primary" />
-                </Animated.View>
+                </MotiView>
                 <Text className="text-white font-bold tracking-widest text-sm">{t('checkin.working')}</Text>
               </View>
               <Text className="text-white text-5xl font-bold" style={{ fontVariant: ['tabular-nums'] }}>{formatTime(activeLog?.checkInTime)}</Text>
@@ -469,31 +458,35 @@ export function CheckinScreen() {
       {/* Quick actions */}
       <View className="flex-row flex-wrap gap-2.5">
         {QUICK_ACTIONS.map((a) => (
-          <Pressable
+          <PressableScale
             key={a.label}
-            onPress={a.disabled ? undefined : () => router.push(a.route as any)}
-            className={cn(
-              'w-[47%] items-center justify-center py-4 rounded-2xl gap-2 relative',
-              quickBg[a.tone],
-              a.disabled && 'opacity-50',
-            )}
+            onPress={a.disabled ? undefined : () => { haptics.selection(); router.push(a.route as any); }}
+            style={{ width: '47%' }}
           >
-            <Icon name={a.icon} size={24} tone={a.tone} />
-            <Text
-              variant="caption"
-              className={cn('text-center font-semibold leading-4', quickTextCls[a.tone])}
+            <View
+              className={cn(
+                'w-full items-center justify-center py-4 rounded-2xl gap-2 relative',
+                quickBg[a.tone],
+                a.disabled && 'opacity-50',
+              )}
             >
-              {a.label}
-            </Text>
-            {a.disabled ? (
-              <View
-                className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 bg-surface dark:bg-surface-dark"
-                style={{ borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.08)' }}
+              <Icon name={a.icon} size={24} tone={a.tone} />
+              <Text
+                variant="caption"
+                className={cn('text-center font-semibold leading-4', quickTextCls[a.tone])}
               >
-                <Text variant="caption" className="text-[9px] text-faint font-semibold">Sắp có</Text>
-              </View>
-            ) : null}
-          </Pressable>
+                {a.label}
+              </Text>
+              {a.disabled ? (
+                <View
+                  className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 bg-surface dark:bg-surface-dark"
+                  style={{ borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.08)' }}
+                >
+                  <Text variant="caption" className="text-[9px] text-faint font-semibold">Sắp có</Text>
+                </View>
+              ) : null}
+            </View>
+          </PressableScale>
         ))}
       </View>
 
@@ -534,6 +527,8 @@ export function CheckinScreen() {
         onClose={() => setModalOpen(false)}
         onConfirm={handleConfirmCheckIn}
       />
+
+      <SuccessOverlay visible={!!successMsg} message={successMsg ?? undefined} onDone={() => setSuccessMsg(null)} />
     </Screen>
   );
 }

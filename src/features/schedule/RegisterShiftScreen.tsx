@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, ScrollView, Alert, TextInput } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
 
 import { AppHeader, EmptyState, Loading } from 'src/components/shared';
-import { Text, Button, Pressable, Icon } from 'src/components/ui';
+import { Text, Button, Pressable, Icon, TextField } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
-import { brand } from 'src/theme';
+import { toast } from 'src/components/overlay';
 import { getShiftSchedules } from 'src/api/schedule';
 import { registerShift, unregisterShift, getMyShiftRegistrations } from 'src/api/shiftRegistration';
 import { extractApiError } from 'src/services/error';
-import { t } from 'src/i18n';
 import type { IShiftSchedule, IShiftRegistration } from 'src/types/corecms-api';
 
 dayjs.extend(isoWeek);
@@ -60,7 +59,7 @@ export function RegisterShiftScreen() {
       regs.forEach((r) => { initial[key(r.shiftScheduleId, r.date.split('T')[0])] = true; });
       setSelections(initial);
     } catch {
-      Alert.alert(t('common.error'), 'Không tải được dữ liệu. Vui lòng thử lại.');
+      toast.error('Không tải được dữ liệu. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -113,9 +112,10 @@ export function RegisterShiftScreen() {
         ...toUnregister.map((r) => unregisterShift(r)),
       ]);
       const msg = [toRegister.length > 0 ? `Đăng ký ${toRegister.length} ca` : '', toUnregister.length > 0 ? `Huỷ ${toUnregister.length} ca` : ''].filter(Boolean).join(', ');
-      Alert.alert('✅ ' + t('common.success'), `${msg} thành công!`, [{ text: 'OK', onPress: loadData }]);
+      toast.success(`${msg} thành công!`);
+      await loadData();
     } catch (err: any) {
-      Alert.alert('Thất bại', extractApiError(err));
+      toast.error(extractApiError(err), 'Thất bại');
     } finally {
       setSubmitting(false);
     }
@@ -181,15 +181,14 @@ export function RegisterShiftScreen() {
             );
           })}
 
-          <View className="mt-3 rounded-xl border border-line dark:border-line-dark px-3.5 py-2.5">
-            <TextInput
+          <View className="mt-3">
+            <TextField
               placeholder="Ghi chú (tùy chọn)"
-              placeholderTextColor={brand.faint}
               value={note}
               onChangeText={setNote}
               multiline
               maxLength={200}
-              className="text-[14px] text-ink dark:text-ink-dark min-h-[40px]"
+              className="min-h-[44px]"
             />
           </View>
           <View className="h-4" />

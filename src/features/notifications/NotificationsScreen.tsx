@@ -9,6 +9,7 @@ import { AppHeader, EmptyState, Loading } from 'src/components/shared';
 import { Text, Pressable, Icon, Appear, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
+import { BellIllustration } from 'src/components/illustrations';
 import { getNotifications, markAsRead, markAllAsRead, type INotification } from 'src/api/notifications';
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
 import { useNotificationSettings } from 'src/hooks/use-notification-settings';
@@ -127,7 +128,7 @@ export function NotificationsScreen() {
               </Text>
             </View>
           }
-          ListEmptyComponent={<EmptyState icon="bell-outline" title="Không có thông báo nào" description="Khi có thông báo mới, chúng sẽ hiển thị ở đây" />}
+          ListEmptyComponent={<EmptyState illustration={<BellIllustration />} title="Không có thông báo nào" description="Khi có thông báo mới, chúng sẽ hiển thị ở đây" />}
           renderItem={({ item, index }) => (
             <Appear index={Math.min(index, 8)}>
               <NotificationRow item={item} onRead={handleRead} />

@@ -13,6 +13,7 @@ import { brand } from 'src/theme';
 import { fetchConversations, fetchUsers, openPrivateConversation, type ConversationSummary, type InternalUser } from 'src/api/messenger';
 import { useMessengerStore } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
+import { ChatIllustration } from 'src/components/illustrations';
 import { NewConversationSheet } from './NewConversationSheet';
 import { ChatAvatar } from './ChatAvatar';
 
@@ -166,7 +167,7 @@ export function ChatListScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brand.primary]} tintColor={brand.primary} />}
           ListHeaderComponent={!search ? <OnlineRow onOpen={goToConversation} /> : null}
           ItemSeparatorComponent={() => <Divider className="ml-[72px]" />}
-          ListEmptyComponent={<EmptyState icon="message-outline" title={search ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'} />}
+          ListEmptyComponent={<EmptyState illustration={search ? undefined : <ChatIllustration />} icon="message-outline" title={search ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'} />}
           renderItem={({ item }) => <ConversationRow conv={item} />}
         />
       )}
