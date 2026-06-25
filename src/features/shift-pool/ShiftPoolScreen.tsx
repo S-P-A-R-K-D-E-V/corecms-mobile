@@ -8,7 +8,6 @@ import { AppHeader, EmptyState, Loading } from 'src/components/shared';
 import { Card, Text, Badge, Button, Divider, SegmentedControl, Appear } from 'src/components/ui';
 import { brand, softShadow } from 'src/theme';
 import { toast, confirm, showActionSheet } from 'src/components/overlay';
-import { TeamIllustration } from 'src/components/illustrations';
 import { getOpenPoolPosts, getMyPoolPosts, getMyClaims, claimShiftPoolPost, cancelShiftPoolPost, reviewShiftPoolPost } from 'src/api/shiftPool';
 import { useAuthContext } from 'src/auth/auth-context';
 import { extractApiError } from 'src/services/error';
@@ -138,7 +137,7 @@ export function ShiftPoolScreen() {
           )}
           ListEmptyComponent={
             <EmptyState
-              illustration={<TeamIllustration />}
+              icon="account-group-outline"
               title={tab === 'open' ? 'Chưa có ca nào trên chợ' : tab === 'mine' ? 'Bạn chưa đăng ca nào' : 'Bạn chưa nhận ca nào'}
               description={tab === 'mine' ? 'Đăng ca cần làm hộ từ màn Lịch làm (nhấn vào ca).' : undefined}
             />

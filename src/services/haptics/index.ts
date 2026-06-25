@@ -4,7 +4,13 @@
 // editing only this file.
 import { Vibration, Platform } from 'react-native';
 
+// iOS's Vibration API ignores duration and always fires the full ~0.4s motor —
+// that feels like a heavy buzz, not a tap. So we no-op on iOS until expo-haptics
+// (Taptic engine) is added. Android's Vibration honours short durations, so it
+// stays. To enable real iOS haptics later: `npx expo install expo-haptics` and
+// swap `buzz` for Haptics.selectionAsync / impactAsync here.
 function buzz(pattern: number | number[]) {
+  if (Platform.OS === 'ios') return;
   try {
     Vibration.vibrate(pattern as any);
   } catch {

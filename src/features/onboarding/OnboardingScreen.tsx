@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { Text, Button, Pressable } from 'src/components/ui';
-import { WaveIllustration, FaceScanIllustration, CashIllustration, CalendarIllustration, type IllustrationProps } from 'src/components/illustrations';
+import { CheckInIllustration, CheckOutIllustration, type IllustrationProps } from 'src/components/illustrations';
 import { spring } from 'src/theme/motion';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { track, AnalyticsEvent } from 'src/services/analytics';
@@ -15,10 +15,10 @@ import { cn } from 'src/components/ui/utils';
 type Slide = { Illustration: React.FC<IllustrationProps>; title: string; desc: string };
 
 const slides: Slide[] = [
-  { Illustration: WaveIllustration, title: t('onboarding.slide0Title'), desc: t('onboarding.slide0Desc') },
-  { Illustration: FaceScanIllustration, title: t('onboarding.slide1Title'), desc: t('onboarding.slide1Desc') },
-  { Illustration: CashIllustration, title: t('onboarding.slide2Title'), desc: t('onboarding.slide2Desc') },
-  { Illustration: CalendarIllustration, title: t('onboarding.slide3Title'), desc: t('onboarding.slide3Desc') },
+  { Illustration: CheckOutIllustration, title: t('onboarding.slide0Title'), desc: t('onboarding.slide0Desc') },
+  { Illustration: CheckInIllustration, title: t('onboarding.slide1Title'), desc: t('onboarding.slide1Desc') },
+  { Illustration: CheckOutIllustration, title: t('onboarding.slide2Title'), desc: t('onboarding.slide2Desc') },
+  { Illustration: CheckInIllustration, title: t('onboarding.slide3Title'), desc: t('onboarding.slide3Desc') },
 ];
 
 export function OnboardingScreen() {

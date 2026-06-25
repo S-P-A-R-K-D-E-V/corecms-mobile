@@ -7,7 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
 import { Text, Button, Card, Icon } from 'src/components/ui';
-import { LoginHeroIllustration } from 'src/components/illustrations';
+import { CheckInIllustration } from 'src/components/illustrations';
 import { spring } from 'src/theme/motion';
 import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
@@ -64,7 +64,7 @@ export function LoginScreen() {
             animate={{ opacity: 1, scale: 1, translateY: 0 }}
             transition={{ type: 'spring', ...spring.soft }}
           >
-            <LoginHeroIllustration size={180} />
+            <CheckInIllustration size={180} />
           </MotiView>
           <MotiView
             from={{ opacity: 0, translateY: 8 }}

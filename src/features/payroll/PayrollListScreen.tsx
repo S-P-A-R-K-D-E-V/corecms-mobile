@@ -4,7 +4,6 @@ import dayjs from 'dayjs';
 
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
 import { Card, Text, Badge, Icon, Pressable, Appear, Skeleton } from 'src/components/ui';
-import { WalletIllustration } from 'src/components/illustrations';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 import { useMyPayroll, fmtMoney } from './hooks';
 import { t } from 'src/i18n';
@@ -82,7 +81,7 @@ export function PayrollListScreen() {
       ) : isError ? (
         <ErrorView onRetry={refetch} />
       ) : !data || data.length === 0 ? (
-        <EmptyState illustration={<WalletIllustration />} title="Chưa có bảng lương" description="Bảng lương sẽ hiển thị khi kỳ lương được tạo." />
+        <EmptyState icon="cash-multiple" title="Chưa có bảng lương" description="Bảng lương sẽ hiển thị khi kỳ lương được tạo." />
       ) : (
         data
           .slice()

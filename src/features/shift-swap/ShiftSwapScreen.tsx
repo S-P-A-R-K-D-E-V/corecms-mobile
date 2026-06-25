@@ -8,7 +8,6 @@ import { AppHeader, EmptyState, Loading, Sheet } from 'src/components/shared';
 import { Card, Text, Badge, Button, Icon, Divider, TextField, SegmentedControl, Appear } from 'src/components/ui';
 import { brand, softShadow } from 'src/theme';
 import { toast, confirm } from 'src/components/overlay';
-import { SwapIllustration } from 'src/components/illustrations';
 import { getMyShiftSwapRequests, getMyConfirmationRequests, confirmShiftSwapTarget } from 'src/api/shiftSwap';
 import { extractApiError } from 'src/services/error';
 import type { IShiftSwapRequest } from 'src/types/corecms-api';
@@ -147,7 +146,7 @@ export function ShiftSwapScreen() {
               <SwapCard item={item} mode={tab} onConfirm={handleConfirm} />
             </Appear>
           )}
-          ListEmptyComponent={<EmptyState illustration={<SwapIllustration />} title={tab === 'mine' ? 'Bạn chưa có yêu cầu đổi ca' : 'Không có yêu cầu chờ bạn xác nhận'} description={tab === 'mine' ? 'Tạo đổi ca từ màn Lịch làm (nhấn vào ca).' : undefined} />}
+          ListEmptyComponent={<EmptyState icon="swap-horizontal-circle-outline" title={tab === 'mine' ? 'Bạn chưa có yêu cầu đổi ca' : 'Không có yêu cầu chờ bạn xác nhận'} description={tab === 'mine' ? 'Tạo đổi ca từ màn Lịch làm (nhấn vào ca).' : undefined} />}
         />
       )}
 

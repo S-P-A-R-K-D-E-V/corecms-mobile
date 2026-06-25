@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
 import { Screen, SectionCard, StatCard, EmptyState } from 'src/components/shared';
-import { Text, Button, Badge, Card, Icon, Pressable, PressableScale, Divider, BrandGradient, Appear, SuccessOverlay, type IconName } from 'src/components/ui';
+import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, SuccessOverlay, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
@@ -466,38 +466,36 @@ export function CheckinScreen() {
         </View>
       ) : null}
 
-      {/* Quick actions */}
+      {/* Quick actions — 2-up grid */}
       <View className="flex-row flex-wrap gap-2.5">
         {QUICK_ACTIONS.map((a) => (
-          <PressableScale
+          <Pressable
             key={a.label}
-            onPress={a.disabled ? undefined : () => { haptics.selection(); router.push(a.route as any); }}
-            style={{ width: '47%' }}
+            onPress={a.disabled ? undefined : () => router.push(a.route as any)}
+            className={cn(
+              'items-center justify-center py-4 rounded-2xl gap-2 relative',
+              quickBg[a.tone],
+              a.disabled && 'opacity-50',
+            )}
+            style={{ width: '48%' }}
           >
-            <View
-              className={cn(
-                'w-full items-center justify-center py-4 rounded-2xl gap-2 relative',
-                quickBg[a.tone],
-                a.disabled && 'opacity-50',
-              )}
+            <Icon name={a.icon} size={26} tone={a.tone} />
+            <Text
+              variant="caption"
+              numberOfLines={2}
+              className={cn('text-center font-semibold leading-4', quickTextCls[a.tone])}
             >
-              <Icon name={a.icon} size={24} tone={a.tone} />
-              <Text
-                variant="caption"
-                className={cn('text-center font-semibold leading-4', quickTextCls[a.tone])}
+              {a.label.replace('\n', ' ')}
+            </Text>
+            {a.disabled ? (
+              <View
+                className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 bg-surface dark:bg-surface-dark"
+                style={{ borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.08)' }}
               >
-                {a.label}
-              </Text>
-              {a.disabled ? (
-                <View
-                  className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 bg-surface dark:bg-surface-dark"
-                  style={{ borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.08)' }}
-                >
-                  <Text variant="caption" className="text-[9px] text-faint font-semibold">Sắp có</Text>
-                </View>
-              ) : null}
-            </View>
-          </PressableScale>
+                <Text variant="caption" className="text-[9px] text-faint font-semibold">Sắp có</Text>
+              </View>
+            ) : null}
+          </Pressable>
         ))}
       </View>
 

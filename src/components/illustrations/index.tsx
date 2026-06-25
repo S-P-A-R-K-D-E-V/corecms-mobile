@@ -1,191 +1,102 @@
-// Lightweight branded SVG illustrations (react-native-svg, already a dep).
-// Scheme-aware so they read on both light and dark surfaces. Use for empty
-// states, onboarding slides, and the login hero.
-import { useColorScheme } from 'nativewind';
-import Svg, { Circle, Rect, Path, G, Line, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { brand } from 'src/theme';
+// Minimal (minimals.cc) illustrations — the same design system core-fe uses —
+// ported faithfully from core-fe/src/assets/illustrations to react-native-svg,
+// with the MUI theme palette mapped to the CiCi brand rose. Only the
+// pure-vector Minimal illustrations (no PNG character / BackgroundShape deps)
+// are ported here.
+import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 export type IllustrationProps = { size?: number };
 
-function usePalette() {
-  const { colorScheme } = useColorScheme();
-  const dark = colorScheme === 'dark';
-  return {
-    dark,
-    surface: dark ? '#2C2C2E' : '#FFFFFF',
-    line: dark ? '#48484A' : '#E5E5EA',
-    backdrop: dark ? 'rgba(200,77,113,0.16)' : '#FBEAF0',
-    ink: dark ? '#F5F5F7' : '#1C1C1E',
-    faint: dark ? '#5A5A5E' : '#D9D9DE',
-  };
-}
+// Brand-rose mapping of Minimal's primary.* palette.
+const LIGHTER = '#F6D2DF';
+const LIGHT = '#EBA9BE';
+const MAIN = '#C84D71';
+const DARK = '#AC3C5D';
+const DARKER = '#7E2A43';
+const SKIN = '#FBCDBE';
 
-/** Rounded backdrop shared by all illustrations. */
-function Backdrop({ p }: { p: ReturnType<typeof usePalette> }) {
-  return <Rect x={14} y={14} width={132} height={132} rx={40} fill={p.backdrop} />;
-}
-
-export function EmptyBoxIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
+/** Minimal "check-in" — person at a clipboard. Pure vector. */
+export function CheckInIllustration({ size = 200 }: IllustrationProps) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Circle cx={52} cy={44} r={5} fill={brand.primary} opacity={0.5} />
-      <Circle cx={112} cy={56} r={4} fill={brand.secondary} opacity={0.6} />
-      <Path d="M44 76 L80 62 L116 76 L80 90 Z" fill={brand.primary} opacity={0.9} />
-      <Path d="M44 76 L44 108 L80 122 L80 90 Z" fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Path d="M116 76 L116 108 L80 122 L80 90 Z" fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Path d="M44 76 L80 90 L116 76" fill="none" stroke={brand.primary} strokeWidth={2} opacity={0.4} />
-    </Svg>
-  );
-}
-
-export function ChatIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Path d="M40 56 q0 -10 10 -10 h44 q10 0 10 10 v22 q0 10 -10 10 H66 l-14 12 v-12 h-2 q-10 0 -10 -10 Z" fill={brand.primary} />
-      <Path d="M70 86 q0 -8 8 -8 h32 q8 0 8 8 v16 q0 8 -8 8 h-2 v10 l-12 -10 H78 q-8 0 -8 -8 Z" fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Circle cx={58} cy={67} r={3.4} fill="#FFFFFF" />
-      <Circle cx={72} cy={67} r={3.4} fill="#FFFFFF" />
-      <Circle cx={86} cy={67} r={3.4} fill="#FFFFFF" />
-    </Svg>
-  );
-}
-
-export function WalletIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Rect x={42} y={58} width={76} height={50} rx={12} fill={brand.primary} />
-      <Rect x={42} y={70} width={76} height={38} rx={12} fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Rect x={94} y={82} width={30} height={16} rx={8} fill={brand.primary} opacity={0.18} />
-      <Circle cx={108} cy={90} r={4} fill={brand.primary} />
-      <Circle cx={96} cy={50} r={11} fill={brand.warning} />
-      <Path d="M96 45 v10 M92 48 h8" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-export function CalendarIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Rect x={44} y={50} width={72} height={62} rx={12} fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Path d="M44 64 q0 -14 14 -14 h44 q14 0 14 14 v4 H44 Z" fill={brand.primary} />
-      <Line x1={60} y1={44} x2={60} y2={56} stroke={brand.primary} strokeWidth={4} strokeLinecap="round" />
-      <Line x1={100} y1={44} x2={100} y2={56} stroke={brand.primary} strokeWidth={4} strokeLinecap="round" />
-      <Circle cx={62} cy={82} r={4} fill={brand.faint} />
-      <Circle cx={80} cy={82} r={4} fill={brand.primary} />
-      <Circle cx={98} cy={82} r={4} fill={brand.faint} />
-      <Circle cx={62} cy={98} r={4} fill={brand.faint} />
-      <Circle cx={80} cy={98} r={4} fill={brand.faint} />
-    </Svg>
-  );
-}
-
-export function BellIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Path d="M80 48 q22 0 22 26 v10 l8 12 H50 l8 -12 v-10 q0 -26 22 -26 Z" fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Path d="M72 96 q0 10 8 10 q8 0 8 -10 Z" fill={brand.primary} />
-      <Circle cx={80} cy={44} r={4} fill={brand.primary} />
-      <Circle cx={104} cy={56} r={8} fill={brand.error} />
-    </Svg>
-  );
-}
-
-export function SwapIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Path d="M52 68 h44 l-10 -10 M96 68 l-10 10" fill="none" stroke={brand.primary} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M108 92 H64 l10 -10 M64 92 l10 10" fill="none" stroke={brand.secondary} strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-export function TeamIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Circle cx={64} cy={70} r={13} fill={brand.primary} />
-      <Path d="M44 104 q0 -16 20 -16 q20 0 20 16 Z" fill={brand.primary} />
-      <Circle cx={98} cy={66} r={11} fill={brand.secondary} />
-      <Path d="M82 100 q0 -14 16 -14 q16 0 16 14 Z" fill={brand.secondary} />
-    </Svg>
-  );
-}
-
-export function CashIllustration({ size = 150 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Rect x={46} y={64} width={68} height={40} rx={8} fill={brand.success} opacity={0.25} transform="rotate(-8 80 84)" />
-      <Rect x={46} y={62} width={68} height={40} rx={8} fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Circle cx={80} cy={82} r={11} fill={brand.success} />
-      <Path d="M80 76 v12 M76 79 h8" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-export function FaceScanIllustration({ size = 160 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Circle cx={80} cy={80} r={26} fill={p.surface} stroke={p.line} strokeWidth={2} />
-      <Circle cx={72} cy={76} r={3} fill={brand.ink} />
-      <Circle cx={88} cy={76} r={3} fill={brand.ink} />
-      <Path d="M70 90 q10 8 20 0" fill="none" stroke={brand.primary} strokeWidth={3} strokeLinecap="round" />
-      <Path d="M50 56 v-6 q0 -6 6 -6 h6 M110 56 v-6 q0 -6 -6 -6 h-6 M50 104 v6 q0 6 6 6 h6 M110 104 v6 q0 6 -6 6 h-6" fill="none" stroke={brand.primary} strokeWidth={4} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-export function WaveIllustration({ size = 160 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 160 160">
-      <Backdrop p={p} />
-      <Circle cx={80} cy={72} r={22} fill={brand.primary} />
-      <Circle cx={72} cy={68} r={3} fill="#FFFFFF" />
-      <Circle cx={88} cy={68} r={3} fill="#FFFFFF" />
-      <Path d="M70 80 q10 8 20 0" fill="none" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" />
-      <Path d="M104 58 q10 -4 12 6 q2 10 -8 14" fill="none" stroke={brand.warning} strokeWidth={5} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-export function LoginHeroIllustration({ size = 200 }: IllustrationProps) {
-  const p = usePalette();
-  return (
-    <Svg width={size} height={size} viewBox="0 0 200 200">
+    <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
       <Defs>
-        <LinearGradient id="loging" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor="#E97AA0" />
-          <Stop offset="1" stopColor={brand.primary} />
+        <LinearGradient id="ci_a" x1="64.751" x2="64.751" y1="99.643" y2="186.617" gradientUnits="userSpaceOnUse">
+          <Stop stopColor={LIGHT} />
+          <Stop offset="1" stopColor={DARK} />
+        </LinearGradient>
+        <LinearGradient id="ci_b" x1="95.286" x2="95.286" y1="280.421" y2="185.693" gradientUnits="userSpaceOnUse">
+          <Stop stopColor={LIGHT} />
+          <Stop offset="1" stopColor={DARK} />
         </LinearGradient>
       </Defs>
-      <Circle cx={100} cy={100} r={84} fill={p.backdrop} />
-      <Rect x={66} y={40} width={68} height={120} rx={18} fill="url(#loging)" />
-      <Rect x={74} y={52} width={52} height={96} rx={10} fill={p.surface} />
-      <Circle cx={100} cy={92} r={16} fill={p.backdrop} />
-      <Path d="M100 84 a8 8 0 1 1 -0.1 0 Z" fill={brand.primary} />
-      <Path d="M88 112 q12 -12 24 0 v6 h-24 Z" fill={brand.primary} />
-      <G stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round">
-        <Path d="M118 150 l6 6 l12 -12" fill="none" />
-      </G>
-      <Circle cx={150} cy={64} r={6} fill={brand.warning} />
-      <Circle cx={48} cy={120} r={5} fill={brand.secondary} />
+      <Path
+        fill="url(#ci_a)"
+        d="M134.926 133.612c-1.2-3.2-5.8-4.1-8.1-1.6-1.3-7.8 5-32.3-8.9-32-72.8-.5-48.2-8-52.4 77.7-.1 4.8 4.1 9 8.9 8.9h43.5c14 .4 7.6-24.5 8.9-32.4 2.9 3.2 8.7.8 8.5-3.5-.1-1 .4-16.5-.4-17.1zm-2.5 18.3h-5.6v-17.4h5.6v17.4z"
+      />
+      <Path
+        fill="url(#ci_b)"
+        d="M74.426 190.212c.1 5.9-9.2 5.9-9.1 0-.1-5.9 9.2-5.9 9.1 0zm46.4-4.5c-5.9-.1-5.9 9.2 0 9.1 5.9.1 5.9-9.2 0-9.1z"
+      />
+      <Path
+        fill={DARK}
+        d="M73.126 99.513h2.5v87.499h-2.5v-87.5zm7.1 87.399h2.5v-87.4h-2.5v87.4zm7 0h2.5v-87.4h-2.5v87.4zm7.1 0h2.5v-87.4h-2.5v87.4zm7 0h2.5v-87.4h-2.5v87.4zm7.1 0h2.5v-87.4h-2.5v87.4zm7-87.4v87.5h2.5v-87.5h-2.5z"
+      />
+      <Path
+        fill={MAIN}
+        d="M140.026 60.912l-1.8 6.7c-3.3-.9-7.3-.7-10.6.3.2-3.2 0-6.3-.6-9.4l-17.3-7.5c-2 14.2 1.4 21.6 7.4 32.8l-10.3 4.8c-1.7 4.1-4.1 4-7.1-.2-6.3 8.4-15.3-6.8-24.7-.3l-1.5-6.6-6.2.2c-5-10.2-13-36.6-1.2-43.9 0 0 0 .1.1.1 3-2 6.6-3.4 10.1-4.4l8.5 10.6c5.6-11.1 7.4-14.8 21.6-12.8l28.6 16.6c4.4 2.3 6.7 8 5 13z"
+      />
+      <Path
+        fill={LIGHTER}
+        fillRule="evenodd"
+        d="M107.626 52.712h.1v2.3h-.1v12.4c0 1-.9 1.9-1.9 1.9-1.7-.5-9.1 1.4-8.9-1.9v-18.1c0-1 .9-1.9 1.9-1.9.3 0 7.7-.1 7.7.1 1.9.6 1.1 3.8 1.2 5.2zm-4 .1c0 2.2-3.3 2.2-3.3 0 0-2.1 3.3-2.1 3.3 0z"
+        clipRule="evenodd"
+      />
+      <Path
+        fill={DARKER}
+        d="M130.826 91.813l-12.9 56.5c1.3 1.2 6.9 11.4 6.9 13.2-1.8 5.8-12.9 0-15.9-3.3-1.6-6.9 6-48.8 5.5-56.6-3.9-.3-10.4.4-14.1.8-6.6.2-15.7-1.3-22.4-.8l-.2 1.3 5.4 45.2h-.2c.3.2.7.5 1.1.8 0 1.9 1.5 7.7.3 9.4-3.4 3.7-9.2 5.9-13.5 5.7-1.7-.1-2.9-2-2.2-3.6.1-.1 6.1-12 6.3-11.5h-.4l-13-57.1c-1-4.3 1.5-9 5.7-10.4 0 .1.1.2.1.3l6.2-.2 1.5 6.6c.4-.2.7-.3 1.1-.5.9-.3 1.8-.6 2.7-.8 7.4-2.8 14.8 9.4 20.9 1.5 3 4.2 5.4 4.3 7.1.2l7.6-3.5c.6-1 1.5-1.9 2.4-2.5.2.5.5 1 .8 1.3 4.6-.3 8.2-1.4 12.5 2.3.9 1.7 1.1 3.8.7 5.7zm-58.1-68.2c0-.8.1-1.5.2-2.2-1-.9-.2-5.2 1.3-3.3.5-.9 1.1-1.6 1.9-2.3 2.8 6.1 11.8 2.8 16.5 2.1 1.5 2.3 2 5.4 1.4 8.1 9.6-28.2-30.8-27.7-21.1-.4-.1-.6-.2-1.3-.2-2z"
+      />
+      <Path
+        fill={SKIN}
+        d="M84.826 43.913l-8.5-10.6c-.1 0-.2.1-.3.1l-.2-2.3c-2.4-2.4-3.6-6.3-2.8-9.7-1-.9-.2-5.2 1.3-3.3.5-.9 1.1-1.6 1.9-2.3 2.8 6.1 11.8 2.8 16.5 2.1 2.9 4.3 1.8 10.9-2.2 14l.2 1.7c-.2-.1-5.9 10.3-5.9 10.3z"
+      />
+    </Svg>
+  );
+}
+
+/** Minimal "check-out" — person with a parcel. Pure vector. */
+export function CheckOutIllustration({ size = 200 }: IllustrationProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
+      <Defs>
+        <LinearGradient id="co_a" x1="25.9" x2="25.9" y1="122.338" y2="192.465" gradientUnits="userSpaceOnUse">
+          <Stop stopColor={LIGHT} />
+          <Stop offset="1" stopColor={DARK} />
+        </LinearGradient>
+      </Defs>
+      <Path
+        fill="url(#co_a)"
+        d="M85.6 134.7c-3.7-5.5-33-10.5-35.3-12 0 0-5.4-2-7.8 3.4-2.4 5.4-16.6 49.8-16.6 49.8s27.8 14.9 36 16.5c3.3.4 6.9-1.1 9.7-2.9l15.8-47.2c-.1 0 2.1-5.2-1.8-7.6z"
+      />
+      <Path
+        fill={DARKER}
+        d="M85.6 134.7c2.6 4.5-17.3 52.2-17.2 55.4v.1c2.5 4-4.6 6.9-5.6 2.3-.3 0-.6 0-.9-.1.2-.1.5-.2.8-.4-.1-1.8 1.2-3.2 2.9-3.3 1.6-4.7 17-51 17.3-51.6 0 0-.5-3.5-1.8-5.7 1.8.7 3.4 1.7 4.5 3.3zm2.4-29.4c-.3.5-17.4-7.9-14.5.4l-8 21.2c1 .3 2 .6 3 .8 1.7-5.2 6.9-20.9 7.4-22.2.5-1.5 6 .8 8.1 1.4 1.6.4 1.1 2 1.1 2l-7.4 21.4c1 .3 1.8.5 2.5.7l6.7-21.2c4.2-4.2 1.1-4.5 1.1-4.5zm-61.9 70.5c-4 0-4 6.2 0 6.2s4-6.2 0-6.2zm30.1 13c-4 0-4 6.2 0 6.2s4-6.2 0-6.2zm116.3 5.4v.2h-19.1v-7.7c6.1.3 19.4-2.3 19.1 7.5zm-65-11.4l-9.8-6.3-4.1 6.5 16.1 10.3c2.3-3.5 1.4-8.3-2.2-10.5zm56.3-2.1L156.7 94l-13.2-24.5-22.5 3.9c.8 15.9-1.6 50.8-3.2 66.8l-16.1 29.9 7.7 5.5 21.9-28.5 8.7-28.3 13.6 62.5 10.2-.6z"
+      />
+      <Path
+        fill={LIGHT}
+        d="M138 57.5s4.6-5.5-.5-10.6c0 0-6.5-10.5-8.4-12.4 0 0 0 .2-10.9.6l-.2.2c12.8 2.3 18 22.9 12 38.7l14-3.5-6-13z"
+      />
+      <Path
+        fill={MAIN}
+        d="M161.4 93.8c2.4 8.2 3.9 14.1 3.9 14.1s-2.9.2-7.4.9L156.7 94c-4.4-7.8-15.8-28.3-18.8-36.4 0 0 4.7-5.5-.4-10.6 0 0-6.4-10.5-8.4-12.4 2.1-.3 4.4 1.5 6.8 4.1v-.2c10.1 13.8 23.7 37.9 33.3 51.8l-7.8 3.5zm-38.6-57c-6.8-4.5-16.7 2.2-15 10.2L80.7 92.9l8.8 3.6 23.8-31.3c.9 12.1-9.7 32.4-16.2 36.9-4.6 4.4 2 12.3 5.5 13.7v.1s7.7 3.6 17 3.5c.4-5.3 1.9-21.2 1.5-26.2 11.8-18.9 18.1-42.4 1.7-56.4z"
+      />
+      <Path
+        fill={DARKER}
+        d="M109.6 29.8c2.1-.4 11.1 1.4 13.3 1.8 1.1.1 2.1-.7 2-1.8 12.4.5 8.6-.2 9.2-10.7h3.1c.2-4.6-3.1-8.2-7-10.2-7.7-8.4-22.8-2-22.5 9.3.5 1.6-1.5 12 1.9 11.6z"
+      />
+      <Path
+        fill={SKIN}
+        d="M154.9 181.2l6.2-.4-.2 5.8h-6v-5.4zM99 177.3l5.2 3.3 4.6-5.5-5.8-4.1-4 6.3zM80.7 92.9l.9-1.6-5.2 6.4c-10 9.6 11.4 15.2 7.6 2.1l3.8-4-7.1-2.9zm95.5 4.9c-1-2.3-6.9-7.5-8.4-9.7l1.4 2.2-6.9 3.1 4 3.9c-3.5 9.4 12.5 10.2 9.9.5zm-52.9-80.6l-.7 2h-.7c0 3.9 1.9 7.5 3.1 10.3 5-.6 8.7-5.2 8.4-10.3h-10l-.1-2z"
+      />
     </Svg>
   );
 }

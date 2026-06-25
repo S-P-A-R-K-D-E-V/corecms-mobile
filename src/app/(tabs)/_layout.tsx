@@ -8,7 +8,6 @@ import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { spring } from 'src/theme/motion';
-import { haptics } from 'src/services/haptics';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -86,7 +85,6 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
               if (!route) return;
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!isFocused && !event.defaultPrevented) {
-                haptics.selection();
                 navigation.navigate(tab.name);
               }
             }
