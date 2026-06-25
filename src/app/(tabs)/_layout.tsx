@@ -84,7 +84,9 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
             function onPress() {
               if (!route) return;
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-              if (!isFocused && !event.defaultPrevented) navigation.navigate(tab.name);
+              if (!isFocused && !event.defaultPrevented) {
+                navigation.navigate(tab.name);
+              }
             }
 
             // ── Center tab — white button on rose bg ──────────────────────

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View } from 'react-native';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, SectionCard, EmptyState, Loading } from 'src/components/shared';
-import { Text, Button, Badge, Card, Icon, Pressable, Divider, TextField } from 'src/components/ui';
+import { Text, Button, Badge, Card, Icon, Pressable, Divider, TextField, CountUp } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
+import { toast, confirm } from 'src/components/overlay';
+import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { getUserRoles } from 'src/auth/roles';
 import { extractApiError } from 'src/services/error';
@@ -102,7 +104,7 @@ export function ShiftCashScreen() {
       await openCounter(date, geo ?? undefined);
       await refetch();
     } catch (err) {
-      Alert.alert('Mở quầy thất bại', extractApiError(err));
+      toast.error(extractApiError(err), 'Mở quầy thất bại');
     }
   }
 
@@ -117,23 +119,23 @@ export function ShiftCashScreen() {
       }
       setDenomEditing(false);
       await refetch();
-      Alert.alert('✅ ' + (finalize ? 'Đã chốt tiền' : 'Đã lưu'), finalize ? 'Kết quả kiểm đếm đã được chốt.' : 'Đã lưu số lượng mệnh giá.');
+      haptics.success();
+      toast.success(finalize ? 'Kết quả kiểm đếm đã được chốt.' : 'Đã lưu số lượng mệnh giá.', finalize ? 'Đã chốt tiền' : 'Đã lưu');
     } catch (err) {
-      Alert.alert(finalize ? 'Chốt tiền thất bại' : 'Lưu thất bại', extractApiError(err));
+      haptics.error();
+      toast.error(extractApiError(err), finalize ? 'Chốt tiền thất bại' : 'Lưu thất bại');
     } finally {
       setSavingDenom(false);
     }
   }
 
-  function confirmFinalize() {
-    Alert.alert(
-      'Chốt tiền cuối ca',
-      `Tiền mặt kiểm đếm: ${formatCurrency(totalCash)}đ\nTồn cuối dự kiến: ${formatCurrency(expectedClosing)}đ\nChênh lệch: ${difference >= 0 ? '+' : ''}${formatCurrency(difference)}đ\n\nXác nhận chốt ca?`,
-      [
-        { text: 'Huỷ', style: 'cancel' },
-        { text: 'Chốt ca', onPress: () => persistDenominations(true) },
-      ]
-    );
+  async function confirmFinalize() {
+    const ok = await confirm({
+      title: 'Chốt tiền cuối ca',
+      message: `Tiền mặt kiểm đếm: ${formatCurrency(totalCash)}đ\nTồn cuối dự kiến: ${formatCurrency(expectedClosing)}đ\nChênh lệch: ${difference >= 0 ? '+' : ''}${formatCurrency(difference)}đ\n\nXác nhận chốt ca?`,
+      confirmText: 'Chốt ca',
+    });
+    if (ok) persistDenominations(true);
   }
 
   async function handleSubmitTx(draft: TxDraft) {
@@ -147,28 +149,26 @@ export function ShiftCashScreen() {
       setTx((s) => ({ ...s, visible: false, editing: null }));
       await refetch();
     } catch (err) {
-      Alert.alert('Lưu thất bại', extractApiError(err));
+      toast.error(extractApiError(err), 'Lưu thất bại');
     } finally {
       setTxSaving(false);
     }
   }
 
-  function confirmDeleteTx(t: IShiftCashTransaction) {
-    Alert.alert('Xoá khoản này?', `${t.type} ${formatCurrency(t.amount)}đ${t.note ? ` — ${t.note}` : ''}`, [
-      { text: 'Huỷ', style: 'cancel' },
-      {
-        text: 'Xoá',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteShiftCashTransaction(t.id);
-            await refetch();
-          } catch (err) {
-            Alert.alert('Xoá thất bại', extractApiError(err));
-          }
-        },
-      },
-    ]);
+  async function confirmDeleteTx(t: IShiftCashTransaction) {
+    const ok = await confirm({
+      title: 'Xoá khoản này?',
+      message: `${t.type} ${formatCurrency(t.amount)}đ${t.note ? ` — ${t.note}` : ''}`,
+      confirmText: 'Xoá',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteShiftCashTransaction(t.id);
+      await refetch();
+    } catch (err) {
+      toast.error(extractApiError(err), 'Xoá thất bại');
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -256,9 +256,13 @@ export function ShiftCashScreen() {
                   <Icon name={difference === 0 ? 'check-circle' : 'scale-balance'} size={18} tone={difference >= 0 ? 'success' : 'error'} />
                   <Text variant="subtitle" tone={difference >= 0 ? 'success' : 'error'}>Chênh lệch</Text>
                 </View>
-                <Text variant="title2" tone={difference >= 0 ? 'success' : 'error'} style={{ fontVariant: ['tabular-nums'] }}>
-                  {difference >= 0 ? '+' : ''}{formatCurrency(difference)}đ
-                </Text>
+                <CountUp
+                  variant="title2"
+                  tone={difference >= 0 ? 'success' : 'error'}
+                  style={{ fontVariant: ['tabular-nums'] }}
+                  value={difference}
+                  format={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(Math.round(n))}đ`}
+                />
               </View>
               {summary?.isFinalized ? (
                 <View className="self-start">
@@ -324,7 +328,7 @@ export function ShiftCashScreen() {
                 })}
                 <View className="flex-row items-center pt-2 mt-1 border-t-2 border-line/60 dark:border-line-dark/60">
                   <Text variant="subtitle" className="flex-1">Tổng tiền mặt</Text>
-                  <Text variant="subtitle" tone="primary" style={{ fontVariant: ['tabular-nums'] }}>{formatCurrency(totalCash)}đ</Text>
+                  <CountUp variant="subtitle" tone="primary" style={{ fontVariant: ['tabular-nums'] }} value={totalCash} format={(n) => `${formatCurrency(Math.round(n))}đ`} />
                 </View>
 
                 {denomEditing ? (

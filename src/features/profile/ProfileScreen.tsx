@@ -1,8 +1,9 @@
-import { View, Image, Alert } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 
 import { Screen, SectionCard, ListItem } from 'src/components/shared';
-import { Text, Button, Badge, Icon, Divider } from 'src/components/ui';
+import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
+import { confirm } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
@@ -25,21 +26,18 @@ const TOOLS = [
 
 export function ProfileScreen() {
   const { user, logout } = useAuthContext();
-  const initials = `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() || '??';
   const role = ROLE[user?.role ?? ''] ?? { label: user?.role ?? 'Nhân viên', tone: 'neutral' as const };
 
-  function handleLogout() {
-    Alert.alert(t('settings.logout'), t('settings.logoutConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('settings.logout'),
-        style: 'destructive',
-        onPress: async () => {
-          track(AnalyticsEvent.Logout);
-          try { await logout(); } catch {}
-        },
-      },
-    ]);
+  async function handleLogout() {
+    const ok = await confirm({
+      title: t('settings.logout'),
+      message: t('settings.logoutConfirm'),
+      confirmText: t('settings.logout'),
+      destructive: true,
+    });
+    if (!ok) return;
+    track(AnalyticsEvent.Logout);
+    try { await logout(); } catch {}
   }
 
   return (
@@ -47,13 +45,7 @@ export function ProfileScreen() {
       {/* Header */}
       <View className="items-center rounded-3xl bg-surface dark:bg-surface-dark p-7 border border-line/60 dark:border-line-dark">
         <View className="p-1 rounded-full border-[3px] border-primary/30 mb-3">
-          {user?.photoURL ? (
-            <Image source={{ uri: user.photoURL }} className="w-20 h-20 rounded-full" />
-          ) : (
-            <View className="w-20 h-20 rounded-full bg-primary items-center justify-center">
-              <Text className="text-white text-3xl font-bold">{initials}</Text>
-            </View>
-          )}
+          <Avatar name={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} uri={user?.photoURL} size={80} />
         </View>
         <Text variant="title" className="text-xl">{user?.firstName} {user?.lastName}</Text>
         <Text tone="muted" className="mt-0.5">{user?.email}</Text>

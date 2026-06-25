@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Image, Alert, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 
 import { Screen, AppHeader, Loading } from 'src/components/shared';
-import { Text, Button, TextField, Icon, Pressable, Divider } from 'src/components/ui';
+import { Text, Button, TextField, Icon, Pressable, Divider, Avatar } from 'src/components/ui';
+import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { getStorageUrl } from 'src/api/axios';
 import { getMe, updateMyProfile, uploadMyAvatar, uploadMyIdCard, type RNFile } from 'src/api/users';
@@ -20,7 +21,7 @@ function assetToFile(asset: ImagePicker.ImagePickerAsset, fallback: string): RNF
 async function pickImage(): Promise<ImagePicker.ImagePickerAsset | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
-    Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh.');
+    toast.error('Vui lòng cấp quyền truy cập thư viện ảnh.', 'Cần quyền truy cập');
     return null;
   }
   const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.8 });
@@ -70,7 +71,7 @@ export function EditProfileScreen() {
       setBankCode(me.bankCode ?? '');
       setBankNo(me.bankNo ?? '');
     } catch {
-      Alert.alert(t('common.error'), 'Không thể tải thông tin cá nhân.');
+      toast.error('Không thể tải thông tin cá nhân.');
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ export function EditProfileScreen() {
       await loadProfile();
       await refreshUser();
     } catch (err: any) {
-      Alert.alert(t('common.error'), extractApiError(err));
+      toast.error(extractApiError(err));
     } finally {
       setUploadingAvatar(false);
     }
@@ -103,7 +104,7 @@ export function EditProfileScreen() {
       await uploadMyIdCard(side === 'front' ? file : undefined, side === 'back' ? file : undefined);
       await loadProfile();
     } catch (err: any) {
-      Alert.alert(t('common.error'), extractApiError(err));
+      toast.error(extractApiError(err));
     } finally {
       setUploading(false);
     }
@@ -131,9 +132,10 @@ export function EditProfileScreen() {
         bankNo: bankNo.trim() || undefined,
       });
       await refreshUser();
-      Alert.alert('✅ Đã lưu', 'Thông tin cá nhân đã được cập nhật.', [{ text: 'OK', onPress: () => router.back() }]);
+      toast.success('Thông tin cá nhân đã được cập nhật.', 'Đã lưu');
+      router.back();
     } catch (err: any) {
-      Alert.alert(t('common.error'), extractApiError(err));
+      toast.error(extractApiError(err));
     } finally {
       setSubmitting(false);
     }
@@ -144,7 +146,6 @@ export function EditProfileScreen() {
   }
 
   const avatarUrl = profile?.profileImageUrl ? getStorageUrl(profile.profileImageUrl) : undefined;
-  const initials = `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase() || '??';
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -154,13 +155,7 @@ export function EditProfileScreen() {
           {/* Avatar */}
           <View className="items-center rounded-3xl bg-surface dark:bg-surface-dark p-6 border border-line/60 dark:border-line-dark">
             <Pressable onPress={handlePickAvatar} disabled={uploadingAvatar} className="relative">
-              {avatarUrl ? (
-                <Image source={{ uri: avatarUrl }} className="w-24 h-24 rounded-full" />
-              ) : (
-                <View className="w-24 h-24 rounded-full bg-primary items-center justify-center">
-                  <Text className="text-white text-3xl font-bold">{initials}</Text>
-                </View>
-              )}
+              <Avatar name={`${firstName} ${lastName}`} uri={avatarUrl} size={96} />
               <View className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary items-center justify-center border-2 border-surface dark:border-surface-dark">
                 {uploadingAvatar ? <ActivityIndicator color="#fff" size="small" /> : <Icon name="camera" size={16} color="#FFFFFF" />}
               </View>

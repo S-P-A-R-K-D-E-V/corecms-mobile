@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 
 import { Screen } from 'src/components/shared';
 import { AppHeader } from 'src/components/shared';
 import { Text, Button, TextField, Pressable } from 'src/components/ui';
+import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { extractApiError } from 'src/services/error';
 import { t } from 'src/i18n';
@@ -39,9 +40,9 @@ export function VerifyOtpScreen() {
     setResending(true);
     try {
       await resendOtp(email!);
-      Alert.alert(t('common.success'), 'Đã gửi lại mã OTP');
+      toast.success('Đã gửi lại mã OTP');
     } catch {
-      Alert.alert(t('common.error'), 'Gửi lại thất bại');
+      toast.error('Gửi lại thất bại');
     } finally {
       setResending(false);
     }

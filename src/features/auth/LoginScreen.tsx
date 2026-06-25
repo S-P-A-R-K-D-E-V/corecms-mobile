@@ -1,11 +1,15 @@
 import { useState } from 'react';
-import { View, Alert, Image } from 'react-native';
+import { View } from 'react-native';
+import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
 import { Text, Button, Card, Icon } from 'src/components/ui';
+import { CheckInIllustration } from 'src/components/illustrations';
+import { spring } from 'src/theme/motion';
+import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { extractApiError } from 'src/services/error';
@@ -35,12 +39,12 @@ export function LoginScreen() {
           router.replace('/(tabs)/checkin');
           return;
         }
-        Alert.alert('Đăng nhập thất bại', 'Không nhận được phiên đăng nhập. Vui lòng thử lại.');
+        toast.error('Không nhận được phiên đăng nhập. Vui lòng thử lại.', 'Đăng nhập thất bại');
       }
       // On Android, openAuthSessionAsync returns 'cancel' when the deep link
       // triggers the app to open via intent — handled by src/app/auth/callback.tsx
     } catch (err: any) {
-      Alert.alert('Đăng nhập thất bại', extractApiError(err));
+      toast.error(extractApiError(err), 'Đăng nhập thất bại');
     } finally {
       setLoading(false);
     }
@@ -48,17 +52,33 @@ export function LoginScreen() {
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+      {/* Decorative brand glow */}
+      <View pointerEvents="none" className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/15" />
+      <View pointerEvents="none" className="absolute top-40 -left-20 w-56 h-56 rounded-full bg-secondary/10" />
+
       <View className="flex-1 justify-center px-7 gap-8">
         {/* Brand */}
         <View className="items-center gap-3">
-          <View style={{ shadowColor: '#C84D71', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 12 } }}>
-            <Image source={require('../../../assets/logofill.png')} style={{ width: 84, height: 84 }} resizeMode="contain" />
-          </View>
-          <Text variant="title" className="text-2xl">CiCi Internal App</Text>
-          <Text tone="muted" className="text-center">Hệ thống quản lý nhân sự & chấm công</Text>
+          <MotiView
+            from={{ opacity: 0, scale: 0.8, translateY: 10 }}
+            animate={{ opacity: 1, scale: 1, translateY: 0 }}
+            transition={{ type: 'spring', ...spring.soft }}
+          >
+            <CheckInIllustration size={180} />
+          </MotiView>
+          <MotiView
+            from={{ opacity: 0, translateY: 8 }}
+            animate={{ opacity: 1, translateY: 0 }}
+            transition={{ type: 'timing', delay: 150 }}
+            style={{ alignItems: 'center' }}
+          >
+            <Text variant="title" className="text-2xl">CiCi Internal App</Text>
+            <Text tone="muted" className="text-center mt-1">Hệ thống quản lý nhân sự & chấm công</Text>
+          </MotiView>
         </View>
 
         {/* Login card */}
+        <MotiView from={{ opacity: 0, translateY: 16 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', delay: 280 }}>
         <Card className="p-6 gap-2">
           <Text variant="subtitle">Đăng nhập</Text>
           <Text variant="bodySmall" tone="muted" className="leading-5 mb-4">
@@ -85,6 +105,7 @@ export function LoginScreen() {
             </View>
           </View>
         </Card>
+        </MotiView>
 
         <Text variant="caption" tone="faint" className="text-center">
           Phiên đăng nhập được bảo mật bởi{'\n'}cici21chualang.vn

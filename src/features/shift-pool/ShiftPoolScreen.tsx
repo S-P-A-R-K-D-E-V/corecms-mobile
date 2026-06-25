@@ -1,13 +1,13 @@
 import { useCallback, useState } from 'react';
-import { View, FlatList, RefreshControl, Alert } from 'react-native';
+import { View, FlatList, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { AppHeader, EmptyState, Loading } from 'src/components/shared';
-import { Card, Text, Badge, Button, Pressable, Divider } from 'src/components/ui';
-import { cn } from 'src/components/ui/utils';
-import { brand } from 'src/theme';
+import { Card, Text, Badge, Button, Divider, SegmentedControl, Appear } from 'src/components/ui';
+import { brand, softShadow } from 'src/theme';
+import { toast, confirm, showActionSheet } from 'src/components/overlay';
 import { getOpenPoolPosts, getMyPoolPosts, getMyClaims, claimShiftPoolPost, cancelShiftPoolPost, reviewShiftPoolPost } from 'src/api/shiftPool';
 import { useAuthContext } from 'src/auth/auth-context';
 import { extractApiError } from 'src/services/error';
@@ -34,7 +34,7 @@ export function ShiftPoolScreen() {
       setMine(m);
       setClaims(c);
     } catch {
-      Alert.alert('Lỗi', 'Không thể tải dữ liệu chợ ca.');
+      toast.error('Không thể tải dữ liệu chợ ca.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -46,35 +46,46 @@ export function ShiftPoolScreen() {
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
     try { await fn(); await fetchData(); }
-    catch (err: any) { Alert.alert('Lỗi', extractApiError(err)); }
+    catch (err: any) { toast.error(extractApiError(err)); }
     finally { setBusy(false); }
   }
 
-  function onClaim(post: IShiftPoolPost) {
+  async function onClaim(post: IShiftPoolPost) {
     if (post.needType === 'Swap') {
-      Alert.alert('Đổi ca', 'Để nhận đổi ca (cần chọn ca đổi lại), vui lòng vào màn Lịch làm.', [
-        { text: 'Huỷ', style: 'cancel' },
-        { text: 'Mở Lịch làm', onPress: () => router.push('/(tabs)/schedule') },
-      ]);
+      const ok = await confirm({
+        title: 'Đổi ca',
+        message: 'Để nhận đổi ca (cần chọn ca đổi lại), vui lòng vào màn Lịch làm.',
+        confirmText: 'Mở Lịch làm',
+      });
+      if (ok) router.push('/(tabs)/schedule');
       return;
     }
-    Alert.alert('Nhận làm hộ', `Nhận ${NEED_TYPE_LABEL[post.needType]} ca ${post.shiftName}?`, [
-      { text: 'Huỷ', style: 'cancel' },
-      { text: 'Nhận', onPress: () => run(() => claimShiftPoolPost(post.id, {})) },
-    ]);
+    const ok = await confirm({
+      title: 'Nhận làm hộ',
+      message: `Nhận ${NEED_TYPE_LABEL[post.needType]} ca ${post.shiftName}?`,
+      confirmText: 'Nhận',
+    });
+    if (ok) run(() => claimShiftPoolPost(post.id, {}));
   }
 
-  function onManage(post: IShiftPoolPost) {
+  async function onManage(post: IShiftPoolPost) {
     if (post.status === 'Open') {
-      Alert.alert('Bài đăng', 'Huỷ bài đăng này?', [
-        { text: 'Đóng', style: 'cancel' },
-        { text: 'Huỷ bài', style: 'destructive', onPress: () => run(() => cancelShiftPoolPost(post.id)) },
-      ]);
+      const ok = await confirm({
+        title: 'Huỷ bài đăng',
+        message: 'Huỷ bài đăng này khỏi chợ ca?',
+        confirmText: 'Huỷ bài',
+        destructive: true,
+      });
+      if (ok) run(() => cancelShiftPoolPost(post.id));
     } else if (post.status === 'WaitingApproval') {
-      Alert.alert('Duyệt người nhận', `${post.claimerName ?? 'Có người'} muốn nhận. Xác nhận?`, [
-        { text: 'Từ chối', style: 'destructive', onPress: () => run(() => reviewShiftPoolPost(post.id, { action: 'RejectClaim' })) },
-        { text: 'Xác nhận', onPress: () => run(() => reviewShiftPoolPost(post.id, { action: 'Approve' })) },
-      ]);
+      showActionSheet({
+        title: 'Duyệt người nhận',
+        message: `${post.claimerName ?? 'Có người'} muốn nhận ca này.`,
+        options: [
+          { label: 'Xác nhận', icon: 'check-circle', onPress: () => run(() => reviewShiftPoolPost(post.id, { action: 'Approve' })) },
+          { label: 'Từ chối', icon: 'close-circle', destructive: true, onPress: () => run(() => reviewShiftPoolPost(post.id, { action: 'RejectClaim' })) },
+        ],
+      });
     }
   }
 
@@ -84,13 +95,16 @@ export function ShiftPoolScreen() {
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
       <View className="px-4 pt-2">
         <AppHeader title="Làm hộ ca" back />
-        <View className="flex-row bg-surface dark:bg-surface-dark rounded-xl p-1 mb-2 border border-line/60 dark:border-line-dark">
-          {([['open', `Chợ ca (${open.length})`], ['mine', `Tôi đăng (${mine.length})`], ['claims', `Tôi nhận (${claims.length})`]] as const).map(([key, label]) => (
-            <Pressable key={key} onPress={() => setTab(key)} className={cn('flex-1 py-2 rounded-lg items-center', tab === key && 'bg-primary')}>
-              <Text variant="caption" className={cn('font-semibold', tab === key ? 'text-white' : 'text-muted')}>{label}</Text>
-            </Pressable>
-          ))}
-        </View>
+        <SegmentedControl
+          className="mb-2"
+          value={tab}
+          onChange={(k) => setTab(k as Tab)}
+          segments={[
+            { key: 'open', label: `Chợ ca (${open.length})` },
+            { key: 'mine', label: `Tôi đăng (${mine.length})` },
+            { key: 'claims', label: `Tôi nhận (${claims.length})` },
+          ]}
+        />
       </View>
 
       {loading ? (
@@ -101,7 +115,8 @@ export function ShiftPoolScreen() {
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-4 pb-24 gap-3"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[brand.primary]} tintColor={brand.primary} />}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
+            <Appear index={Math.min(index, 8)}>
             <Card className="p-4 gap-1.5">
               <View className="flex-row items-center justify-between">
                 <Text variant="subtitle">{NEED_TYPE_LABEL[item.needType]} · {item.shiftName}</Text>
@@ -118,6 +133,7 @@ export function ShiftPoolScreen() {
                 <><Divider className="my-1" /><Button size="sm" variant="outline" loading={busy} onPress={() => onManage(item)}>{item.status === 'Open' ? 'Quản lý / Huỷ' : 'Duyệt người nhận'}</Button></>
               ) : null}
             </Card>
+            </Appear>
           )}
           ListEmptyComponent={
             <EmptyState
@@ -130,8 +146,8 @@ export function ShiftPoolScreen() {
       )}
 
       {tab === 'mine' ? (
-        <View className="absolute right-4 bottom-6">
-          <Button fullWidth={false} icon="plus" onPress={() => router.push('/(tabs)/schedule')} className="px-5 rounded-2xl shadow-lg">Đăng ca</Button>
+        <View className="absolute right-4 bottom-6" style={softShadow}>
+          <Button fullWidth={false} icon="plus" onPress={() => router.push('/(tabs)/schedule')} className="px-5 rounded-2xl">Đăng ca</Button>
         </View>
       ) : null}
     </View>

@@ -2,11 +2,28 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
 
-import { Screen, AppHeader, EmptyState, Loading, ErrorView } from 'src/components/shared';
-import { Card, Text, Badge, Icon, Pressable, Appear } from 'src/components/ui';
+import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
+import { Card, Text, Badge, Icon, Pressable, Appear, Skeleton } from 'src/components/ui';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 import { useMyPayroll, fmtMoney } from './hooks';
 import { t } from 'src/i18n';
+
+function PayrollSkeleton() {
+  return (
+    <View className="gap-3">
+      {[0, 1, 2].map((i) => (
+        <Card key={i} className="p-4 gap-3">
+          <View className="flex-row items-center justify-between">
+            <Skeleton width={150} height={16} />
+            <Skeleton width={64} height={22} radius={11} />
+          </View>
+          <Skeleton width={130} height={28} />
+          <Skeleton width="65%" height={12} />
+        </Card>
+      ))}
+    </View>
+  );
+}
 
 function PayrollCard({ rec }: { rec: IPayrollRecord }) {
   return (
@@ -60,7 +77,7 @@ export function PayrollListScreen() {
     <Screen scroll refreshing={isFetching} onRefresh={refetch}>
       <AppHeader title={t('tabs.payroll')} subtitle="Bảng lương của bạn" />
       {isLoading ? (
-        <Loading />
+        <PayrollSkeleton />
       ) : isError ? (
         <ErrorView onRetry={refetch} />
       ) : !data || data.length === 0 ? (

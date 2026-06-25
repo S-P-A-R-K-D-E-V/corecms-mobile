@@ -1,16 +1,54 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image, Alert } from 'react-native';
+import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image } from 'react-native';
+import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
 import dayjs from 'dayjs';
+import isToday from 'dayjs/plugin/isToday';
+import isYesterday from 'dayjs/plugin/isYesterday';
 
 import { AppHeader, Loading } from 'src/components/shared';
 import { Text, Pressable, Icon, Spinner } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
+import { showActionSheet, toast } from 'src/components/overlay';
+import { haptics } from 'src/services/haptics';
+
+dayjs.extend(isToday);
+dayjs.extend(isYesterday);
+
+function DayChip({ iso }: { iso: string }) {
+  const d = dayjs(iso);
+  const label = d.isToday() ? 'Hôm nay' : d.isYesterday() ? 'Hôm qua' : d.format('DD/MM/YYYY');
+  return (
+    <View className="items-center my-2">
+      <View className="px-3 py-1 rounded-full bg-ink/5 dark:bg-white/10">
+        <Text variant="caption" tone="muted" className="font-semibold">{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function TypingBubble() {
+  return (
+    <View className="flex-row justify-start my-1">
+      <View className="flex-row items-center gap-1 px-4 py-3 rounded-2xl bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark">
+        {[0, 1, 2].map((i) => (
+          <MotiView
+            key={i}
+            from={{ opacity: 0.3, translateY: 0 }}
+            animate={{ opacity: 1, translateY: -3 }}
+            transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 420, delay: i * 140 }}
+            className="w-1.5 h-1.5 rounded-full bg-muted"
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
 import { getStorageUrl } from 'src/api/axios';
 import {
   fetchMessages,
@@ -133,6 +171,7 @@ export function ChatDetailScreen() {
   async function handleSend() {
     const content = text.trim();
     if (!content || sending) return;
+    haptics.light();
     setSending(true);
     setText('');
     try {
@@ -152,7 +191,7 @@ export function ChatDetailScreen() {
   async function uploadFiles(files: ChatFile[]) {
     const tooBig = files.find((f) => (f as any).size && (f as any).size > MAX_ATTACHMENT_BYTES);
     if (tooBig) {
-      Alert.alert('Tệp quá lớn', 'Mỗi tệp không được vượt quá 10MB.');
+      toast.warning('Mỗi tệp không được vượt quá 10MB.', 'Tệp quá lớn');
       return;
     }
     setUploading(true);
@@ -160,7 +199,7 @@ export function ChatDetailScreen() {
       await sendAttachment(conversationId!, files, text.trim() || undefined);
       setText('');
     } catch {
-      Alert.alert('Gửi thất bại', 'Không gửi được tệp. Vui lòng thử lại.');
+      toast.error('Không gửi được tệp. Vui lòng thử lại.', 'Gửi thất bại');
     } finally {
       setUploading(false);
     }
@@ -169,7 +208,7 @@ export function ChatDetailScreen() {
   async function pickImages() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert('Cần quyền thư viện ảnh', 'Vui lòng cấp quyền truy cập ảnh để gửi hình.');
+      toast.error('Vui lòng cấp quyền truy cập ảnh để gửi hình.', 'Cần quyền thư viện ảnh');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -213,11 +252,14 @@ export function ChatDetailScreen() {
 
   function handleAttachPress() {
     if (uploading || sending) return;
-    Alert.alert('Đính kèm', 'Chọn loại tệp muốn gửi', [
-      { text: 'Hình ảnh', onPress: pickImages },
-      { text: 'Tệp (pdf, doc, xls…)', onPress: pickDocuments },
-      { text: 'Huỷ', style: 'cancel' },
-    ]);
+    showActionSheet({
+      title: 'Đính kèm',
+      message: 'Chọn loại tệp muốn gửi',
+      options: [
+        { label: 'Hình ảnh', icon: 'image-multiple-outline', onPress: pickImages },
+        { label: 'Tệp (pdf, doc, xls…)', icon: 'file-document-outline', onPress: pickDocuments },
+      ],
+    });
   }
 
   const reversed = [...messages].reverse();
@@ -239,8 +281,18 @@ export function ChatDetailScreen() {
             contentContainerClassName="px-3 py-2"
             onEndReached={loadMore}
             onEndReachedThreshold={0.3}
+            ListHeaderComponent={typing.length > 0 ? <TypingBubble /> : null}
             ListFooterComponent={loadingMore ? <View className="py-2"><Spinner /></View> : null}
-            renderItem={({ item }) => <Bubble msg={item} isMine={item.senderId === user?.id} />}
+            renderItem={({ item, index }) => {
+              const older = reversed[index + 1];
+              const showDate = !older || !dayjs(older.createdAt).isSame(item.createdAt, 'day');
+              return (
+                <>
+                  {showDate ? <DayChip iso={item.createdAt} /> : null}
+                  <Bubble msg={item} isMine={item.senderId === user?.id} />
+                </>
+              );
+            }}
           />
         )}
 

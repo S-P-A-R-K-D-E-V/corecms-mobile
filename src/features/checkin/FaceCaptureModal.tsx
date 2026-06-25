@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
-import { View, Modal, Image, StyleSheet, StatusBar, Alert } from 'react-native';
+import { View, Modal, Image, StyleSheet, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView } from 'expo-camera';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import dayjs from 'dayjs';
 
 import { Text, Button, Pressable, Icon } from 'src/components/ui';
+import { toast } from 'src/components/overlay';
 import { t } from 'src/i18n';
 import type { Coords } from './utils';
 
@@ -39,7 +40,7 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
       setCapturedUri(photo.uri);
       setCaptureTime(new Date());
     } catch {
-      Alert.alert(t('common.error'), 'Không thể chụp ảnh. Vui lòng thử lại.');
+      toast.error('Không thể chụp ảnh. Vui lòng thử lại.');
     }
   }
 
@@ -67,10 +68,10 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={handleClose}>
-      <StatusBar barStyle="light-content" backgroundColor="#1C252E" />
+      <StatusBar barStyle="light-content" backgroundColor="#17131A" />
       <View className="flex-1 bg-black">
         {/* Top bar */}
-        <View style={{ paddingTop: insets.top }} className="bg-[#1C252E]">
+        <View style={{ paddingTop: insets.top }} className="bg-[#17131A]">
           <View className="flex-row items-center px-2 py-1">
             <Pressable onPress={handleClose} className="w-11 h-11 items-center justify-center">
               <Icon name="close" size={24} color="#FFFFFF" />
@@ -94,6 +95,13 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
           {!capturedUri ? (
             <>
               <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
+              {/* Face alignment guide */}
+              <View pointerEvents="none" style={StyleSheet.absoluteFill} className="items-center justify-center">
+                <View
+                  style={{ width: 220, height: 280, borderRadius: 140, borderWidth: 3, borderColor: 'rgba(255,255,255,0.6)' }}
+                />
+                <Text className="text-white/80 mt-5 text-[13px] font-semibold">Đưa khuôn mặt vào khung</Text>
+              </View>
               {overlay(new Date())}
             </>
           ) : (
@@ -113,7 +121,7 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
         </View>
 
         {/* Actions */}
-        <View className="bg-[#1C252E]" style={{ paddingBottom: insets.bottom }}>
+        <View className="bg-[#17131A]" style={{ paddingBottom: insets.bottom }}>
           <View className="p-5 gap-3">
             {!capturedUri ? (
               <Button action="neutral" className="bg-white" onPress={handleCapture} icon="camera">

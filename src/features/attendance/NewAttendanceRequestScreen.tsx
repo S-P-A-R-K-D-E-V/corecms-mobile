@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { View, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, KeyboardAvoidingView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader } from 'src/components/shared';
 import { Text, Button, TextField, Icon, Pressable, Divider, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
+import { toast } from 'src/components/overlay';
 import { createAttendanceRequest } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
-import { t } from 'src/i18n';
 import type { ICreateAttendanceRequestDto } from 'src/types/corecms-api';
 
 type RequestType = ICreateAttendanceRequestDto['type'];
@@ -48,9 +48,10 @@ export function NewAttendanceRequestScreen() {
         requestedCheckIn: type === 'AdjustCheckIn' ? dayjs(`${date}T${checkInTime}`).toISOString() : undefined,
         requestedCheckOut: type === 'AdjustCheckOut' ? dayjs(`${date}T${checkOutTime}`).toISOString() : undefined,
       });
-      Alert.alert('✅ Gửi thành công', 'Yêu cầu đã được gửi và đang chờ quản lý duyệt.', [{ text: 'OK', onPress: () => router.back() }]);
+      toast.success('Yêu cầu đã được gửi và đang chờ quản lý duyệt.', 'Gửi thành công');
+      router.back();
     } catch (err: any) {
-      Alert.alert(t('common.error'), extractApiError(err));
+      toast.error(extractApiError(err));
     } finally {
       setSubmitting(false);
     }
