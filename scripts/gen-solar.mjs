@@ -121,7 +121,7 @@ const MAP = {
   'image-multiple-outline': 'gallery-bold-duotone',
   // misc
   'lightning-bolt': 'bolt-bold-duotone',
-  'bullhorn-outline': 'megaphone-bold-duotone',
+  'bullhorn-outline': 'speaker-bold-duotone',
   'cloud-off-outline': 'cloud-cross-bold-duotone',
   'fingerprint': 'fingerprint-bold-duotone',
   'swap-horizontal': 'transfer-horizontal-bold-duotone',
@@ -130,6 +130,16 @@ const MAP = {
   'scale-balance': 'scale-bold-duotone',
   'message-text-outline': 'chat-line-bold-duotone',
   'login-variant': 'login-2-bold-duotone',
+  // tab-bar active(bold-duotone)/inactive(linear) pairs
+  'tab-schedule-off': 'calendar-linear',
+  'tab-schedule-on': 'calendar-bold-duotone',
+  'tab-payroll-off': 'wallet-linear',
+  'tab-payroll-on': 'wallet-bold-duotone',
+  'tab-checkin-on': 'face-scan-circle-bold-duotone',
+  'tab-chat-off': 'chat-round-line-linear',
+  'tab-chat-on': 'chat-round-bold-duotone',
+  'tab-profile-off': 'user-circle-linear',
+  'tab-profile-on': 'user-circle-bold-duotone',
 };
 
 const uniqueSolar = [...new Set(Object.values(MAP))];
