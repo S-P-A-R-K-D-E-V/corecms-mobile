@@ -4,16 +4,16 @@ import { Spinner } from './spinner';
 import { Icon, type IconName } from './icon';
 import { PressableScale } from './pressable-scale';
 import { cn } from './utils';
-import { brand, softShadow } from 'src/theme';
+import { brand, coloredShadow } from 'src/theme';
 
-type Variant = 'solid' | 'outline' | 'ghost';
+type Variant = 'solid' | 'soft' | 'outline' | 'ghost';
 type Action = 'primary' | 'error' | 'neutral';
 type Size = 'sm' | 'md' | 'lg';
 
 const sizeClass: Record<Size, string> = {
-  sm: 'h-9 px-3.5 rounded-[12px]',
-  md: 'h-12 px-4 rounded-[14px]',
-  lg: 'h-[50px] px-5 rounded-[16px]',
+  sm: 'h-9 px-3.5 rounded-[8px]',
+  md: 'h-12 px-4 rounded-[10px]',
+  lg: 'h-[50px] px-5 rounded-[12px]',
 };
 const sizeText: Record<Size, string> = { sm: 'text-[14px]', md: 'text-[15px]', lg: 'text-[17px]' };
 
@@ -21,6 +21,13 @@ function styles(variant: Variant, action: Action): { box: string; label: string;
   if (variant === 'solid') {
     const bg: Record<Action, string> = { primary: 'bg-primary', error: 'bg-error', neutral: 'bg-ink dark:bg-surface-dark' };
     return { box: bg[action], label: 'text-white', icon: '#FFFFFF', shadow: action === 'primary' };
+  }
+  if (variant === 'soft') {
+    // Minimal "soft": alpha(main, 0.16) fill + tinted label. The core-fe default.
+    const fill: Record<Action, string> = { primary: 'bg-primary-soft', error: 'bg-error-soft', neutral: 'bg-ink/10 dark:bg-white/10' };
+    const fg: Record<Action, string> = { primary: 'text-primary', error: 'text-error', neutral: 'text-ink dark:text-ink-dark' };
+    const iconHex: Record<Action, string> = { primary: brand.primary, error: brand.error, neutral: brand.ink };
+    return { box: fill[action], label: fg[action], icon: iconHex[action], shadow: false };
   }
   if (variant === 'outline') {
     // Apple "secondary": soft translucent fill + hairline, tinted by action.
@@ -74,7 +81,7 @@ export function Button({
           isDisabled && 'opacity-40',
           className
         )}
-        style={s.shadow && !isDisabled ? softShadow : undefined}
+        style={s.shadow && !isDisabled ? coloredShadow(brand.primary) : undefined}
       >
         {loading ? (
           <Spinner color={variant === 'solid' ? '#FFFFFF' : s.icon} />

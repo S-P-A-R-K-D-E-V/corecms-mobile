@@ -18,6 +18,8 @@ export const PrefKeys = {
   onboardingDone: 'pref.onboardingDone',
   colorScheme: 'pref.colorScheme', // 'light' | 'dark' | 'system'
   language: 'pref.language',
+  fontFamily: 'pref.fontFamily', // 'system' | 'publicSans'
+  fontScale: 'pref.fontScale',   // 'small' | 'medium' | 'large' | 'xlarge'
 } as const;
 
 export const secure = {

@@ -1,28 +1,35 @@
 import { Tabs } from 'expo-router';
 import { View, Pressable, Text } from 'react-native';
-import { MotiView, MotiText } from 'moti';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MotiView, MotiText, AnimatePresence } from 'moti';
+import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
+import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
 import { spring } from 'src/theme/motion';
-
-type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 // Rose gradient — matches check-in hero card palette
 const NAV_COLORS: [string, string, string] = ['#D86A88', '#C84D71', '#A83C5D'];
 
-const TABS: { name: string; icon: IconName; label: string }[] = [
-  { name: 'schedule', icon: 'calendar-blank-outline', label: 'Lịch làm' },
-  { name: 'payroll',  icon: 'wallet-outline',          label: 'Lương' },
-  { name: 'checkin', icon: 'face-recognition',               label: 'Điểm danh' }, // index 2 = center
-  { name: 'chat',     icon: 'message-outline',          label: 'Chat' },
-  { name: 'profile',  icon: 'account-circle-outline',   label: 'Tôi' },
+// Solar icons (bold-duotone when active, linear when idle) keyed into the registry.
+type TabDef = { name: string; off?: string; on: string; label: string };
+const TABS: TabDef[] = [
+  { name: 'schedule', off: 'tab-schedule-off', on: 'tab-schedule-on', label: 'Lịch làm' },
+  { name: 'payroll', off: 'tab-payroll-off', on: 'tab-payroll-on', label: 'Lương' },
+  { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // index 2 = center
+  { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
+  { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
 
 const PILL_H = 72;
+
+function TabIcon({ xmlKey, size, color }: { xmlKey?: string; size: number; color: string }) {
+  const xml = xmlKey ? SOLAR_ICONS[xmlKey] : undefined;
+  if (!xml) return null;
+  return <SvgXml xml={xml} width={size} height={size} color={color} />;
+}
 
 function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
   const insets = useSafeAreaInsets();
@@ -38,24 +45,11 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
   }
 
   return (
-    // Normal-flow container so React Navigation auto-adds content padding.
-    // Background matches darkest gradient stop — covers safe-area zone on all devices.
     <View
       pointerEvents="box-none"
-      style={{
-        position: 'absolute',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'transparent',
-      }}
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' }}
     >
-      <View
-        style={{
-          marginHorizontal: 12,
-          marginBottom: bottomPad,
-        }}
-      >
+      <View style={{ marginHorizontal: 12, marginBottom: bottomPad }}>
         <LinearGradient
           colors={NAV_COLORS}
           start={{ x: 0, y: 0 }}
@@ -63,10 +57,9 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
           style={{
             flexDirection: 'row',
             height: PILL_H,
-            borderRadius: 22,
-            paddingHorizontal: 2,
+            borderRadius: 24,
+            paddingHorizontal: 6,
             alignItems: 'center',
-            // Subtle top highlight for glass feel
             borderTopWidth: 1,
             borderTopColor: 'rgba(255,255,255,0.22)',
             shadowColor: '#C84D71',
@@ -89,26 +82,17 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
               }
             }
 
-            // ── Center tab — white button on rose bg ──────────────────────
+            // ── Center tab — elevated brand face-scan button ──────────────
             if (isCenter) {
               return (
-                <Pressable key={tab.name} onPress={onPress}
-                  style={{
-                    flex: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    paddingVertical: 4,
-                  }}>
+                <Pressable
+                  key={tab.name}
+                  onPress={onPress}
+                  style={{ width: 66, alignItems: 'center', justifyContent: 'center', gap: 5 }}
+                >
                   <MotiView
-                    animate={{
-                      scale: isFocused ? [1, 1.08, 1] : 1,
-                    }}
-                    transition={{
-                      type: 'timing',
-                      duration: 1800,
-                      loop: isFocused,
-                    }}
+                    animate={{ scale: isFocused ? [1, 1.08, 1] : 1 }}
+                    transition={{ type: 'timing', duration: 1800, loop: isFocused }}
                     style={{
                       width: 54,
                       height: 54,
@@ -124,36 +108,15 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                   >
                     <LinearGradient
                       colors={['#FFE5EC', '#F48FB1', '#C84D71']}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
+                      style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      <MaterialCommunityIcons
-                        name="face-recognition"
-                        size={26}
-                        color="white"
-                      />
-
+                      <TabIcon xmlKey={tab.on} size={28} color="white" />
                       {/* tia scan */}
                       {isFocused && (
                         <MotiView
-                          from={{
-                            translateY: -25,
-                            opacity: 0.2,
-                          }}
-                          animate={{
-                            translateY: 25,
-                            opacity: 1,
-                          }}
-                          transition={{
-                            type: 'timing',
-                            duration: 1200,
-                            loop: true,
-                            repeatReverse: true,
-                          }}
+                          from={{ translateY: -25, opacity: 0.2 }}
+                          animate={{ translateY: 25, opacity: 1 }}
+                          transition={{ type: 'timing', duration: 1200, loop: true, repeatReverse: true }}
                           style={{
                             position: 'absolute',
                             width: 40,
@@ -167,23 +130,12 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                         />
                       )}
                     </LinearGradient>
-
                     {/* vòng radar */}
                     {isFocused && (
                       <MotiView
-                        from={{
-                          scale: 1,
-                          opacity: 0.5,
-                        }}
-                        animate={{
-                          scale: 1.6,
-                          opacity: 0,
-                        }}
-                        transition={{
-                          type: 'timing',
-                          duration: 1500,
-                          loop: true,
-                        }}
+                        from={{ scale: 1, opacity: 0.5 }}
+                        animate={{ scale: 1.6, opacity: 0 }}
+                        transition={{ type: 'timing', duration: 1500, loop: true }}
                         style={{
                           position: 'absolute',
                           width: 54,
@@ -195,42 +147,58 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                       />
                     )}
                   </MotiView>
-                  <Text style={{
-                    color: 'white',
-                    fontSize: 10, fontWeight: '700', letterSpacing: 0.1,
-                  }}>{tab.label}</Text>
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}>{tab.label}</Text>
                 </Pressable>
               );
             }
 
-            // ── Regular tabs ──────────────────────────────────────────────
+            // ── Side tabs — floating pill that expands to icon+label on focus ──
             return (
-              <Pressable key={tab.name} onPress={onPress}
-                style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-                <MotiView
-                  animate={{ scale: isFocused ? 1.04 : 1, translateY: isFocused ? -1 : 0 }}
-                  transition={{ type: 'spring', ...spring.soft }}
-                  style={{ padding: 5, borderRadius: 11, position: 'relative' }}
-                >
-                  {isFocused ? (
-                    <View style={{
-                      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-                      borderRadius: 11,
-                      backgroundColor: 'rgba(255,255,255,0.18)',
-                    }} />
-                  ) : null}
-                  <MaterialCommunityIcons
-                    name={tab.icon} size={22}
-                    color={isFocused ? 'white' : 'rgba(255,255,255,0.55)'}
-                  />
-                </MotiView>
-                <Text style={{
-                  color: isFocused ? 'white' : 'rgba(255,255,255,0.55)',
-                  fontSize: 10,
-                  fontWeight: isFocused ? '600' : '400',
-                  letterSpacing: 0.1,
-                }}>{tab.label}</Text>
-              </Pressable>
+              <MotiView
+                key={tab.name}
+                animate={{ flexGrow: isFocused ? 2.6 : 1 }}
+                transition={{ type: 'spring', ...spring.soft }}
+                style={{ flexBasis: 0, height: '100%', justifyContent: 'center' }}
+              >
+                <Pressable onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                  <MotiView
+                    animate={{
+                      backgroundColor: isFocused ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0)',
+                      paddingHorizontal: isFocused ? 14 : 0,
+                    }}
+                    transition={{ type: 'spring', ...spring.soft }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      height: 46,
+                      borderRadius: 16,
+                      gap: 7,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <TabIcon
+                      xmlKey={isFocused ? tab.on : tab.off}
+                      size={24}
+                      color={isFocused ? 'white' : 'rgba(255,255,255,0.62)'}
+                    />
+                    <AnimatePresence>
+                      {isFocused ? (
+                        <MotiText
+                          key="label"
+                          from={{ opacity: 0, translateX: -6 }}
+                          animate={{ opacity: 1, translateX: 0 }}
+                          exit={{ opacity: 0, translateX: -6 }}
+                          transition={{ type: 'timing', duration: 200 }}
+                          numberOfLines={1}
+                          style={{ color: 'white', fontSize: 13, fontWeight: '700', letterSpacing: 0.1 }}
+                        >
+                          {tab.label}
+                        </MotiText>
+                      ) : null}
+                    </AnimatePresence>
+                  </MotiView>
+                </Pressable>
+              </MotiView>
             );
           })}
         </LinearGradient>

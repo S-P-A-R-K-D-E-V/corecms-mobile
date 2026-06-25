@@ -7,6 +7,7 @@ import { Icon, type IconName } from './icon';
 import { cn } from './utils';
 import { brand } from 'src/theme';
 import { spring } from 'src/theme/motion';
+import { useFontSettings, resolveFontFamily } from 'src/theme/FontProvider';
 
 export type TextFieldProps = TextInputProps & {
   label?: string;
@@ -25,6 +26,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
   const [focused, setFocused] = useState(false);
+  const fam = resolveFontFamily(useFontSettings().family);
 
   const idleBorder = error ? brand.error : dark ? '#38383A' : '#E2E2E7';
   const fill = dark ? 'rgba(255,255,255,0.06)' : '#F2F2F7';
@@ -39,7 +41,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           flexDirection: 'row',
           alignItems: multiline ? 'flex-start' : 'center',
           gap: 8,
-          borderRadius: 14,
+          borderRadius: 10,
           borderWidth: 1,
           minHeight: 48,
           paddingHorizontal: 14,
@@ -55,6 +57,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}
           onBlur={(e) => { setFocused(false); onBlur?.(e); }}
           className={cn('flex-1 text-[16px] text-ink dark:text-ink-dark', className)}
+          style={fam ? { fontFamily: fam } : undefined}
           {...props}
         />
       </MotiView>
