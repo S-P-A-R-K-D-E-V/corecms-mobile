@@ -19,7 +19,7 @@ module.exports = {
         '2xl': `${radius['2xl']}px`,
       },
       fontFamily: {
-        sans: ['System'],
+        sans: ['PublicSans'],
       },
     },
   },

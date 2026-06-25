@@ -30,8 +30,9 @@ export function ToggleRow({ icon, iconColor = brand.primary, title, description,
         value={value}
         onValueChange={onToggle}
         disabled={disabled}
-        trackColor={{ false: brand.line, true: `${iconColor}60` }}
-        thumbColor={value ? iconColor : '#BDBDBD'}
+        trackColor={{ false: brand.faint, true: iconColor }}
+        thumbColor="#FFFFFF"
+        ios_backgroundColor={brand.faint}
         style={Platform.OS === 'ios' ? { transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] } : undefined}
       />
     </View>

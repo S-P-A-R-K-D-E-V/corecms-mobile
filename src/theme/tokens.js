@@ -77,13 +77,14 @@ const colors = {
   },
 };
 
+// Minimal shape: base radius 8, cards 16.
 const radius = {
-  sm: 10,
-  md: 14,
-  lg: 18,
-  card: 20,
-  xl: 24,
-  '2xl': 28,
+  sm: 8,
+  md: 10,
+  lg: 12,
+  card: 16,
+  xl: 16,
+  '2xl': 20,
   full: 999,
 };
 

@@ -44,12 +44,12 @@ export type TextProps = RNTextProps & {
 export function Text({ className, variant = 'body', tone = 'default', bold, ...props }: TextProps) {
   return (
     <RNText
-      className={cn(variantClass[variant], toneClass[tone], bold && 'font-bold', className)}
+      className={cn('font-sans', variantClass[variant], toneClass[tone], bold && 'font-bold', className)}
       {...props}
     />
   );
 }
 
 export function Heading({ className, tone = 'default', ...props }: Omit<TextProps, 'variant'>) {
-  return <RNText className={cn(variantClass.largeTitle, toneClass[tone], className)} {...props} />;
+  return <RNText className={cn('font-sans', variantClass.largeTitle, toneClass[tone], className)} {...props} />;
 }

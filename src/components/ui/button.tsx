@@ -11,9 +11,9 @@ type Action = 'primary' | 'error' | 'neutral';
 type Size = 'sm' | 'md' | 'lg';
 
 const sizeClass: Record<Size, string> = {
-  sm: 'h-9 px-3.5 rounded-[12px]',
-  md: 'h-12 px-4 rounded-[14px]',
-  lg: 'h-[50px] px-5 rounded-[16px]',
+  sm: 'h-9 px-3.5 rounded-[8px]',
+  md: 'h-12 px-4 rounded-[10px]',
+  lg: 'h-[50px] px-5 rounded-[12px]',
 };
 const sizeText: Record<Size, string> = { sm: 'text-[14px]', md: 'text-[15px]', lg: 'text-[17px]' };
 

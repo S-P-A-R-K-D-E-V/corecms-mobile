@@ -3,6 +3,7 @@ export { Text, Heading } from './text';
 export { Button } from './button';
 export { Card } from './card';
 export { Badge } from './badge';
+export { Chip } from './chip';
 export { TextField } from './input';
 export { Icon } from './icon';
 export type { IconName } from './icon';
