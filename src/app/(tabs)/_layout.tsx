@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
+import { Icon } from 'src/components/ui';
 import { spring } from 'src/theme/motion';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -131,7 +132,7 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                         justifyContent: 'center',
                       }}
                     >
-                      <MaterialCommunityIcons
+                      <Icon
                         name="face-recognition"
                         size={26}
                         color="white"
@@ -219,7 +220,7 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
                       backgroundColor: 'rgba(255,255,255,0.18)',
                     }} />
                   ) : null}
-                  <MaterialCommunityIcons
+                  <Icon
                     name={tab.icon} size={22}
                     color={isFocused ? 'white' : 'rgba(255,255,255,0.55)'}
                   />
