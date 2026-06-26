@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef } from 'react';
 import { Screen, AppHeader } from 'src/components/shared';
 import { Text, Button, Icon, BrandGradient, type IconName } from 'src/components/ui';
 import { useGpsGate, type Coords } from 'src/hooks/use-gps-gate';
+import { formatDistance } from 'src/services/geo';
 
 // Toạ độ đã xác minh ở cổng GPS — màn con đọc để gửi kèm thao tác (ghi audit).
 const ShiftCashGpsContext = createContext<Coords | null>(null);
@@ -15,8 +16,8 @@ export const useShiftCashGps = () => useContext(ShiftCashGpsContext);
 // ----------------------------------------------------------------------
 
 export function ShiftCashGpsGate({ children }: { children: React.ReactNode }) {
-  // Chặn cứng: bắt buộc có GPS mới vào được Kiểm tiền quầy (không fallback).
-  const gps = useGpsGate({ hardBlock: true });
+  // Chặn cứng + bắt buộc đang trong khu vực cửa hàng (geofence) mới vào được.
+  const gps = useGpsGate({ hardBlock: true, requireGeofence: true });
 
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -35,7 +36,24 @@ export function ShiftCashGpsGate({ children }: { children: React.ReactNode }) {
   }
 
   const isError = gps.status === 'error';
-  const icon: IconName = isError ? 'map-marker-alert' : 'map-marker-radius';
+  // GPS lấy được nhưng đang ở ngoài bán kính cửa hàng.
+  const isOutside = gps.status === 'ready' && !gps.within;
+  const showRetry = isError || isOutside;
+  const icon: IconName = isError ? 'map-marker-alert' : isOutside ? 'map-marker-off' : 'map-marker-radius';
+
+  const title = isError
+    ? 'Cần quyền vị trí (GPS)'
+    : isOutside
+      ? 'Bạn đang ở ngoài cửa hàng'
+      : 'Đang xác định vị trí…';
+
+  const message = isError
+    ? 'Kiểm tiền quầy bắt buộc xác nhận bạn đang ở quầy. Vui lòng bật định vị và cấp quyền vị trí, sau đó thử lại.'
+    : isOutside
+      ? gps.nearest
+        ? `Bạn cách ${gps.nearest.branch.branchName} khoảng ${formatDistance(gps.nearest.distance)} (cho phép trong ${gps.nearest.radius}m). Hãy đến quầy rồi thử lại.`
+        : 'Bạn đang ở ngoài khu vực cửa hàng. Hãy đến quầy rồi thử lại.'
+      : 'Tính năng Kiểm tiền quầy cần xác nhận bạn đang ở quầy, tương tự check-in.';
 
   return (
     <Screen tabBarInset={false} edges={['top', 'bottom']}>
@@ -48,17 +66,11 @@ export function ShiftCashGpsGate({ children }: { children: React.ReactNode }) {
         </BrandGradient>
 
         <View className="items-center gap-1.5">
-          <Text variant="title2" className="text-center">
-            {isError ? 'Cần quyền vị trí (GPS)' : 'Đang xác định vị trí…'}
-          </Text>
-          <Text tone="muted" className="text-center leading-5">
-            {isError
-              ? 'Kiểm tiền quầy bắt buộc xác nhận bạn đang ở quầy. Vui lòng bật định vị và cấp quyền vị trí, sau đó thử lại.'
-              : 'Tính năng Kiểm tiền quầy cần xác nhận bạn đang ở quầy, tương tự check-in.'}
-          </Text>
+          <Text variant="title2" className="text-center">{title}</Text>
+          <Text tone="muted" className="text-center leading-5">{message}</Text>
         </View>
 
-        {isError ? (
+        {showRetry ? (
           <Button variant="outline" icon="refresh" fullWidth={false} onPress={() => gps.retry()}>
             Thử lại
           </Button>

@@ -30,6 +30,8 @@ import {
   formatTime,
   formatCountdown,
   nearestBranchDistance,
+  findNearestBranch,
+  reverseGeocode,
   formatDistance,
   type Coords,
   type GpsStatus,
@@ -145,6 +147,18 @@ export function CheckinScreen() {
   // Chi nhánh (cửa hàng) để tính & hiển thị khoảng cách GPS cho người dùng
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
   const branchDistanceM = coords && branchesQ.data ? nearestBranchDistance(coords, branchesQ.data) : null;
+  const nearestBranch = coords && branchesQ.data ? findNearestBranch(coords, branchesQ.data) : null;
+
+  // Địa chỉ cụ thể (reverse-geocode như core-fe) để in vào ảnh check-in.
+  const [address, setAddress] = useState<string | null>(null);
+  useEffect(() => {
+    if (!coords) { setAddress(null); return; }
+    let cancelled = false;
+    reverseGeocode(coords).then((a) => { if (!cancelled) setAddress(a); });
+    return () => { cancelled = true; };
+  }, [coords?.latitude, coords?.longitude]);
+  const overlayAddress =
+    [nearestBranch?.within ? nearestBranch.branch.branchName : null, address].filter(Boolean).join(' · ') || null;
   // Check-in ngoài giờ + fallback khi GPS lỗi (đồng bộ hành vi core-fe)
   const [checkinMode, setCheckinMode] = useState<'smart' | 'overtime'>('smart');
   const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
@@ -161,13 +175,21 @@ export function CheckinScreen() {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') { setGpsStatus('error'); return null; }
     try {
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      // Hiển thị ngay vị trí gần nhất đã biết (gần như tức thì) để không phải chờ.
+      const last = await Location.getLastKnownPositionAsync();
+      if (last) {
+        setCoords({ latitude: last.coords.latitude, longitude: last.coords.longitude, accuracy: last.coords.accuracy ?? undefined });
+        setGpsStatus('ready');
+      }
+      // Sau đó refine bằng định vị thực tế (Balanced nhanh hơn High, đủ chính xác để chấm công).
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const c: Coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
       setCoords(c);
       setGpsStatus('ready');
       return c;
     } catch {
-      setGpsStatus('error');
+      // Nếu chưa có toạ độ nào (kể cả last-known) thì coi là lỗi.
+      setGpsStatus((prev) => (prev === 'ready' ? 'ready' : 'error'));
       return null;
     }
   }
@@ -207,15 +229,11 @@ export function CheckinScreen() {
     }
     haptics.light();
     setCheckinMode(mode);
-    setSubmitting(true);
-    const c = await fetchGps();
-    setSubmitting(false);
-    // Cho phép tiếp tục nếu có GPS, hoặc đã bật fallback (sau 5s GPS lỗi)
-    if (!c && !gpsFallback) {
-      toast.warning('Chưa lấy được vị trí. Nếu GPS lỗi, nút sẽ tự cho phép check-in không kèm vị trí sau vài giây.', 'Đang lấy GPS…');
-      return;
-    }
+    // Mở camera NGAY — không chờ GPS (trước đây await GPS khiến nút "không phản hồi"
+    // và camera mở rất chậm). GPS chạy song song; modal tự hiện trạng thái "đang
+    // kiểm tra GPS" và chỉ cho xác nhận khi đã có vị trí (hoặc fallback sau 5s).
     setModalOpen(true);
+    if (gpsStatus !== 'ready' && gpsStatus !== 'loading') fetchGps();
   }
 
   async function handleOvertimePress() {
@@ -551,6 +569,9 @@ export function CheckinScreen() {
       <FaceCaptureModal
         visible={modalOpen}
         coords={coords}
+        address={overlayAddress}
+        gpsStatus={gpsStatus}
+        canSubmit={gpsStatus === 'ready' || gpsFallback}
         loading={submitting}
         onClose={() => setModalOpen(false)}
         onConfirm={handleConfirmCheckIn}

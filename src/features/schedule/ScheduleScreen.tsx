@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
@@ -15,6 +15,8 @@ import {
   createShiftPoolPost, claimShiftPoolPost, cancelShiftPoolPost, reviewShiftPoolPost,
 } from 'src/api/shiftPool';
 import { extractApiError } from 'src/services/error';
+import { rescheduleShiftReminders } from 'src/services/shift-reminders';
+import { useNotificationSettings } from 'src/hooks/use-notification-settings';
 import { t } from 'src/i18n';
 import type { IMyScheduleItem, IShiftRegistration, IShiftPoolPost, PoolNeedType, PartialCoverSide } from 'src/types/corecms-api';
 
@@ -59,6 +61,30 @@ function shiftTone(item: IMyScheduleItem): EventTone {
   if (item.hasCheckedOut) return 'done';
   if (item.hasCheckedIn) return isLateShift(item) ? 'late' : 'working';
   return 'scheduled';
+}
+
+// Giờ "HH:mm" từ chuỗi BE "yyyy-MM-dd HH:mm:ss".
+function timePart(s?: string): string | null {
+  if (!s) return null;
+  const part = s.includes(' ') ? s.split(' ')[1] : s;
+  return part?.slice(0, 5) || null;
+}
+
+// Hai khoảng giờ "HH:mm" có giao nhau không (so sánh chuỗi đủ dùng trong ngày).
+function timeOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return aStart < bEnd && bStart < aEnd;
+}
+
+// Phụ đề ca được phân: giờ check-in/out (nếu có) + trạng thái chợ ca.
+function assignmentSub(a: IMyScheduleItem, pool?: IShiftPoolPost): string | undefined {
+  const parts: string[] = [];
+  const tin = timePart(a.checkInTime);
+  const tout = timePart(a.checkOutTime);
+  if (tin) parts.push(`Vào ${tin}`);
+  if (tout) parts.push(`Ra ${tout}`);
+  if (pool?.status === 'WaitingApproval' && pool.claimerName) parts.push(`Người nhận: ${pool.claimerName} · Chờ duyệt`);
+  else if (pool) parts.push(NEED_TYPE_LABEL[pool.needType]);
+  return parts.length ? parts.join(' · ') : undefined;
 }
 
 // ── Mini số liệu tuần & chú thích màu (giống core-fe) ────────────────────────
@@ -155,7 +181,13 @@ function AgendaDay({
   const dayClaims      = layers.has('my-claim')
     ? myClaims.filter((p) => p.shiftDate === key && p.status === 'WaitingApproval')
     : [];
-  const dayRegs = registrations.filter((r) => r.date === key);
+  // Gộp lịch đăng ký với ca được phân: nếu một ca đăng ký trùng ca đã được phân
+  // (cùng shiftSchedule hoặc trùng giờ) thì bỏ dòng đăng ký — ca được phân đã đại diện.
+  const dayRegs = registrations
+    .filter((r) => r.date === key)
+    .filter((r) => !dayAssignments.some(
+      (a) => a.shiftScheduleId === r.shiftScheduleId || timeOverlap(a.startTime, a.endTime, r.startTime, r.endTime),
+    ));
 
   const allRows = [
     ...dayAssignments.map((a) => ({
@@ -164,13 +196,7 @@ function AgendaDay({
       end: a.endTime,
       tone: shiftTone(a) as EventTone,
       label: a.shiftName,
-      sub: (() => {
-        const pool = postedMap.get(a.assignmentId);
-        if (pool?.status === 'WaitingApproval' && pool.claimerName)
-          return `Người nhận: ${pool.claimerName} · Chờ duyệt`;
-        if (pool) return NEED_TYPE_LABEL[pool.needType];
-        return undefined;
-      })(),
+      sub: assignmentSub(a, postedMap.get(a.assignmentId)),
       onPress: !a.hasCheckedOut ? () => onPressShift(a) : undefined,
     })),
     ...dayOpenPosts.map((p) => ({
@@ -260,6 +286,13 @@ export function ScheduleScreen() {
 
   const { assignments, registrations, openPosts, myPosts, myClaims, refreshing, refetch } =
     useScheduleData(weekStart.format('YYYY-MM-DD'));
+
+  // Nhắc trước 30p khi sắp đến ca — đặt lại local notification mỗi khi lịch đổi.
+  const { prefs } = useNotificationSettings();
+  const reminderOn = prefs.globalEnabled && prefs.categories.Shift && prefs.shiftReminderEnabled;
+  useEffect(() => {
+    rescheduleShiftReminders(assignments, reminderOn);
+  }, [assignments, reminderOn]);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day')),

@@ -108,6 +108,7 @@ export const endpoints = {
     unreadCount: '/notifications/unread-count',
     markAsRead: (id: string) => `/notifications/${id}/read`,
     markAllAsRead: '/notifications/read-all',
+    detail: (id: string) => `/notifications/${id}`,
     pushToken: '/notifications/push-token',
   },
   messenger: {

@@ -9,9 +9,10 @@ import { AppHeader, EmptyState, Loading } from 'src/components/shared';
 import { Text, Pressable, Icon, Appear, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
-import { getNotifications, markAsRead, markAllAsRead, type INotification } from 'src/api/notifications';
+import { getNotifications, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications, type INotification } from 'src/api/notifications';
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
 import { useNotificationSettings } from 'src/hooks/use-notification-settings';
+import { confirm, toast } from 'src/components/overlay';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -32,7 +33,7 @@ function formatTime(iso: string) {
   return d.format('DD/MM/YYYY HH:mm');
 }
 
-function NotificationRow({ item, onRead }: { item: INotification; onRead: (id: string) => void }) {
+function NotificationRow({ item, onRead, onDelete }: { item: INotification; onRead: (id: string) => void; onDelete: (id: string) => void }) {
   const ti = TYPE_ICON[item.type] ?? TYPE_ICON.default;
   return (
     <Pressable
@@ -51,6 +52,9 @@ function NotificationRow({ item, onRead }: { item: INotification; onRead: (id: s
         <Text variant="caption" tone="faint" className="mt-1.5">{formatTime(item.createdAt)}</Text>
       </View>
       {!item.isRead ? <View className="w-2.5 h-2.5 rounded-full bg-primary mt-1" /> : null}
+      <Pressable hitSlop={8} onPress={() => onDelete(item.id)} className="w-8 h-8 items-center justify-center -mr-1 -mt-1">
+        <Icon name="trash-can-outline" size={18} tone="faint" />
+      </Pressable>
     </Pressable>
   );
 }
@@ -100,6 +104,37 @@ export function NotificationsScreen() {
     } catch {}
   }, []);
 
+  const handleDelete = useCallback(async (id: string) => {
+    const prev = items;
+    setItems((cur) => cur.filter((n) => n.id !== id)); // optimistic
+    try {
+      await deleteNotification(id);
+    } catch {
+      setItems(prev); // rollback
+      toast.error('Không xoá được thông báo');
+    }
+  }, [items]);
+
+  const handleDeleteAll = useCallback(async () => {
+    if (items.length === 0) return;
+    const ok = await confirm({
+      title: 'Xoá tất cả thông báo?',
+      message: `Sẽ xoá ${items.length} thông báo. Hành động không thể hoàn tác.`,
+      confirmText: 'Xoá tất cả',
+      destructive: true,
+    });
+    if (!ok) return;
+    const prev = items;
+    const ids = items.map((n) => n.id);
+    setItems([]); // optimistic
+    try {
+      await deleteAllNotifications(ids);
+    } catch {
+      setItems(prev);
+      toast.error('Xoá tất cả thất bại');
+    }
+  }, [items]);
+
   const unread = items.filter((n) => !n.isRead).length;
 
   return (
@@ -108,7 +143,10 @@ export function NotificationsScreen() {
         <AppHeader
           title="Thông báo"
           back
-          actions={unread > 0 ? [{ icon: 'check-all', onPress: handleReadAll }] : undefined}
+          actions={[
+            ...(unread > 0 ? [{ icon: 'check-all' as IconName, onPress: handleReadAll }] : []),
+            ...(items.length > 0 ? [{ icon: 'trash-can-outline' as IconName, onPress: handleDeleteAll }] : []),
+          ]}
         />
       </View>
       {loading ? (
@@ -130,7 +168,7 @@ export function NotificationsScreen() {
           ListEmptyComponent={<EmptyState icon="bell-outline" title="Không có thông báo nào" description="Khi có thông báo mới, chúng sẽ hiển thị ở đây" />}
           renderItem={({ item, index }) => (
             <Appear index={Math.min(index, 8)}>
-              <NotificationRow item={item} onRead={handleRead} />
+              <NotificationRow item={item} onRead={handleRead} onDelete={handleDelete} />
             </Appear>
           )}
         />
