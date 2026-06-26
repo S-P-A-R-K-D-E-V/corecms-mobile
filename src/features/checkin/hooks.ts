@@ -6,7 +6,9 @@ import { getMySchedule } from 'src/api/schedule';
 import type { IAttendanceLog } from 'src/types/corecms-api';
 
 const today = () => dayjs().format('YYYY-MM-DD');
-const monthStart = () => dayjs().startOf('month').format('YYYY-MM-DD');
+// Tuần hiện tại (locale 'vi' → bắt đầu thứ 2) để thống kê ca được phân tuần này.
+const weekStart = () => dayjs().startOf('week').format('YYYY-MM-DD');
+const weekEnd = () => dayjs().endOf('week').format('YYYY-MM-DD');
 
 /** Active (open) attendance log = checked-in but not yet checked-out. */
 function findActiveLog(logs: IAttendanceLog[]): IAttendanceLog | null {
@@ -29,8 +31,8 @@ export function useCheckinData() {
     queryFn: () => getMySchedule(today(), today()),
   });
   const reportQ = useQuery({
-    queryKey: ['attendance', 'report', 'month'],
-    queryFn: () => getMyAttendanceReport(monthStart(), today()),
+    queryKey: ['attendance', 'report', 'week'],
+    queryFn: () => getMyAttendanceReport(weekStart(), weekEnd()),
   });
 
   const logs = logsQ.data ?? [];

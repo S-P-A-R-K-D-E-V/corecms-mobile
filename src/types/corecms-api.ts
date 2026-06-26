@@ -299,60 +299,98 @@ export interface ICheckinFaceResponse {
   notificationSent: boolean;
 }
 
+/** Báo cáo chấm công 1 nhân viên trong khoảng — khớp BE AttendanceReportResult.
+ *  Lưu ý: endpoint /attendance/my-report trả về MẢNG (1 phần tử cho 1 NV). */
 export interface IAttendanceReport {
   staffId: string;
   staffName: string;
+  period: string;
+  totalWorkedHours: number;
+  compensationHours: number;
+  /** Số ca được phân trong khoảng. */
   totalShifts: number;
-  totalPresent: number;
-  totalAbsent: number;
-  totalLate: number;
+  /** Số ca đã có mặt (có log chấm công). */
+  presentShifts: number;
+  /** Số ca vắng mặt. */
+  absentShifts: number;
+  /** Số ca đi muộn. */
+  lateCount: number;
   totalLateMinutes: number;
-  totalOvertimeMinutes: number;
+  overtimeHours: number;
+  earlyLeaveCount: number;
 }
 
 // ======================================================================
 // Payroll
 // ======================================================================
 
+/** Tóm tắt thanh toán gần nhất của một bảng lương (khớp BE PayrollPaymentSummary). */
+export interface IPayrollPaymentSummary {
+  paymentId: string;
+  status: string;
+  amount: number;
+  paidAt: string;
+  transactionRef?: string;
+}
+
+/** Bảng lương 1 kỳ — khớp BE PayrollRecordResponse (camelCase). */
 export interface IPayrollRecord {
   id: string;
-  staffId: string;
-  staffName: string;
-  cycleId: string;
-  cycleName: string;
-  periodStart: string;
-  periodEnd: string;
-  totalShiftsScheduled: number;
-  totalShiftsPresent: number;
-  totalShiftsAbsent: number;
+  payrollCycleId?: string;
+  userId: string;
+  userName: string;
+  periodMonth: string;
+  fromDate: string;
+  toDate: string;
+  totalShifts: number;
+  presentShifts: number;
   totalHoursWorked: number;
-  totalOvertimeHours: number;
+  overtimeHours: number;
+  wrongShifts: number;
+  totalLateMinutes: number;
+  absentShifts: number;
   baseSalary: number;
   overtimeSalary: number;
   bonus: number;
-  deductions: number;
   penaltyAmount: number;
+  deduction: number;
   totalSalary: number;
-  status: 'Draft' | 'Finalized';
-  finalizedAt?: string;
   note?: string;
+  isFinalized: boolean;
+  finalizedBy?: string;
+  finalizedAt?: string;
+  createdAt: string;
+  payment?: IPayrollPaymentSummary | null;
+}
+
+/** Chi tiết 1 ca trong bảng lương — khớp BE PayrollShiftItemResponse. */
+export interface IPayrollShiftItem {
+  shiftAssignmentId: string;
+  date: string;
+  shiftName: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  workedHours: number;
+  paidHours: number;
+  lateMinutes: number;
+  /** 'Present' | 'Absent' | 'Wrong' (chuỗi từ BE). */
+  status: string;
+  isWaived: boolean;
+  waiverId?: string;
+  waiverReason?: string;
+  isHolidayShift: boolean;
 }
 
 export interface IPayrollShiftDetailResponse {
   payrollRecordId: string;
-  shifts: Array<{
-    date: string;
-    shiftName: string;
-    scheduledStart: string;
-    scheduledEnd: string;
-    actualCheckIn?: string;
-    actualCheckOut?: string;
-    hoursWorked: number;
-    overtimeHours: number;
-    isLate: boolean;
-    lateMinutes: number;
-    status: string;
-  }>;
+  userId: string;
+  userName: string;
+  periodMonth: string;
+  fromDate: string;
+  toDate: string;
+  shifts: IPayrollShiftItem[];
 }
 
 // ======================================================================

@@ -55,6 +55,9 @@ export function Screen({
           contentContainerStyle={[{ paddingBottom: tabPadBottom }, contentContainerStyle]}
           contentContainerClassName={cn(pad, 'gap-3.5', contentClassName)}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="interactive"
           refreshControl={
             onRefresh ? (
               <RefreshControl

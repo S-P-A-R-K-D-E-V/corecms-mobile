@@ -31,13 +31,13 @@ function PayrollCard({ rec }: { rec: IPayrollRecord }) {
       <Card className="p-4 gap-3">
         <View className="flex-row items-center justify-between">
           <View className="flex-1">
-            <Text variant="subtitle">{rec.cycleName}</Text>
+            <Text variant="subtitle">{rec.periodMonth}</Text>
             <Text variant="bodySmall" tone="muted">
-              {dayjs(rec.periodStart).format('DD/MM')} – {dayjs(rec.periodEnd).format('DD/MM/YYYY')}
+              {dayjs(rec.fromDate).format('DD/MM')} – {dayjs(rec.toDate).format('DD/MM/YYYY')}
             </Text>
           </View>
-          <Badge tone={rec.status === 'Finalized' ? 'success' : 'warning'}>
-            {rec.status === 'Finalized' ? 'Đã chốt' : 'Tạm tính'}
+          <Badge tone={rec.isFinalized ? 'success' : 'warning'}>
+            {rec.isFinalized ? 'Đã duyệt' : 'Tạm tính'}
           </Badge>
         </View>
 
@@ -49,19 +49,25 @@ function PayrollCard({ rec }: { rec: IPayrollRecord }) {
           <Icon name="chevron-right" size={22} tone="faint" />
         </View>
 
-        <View className="flex-row gap-4 pt-1">
+        <View className="flex-row flex-wrap gap-x-4 gap-y-1 pt-1">
           <View className="flex-row items-center gap-1">
             <Icon name="check-circle-outline" size={14} tone="success" />
-            <Text variant="caption" tone="muted">{rec.totalShiftsPresent} ca</Text>
+            <Text variant="caption" tone="muted">{rec.presentShifts}/{rec.totalShifts} ca</Text>
           </View>
           <View className="flex-row items-center gap-1">
             <Icon name="clock-outline" size={14} tone="info" />
-            <Text variant="caption" tone="muted">{rec.totalHoursWorked}h</Text>
+            <Text variant="caption" tone="muted">{rec.totalHoursWorked.toFixed(1)}h</Text>
           </View>
-          {rec.totalOvertimeHours > 0 ? (
+          {rec.absentShifts > 0 ? (
             <View className="flex-row items-center gap-1">
-              <Icon name="lightning-bolt" size={14} tone="warning" />
-              <Text variant="caption" tone="muted">OT {rec.totalOvertimeHours}h</Text>
+              <Icon name="close-circle" size={14} tone="error" />
+              <Text variant="caption" tone="muted">Vắng {rec.absentShifts}</Text>
+            </View>
+          ) : null}
+          {rec.totalLateMinutes > 0 ? (
+            <View className="flex-row items-center gap-1">
+              <Icon name="alert-circle-outline" size={14} tone="warning" />
+              <Text variant="caption" tone="muted">Muộn {rec.totalLateMinutes}p</Text>
             </View>
           ) : null}
         </View>
@@ -85,7 +91,7 @@ export function PayrollListScreen() {
       ) : (
         data
           .slice()
-          .sort((a, b) => dayjs(b.periodStart).diff(dayjs(a.periodStart)))
+          .sort((a, b) => dayjs(b.fromDate).diff(dayjs(a.fromDate)))
           .map((rec, i) => (
             <Appear key={rec.id} index={i}>
               <PayrollCard rec={rec} />
