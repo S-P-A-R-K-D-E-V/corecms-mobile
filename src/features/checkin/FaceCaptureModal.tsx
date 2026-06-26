@@ -5,22 +5,27 @@ import { CameraView } from 'expo-camera';
 import ViewShot, { type ViewShotRef } from 'react-native-view-shot';
 import dayjs from 'dayjs';
 
-import { Text, Button, Pressable, Icon } from 'src/components/ui';
+import { Text, Button, Pressable, Icon, Spinner } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { t } from 'src/i18n';
-import type { Coords } from './utils';
+import type { Coords, GpsStatus } from './utils';
 
 type Props = {
   visible: boolean;
   coords: Coords | null;
+  /** Địa chỉ cụ thể (reverse-geocode) để in vào ảnh. */
+  address?: string | null;
+  gpsStatus: GpsStatus;
+  /** Cho phép xác nhận check-in (đã có vị trí hoặc đã bật fallback). */
+  canSubmit: boolean;
   loading: boolean;
   onClose: () => void;
   /** Receives the stamped photo as base64 (no data: prefix) + capture time. */
   onConfirm: (base64: string, captureTime: Date) => void;
 };
 
-/** Full-screen face capture with a timestamp + GPS overlay burned into the photo. */
-export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm }: Props) {
+/** Full-screen face capture with a timestamp + GPS + address overlay burned in. */
+export function FaceCaptureModal({ visible, coords, address, gpsStatus, canSubmit, loading, onClose, onConfirm }: Props) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const previewRef = useRef<ViewShotRef>(null);
@@ -63,8 +68,19 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
           📍 {coords.latitude.toFixed(5)}, {coords.longitude.toFixed(5)}
         </Text>
       ) : null}
+      {address ? (
+        <Text className="text-white text-xs" numberOfLines={2}>🏠 {address}</Text>
+      ) : null}
     </View>
   );
+
+  // Trạng thái GPS để người dùng biết đang chờ vị trí (chặn xác nhận tới khi sẵn sàng).
+  const gpsBanner = {
+    idle: null,
+    loading: { icon: 'map-marker-radius', cls: 'bg-warning/90', text: 'Đang kiểm tra GPS…' },
+    ready: { icon: 'map-marker-check', cls: 'bg-success/90', text: 'Đã xác định vị trí' },
+    error: { icon: 'map-marker-off', cls: 'bg-error/90', text: canSubmit ? 'GPS lỗi — vẫn cho check-in không kèm vị trí' : 'Không lấy được GPS…' },
+  }[gpsStatus] as { icon: string; cls: string; text: string } | null;
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={handleClose}>
@@ -88,6 +104,13 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
               </Pressable>
             ) : null}
           </View>
+          {/* GPS status banner */}
+          {gpsBanner ? (
+            <View className={`flex-row items-center gap-2 px-4 py-1.5 ${gpsBanner.cls}`}>
+              {gpsStatus === 'loading' ? <Spinner color="#FFFFFF" /> : <Icon name={gpsBanner.icon as any} size={14} color="#FFFFFF" />}
+              <Text className="text-white text-[12px] font-semibold flex-1">{gpsBanner.text}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Camera / preview */}
@@ -95,13 +118,6 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
           {!capturedUri ? (
             <>
               <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} />
-              {/* Face alignment guide */}
-              <View pointerEvents="none" style={StyleSheet.absoluteFill} className="items-center justify-center">
-                <View
-                  style={{ width: 220, height: 280, borderRadius: 140, borderWidth: 3, borderColor: 'rgba(255,255,255,0.6)' }}
-                />
-                <Text className="text-white/80 mt-5 text-[13px] font-semibold">Đưa khuôn mặt vào khung</Text>
-              </View>
               {overlay(new Date())}
             </>
           ) : (
@@ -132,7 +148,10 @@ export function FaceCaptureModal({ visible, coords, loading, onClose, onConfirm 
                 <Button variant="outline" action="neutral" className="border-white/40" onPress={reset} icon="camera-retake">
                   <Text className="text-white font-bold">{t('checkin.retake')}</Text>
                 </Button>
-                <Button loading={loading} onPress={handleConfirm} icon="check-circle">
+                {!canSubmit ? (
+                  <Text className="text-white/70 text-[12px] text-center">Đang chờ xác định vị trí để check-in…</Text>
+                ) : null}
+                <Button loading={loading} disabled={!canSubmit} onPress={handleConfirm} icon="check-circle">
                   {t('checkin.confirmCheckIn')}
                 </Button>
               </>

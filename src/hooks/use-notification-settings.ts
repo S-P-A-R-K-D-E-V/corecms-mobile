@@ -12,6 +12,8 @@ export interface NotificationPreferences {
   globalEnabled: boolean;
   vibrationEnabled: boolean;
   soundEnabled: boolean;
+  /** Nhắc trước 30 phút khi sắp đến ca làm (thông báo cục bộ trên máy). */
+  shiftReminderEnabled: boolean;
   categories: {
     Shift: boolean;
     Attendance: boolean;
@@ -26,6 +28,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
   globalEnabled: true,
   vibrationEnabled: true,
   soundEnabled: true,
+  shiftReminderEnabled: true,
   categories: {
     Shift: true,
     Attendance: true,

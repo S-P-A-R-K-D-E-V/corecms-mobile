@@ -89,15 +89,23 @@ export interface IChangePasswordRequest {
 // Branch
 // ======================================================================
 
+/** Chi nhánh/cửa hàng — khớp BE BranchResponse (camelCase). */
 export interface IBranchLocation {
   id: string;
-  name: string;
-  address: string;
+  kiotVietId?: number;
+  branchName: string;
+  branchCode?: string;
+  contactNumber?: string;
+  email?: string;
+  address?: string;
+  retailerId?: number;
   latitude?: number;
   longitude?: number;
-  radiusMeters?: number;
-  wifiSSIDs?: string[];
-  ipWhitelist?: string[];
+  /** Bán kính geofence (mét) — dùng để xác định có đang ở cửa hàng. */
+  geofenceRadius: number;
+  isActive: boolean;
+  createdDate: string;
+  modifiedDate?: string;
 }
 
 // ======================================================================

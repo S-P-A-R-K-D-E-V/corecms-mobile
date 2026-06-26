@@ -72,6 +72,18 @@ export function NotificationSettingsScreen() {
             ))}
           </SectionCard>
 
+          <SectionCard title="Nhắc ca làm" bodyClassName="pt-0">
+            <ToggleRow
+              icon="clock-plus-outline"
+              iconColor={brand.info}
+              title="Nhắc trước 30 phút"
+              description="Thông báo trên máy khi sắp đến ca làm (kể cả khi app đóng)"
+              value={prefs.shiftReminderEnabled}
+              onToggle={(v) => updatePrefs({ shiftReminderEnabled: v })}
+              disabled={!prefs.globalEnabled || !prefs.categories.Shift}
+            />
+          </SectionCard>
+
           <SectionCard title="Hành vi" bodyClassName="pt-0">
             <ToggleRow icon="vibrate" iconColor={brand.muted} title="Rung" description="Rung khi nhận thông báo" value={prefs.vibrationEnabled} onToggle={(v) => updatePrefs({ vibrationEnabled: v })} disabled={!prefs.globalEnabled} />
             <Divider className="ml-12" />
