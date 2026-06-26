@@ -28,6 +28,7 @@ import {
   getActiveCheckinShift,
   getNextUpcomingShift,
   formatTime,
+  formatElapsed,
   formatCountdown,
   nearestBranchDistance,
   findNearestBranch,
@@ -159,10 +160,20 @@ export function CheckinScreen() {
   }, [coords?.latitude, coords?.longitude]);
   const overlayAddress =
     [nearestBranch?.within ? nearestBranch.branch.branchName : null, address].filter(Boolean).join(' · ') || null;
-  // Check-in ngoài giờ + fallback khi GPS lỗi (đồng bộ hành vi core-fe)
+
+  // Geofence: đang ở trong khu vực cửa hàng không (chỉ ý nghĩa khi GPS ready;
+  // không có toạ độ chi nhánh thì coi như hợp lệ để tránh khoá cứng).
+  const withinGeofence = !nearestBranch ? true : nearestBranch.within;
+  const locationOk = gpsStatus === 'ready' && withinGeofence;
+  // Vị trí KHÔNG hợp lệ cho check-in thường: GPS lỗi, hoặc đã xác định nhưng ngoài khu vực.
+  const locationBad = gpsStatus === 'error' || (gpsStatus === 'ready' && !withinGeofence);
+
+  // Check-in ngoài giờ + fallback (đồng bộ hành vi core-fe): có ca phù hợp nhưng
+  // vị trí không hợp lệ → đếm ngược 5s rồi cho phép check-in NGOÀI GIỜ.
   const [checkinMode, setCheckinMode] = useState<'smart' | 'overtime'>('smart');
   const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
   const [gpsFallback, setGpsFallback] = useState(false);
+  const needOvertimeFallback = canCheckIn && locationBad;
 
   // Camera
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -200,15 +211,16 @@ export function CheckinScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // GPS lỗi → đếm ngược 5s rồi cho phép check-in chỉ-ảnh (không kèm toạ độ)
+  // Có ca phù hợp nhưng vị trí không hợp lệ (GPS lỗi / ngoài khu vực) → đếm ngược 5s
+  // rồi mở "Check-in ngoài giờ". Vị trí hợp lệ trở lại thì reset.
   useEffect(() => {
-    if (gpsStatus === 'error') {
+    if (needOvertimeFallback) {
       setGpsCountdown((c) => (c === null ? 5 : c));
-    } else if (gpsStatus === 'ready') {
+    } else {
       setGpsCountdown(null);
       setGpsFallback(false);
     }
-  }, [gpsStatus]);
+  }, [needOvertimeFallback]);
 
   useEffect(() => {
     if (gpsCountdown === null) return;
@@ -313,12 +325,17 @@ export function CheckinScreen() {
     }
   }
 
-  const gpsChip = {
+  const baseGpsChip = {
     idle: { icon: 'map-marker-outline' as IconName, label: t('checkin.gpsIdle'), cls: 'bg-bg', tone: 'muted' as const },
     loading: { icon: 'map-marker-radius' as IconName, label: t('checkin.gpsLoading'), cls: 'bg-warning-soft', tone: 'warning' as const },
     ready: { icon: 'map-marker-check' as IconName, label: t('checkin.gpsReady'), cls: 'bg-success-soft', tone: 'success' as const },
     error: { icon: 'map-marker-off' as IconName, label: t('checkin.gpsError'), cls: 'bg-error-soft', tone: 'error' as const },
   }[gpsStatus];
+  // Ngoài khu vực cửa hàng → chip cảnh báo (đè lên trạng thái "ready" xanh).
+  const outsideStore = gpsStatus === 'ready' && !!nearestBranch && !nearestBranch.within;
+  const gpsChip = outsideStore
+    ? { icon: 'map-marker-off' as IconName, label: 'Ngoài khu vực cửa hàng', cls: 'bg-warning-soft', tone: 'warning' as const }
+    : baseGpsChip;
 
   return (
     <Screen scroll refreshing={refreshing} onRefresh={refetch}>
@@ -370,8 +387,12 @@ export function CheckinScreen() {
                 />
                 <Text className="text-white font-bold tracking-wider text-[12px]">{t('checkin.working')}</Text>
               </View>
-              <Text className="text-white text-[52px] leading-[58px] font-bold" style={{ fontVariant: ['tabular-nums'] }}>{formatTime(activeLog?.checkInTime)}</Text>
-              <Text className="text-white/85 text-[13px] text-center">
+              {/* Đồng hồ đếm thời gian ĐÃ LÀM (live) — giống core-fe */}
+              <Text className="text-white text-[46px] leading-[52px] font-bold" style={{ fontVariant: ['tabular-nums'] }}>
+                {formatElapsed(activeLog?.checkInTime, now)}
+              </Text>
+              <Text className="text-white/70 text-[11px] -mt-1">thời gian đã làm</Text>
+              <Text className="text-white/85 text-[13px] text-center mt-0.5">
                 Check-in lúc {formatTime(activeLog?.checkInTime)}
                 {activeLog?.isLate ? `  ·  ${t('checkin.late', { n: activeLog.lateMinutes })}` : `  ·  ${t('checkin.onTime')}`}
               </Text>
@@ -405,15 +426,39 @@ export function CheckinScreen() {
               </Text>
 
               {canCheckIn ? (
-                <Pressable
-                  onPress={() => openCheckInCamera('smart')}
-                  disabled={submitting}
-                  className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
-                  style={softShadow}
-                >
-                  {submitting ? <Spinner color={brand.primary} /> : <Icon name="camera-account" size={20} color={brand.primary} />}
-                  <Text className="text-primary font-bold text-[16px]">{t('checkin.checkInBtn')}</Text>
-                </Pressable>
+                locationOk ? (
+                  // Vị trí hợp lệ (trong khu vực) → check-in thường
+                  <Pressable
+                    onPress={() => openCheckInCamera('smart')}
+                    disabled={submitting}
+                    className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                    style={softShadow}
+                  >
+                    {submitting ? <Spinner color={brand.primary} /> : <Icon name="camera-account" size={20} color={brand.primary} />}
+                    <Text className="text-primary font-bold text-[16px]">{t('checkin.checkInBtn')}</Text>
+                  </Pressable>
+                ) : gpsFallback ? (
+                  // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
+                  <Pressable
+                    onPress={() => openCheckInCamera('overtime')}
+                    disabled={submitting}
+                    className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                    style={softShadow}
+                  >
+                    {submitting ? <Spinner color={brand.warning} /> : <Icon name="clock-plus-outline" size={20} color={brand.warning} />}
+                    <Text className="text-warning-text font-bold text-[16px]">Check-in ngoài giờ</Text>
+                  </Pressable>
+                ) : (
+                  // Đang xác định vị trí / đếm ngược trước khi mở check-in ngoài giờ
+                  <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
+                    <Spinner color="#FFFFFF" />
+                    <Text className="text-white/90 font-bold text-[14px]">
+                      {locationBad
+                        ? `${gpsStatus === 'error' ? 'Không có GPS' : 'Ngoài khu vực'} — chờ ${gpsCountdown ?? 5}s`
+                        : 'Đang kiểm tra vị trí…'}
+                    </Text>
+                  </View>
+                )
               ) : (
                 // Disabled state — translucent glass so it stays visible on rose
                 <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
@@ -460,22 +505,24 @@ export function CheckinScreen() {
           <Text variant="bodySmall" tone={gpsChip.tone} className="font-semibold flex-1">{gpsChip.label}</Text>
           {gpsStatus === 'ready' && coords ? (
             <Text variant="caption" tone={gpsChip.tone}>
-              {branchDistanceM != null
-                ? `Cách cửa hàng ${formatDistance(branchDistanceM)}`
-                : `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`}
+              {nearestBranch
+                ? `${nearestBranch.within ? '✅' : '❌'} ${formatDistance(nearestBranch.distance)}`
+                : branchDistanceM != null
+                  ? `Cách cửa hàng ${formatDistance(branchDistanceM)}`
+                  : `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`}
             </Text>
           ) : null}
         </View>
       </Pressable>
 
-      {/* GPS lỗi → đếm ngược rồi cho phép check-in không cần GPS (giống core-fe) */}
-      {gpsStatus === 'error' ? (
+      {/* Có ca nhưng vị trí không hợp lệ → đếm ngược rồi mở Check-in ngoài giờ (giống core-fe) */}
+      {needOvertimeFallback ? (
         <View className={cn('flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl', gpsFallback ? 'bg-success-soft' : 'bg-warning-soft')}>
-          <Icon name={(gpsFallback ? 'camera-check' : 'timer-sand') as IconName} size={16} tone={gpsFallback ? 'success' : 'warning'} />
+          <Icon name={(gpsFallback ? 'clock-plus-outline' : 'timer-sand') as IconName} size={16} tone={gpsFallback ? 'success' : 'warning'} />
           <Text variant="bodySmall" tone={gpsFallback ? 'success' : 'warning'} className="font-semibold flex-1">
             {gpsFallback
-              ? 'Đã bật check-in không cần GPS — bạn có thể chụp ảnh để check-in.'
-              : `Không lấy được GPS. Cho phép check-in không cần GPS sau ${gpsCountdown ?? 0}s…`}
+              ? 'Đã mở Check-in ngoài giờ — bạn có thể chụp ảnh để check-in.'
+              : `${gpsStatus === 'error' ? 'Không lấy được GPS' : 'Bạn đang ở ngoài khu vực cửa hàng'}. Mở Check-in ngoài giờ sau ${gpsCountdown ?? 0}s…`}
           </Text>
         </View>
       ) : null}

@@ -50,6 +50,17 @@ export function formatTime(iso?: string | null): string {
   return dayjs(iso).format('HH:mm');
 }
 
+/** Thời gian đã trôi từ mốc `fromISO` đến `now` dạng HH:mm:ss (cho đồng hồ "đã làm"). */
+export function formatElapsed(fromISO?: string | null, now: Date = new Date()): string {
+  if (!fromISO) return '00:00:00';
+  const secs = Math.max(0, Math.floor((now.getTime() - new Date(fromISO).getTime()) / 1000));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(h)}:${p(m)}:${p(s)}`;
+}
+
 export function formatCountdown(minutes: number): string {
   if (minutes <= 0) return '';
   if (minutes < 60) return `${minutes} phút`;
