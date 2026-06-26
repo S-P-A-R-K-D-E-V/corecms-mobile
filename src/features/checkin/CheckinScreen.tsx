@@ -222,7 +222,7 @@ export function CheckinScreen() {
     const ok = await confirm({
       title: 'Check-in ngoài giờ',
       message: 'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
-      confirmText: 'Check-in ngoài giờ',
+      confirmText: 'Check-in',
     });
     if (ok) openCheckInCamera('overtime');
   }
@@ -476,12 +476,12 @@ export function CheckinScreen() {
         )}
       </SectionCard>
 
-      {/* Stats */}
+      {/* Stats tuần này — số ca được phân / vắng mặt / đi muộn */}
       {report ? (
         <View className="flex-row gap-2.5">
-          <StatCard tone="success" value={report.totalPresent} label={t('checkin.statPresent')} />
-          <StatCard tone="warning" value={report.totalAbsent} label={t('checkin.statAbsent')} />
-          <StatCard tone="error" value={report.totalLate} label={t('checkin.statLate')} />
+          <StatCard tone="success" value={report.totalShifts} label={t('checkin.statShifts')} />
+          <StatCard tone="error" value={report.absentShifts} label={t('checkin.statAbsent')} />
+          <StatCard tone="warning" value={report.lateCount} label={t('checkin.statLate')} />
         </View>
       ) : null}
 

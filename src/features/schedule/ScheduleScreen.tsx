@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import isToday from 'dayjs/plugin/isToday';
 
-import { Screen, Sheet } from 'src/components/shared';
+import { Screen, Sheet, SectionCard } from 'src/components/shared';
 import { Text, Button, Badge, Icon, Pressable, Divider } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
@@ -26,26 +26,64 @@ dayjs.extend(isBetween);
 dayjs.extend(isToday);
 
 // ── Dot color per state ──────────────────────────────────────────────────────
-type EventTone = 'done' | 'working' | 'scheduled' | 'pool' | 'claim' | 'reg';
+// Khớp ngữ nghĩa màu của core-fe: xám = chưa chấm công, xanh dương = đã check-in,
+// cam = đi muộn, xanh lá = hoàn thành.
+type EventTone = 'done' | 'working' | 'late' | 'scheduled' | 'pool' | 'claim' | 'reg';
 const DOT_CLS: Record<EventTone, string> = {
   done:      'bg-success',
-  working:   'bg-warning',
-  scheduled: 'bg-info',
+  working:   'bg-info',
+  late:      'bg-warning',
+  scheduled: 'bg-faint',
   pool:      'bg-info border border-info',
   claim:     'border-2 border-secondary bg-transparent',
   reg:       'bg-ink/25 dark:bg-white/30',
 };
 const DOT_OUTLINE: Record<EventTone, boolean> = {
-  done: false, working: false, scheduled: false, pool: true, claim: true, reg: false,
+  done: false, working: false, late: false, scheduled: false, pool: true, claim: true, reg: false,
 };
 
 const ACCENT: Record<EventTone, string> = {
-  done: brand.success, working: brand.warning, scheduled: brand.info,
+  done: brand.success, working: brand.info, late: brand.warning, scheduled: brand.faint,
   pool: brand.info, claim: brand.secondary, reg: brand.faint,
 };
 
+// Đi muộn = giờ check-in (giờ VN, "yyyy-MM-dd HH:mm:ss") trễ hơn giờ bắt đầu ca.
+function isLateShift(a: IMyScheduleItem): boolean {
+  if (!a.hasCheckedIn || !a.checkInTime || !a.startTime) return false;
+  const scheduled = dayjs(`${a.date}T${a.startTime}`);
+  const actual = dayjs(a.checkInTime.replace(' ', 'T'));
+  return actual.isValid() && scheduled.isValid() && actual.isAfter(scheduled);
+}
+
 function shiftTone(item: IMyScheduleItem): EventTone {
-  return item.hasCheckedOut ? 'done' : item.hasCheckedIn ? 'working' : 'scheduled';
+  if (item.hasCheckedOut) return 'done';
+  if (item.hasCheckedIn) return isLateShift(item) ? 'late' : 'working';
+  return 'scheduled';
+}
+
+// ── Mini số liệu tuần & chú thích màu (giống core-fe) ────────────────────────
+function WeekMetric({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <View className="items-center" style={{ minWidth: 56 }}>
+      <Text className="text-2xl font-bold" style={{ color, fontVariant: ['tabular-nums'] }}>{value}</Text>
+      <Text variant="caption" tone="muted" className="text-center">{label}</Text>
+    </View>
+  );
+}
+
+function LegendDot({ color, label, outline }: { color: string; label: string; outline?: boolean }) {
+  return (
+    <View className="flex-row items-center gap-1.5">
+      <View
+        style={{
+          width: 10, height: 10, borderRadius: 5,
+          backgroundColor: outline ? 'transparent' : color,
+          borderWidth: outline ? 2 : 0, borderColor: color,
+        }}
+      />
+      <Text variant="caption" tone="muted">{label}</Text>
+    </View>
+  );
 }
 
 // ── Single agenda event row ──────────────────────────────────────────────────
@@ -228,6 +266,18 @@ export function ScheduleScreen() {
     [weekStart],
   );
 
+  const weekKeys = useMemo(() => new Set(weekDays.map((d) => d.format('YYYY-MM-DD'))), [weekDays]);
+  const weekStats = useMemo(() => {
+    const wa = assignments.filter((a) => weekKeys.has(a.date));
+    return {
+      total: wa.length,
+      checkedIn: wa.filter((a) => a.hasCheckedIn).length,
+      done: wa.filter((a) => a.hasCheckedIn && a.hasCheckedOut).length,
+      late: wa.filter(isLateShift).length,
+      pending: wa.filter((a) => !a.hasCheckedIn).length,
+    };
+  }, [assignments, weekKeys]);
+
   const markedDates = useMemo(
     () => new Set<string>([...assignments.map((a) => a.date), ...registrations.map((r) => r.date)]),
     [assignments, registrations],
@@ -369,6 +419,32 @@ export function ScheduleScreen() {
           />
         ))}
       </View>
+
+      {/* ── Tổng quan tuần này + chú thích màu (giống core-fe) ── */}
+      {weekStats.total > 0 ? (
+        <SectionCard title="Tổng quan tuần này" icon="calendar-check">
+          <View className="flex-row flex-wrap justify-between gap-y-3">
+            <WeekMetric value={weekStats.total} label="Tổng ca" color={brand.primary} />
+            <WeekMetric value={weekStats.checkedIn} label="Đã check-in" color={brand.info} />
+            <WeekMetric value={weekStats.done} label="Hoàn thành" color={brand.success} />
+            <WeekMetric value={weekStats.late} label="Đi muộn" color={brand.warning} />
+            <WeekMetric value={weekStats.pending} label="Chưa chấm công" color={brand.faint} />
+          </View>
+
+          <Divider className="my-3" />
+
+          <Text variant="caption" tone="muted" className="font-semibold mb-2">Chú thích màu</Text>
+          <View className="flex-row flex-wrap gap-x-4 gap-y-2">
+            <LegendDot color={brand.faint} label="Chưa chấm công" />
+            <LegendDot color={brand.info} label="Đã check-in" />
+            <LegendDot color={brand.warning} label="Đi muộn" />
+            <LegendDot color={brand.success} label="Hoàn thành" />
+            <LegendDot color={brand.info} label="Chợ ca" outline />
+            <LegendDot color={brand.secondary} label="Ca chờ nhận" outline />
+            <LegendDot color={brand.faint} label="Đã đăng ký" />
+          </View>
+        </SectionCard>
+      ) : null}
 
       {/* ── Post-to-pool sheet ── */}
       <Sheet

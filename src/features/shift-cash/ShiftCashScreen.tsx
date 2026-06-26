@@ -23,7 +23,82 @@ import { useShiftCash } from './hooks';
 import { useShiftCashGps } from './GpsGate';
 import { TransactionSheet, type TxDraft } from './TransactionSheet';
 import { DENOMINATIONS, formatCurrency, computeTotalCash, vnToday } from './utils';
-import type { IShiftCashTransaction } from 'src/types/corecms-api';
+import type { IShiftCashTransaction, IShiftCashFinalization } from 'src/types/corecms-api';
+
+// ── Lịch sử chốt ────────────────────────────────────────────────────────────
+// Hiển thị từng lần chốt: trước/sau chốt, chênh tiền mặt, và chênh tiền tổng
+// (thừa/thiếu/khớp) — đối chiếu giống bảng "Lịch sử chốt" bên core-fe.
+function FinalizationLog({ items }: { items: IShiftCashFinalization[] }) {
+  // BE trả mới nhất trước; "lần chốt cuối" là phần tử đầu.
+  return (
+    <View className="gap-2 mt-1">
+      <Text variant="caption" tone="muted" className="font-semibold">
+        Lịch sử chốt ({items.length} lần)
+      </Text>
+      {items.map((f, idx) => {
+        const cashDiff = f.closingBalance - f.openingBalance;
+        const totalDiff = f.difference ?? 0;
+        const isLast = idx === 0;
+        return (
+          <View
+            key={f.id}
+            className={cn(
+              'rounded-2xl px-3.5 py-2.5 border',
+              isLast ? 'bg-success-soft border-success/30' : 'bg-bg dark:bg-surface-dark border-line/50 dark:border-line-dark/50',
+            )}
+          >
+            {/* Dòng tiêu đề: thời điểm + người chốt */}
+            <View className="flex-row items-center gap-1.5">
+              <Icon name="check-circle" size={16} tone={isLast ? 'success' : 'faint'} />
+              <Text variant="caption" tone={isLast ? 'success' : 'muted'} className="flex-1" numberOfLines={1}>
+                {isLast ? 'Lần chốt cuối: ' : ''}
+                {f.finalizedAt ? dayjs(f.finalizedAt).format('HH:mm DD-MM') : ''}
+                {f.finalizedByName ? ` bởi ${f.finalizedByName}` : ''}
+              </Text>
+            </View>
+
+            {/* Trước chốt → Sau chốt + chênh tiền mặt */}
+            <View className="flex-row items-center justify-between mt-1.5 pl-[22px]">
+              <View className="items-center flex-1">
+                <Text variant="caption" tone="faint">Trước chốt</Text>
+                <Text variant="caption" className="font-medium" style={{ fontVariant: ['tabular-nums'] }}>{formatCurrency(f.openingBalance)}</Text>
+              </View>
+              <Icon name="arrow-right" size={14} tone="faint" />
+              <View className="items-center flex-1">
+                <Text variant="caption" tone="faint">Sau chốt</Text>
+                <Text variant="caption" tone={isLast ? 'primary' : 'default'} className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>{formatCurrency(f.closingBalance)}</Text>
+              </View>
+              <View className="items-center flex-1">
+                <Text variant="caption" tone="faint">Chênh tiền mặt</Text>
+                <Text variant="caption" tone={cashDiff >= 0 ? 'success' : 'error'} className="font-semibold" style={{ fontVariant: ['tabular-nums'] }}>
+                  {cashDiff >= 0 ? '+' : ''}{formatCurrency(cashDiff)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Chênh tiền tổng */}
+            <View className="flex-row items-center justify-between mt-2 pt-2 pl-[22px] border-t border-dashed border-line dark:border-line-dark">
+              <View className="flex-row items-center gap-1">
+                <Icon name={totalDiff === 0 ? 'check-circle' : 'alert'} size={13} tone={totalDiff === 0 ? 'success' : 'warning'} />
+                <Text variant="caption" tone="muted">Chênh tiền tổng</Text>
+              </View>
+              <Text
+                variant="caption"
+                className="font-bold"
+                tone={totalDiff === 0 ? 'success' : totalDiff > 0 ? 'warning' : 'error'}
+                style={{ fontVariant: ['tabular-nums'] }}
+              >
+                {totalDiff === 0
+                  ? 'Khớp'
+                  : `${totalDiff > 0 ? '+' : ''}${formatCurrency(totalDiff)} (${totalDiff > 0 ? 'thừa' : 'thiếu'})`}
+              </Text>
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 // ── Summary row helper ─────────────────────────────────────────────────────────
 function SummaryRow({
@@ -264,13 +339,8 @@ export function ShiftCashScreen() {
                   format={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(Math.round(n))}đ`}
                 />
               </View>
-              {summary?.isFinalized ? (
-                <View className="self-start">
-                  <Badge tone="success" icon="check-decagram">
-                    Đã chốt {summary.finalizations?.length ?? 0} lần
-                    {summary.finalizedByName ? ` · ${summary.finalizedByName}` : ''}
-                  </Badge>
-                </View>
+              {summary?.finalizations && summary.finalizations.length > 0 ? (
+                <FinalizationLog items={summary.finalizations} />
               ) : null}
             </View>
           </SectionCard>

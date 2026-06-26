@@ -4,7 +4,9 @@ import dayjs from 'dayjs';
 
 import { Screen, AppHeader, SectionCard, Loading, ErrorView } from 'src/components/shared';
 import { Text, Badge, Divider, BrandGradient, CountUp, Donut } from 'src/components/ui';
+import { cn } from 'src/components/ui/utils';
 import { softShadow, brand } from 'src/theme';
+import type { IPayrollShiftItem } from 'src/types/corecms-api';
 import { useMyPayroll, usePayrollShiftDetails, fmtMoney } from './hooks';
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'default' | 'success' | 'error' }) {
@@ -16,6 +18,35 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'def
   );
 }
 
+// Mini ô thống kê công (tổng / có mặt / vắng / …).
+function Metric({ value, label, tone }: { value: React.ReactNode; label: string; tone: 'primary' | 'success' | 'error' | 'warning' | 'info' }) {
+  const numCls: Record<string, string> = {
+    primary: 'text-primary', success: 'text-success', error: 'text-error', warning: 'text-warning-text', info: 'text-info',
+  };
+  return (
+    <View className="items-center" style={{ minWidth: 64 }}>
+      <Text className={cn('text-xl font-bold', numCls[tone])} style={{ fontVariant: ['tabular-nums'] }}>{value}</Text>
+      <Text variant="caption" tone="muted" className="text-center">{label}</Text>
+    </View>
+  );
+}
+
+// Giờ "HH:mm" từ chuỗi BE "yyyy-MM-dd HH:mm:ss".
+function timePart(s?: string): string {
+  if (!s) return '--';
+  const part = s.includes(' ') ? s.split(' ')[1] : s;
+  return part?.slice(0, 5) || '--';
+}
+
+// Nhãn trạng thái ca — khớp logic core-fe (my-payroll).
+function shiftStatus(s: IPayrollShiftItem): { label: string; tone: 'info' | 'warning' | 'success' | 'error' } {
+  if (s.isWaived) return { label: 'Đã bỏ qua lỗi', tone: 'info' };
+  if (s.status === 'Present' && s.lateMinutes > 0) return { label: `Đi muộn ${s.lateMinutes}p`, tone: 'warning' };
+  if (s.status === 'Present') return { label: 'Có mặt', tone: 'success' };
+  if (s.status === 'Wrong') return { label: 'Sai ca', tone: 'error' };
+  return { label: 'Vắng', tone: 'error' };
+}
+
 export function PayrollDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: records } = useMyPayroll();
@@ -24,16 +55,30 @@ export function PayrollDetailScreen() {
 
   return (
     <Screen scroll tabBarInset={false}>
-      <AppHeader title="Chi tiết lương" subtitle={rec?.cycleName} back />
+      <AppHeader title="Chi tiết lương" subtitle={rec?.periodMonth} back />
 
       {rec ? (
         <BrandGradient className="rounded-card p-5 gap-1" style={softShadow}>
           <Text className="text-white/70 text-xs">Thực nhận kỳ này</Text>
           <CountUp className="text-white text-3xl font-bold" value={rec.totalSalary} format={(n) => fmtMoney(Math.round(n))} />
           <Text className="text-white/70 text-xs mt-1">
-            {dayjs(rec.periodStart).format('DD/MM')} – {dayjs(rec.periodEnd).format('DD/MM/YYYY')}
+            {dayjs(rec.fromDate).format('DD/MM')} – {dayjs(rec.toDate).format('DD/MM/YYYY')}
+            {rec.isFinalized ? '  ·  Đã duyệt' : '  ·  Tạm tính'}
           </Text>
         </BrandGradient>
+      ) : null}
+
+      {rec ? (
+        <SectionCard title="Tổng quan công" icon="calendar-check" bodyClassName="pt-0">
+          <View className="flex-row flex-wrap justify-between gap-y-3 py-1">
+            <Metric value={rec.totalShifts} label="Tổng ca" tone="primary" />
+            <Metric value={rec.presentShifts} label="Có mặt" tone="success" />
+            <Metric value={rec.absentShifts} label="Vắng" tone="error" />
+            <Metric value={rec.wrongShifts} label="Sai ca" tone="warning" />
+            <Metric value={`${rec.totalLateMinutes}p`} label="Đi muộn" tone="warning" />
+            <Metric value={`${rec.totalHoursWorked.toFixed(1)}h`} label="Giờ làm" tone="info" />
+          </View>
+        </SectionCard>
       ) : null}
 
       {rec ? (
@@ -55,7 +100,7 @@ export function PayrollDetailScreen() {
               {[
                 { label: 'Lương cơ bản', value: rec.baseSalary, color: brand.primary },
                 { label: 'Tăng ca', value: rec.overtimeSalary, color: brand.secondary },
-                { label: 'Thưởng', value: rec.bonus, color: brand.success },
+                { label: 'Thưởng lễ', value: rec.bonus, color: brand.success },
               ].map((s) => (
                 <View key={s.label} className="flex-row items-center gap-2">
                   <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: s.color }} />
@@ -74,11 +119,11 @@ export function PayrollDetailScreen() {
           <Divider />
           <Row label="Lương tăng ca" value={fmtMoney(rec.overtimeSalary)} />
           <Divider />
-          <Row label="Thưởng" value={fmtMoney(rec.bonus)} tone="success" />
+          <Row label="Thưởng lễ" value={fmtMoney(rec.bonus)} tone="success" />
           <Divider />
-          <Row label="Khấu trừ" value={`- ${fmtMoney(rec.deductions)}`} tone="error" />
+          <Row label="Khấu trừ" value={`- ${fmtMoney(rec.deduction)}`} tone="error" />
           <Divider />
-          <Row label="Phạt" value={`- ${fmtMoney(rec.penaltyAmount)}`} tone="error" />
+          <Row label="Tiền phạt" value={`- ${fmtMoney(rec.penaltyAmount)}`} tone="error" />
           <Divider />
           <View className="flex-row items-center justify-between pt-2">
             <Text className="font-bold">Tổng thực nhận</Text>
@@ -87,7 +132,7 @@ export function PayrollDetailScreen() {
         </SectionCard>
       ) : null}
 
-      <SectionCard title="Chi tiết ca làm" bodyClassName="pt-0">
+      <SectionCard title="Chi tiết ca làm" icon="calendar-clock" bodyClassName="pt-0">
         {isLoading ? (
           <Loading />
         ) : isError ? (
@@ -95,21 +140,32 @@ export function PayrollDetailScreen() {
         ) : !details || details.shifts.length === 0 ? (
           <Text tone="muted" className="text-center py-4">Không có dữ liệu ca</Text>
         ) : (
-          details.shifts.map((s, i) => (
-            <View key={`${s.date}-${i}`}>
-              {i > 0 ? <Divider className="my-1" /> : null}
-              <View className="py-2 gap-1">
-                <View className="flex-row items-center justify-between">
-                  <Text className="font-semibold">{s.shiftName}</Text>
-                  <Badge tone={s.isLate ? 'warning' : 'success'}>{s.isLate ? `Trễ ${s.lateMinutes}p` : 'Đúng giờ'}</Badge>
+          details.shifts.map((s, i) => {
+            const st = shiftStatus(s);
+            return (
+              <View key={s.shiftAssignmentId || `${s.date}-${i}`}>
+                {i > 0 ? <Divider className="my-1" /> : null}
+                <View className="py-2 gap-1">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center gap-1.5 flex-1">
+                      <Text className="font-semibold" numberOfLines={1}>{s.shiftName}</Text>
+                      {s.isHolidayShift ? <Badge tone="warning">Lễ</Badge> : null}
+                    </View>
+                    <Badge tone={st.tone}>{st.label}</Badge>
+                  </View>
+                  <Text variant="bodySmall" tone="muted">
+                    {dayjs(s.date).format('DD/MM')} · {s.shiftStartTime}–{s.shiftEndTime}
+                    {s.paidHours > 0 ? ` · ${s.paidHours.toFixed(1)}h tính lương` : ''}
+                  </Text>
+                  {s.checkInTime || s.checkOutTime ? (
+                    <Text variant="caption" tone="faint">
+                      Vào {timePart(s.checkInTime)} · Ra {timePart(s.checkOutTime)}
+                    </Text>
+                  ) : null}
                 </View>
-                <Text variant="bodySmall" tone="muted">
-                  {dayjs(s.date).format('DD/MM')} · {s.scheduledStart}–{s.scheduledEnd} · {s.hoursWorked}h
-                  {s.overtimeHours > 0 ? ` · OT ${s.overtimeHours}h` : ''}
-                </Text>
               </View>
-            </View>
-          ))
+            );
+          })
         )}
       </SectionCard>
     </Screen>

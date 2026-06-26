@@ -1,4 +1,5 @@
-import { Modal, View, Pressable, ScrollView, useWindowDimensions } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Modal, View, Pressable, ScrollView, useWindowDimensions, Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MotiView } from 'moti';
 import { Text } from '../ui/text';
@@ -20,6 +21,30 @@ export type SheetProps = {
 export function Sheet({ visible, title, onClose, children, footer }: SheetProps) {
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+
+  // Đẩy sheet lên trên bàn phím để ô input đang nhập không bị che.
+  // Sheet neo ở đáy trong Modal nên KeyboardAvoidingView không đáng tin —
+  // ta tự nghe sự kiện bàn phím và nâng sheet bằng đúng chiều cao bàn phím.
+  const [kbHeight, setKbHeight] = useState(0);
+  useEffect(() => {
+    if (!visible) return undefined;
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e) => setKbHeight(e.endCoordinates?.height ?? 0));
+    const hideSub = Keyboard.addListener(hideEvt, () => setKbHeight(0));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
+
+  // Khi bàn phím hiện, neo sheet ngay trên bàn phím (bỏ phần safe-area dưới
+  // vì bàn phím đã che vùng đó); khi ẩn thì trả về vị trí đáy bình thường.
+  const kbVisible = kbHeight > 0;
+  const sheetBottom = kbVisible ? kbHeight : 0;
+  const bodyPadBottom = kbVisible ? 12 : insets.bottom;
+  const maxBodyHeight = height * 0.88 - (kbVisible ? kbHeight : 0);
+
   return (
     <Modal visible={visible} transparent onRequestClose={onClose} statusBarTranslucent animationType="none">
       {/* Backdrop */}
@@ -36,10 +61,10 @@ export function Sheet({ visible, title, onClose, children, footer }: SheetProps)
         from={{ translateY: 700 }}
         animate={{ translateY: 0 }}
         transition={{ type: 'spring', ...spring.soft }}
-        style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: sheetBottom }}
       >
         <GlassView intensity={blur.sheet} className="rounded-t-[28px] border-t border-glass-border dark:border-glass-border-dark">
-          <View style={{ maxHeight: height * 0.88, paddingBottom: insets.bottom }}>
+          <View style={{ maxHeight: maxBodyHeight, paddingBottom: bodyPadBottom }}>
             <View className="items-center pt-3">
               <View className="w-10 h-1.5 rounded-full bg-faint/60" />
             </View>

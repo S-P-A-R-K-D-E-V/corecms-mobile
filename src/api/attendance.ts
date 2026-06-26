@@ -43,11 +43,13 @@ export async function getMyAttendanceLogs(fromDate: string, toDate: string): Pro
   return response.data;
 }
 
-export async function getMyAttendanceReport(fromDate: string, toDate: string): Promise<IAttendanceReport> {
-  const response = await axios.get<IAttendanceReport>(endpoints.attendance.myReport, {
+export async function getMyAttendanceReport(fromDate: string, toDate: string): Promise<IAttendanceReport | null> {
+  // BE trả về MẢNG (gom theo nhân viên); với my-report chỉ có 1 phần tử — hoặc
+  // rỗng nếu không có ca nào được phân trong khoảng.
+  const response = await axios.get<IAttendanceReport[]>(endpoints.attendance.myReport, {
     params: { fromDate, toDate },
   });
-  return response.data;
+  return response.data?.[0] ?? null;
 }
 
 export async function getMyAttendanceRequests(): Promise<IAttendanceRequest[]> {
