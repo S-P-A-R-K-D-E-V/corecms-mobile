@@ -23,9 +23,16 @@ export type StatCardProps = {
 export function StatCard({ value, label, tone = 'primary', className }: StatCardProps) {
   const t = toneMap[tone];
   return (
-    <View className={cn('flex-1 items-center rounded-2xl py-3.5 gap-1', t.box, className)}>
-      <Text className={cn('text-[26px] font-bold', t.num)}>{value}</Text>
-      <Text variant="label" tone="muted" className="text-[9px]">{label}</Text>
+    <View className={cn('flex-1 items-center rounded-2xl pt-5 pb-4 gap-1', t.box, className)}>
+      <Text className={cn('text-[26px] leading-[32px] font-bold', t.num)}>{value}</Text>
+      <Text
+        variant="label"
+        tone="muted"
+        className="text-[9px] text-center"
+        numberOfLines={2}
+      >
+        {label}
+      </Text>
     </View>
   );
 }
