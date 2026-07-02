@@ -67,7 +67,30 @@ export interface IUser {
   roles: string[];
   permissions: string[];
   isActive: boolean;
+  /** Trạng thái tài khoản (BE trả về; isActive suy từ status='Active'). */
+  status?: UserStatus;
   createdAt: string;
+}
+
+export type UserStatus = 'Active' | 'Pending' | 'Banned' | 'Rejected';
+
+export interface IChangeUserStatusRequest {
+  status: UserStatus;
+}
+
+/** Vai trò — khớp BE RoleResponse (permissions rút gọn). */
+export interface IRole {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  userCount: number;
+  permissions: { id: string; name: string; description?: string }[];
+}
+
+export interface IAssignRoleRequest {
+  userId: string;
+  roleIds: string[];
 }
 
 export interface IUpdateProfileRequest {
@@ -126,17 +149,24 @@ export interface IShiftTemplate {
 // Shift Assignment
 // ======================================================================
 
+/** Khớp BE ShiftAssignmentScheduleResponse (GET /shift-assignments/range). */
 export interface IShiftAssignment {
   id: string;
   staffId: string;
   staffName: string;
-  shiftTemplateId: string;
-  shiftTemplateName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: 'Scheduled' | 'Present' | 'Absent' | 'Late';
+  /** Legacy — BE luôn trả null ở hệ mới. */
+  shiftId?: string | null;
+  shiftScheduleId?: string | null;
+  shiftName: string;
+  startTime: string;  // "HH:mm"
+  endTime: string;    // "HH:mm"
+  shiftType: string;
+  date: string;       // "yyyy-MM-dd"
   note?: string;
+  isNewSystem: boolean;
+  createdAt: string;
+  /** Log chấm công mới nhất của ca (null nếu chưa checkin). */
+  attendanceLog?: IAttendanceLog | null;
 }
 
 // Maps to MyScheduleResponse from the API — richer than IShiftAssignment
@@ -410,27 +440,173 @@ export interface IPayrollCalculationRequest {
   cycleId: string;
 }
 
+// Khớp BE PayrollContracts (đối chiếu contract, KHÔNG tin type FE cũ vốn lệch).
+
+/** Chu kỳ lương — khớp BE PayrollCycleResponse. */
+export interface IPayrollCycle {
+  id: string;
+  name: string;
+  cycleType: string; // 'Monthly' | 'Custom'
+  fromDate: string;  // "yyyy-MM-dd"
+  toDate: string;
+  standardWorkDays: number;
+  isLocked: boolean;
+  lockedBy?: string;
+  lockerName?: string;
+  lockedAt?: string;
+  createdAt: string;
+}
+
+export interface ICreatePayrollCycleRequest {
+  name: string;
+  cycleType: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;
+  standardWorkDays: number;
+}
+
+/** Tính lương 1 nhân viên trong khoảng. */
+export interface IPayrollCalculationRequest {
+  userId: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;
+}
+
+/** Tạo bảng lương hàng loạt cho cả kỳ (tạo cycle + tính mọi NV). */
 export interface IBatchPayrollCalculationRequest {
-  cycleId: string;
-  staffIds?: string[];
+  periodName: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;
 }
 
 export interface IBatchPayrollResponse {
-  count: number;
+  payrollCycleId: string;
+  periodName: string;
+  fromDate: string;
+  toDate: string;
+  totalEmployees: number;
+  successCount: number;
+  skippedCount: number;
   records: IPayrollRecord[];
 }
 
 export interface IFinalizePayrollRequest {
+  isFinalized: boolean;
+}
+
+/** POST /payroll/bulk-finalize — chốt/bỏ chốt hàng loạt. */
+export interface IBulkFinalizePayrollRequest {
+  payrollIds: string[];
+  isFinalized: boolean;
+}
+
+export interface IBulkFinalizeError {
+  payrollId: string;
+  reason: string;
+}
+
+export interface IBulkFinalizePayrollResponse {
+  successCount: number;
+  failedCount: number;
+  errors: IBulkFinalizeError[];
+}
+
+// --- Cấu hình lương cá nhân (khớp BE SalaryConfigurationContracts) ---
+
+export type SalaryType = 'PerShift' | 'Hourly' | 'Monthly';
+
+export interface ISalaryConfiguration {
+  id: string;
+  userId: string;
+  userName: string;
+  salaryType: string;
+  amount: number;
+  probationRate?: number;
+  effectiveFrom: string;  // "yyyy-MM-dd"
+  effectiveTo?: string;
   note?: string;
+  createdAt: string;
+}
+
+/** POST /salary-configurations/versioned-upsert — đặt mức lương hiệu lực từ ngày. */
+export interface IVersionedUpsertSalaryConfigRequest {
+  userId: string;
+  salaryType: SalaryType;
+  amount: number;
+  probationRate?: number;
+  effectiveFrom: string; // "yyyy-MM-dd"
+  note?: string;
+}
+
+// --- Preview cấu hình lương (GET /payroll/salary-config-preview?fromDate=) ---
+
+export interface ISalaryConfigSummary {
+  id: string;
+  salaryType: string;
+  amount: number;
+  probationRate?: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  note?: string;
+}
+
+export interface ISalaryConfigPreviewItem {
+  userId: string;
+  userName: string;
+  hasActiveConfig: boolean;
+  activeConfig?: ISalaryConfigSummary;
+  isStaff?: boolean;
+}
+
+// --- Thanh toán lương (QR + đánh dấu đã trả) ---
+
+/** GET /payroll/{id}/payment/prepare — thông tin để dựng QR VietQR. */
+export interface IPreparePayrollPaymentResponse {
+  payrollId: string;
+  userFullName: string;
+  amount: number;
+  computedAmount: number;
+  bankAccount?: string;
+  bankCode?: string;
+  accountName?: string;
+  suggestedContent: string;
+  canPay: boolean;
+  missingInfoReason?: string;
+}
+
+/** POST /payroll/{id}/mark-paid. */
+export interface IMarkPayrollPaidRequest {
+  amount: number;
+  computedAmount: number;
+  content: string;
+  transactionRef?: string;
+  note?: string;
+}
+
+export interface IPayrollPaymentDetail {
+  id: string;
+  payrollRecordId: string;
+  status: 'Paid' | 'Unpaid' | 'Failed';
+  amount: number;
+  bankAccount: string;
+  bankCode: string;
+  accountName: string;
+  content: string;
+  transactionRef?: string;
+  note?: string;
+  paidBy: string;
+  paidByName: string;
+  paidAt: string;
+  createdAt: string;
 }
 
 export interface IPayrollCycleDetailResponse {
   cycleId: string;
   cycleName: string;
-  periodStart: string;
-  periodEnd: string;
+  fromDate: string;
+  toDate: string;
+  isLocked: boolean;
   records: IPayrollRecord[];
-  totalPayroll: number;
 }
 
 export interface IWaivePenaltyRequest {
@@ -660,4 +836,166 @@ export interface IKiotVietDailySummary {
   totalCard: number;
   totalReturns: number;
   netCashImpact: number;
+}
+
+// ======================================================================
+// Manager — xếp ca / đổi ca hộ (khớp BE ShiftAssignmentContracts)
+// ======================================================================
+
+/** Body POST /shift-assignments/manage-shift — danh sách staffIds trở thành
+ *  tập phân công của (schedule, ngày); BE tự tính thêm/gỡ. */
+export interface IManageShiftAssignmentsRequest {
+  shiftScheduleId: string;
+  date: string; // "yyyy-MM-dd"
+  staffIds: string[];
+}
+
+/** Body POST /shift-assignments/bulk — phân công hàng loạt 1 ca cho nhiều
+ *  nhân viên qua khoảng ngày. FilterDays = WeekDays bitmask (int) hoặc bỏ
+ *  trống để áp mọi ngày ca lặp lại; Overwrite = gỡ NV không được chọn. */
+export interface IBulkAssignShiftScheduleRequest {
+  staffIds: string[];
+  shiftScheduleId: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;   // "yyyy-MM-dd"
+  filterDays?: number;
+  overwrite?: boolean;
+}
+
+/** Body POST /attendance/manual-adjustment — Manager/Admin điều chỉnh giờ
+ *  chấm công của 1 nhân viên trên 1 ca. */
+export interface IManualAttendanceAdjustmentRequest {
+  shiftAssignmentId: string;
+  staffId: string;
+  checkInTime?: string;  // ISO; bỏ trống = giữ nguyên
+  checkOutTime?: string;
+  note?: string;
+}
+
+/** 1 slot đề xuất phân công tự động (khớp BE AutoAssignSlotDto). */
+export interface IAutoAssignSlotDto {
+  scheduleId: string;
+  date: string; // "yyyy-MM-dd"
+  staffIds: string[];
+}
+
+/** Body POST /shift-assignments/auto-assign-apply. */
+export interface IApplyAutoAssignRequest {
+  slots: IAutoAssignSlotDto[];
+}
+
+/** Body POST /shift-assignments/swap — hoán đổi 2 phân công. */
+export interface ISwapShiftAssignmentsRequest {
+  staffId1: string;
+  shiftScheduleId1: string;
+  date1: string;
+  staffId2: string;
+  shiftScheduleId2: string;
+  date2: string;
+}
+
+// ======================================================================
+// Manager — duyệt yêu cầu (đồng bộ core-fe corecms-api)
+// ======================================================================
+
+/** Body duyệt/từ chối yêu cầu đổi ca — PUT /shift-swap/{id}/review. */
+export interface IReviewShiftSwapRequestRequest {
+  status: string; // "Approved" | "Rejected"
+  reviewNote?: string;
+}
+
+/** Yêu cầu làm hộ ca (đi muộn) — khớp BE LateCoverRequestResponse. */
+export interface ILateCoverRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  lateStaffId: string;
+  lateStaffName: string;
+  coveringStaffId: string;
+  coveringStaffName: string;
+  lateStaffAssignmentId: string;
+  lateShiftName: string;
+  lateShiftDate: string;
+  coveringStaffAssignmentId: string;
+  coveringShiftName: string;
+  coveringShiftDate: string;
+  coveringStartTime: string;
+  coveringEndTime: string;
+  coveringHours: number;
+  lateStaffHourlyRate: number;
+  extraPayAmount: number;
+  reason?: string;
+  status: string;
+  reviewedBy?: string;
+  reviewerName?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  createdAt: string;
+}
+
+/** Body duyệt/từ chối yêu cầu làm hộ — PUT /late-cover/{id}/review. */
+export interface IReviewLateCoverRequestDto {
+  status: string; // "Approved" | "Rejected"
+  reviewNote?: string;
+}
+
+// ======================================================================
+// Reports / Admin Dashboard (khớp BE /reports/*, đồng bộ core-fe corecms-api)
+// ======================================================================
+
+export interface ITopSellingProduct {
+  productId: string;
+  productName: string;
+  productSKU: string;
+  quantitySold: number;
+  revenue: number;
+}
+
+export interface IRecentOrder {
+  id: string;
+  orderNumber: string;
+  customerName?: string;
+  totalAmount: number;
+  status: string;
+  paymentStatus: string;
+  createdAt: string;
+}
+
+/** Tổng quan bảng điều khiển — nguồn cho dashboard Quản trị. */
+export interface IDashboardSummary {
+  todayRevenue: number;
+  todayOrders: number;
+  monthRevenue: number;
+  monthOrders: number;
+  totalProducts: number;
+  totalCustomers: number;
+  lowStockCount: number;
+  topSellingProducts: ITopSellingProduct[];
+  recentOrders: IRecentOrder[];
+}
+
+export interface IRevenuePeriod {
+  period: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  orderCount: number;
+  itemsSold: number;
+}
+
+export interface IRevenueReport {
+  totalRevenue: number;
+  totalCost: number;
+  grossProfit: number;
+  totalOrders: number;
+  totalItemsSold: number;
+  averageOrderValue: number;
+  periods: IRevenuePeriod[];
+}
+
+export interface IPaymentMethodReport {
+  method: string;
+  count: number;
+  totalAmount: number;
+  percentage: number;
 }

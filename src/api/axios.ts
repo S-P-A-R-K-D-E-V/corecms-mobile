@@ -47,11 +47,16 @@ export const endpoints = {
   users: {
     list: '/users',
     details: (id: string) => `/users/${id}`,
+    changeStatus: (id: string) => `/users/${id}/status`,
     me: '/users/me',
     updateProfile: '/users/me/profile',
     changePassword: '/users/me/change-password',
     uploadAvatar: '/users/me/avatar',
     uploadMyIdCard: '/users/me/id-card',
+  },
+  roles: {
+    list: '/roles',
+    assign: '/roles/assign',
   },
   shifts: {
     list: '/shifts',
@@ -70,6 +75,10 @@ export const endpoints = {
     mySchedule: '/shift-assignments/my-schedule',
     byStaffAndDate: (staffId: string, date: string) => `/shift-assignments/staff/${staffId}/date/${date}`,
     byStaffAndDateRange: (staffId: string) => `/shift-assignments/staff/${staffId}/range`,
+    manageShift: '/shift-assignments/manage-shift',
+    bulkAssign: '/shift-assignments/bulk',
+    autoAssignApply: '/shift-assignments/auto-assign-apply',
+    swap: '/shift-assignments/swap',
   },
   attendance: {
     checkIn: '/attendance/check-in',
@@ -82,6 +91,8 @@ export const endpoints = {
     myRequests: '/attendance/my-requests',
     processRequest: (id: string) => `/attendance/requests/${id}/process`,
     myReport: '/attendance/my-report',
+    report: '/attendance/report',
+    manualAdjustment: '/attendance/manual-adjustment',
   },
   branches: {
     list: '/branches',
@@ -92,6 +103,26 @@ export const endpoints = {
   payroll: {
     myPayroll: '/payroll/my-payroll',
     shiftDetails: (id: string) => `/payroll/${id}/shift-details`,
+    // Admin: tính lương
+    calculate: '/payroll/calculate',
+    generateBatch: '/payroll/generate-batch',
+    byCycle: (cycleId: string) => `/payroll/by-cycle/${cycleId}`,
+    recalculateCycle: (cycleId: string) => `/payroll/recalculate-cycle/${cycleId}`,
+    recalculateRecord: (id: string) => `/payroll/${id}/recalculate`,
+    finalize: (id: string) => `/payroll/${id}/finalize`,
+    bulkFinalize: '/payroll/bulk-finalize',
+    salaryConfigPreview: '/payroll/salary-config-preview',
+    payment: (id: string) => `/payroll/${id}/payment`,
+    paymentPrepare: (id: string) => `/payroll/${id}/payment/prepare`,
+    markPaid: (id: string) => `/payroll/${id}/mark-paid`,
+  },
+  payrollCycle: {
+    list: '/payroll-cycles',
+    create: '/payroll-cycles',
+  },
+  salaryConfig: {
+    byUser: (userId: string) => `/salary-configurations/user/${userId}`,
+    versionedUpsert: '/salary-configurations/versioned-upsert',
   },
   salaryHistory: {
     mySalaryHistory: '/salary-history/my-history',
@@ -131,6 +162,12 @@ export const endpoints = {
     myRequests: '/shift-swap/my-requests',
     myConfirmationRequests: '/shift-swap/my-confirmation-requests',
     targetConfirm: (id: string) => `/shift-swap/${id}/target-confirm`,
+    pending: '/shift-swap/pending',
+    review: (id: string) => `/shift-swap/${id}/review`,
+  },
+  lateCover: {
+    pending: '/late-cover/pending',
+    review: (id: string) => `/late-cover/${id}/review`,
   },
   shiftPool: {
     create: '/shift-pool',
@@ -151,6 +188,11 @@ export const endpoints = {
   },
   kiotViet: {
     dailySummary: '/kiotviet/daily-summary',
+  },
+  reports: {
+    dashboard: '/reports/dashboard',
+    revenue: '/reports/revenue',
+    paymentMethods: '/reports/payment-methods',
   },
 };
 

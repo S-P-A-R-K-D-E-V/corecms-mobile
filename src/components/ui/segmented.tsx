@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { View, type LayoutChangeEvent } from 'react-native';
+import { View, Pressable, type LayoutChangeEvent } from 'react-native';
 import { MotiView } from 'moti';
 import { Text } from './text';
-import { PressableScale } from './pressable-scale';
 import { cn } from './utils';
 import { spring } from 'src/theme/motion';
 import { softShadow } from 'src/theme';
@@ -17,7 +16,9 @@ export type SegmentedControlProps = {
   className?: string;
 };
 
-/** iOS-style segmented control with a spring-animated sliding indicator. */
+/** iOS-style segmented control với chỉ báo trượt. Dùng RN Pressable + flex:1
+ *  cho từng ô để chia đều bề rộng đáng tin cậy (MotiPressable trước đây không
+ *  áp flex:1 → nhãn dồn về trái, chỉ báo lệch). */
 export function SegmentedControl({ segments, value, onChange, className }: SegmentedControlProps) {
   const [w, setW] = useState(0);
   const n = Math.max(1, segments.length);
@@ -33,24 +34,23 @@ export function SegmentedControl({ segments, value, onChange, className }: Segme
         <MotiView
           animate={{ translateX: idx * segW + 4 }}
           transition={{ type: 'spring', ...spring.soft }}
-          style={[{ position: 'absolute', top: 4, bottom: 4, width: segW - 8, borderRadius: 13 }, softShadow]}
+          style={[{ position: 'absolute', top: 4, bottom: 4, left: 0, width: segW - 8, borderRadius: 13 }, softShadow]}
           className="bg-primary"
         />
       ) : null}
       {segments.map((s) => {
         const active = s.key === value;
         return (
-          <PressableScale
+          <Pressable
             key={s.key}
             onPress={() => { if (!active) { haptics.selection(); onChange(s.key); } }}
             style={{ flex: 1 }}
+            className="py-2.5 items-center justify-center"
           >
-            <View className="py-2.5 items-center justify-center">
-              <Text variant="bodySmall" className={cn('font-semibold', active ? 'text-white' : 'text-muted')} numberOfLines={1}>
-                {s.label}
-              </Text>
-            </View>
-          </PressableScale>
+            <Text variant="bodySmall" className={cn('font-semibold', active ? 'text-white' : 'text-muted')} numberOfLines={1}>
+              {s.label}
+            </Text>
+          </Pressable>
         );
       })}
     </View>

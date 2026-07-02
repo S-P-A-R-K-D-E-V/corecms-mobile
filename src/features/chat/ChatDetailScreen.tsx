@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image, Keyboard } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
@@ -10,8 +10,9 @@ import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
 
-import { AppHeader, Loading } from 'src/components/shared';
+import { Loading } from 'src/components/shared';
 import { Text, Pressable, Icon, Spinner } from 'src/components/ui';
+import { ChatAvatar } from './ChatAvatar';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { showActionSheet, toast } from 'src/components/overlay';
@@ -55,6 +56,7 @@ import {
   sendMessage,
   sendAttachment,
   markRead,
+  isGroupConversation,
   type DirectMessage,
   type MessageAttachment,
   type ChatFile,
@@ -62,6 +64,17 @@ import {
 import { useMessengerStore, selectMessages, selectTyping } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { useMessengerCtx } from 'src/components/messenger/messenger-provider';
+import { ImageViewer, type ViewerImage } from './ImageViewer';
+
+/** Mở tệp (không phải ảnh) trong trình xem in-app (SFSafariVC / Custom Tabs). */
+function openFileInApp(url: string) {
+  WebBrowser.openBrowserAsync(url, {
+    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+    controlsColor: brand.primary,
+    toolbarColor: '#FFFFFF',
+    enableBarCollapsing: true,
+  }).catch(() => {});
+}
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10MB — đồng bộ giới hạn BE
 
@@ -71,18 +84,18 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function AttachmentView({ att, isMine }: { att: MessageAttachment; isMine: boolean }) {
+function AttachmentView({ att, isMine, onOpenImage }: { att: MessageAttachment; isMine: boolean; onOpenImage: (objectKey: string) => void }) {
   const url = getStorageUrl(att.objectKey);
   if (att.kind === 'image') {
     return (
-      <Pressable onPress={() => WebBrowser.openBrowserAsync(url)} className="mt-1">
+      <Pressable onPress={() => onOpenImage(att.objectKey)} className="mt-1">
         <Image source={{ uri: url }} className="w-52 h-52 rounded-xl" resizeMode="cover" />
       </Pressable>
     );
   }
   return (
     <Pressable
-      onPress={() => WebBrowser.openBrowserAsync(url)}
+      onPress={() => openFileInApp(url)}
       className={cn(
         'mt-1 flex-row items-center gap-2 px-3 py-2.5 rounded-xl',
         isMine ? 'bg-white/15' : 'bg-bg dark:bg-bg-dark'
@@ -98,7 +111,7 @@ function AttachmentView({ att, isMine }: { att: MessageAttachment; isMine: boole
   );
 }
 
-function Bubble({ msg, isMine }: { msg: DirectMessage; isMine: boolean }) {
+function Bubble({ msg, isMine, onOpenImage }: { msg: DirectMessage; isMine: boolean; onOpenImage: (objectKey: string) => void }) {
   const hasText = !!msg.content?.trim();
   const attachments = msg.attachments ?? [];
   return (
@@ -106,7 +119,7 @@ function Bubble({ msg, isMine }: { msg: DirectMessage; isMine: boolean }) {
       <View className={cn('max-w-[78%] px-3.5 py-2.5 rounded-2xl', isMine ? 'bg-primary' : 'bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark')}>
         {hasText ? <Text className={isMine ? 'text-white' : ''}>{msg.content}</Text> : null}
         {attachments.map((att, i) => (
-          <AttachmentView key={att.objectKey + i} att={att} isMine={isMine} />
+          <AttachmentView key={att.objectKey + i} att={att} isMine={isMine} onOpenImage={onOpenImage} />
         ))}
         <Text className={cn('text-[10px] text-right mt-1', isMine ? 'text-white/65' : 'text-faint')}>
           {dayjs(msg.createdAt).format('HH:mm')}
@@ -126,13 +139,52 @@ export function ChatDetailScreen() {
   const typing = useMessengerStore(selectTyping(conversationId!));
   const { setMessages, prependMessages, clearUnread, setActiveConversation } = useMessengerStore();
 
+  // Đối tác trò chuyện (để hiện avatar + trạng thái trên header).
+  const conv = useMessengerStore((s) => s.conversations.find((c) => c.id === conversationId));
+  const userCache = useMessengerStore((s) => s.userCache);
+  const isPrivate = !isGroupConversation(conv?.type);
+  const otherId = conv?.participantIds.find((id) => id !== user?.id);
+  const other = otherId ? userCache[otherId] : undefined;
+  const headerName = name || other?.fullName || 'Chat';
+
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [kbUp, setKbUp] = useState(false);
+  const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
   const flatRef = useRef<FlatList<DirectMessage>>(null);
+
+  // Gom mọi ảnh trong hội thoại (thứ tự thời gian) để xem/vuốt như gallery.
+  const gallery = useMemo<(ViewerImage & { key: string })[]>(() => {
+    const arr: (ViewerImage & { key: string })[] = [];
+    for (const m of messages) {
+      for (const a of m.attachments ?? []) {
+        if (a.kind === 'image') arr.push({ uri: getStorageUrl(a.objectKey), fileName: a.fileName, key: a.objectKey });
+      }
+    }
+    return arr;
+  }, [messages]);
+
+  const openImage = useCallback(
+    (objectKey: string) => {
+      const i = gallery.findIndex((g) => g.key === objectKey);
+      setViewer({ open: true, index: i < 0 ? 0 : i });
+    },
+    [gallery]
+  );
+
+  // Bàn phím hiện → thu gọn đệm an toàn dưới ô nhập để nó sát bàn phím
+  // (trước đây paddingBottom = safe-area luôn hằng → ô input cách bàn phím xa).
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, () => setKbUp(true));
+    const h = Keyboard.addListener(hideEvt, () => setKbUp(false));
+    return () => { s.remove(); h.remove(); };
+  }, []);
 
   useEffect(() => {
     joinConversation(conversationId!);
@@ -265,11 +317,29 @@ export function ChatDetailScreen() {
   const reversed = [...messages].reverse();
 
   return (
-    <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      <View className="px-4 pt-2">
-        <AppHeader title={name || 'Chat'} subtitle={typing.length > 0 ? 'Đang nhập...' : undefined} back />
+    <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
+      <View className="px-4 pt-2 pb-1 flex-row items-center gap-2">
+        <Pressable onPress={() => router.back()} className="w-9 h-9 -ml-1 items-center justify-center rounded-full">
+          <Icon name="chevron-left" size={26} tone="default" />
+        </Pressable>
+        <ChatAvatar
+          name={headerName}
+          avatarUrl={isPrivate ? other?.avatarUrl : null}
+          size={40}
+          online={isPrivate && (other?.online ?? false)}
+        />
+        <View className="flex-1">
+          <Text variant="subtitle" numberOfLines={1}>{headerName}</Text>
+          {typing.length > 0 ? (
+            <Text variant="caption" tone="primary">Đang nhập...</Text>
+          ) : isPrivate ? (
+            <Text variant="caption" tone={other?.online ? 'primary' : 'muted'}>
+              {other?.online ? 'Đang hoạt động' : 'Ngoại tuyến'}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         {loading ? (
           <Loading />
         ) : (
@@ -289,7 +359,7 @@ export function ChatDetailScreen() {
               return (
                 <>
                   {showDate ? <DayChip iso={item.createdAt} /> : null}
-                  <Bubble msg={item} isMine={item.senderId === user?.id} />
+                  <Bubble msg={item} isMine={item.senderId === user?.id} onOpenImage={openImage} />
                 </>
               );
             }}
@@ -303,7 +373,10 @@ export function ChatDetailScreen() {
           </View>
         ) : null}
 
-        <View className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark">
+        <View
+          className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark"
+          style={{ paddingBottom: kbUp ? 8 : Math.max(insets.bottom, 8) }}
+        >
           <Pressable onPress={handleAttachPress} disabled={uploading || sending} className="w-11 h-11 items-center justify-center rounded-full">
             <Icon name="paperclip" size={24} tone={uploading || sending ? 'faint' : 'muted'} />
           </Pressable>
@@ -321,6 +394,15 @@ export function ChatDetailScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {viewer.open ? (
+        <ImageViewer
+          images={gallery}
+          initialIndex={viewer.index}
+          visible
+          onClose={() => setViewer({ open: false, index: 0 })}
+        />
+      ) : null}
     </View>
   );
 }

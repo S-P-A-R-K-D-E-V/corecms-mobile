@@ -20,6 +20,7 @@ export const PrefKeys = {
   language: 'pref.language',
   fontFamily: 'pref.fontFamily', // 'system' | 'publicSans'
   fontScale: 'pref.fontScale',   // 'small' | 'medium' | 'large' | 'xlarge'
+  launcherPins: 'pref.launcherPins', // JSON: { staff: string[], admin: string[] }
 } as const;
 
 export const secure = {

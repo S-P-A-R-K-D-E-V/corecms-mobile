@@ -4,6 +4,13 @@ import axios, { endpoints } from './axios';
 
 export type ConversationType = 'Private' | 'Group';
 
+/** BE (System.Text.Json mặc định) từng trả enum dạng SỐ (0=Private, 1=Group);
+ *  so sánh `type === 'Group'` khi đó luôn false → avatar/online trong danh
+ *  sách không hiện. Chuẩn hoá cả hai dạng số/chuỗi tại một chỗ. */
+export function isGroupConversation(type: ConversationType | number | null | undefined): boolean {
+  return type === 'Group' || type === 1;
+}
+
 export type ConversationSummary = {
   id: string;
   type: ConversationType;

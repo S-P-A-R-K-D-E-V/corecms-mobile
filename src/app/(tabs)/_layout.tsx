@@ -5,6 +5,8 @@ import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
+import { useAuthContext } from 'src/auth/auth-context';
+import { usesAdminShell } from 'src/auth/roles';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
@@ -15,10 +17,22 @@ const NAV_COLORS: [string, string, string] = ['#D86A88', '#C84D71', '#A83C5D'];
 
 // Solar icons (bold-duotone when active, linear when idle) keyed into the registry.
 type TabDef = { name: string; off?: string; on: string; label: string };
-const TABS: TabDef[] = [
+
+// Menu nhân viên (Staff/Manager): 5 tab, checkin là nút center nổi bật.
+const STAFF_TABS: TabDef[] = [
   { name: 'schedule', off: 'tab-schedule-off', on: 'tab-schedule-on', label: 'Lịch làm' },
   { name: 'payroll', off: 'tab-payroll-off', on: 'tab-payroll-on', label: 'Lương' },
-  { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // index 2 = center
+  { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // center
+  { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
+  { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
+];
+
+// Menu riêng cho Quản trị viên: Dashboard | Chat | Tôi (không có nút center).
+// Mọi route vẫn được đăng ký trong navigator — chỉ NÚT trên tab bar đổi theo
+// role; deep-link vào màn không thuộc menu vẫn hoạt động (Admin full quyền).
+const ADMIN_TABS: TabDef[] = [
+  { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', label: 'Dashboard' },
+  { name: 'features', off: 'tab-apps-off', on: 'tab-apps-on', label: 'Tiện ích' },
   { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
   { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
@@ -31,7 +45,7 @@ function TabIcon({ xmlKey, size, color }: { xmlKey?: string; size: number; color
   return <SvgXml xml={xml} width={size} height={size} color={color} />;
 }
 
-function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
+function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; tabs: TabDef[] }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 8);
 
@@ -69,10 +83,12 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
             elevation: 18,
           }}
         >
-          {TABS.map((tab, i) => {
-            const route = state.routes[i];
-            const isFocused = state.index === i;
-            const isCenter = i === 2;
+          {tabs.map((tab) => {
+            // Tra route theo TÊN (không theo index) — navigator đăng ký đủ mọi
+            // screen nhưng menu chỉ hiển thị 1 tập con tuỳ role (Staff vs Admin).
+            const route = state.routes.find((r: any) => r.name === tab.name);
+            const isFocused = focusedTab?.name === tab.name;
+            const isCenter = tab.name === 'checkin';
 
             function onPress() {
               if (!route) return;
@@ -208,20 +224,29 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
 }
 
 export default function TabsLayout() {
+  const { user } = useAuthContext();
+  // Shell điều hướng CỐ ĐỊNH theo nhóm (không đẻ tab theo từng quyền):
+  //   Admin thuần                     → Dashboard | Chat | Tôi (3 tab)
+  //   Staff / Manager / Admin-kiêm-ca → 5 tab nhân viên
+  // Tính năng quản lý/quản trị được đưa vào feature-grid ở màn home, không
+  // thêm tab. Navigator đăng ký đủ screen; tab bar tra route theo tên.
+  const tabs = usesAdminShell(user) ? ADMIN_TABS : STAFF_TABS;
+
   // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
   return (
     <InternalAppGuard>
       <MessengerProvider>
         <Tabs
           screenOptions={{ headerShown: false }}
-          tabBar={(props) => <CiCiTabBar {...props} />}
+          tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
         >
-          {/* Order must match TABS array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) */}
           <Tabs.Screen name="schedule" />
           <Tabs.Screen name="payroll" />
           <Tabs.Screen name="checkin" />
           <Tabs.Screen name="chat" />
           <Tabs.Screen name="profile" />
+          <Tabs.Screen name="admin" />
+          <Tabs.Screen name="features" />
         </Tabs>
         <InAppNotificationHost />
       </MessengerProvider>

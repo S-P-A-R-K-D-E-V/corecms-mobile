@@ -32,7 +32,7 @@ export function ChatAvatar({ name, avatarUrl, size = 48, online }: Props) {
         />
       ) : (
         <View
-          className="rounded-full bg-primary-50 items-center justify-center"
+          className="rounded-full bg-primary-50 dark:bg-[rgba(200,77,113,0.18)] items-center justify-center"
           style={{ width: size, height: size }}
         >
           <Text className="text-primary font-bold" style={{ fontSize: Math.round(size * 0.36) }}>

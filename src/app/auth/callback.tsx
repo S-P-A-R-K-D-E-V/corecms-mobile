@@ -15,7 +15,8 @@ export default function AuthCallbackScreen() {
       return;
     }
     loginWithSessionToken(sessionToken as string)
-      .then(() => router.replace('/(tabs)/checkin'))
+      // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
+      .then(() => router.replace('/'))
       .catch(() => router.replace('/(auth)/login'));
   }, []);
 

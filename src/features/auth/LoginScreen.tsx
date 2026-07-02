@@ -36,7 +36,8 @@ export function LoginScreen() {
         if (sessionToken) {
           await loginWithSessionToken(sessionToken);
           track(AnalyticsEvent.LoginSuccess);
-          router.replace('/(tabs)/checkin');
+          // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
+          router.replace('/');
           return;
         }
         toast.error('Không nhận được phiên đăng nhập. Vui lòng thử lại.', 'Đăng nhập thất bại');

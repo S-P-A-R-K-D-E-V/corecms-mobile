@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Redirect } from 'expo-router';
 
 import { useAuthContext } from 'src/auth/auth-context';
+import { homeHref } from 'src/auth/roles';
 import { useFeatureFlag } from 'src/services/remote-config';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { Text, Spinner, CiCiLogoMark } from 'src/components/ui';
@@ -10,9 +11,9 @@ import { Text, Spinner, CiCiLogoMark } from 'src/components/ui';
 // Boot gate: decides the first route based on first-run + auth state.
 //   first run        → /(onboarding)
 //   not authenticated → /(auth)/login
-//   authenticated     → /(tabs)/checkin
+//   authenticated     → homeHref(user): Admin → dashboard, còn lại → checkin
 export default function Index() {
-  const { loading, authenticated } = useAuthContext();
+  const { loading, authenticated, user } = useAuthContext();
   const onboardingEnabled = useFeatureFlag('onboardingEnabled');
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
@@ -33,5 +34,5 @@ export default function Index() {
 
   if (onboardingEnabled && !onboardingDone) return <Redirect href="/onboarding" />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
-  return <Redirect href="/(tabs)/checkin" />;
+  return <Redirect href={homeHref(user) as any} />;
 }

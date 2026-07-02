@@ -40,7 +40,11 @@ function NotificationRow({ item, onRead, onDelete }: { item: INotification; onRe
       onPress={() => { if (!item.isRead) onRead(item.id); }}
       className={cn(
         'flex-row items-start gap-3 p-3.5 rounded-2xl border',
-        item.isRead ? 'bg-surface dark:bg-surface-dark border-line/50 dark:border-line-dark' : 'bg-primary-50 border-primary/20'
+        // Chưa đọc: nền hồng nhạt CHỈ ở light; dark dùng soft alpha — bg-primary-50
+        // (gần trắng) ở dark làm title trắng chìm trên nền sáng, không đọc được.
+        item.isRead
+          ? 'bg-surface dark:bg-surface-dark border-line/50 dark:border-line-dark'
+          : 'bg-primary-50 border-primary/20 dark:bg-primary/15 dark:border-primary-dark/30'
       )}
     >
       <View className="w-11 h-11 rounded-xl items-center justify-center" style={{ backgroundColor: `${ti.color}1A` }}>
@@ -158,7 +162,7 @@ export function NotificationsScreen() {
           contentContainerClassName="px-4 pb-10 gap-2"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brand.primary]} tintColor={brand.primary} />}
           ListHeaderComponent={
-            <View className={cn('flex-row items-center gap-1.5 rounded-xl p-2.5 mb-1', unread > 0 ? 'bg-primary-50' : 'bg-success-soft')}>
+            <View className={cn('flex-row items-center gap-1.5 rounded-xl p-2.5 mb-1', unread > 0 ? 'bg-primary-50 dark:bg-primary/15' : 'bg-success-soft')}>
               <Icon name={unread > 0 ? 'bell-badge-outline' : 'check-all'} size={16} tone={unread > 0 ? 'primary' : 'success'} />
               <Text variant="caption" tone={unread > 0 ? 'primary' : 'success'} className="font-semibold">
                 {unread > 0 ? `${unread} thông báo chưa đọc · Nhấn để đánh dấu đã đọc` : 'Tất cả đã đọc'}

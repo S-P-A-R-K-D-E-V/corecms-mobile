@@ -10,7 +10,7 @@ import { AppHeader, EmptyState, Loading } from 'src/components/shared';
 import { Text, TextField, Divider, Pressable } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
-import { fetchConversations, fetchUsers, openPrivateConversation, type ConversationSummary, type InternalUser } from 'src/api/messenger';
+import { fetchConversations, fetchUsers, openPrivateConversation, isGroupConversation, type ConversationSummary, type InternalUser } from 'src/api/messenger';
 import { useMessengerStore } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { NewConversationSheet } from './NewConversationSheet';
@@ -30,9 +30,12 @@ function formatTime(iso: string | null) {
 function ConversationRow({ conv }: { conv: ConversationSummary }) {
   const { userCache } = useMessengerStore();
   const { user } = useAuthContext();
+  // isGroupConversation: BE có thể trả type dạng số (0/1) — so sánh chuỗi trực
+  // tiếp làm mọi hội thoại bị coi là Group → avatar/online không hiển thị.
+  const isGroup = isGroupConversation(conv.type);
   const otherId = conv.participantIds.find((id) => id !== user?.id) ?? '';
   const other = userCache[otherId];
-  const name = conv.type === 'Group' ? conv.name ?? 'Nhóm chat' : other?.fullName ?? 'Người dùng';
+  const name = isGroup ? conv.name ?? 'Nhóm chat' : other?.fullName ?? 'Người dùng';
   const online = other?.online ?? false;
   const unread = conv.unreadCount > 0;
 
@@ -43,9 +46,9 @@ function ConversationRow({ conv }: { conv: ConversationSummary }) {
     >
       <ChatAvatar
         name={name}
-        avatarUrl={conv.type === 'Private' ? other?.avatarUrl : null}
+        avatarUrl={!isGroup ? other?.avatarUrl : null}
         size={48}
-        online={conv.type === 'Private' && online}
+        online={!isGroup && online}
       />
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center gap-2">
@@ -162,7 +165,10 @@ export function ChatListScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(i) => i.id}
-          contentContainerClassName="pb-4"
+          // Chừa chỗ cho tab bar nổi (PILL 72 + safe-area + đệm) — trước chỉ pb-4
+          // nên các mục cuối bị tab bar che.
+          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) + 16 }}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brand.primary]} tintColor={brand.primary} />}
           ListHeaderComponent={!search ? <OnlineRow onOpen={goToConversation} /> : null}
           ItemSeparatorComponent={() => <Divider className="ml-[72px]" />}

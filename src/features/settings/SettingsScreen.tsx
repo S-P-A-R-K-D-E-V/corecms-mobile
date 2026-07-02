@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import Constants from 'expo-constants';
@@ -5,6 +6,9 @@ import Constants from 'expo-constants';
 import { Screen, AppHeader, SectionCard, ListItem } from 'src/components/shared';
 import { Text, Divider } from 'src/components/ui';
 import { useThemePreference } from 'src/theme/ThemeProvider';
+import { useAuthContext } from 'src/auth/auth-context';
+import { usesAdminShell } from 'src/auth/roles';
+import { LauncherEditor } from 'src/features/launcher/LauncherEditor';
 import { t } from 'src/i18n';
 
 const themeLabel: Record<string, string> = {
@@ -15,11 +19,25 @@ const themeLabel: Record<string, string> = {
 
 export function SettingsScreen() {
   const { preference } = useThemePreference();
+  const { user } = useAuthContext();
+  const [editingLauncher, setEditingLauncher] = useState(false);
+  const launcherVariant = usesAdminShell(user) ? 'admin' : 'staff';
   const version = Constants.expoConfig?.version ?? '1.0.0';
 
   return (
     <Screen scroll tabBarInset={false}>
       <AppHeader title={t('settings.title')} back />
+
+      <SectionCard title="Màn hình chính" bodyClassName="pt-0">
+        <ListItem
+          icon="apps"
+          iconTone="primary"
+          title="Tùy chỉnh tiện ích"
+          subtitle="Chọn & sắp thứ tự lối tắt trên trang chủ"
+          onPress={() => setEditingLauncher(true)}
+          showChevron
+        />
+      </SectionCard>
 
       <SectionCard title={t('settings.appearance')} bodyClassName="pt-0">
         <ListItem
@@ -63,6 +81,12 @@ export function SettingsScreen() {
       <View className="items-center py-4">
         <Text variant="caption" tone="faint">CoreCMS Mobile · {t('settings.version')} {version}</Text>
       </View>
+
+      <LauncherEditor
+        variant={launcherVariant}
+        visible={editingLauncher}
+        onClose={() => setEditingLauncher(false)}
+      />
     </Screen>
   );
 }
