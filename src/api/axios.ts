@@ -97,6 +97,15 @@ export const endpoints = {
   payroll: {
     myPayroll: '/payroll/my-payroll',
     shiftDetails: (id: string) => `/payroll/${id}/shift-details`,
+    // Admin: tính lương
+    calculate: '/payroll/calculate',
+    generateBatch: '/payroll/generate-batch',
+    byCycle: (cycleId: string) => `/payroll/by-cycle/${cycleId}`,
+    recalculateCycle: (cycleId: string) => `/payroll/recalculate-cycle/${cycleId}`,
+  },
+  payrollCycle: {
+    list: '/payroll-cycles',
+    create: '/payroll-cycles',
   },
   salaryHistory: {
     mySalaryHistory: '/salary-history/my-history',

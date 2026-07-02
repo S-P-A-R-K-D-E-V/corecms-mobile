@@ -417,27 +417,67 @@ export interface IPayrollCalculationRequest {
   cycleId: string;
 }
 
+// Khớp BE PayrollContracts (đối chiếu contract, KHÔNG tin type FE cũ vốn lệch).
+
+/** Chu kỳ lương — khớp BE PayrollCycleResponse. */
+export interface IPayrollCycle {
+  id: string;
+  name: string;
+  cycleType: string; // 'Monthly' | 'Custom'
+  fromDate: string;  // "yyyy-MM-dd"
+  toDate: string;
+  standardWorkDays: number;
+  isLocked: boolean;
+  lockedBy?: string;
+  lockerName?: string;
+  lockedAt?: string;
+  createdAt: string;
+}
+
+export interface ICreatePayrollCycleRequest {
+  name: string;
+  cycleType: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;
+  standardWorkDays: number;
+}
+
+/** Tính lương 1 nhân viên trong khoảng. */
+export interface IPayrollCalculationRequest {
+  userId: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;
+}
+
+/** Tạo bảng lương hàng loạt cho cả kỳ (tạo cycle + tính mọi NV). */
 export interface IBatchPayrollCalculationRequest {
-  cycleId: string;
-  staffIds?: string[];
+  periodName: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;
 }
 
 export interface IBatchPayrollResponse {
-  count: number;
+  payrollCycleId: string;
+  periodName: string;
+  fromDate: string;
+  toDate: string;
+  totalEmployees: number;
+  successCount: number;
+  skippedCount: number;
   records: IPayrollRecord[];
 }
 
 export interface IFinalizePayrollRequest {
-  note?: string;
+  isFinalized: boolean;
 }
 
 export interface IPayrollCycleDetailResponse {
   cycleId: string;
   cycleName: string;
-  periodStart: string;
-  periodEnd: string;
+  fromDate: string;
+  toDate: string;
+  isLocked: boolean;
   records: IPayrollRecord[];
-  totalPayroll: number;
 }
 
 export interface IWaivePenaltyRequest {
