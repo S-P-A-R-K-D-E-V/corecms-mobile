@@ -41,12 +41,16 @@ function ReviewActions({
 }) {
   return (
     <View className="flex-row gap-2 pt-1">
-      <Button variant="soft" action="error" size="sm" className="flex-1" disabled={busy} onPress={() => onDecide('Rejected')}>
-        Từ chối
-      </Button>
-      <Button size="sm" className="flex-1" loading={busy} onPress={() => onDecide('Approved')}>
-        Duyệt
-      </Button>
+      <View className="flex-1">
+        <Button variant="soft" action="error" size="sm" disabled={busy} onPress={() => onDecide('Rejected')}>
+          Từ chối
+        </Button>
+      </View>
+      <View className="flex-1">
+        <Button size="sm" loading={busy} onPress={() => onDecide('Approved')}>
+          Duyệt
+        </Button>
+      </View>
     </View>
   );
 }

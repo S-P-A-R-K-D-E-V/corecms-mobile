@@ -89,14 +89,28 @@ export function PayrollListScreen() {
       ) : !data || data.length === 0 ? (
         <EmptyState icon="cash-multiple" title="Chưa có bảng lương" description="Bảng lương sẽ hiển thị khi kỳ lương được tạo." />
       ) : (
-        data
-          .slice()
-          .sort((a, b) => dayjs(b.fromDate).diff(dayjs(a.fromDate)))
-          .map((rec, i) => (
-            <Appear key={rec.id} index={i}>
-              <PayrollCard rec={rec} />
-            </Appear>
-          ))
+        (() => {
+          const sorted = data.slice().sort((a, b) => dayjs(b.fromDate).diff(dayjs(a.fromDate)));
+          let lastYear = '';
+          return sorted.map((rec, i) => {
+            const year = dayjs(rec.fromDate).format('YYYY');
+            const showYear = year !== lastYear;
+            lastYear = year;
+            return (
+              <View key={rec.id}>
+                {showYear ? (
+                  <View className="flex-row items-center gap-2 mt-2 mb-1">
+                    <Text variant="label" tone="muted" className="font-semibold">NĂM {year}</Text>
+                    <View className="flex-1 h-px bg-line dark:bg-line-dark" />
+                  </View>
+                ) : null}
+                <Appear index={i}>
+                  <PayrollCard rec={rec} />
+                </Appear>
+              </View>
+            );
+          });
+        })()
       )}
     </Screen>
   );

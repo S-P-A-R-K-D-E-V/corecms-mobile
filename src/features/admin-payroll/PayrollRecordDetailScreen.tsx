@@ -158,12 +158,16 @@ export function PayrollRecordDetailScreen() {
           </Button>
 
           <View className="flex-row gap-2">
-            <Button variant="soft" action="neutral" size="sm" className="flex-1" icon="calculator-variant-outline" disabled={finalized} onPress={() => setRecalcOpen(true)}>
-              Tính lại lương
-            </Button>
-            <Button size="sm" className="flex-1" action={finalized ? 'error' : 'primary'} variant={finalized ? 'soft' : 'solid'} icon={finalized ? 'lock-open-variant-outline' : 'lock-check-outline'} loading={finalizeM.isPending} onPress={toggleFinalize}>
-              {finalized ? 'Bỏ chốt' : 'Chốt lương'}
-            </Button>
+            <View className="flex-1">
+              <Button variant="soft" action="neutral" size="sm" icon="calculator-variant-outline" disabled={finalized} onPress={() => setRecalcOpen(true)}>
+                Tính lại lương
+              </Button>
+            </View>
+            <View className="flex-1">
+              <Button size="sm" action={finalized ? 'error' : 'primary'} variant={finalized ? 'soft' : 'solid'} icon={finalized ? 'lock-open-variant-outline' : 'lock-check-outline'} loading={finalizeM.isPending} onPress={toggleFinalize}>
+                {finalized ? 'Bỏ chốt' : 'Chốt lương'}
+              </Button>
+            </View>
           </View>
 
           {/* Thanh toán chỉ sau khi đã chốt lương */}
