@@ -8,6 +8,7 @@ import { Card, Text, Badge, Icon, Skeleton, SegmentedControl, CountUp } from 'sr
 import type { IRecentOrder, ITopSellingProduct, IPaymentMethodReport } from 'src/types/corecms-api';
 import { t } from 'src/i18n';
 
+import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { RevenueChart } from './RevenueChart';
 import {
   useDashboardSummary,
@@ -312,6 +313,7 @@ export function AdminDashboardScreen() {
       />
 
       <KpiGrid />
+      <FeatureGrid variant="admin" />
       <RevenueSection days={days} />
       <AttendanceToday />
       <PaymentMix days={days} />

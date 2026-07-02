@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { AuthProvider } from 'src/auth/auth-provider';
 import { usePushRegistration } from 'src/hooks/use-push-registration';
+import { useHydrateLauncher } from 'src/features/launcher/store';
 import { queryClient } from 'src/services/query/client';
 import { RemoteConfigProvider } from 'src/services/remote-config';
 import { RootErrorBoundary } from 'src/services/error/ErrorBoundary';
@@ -27,6 +28,12 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // AuthProvider so useAuthContext is available.
 function PushRegistrationWrapper() {
   usePushRegistration();
+  return null;
+}
+
+// Nạp cấu hình feature-grid (ghim tiện ích) từ AsyncStorage khi mở app.
+function LauncherHydrator() {
+  useHydrateLauncher();
   return null;
 }
 
@@ -59,6 +66,7 @@ export default function RootLayout() {
             <RemoteConfigProvider>
               <AuthProvider>
                 <PushRegistrationWrapper />
+                <LauncherHydrator />
                 <StatusBar style="auto" />
                 <Stack screenOptions={{ headerShown: false }} />
                 <OverlayHost />

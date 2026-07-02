@@ -21,6 +21,7 @@ import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
 
+import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { useCheckinData } from './hooks';
 import { FaceCaptureModal } from './FaceCaptureModal';
 import {
@@ -76,29 +77,6 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
     </View>
   );
 }
-
-const QUICK_ACTIONS: { icon: IconName; label: string; tone: 'info' | 'warning' | 'secondary' | 'error' | 'success'; route: string; disabled?: boolean }[] = [
-  { icon: 'cash-register', label: 'Kiểm tiền\nquầy', tone: 'success', route: '/shift-cash' },
-  { icon: 'calendar-plus', label: 'Đăng ký\nca', tone: 'secondary', route: '/shift-register' },
-  { icon: 'chart-bar', label: 'Báo cáo\ncông', tone: 'error', route: '/(tabs)/payroll' },
-  { icon: 'clipboard-text-outline', label: 'Yêu cầu\nđiều chỉnh', tone: 'info', route: '/attendance', disabled: true },
-];
-
-const quickBg: Record<string, string> = {
-  info: 'bg-info-soft',
-  warning: 'bg-warning-soft',
-  secondary: 'bg-secondary-soft',
-  error: 'bg-error-soft',
-  success: 'bg-success-soft',
-};
-
-const quickTextCls: Record<string, string> = {
-  info: 'text-info',
-  warning: 'text-warning-text',
-  secondary: 'text-info',
-  error: 'text-error',
-  success: 'text-success',
-};
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 export function CheckinScreen() {
@@ -550,38 +528,8 @@ export function CheckinScreen() {
         </View>
       ) : null}
 
-      {/* Quick actions — 2-up grid */}
-      <View className="flex-row flex-wrap gap-2.5">
-        {QUICK_ACTIONS.map((a) => (
-          <Pressable
-            key={a.label}
-            onPress={a.disabled ? undefined : () => router.push(a.route as any)}
-            className={cn(
-              'items-center justify-center py-4 rounded-2xl gap-2 relative',
-              quickBg[a.tone],
-              a.disabled && 'opacity-50',
-            )}
-            style={{ width: '48%' }}
-          >
-            <Icon name={a.icon} size={26} tone={a.tone} />
-            <Text
-              variant="caption"
-              numberOfLines={2}
-              className={cn('text-center font-semibold leading-4', quickTextCls[a.tone])}
-            >
-              {a.label.replace('\n', ' ')}
-            </Text>
-            {a.disabled ? (
-              <View
-                className="absolute top-1.5 right-1.5 rounded-full px-1.5 py-0.5 bg-surface dark:bg-surface-dark"
-                style={{ borderWidth: 0.5, borderColor: 'rgba(0,0,0,0.08)' }}
-              >
-                <Text variant="caption" className="text-[9px] text-faint font-semibold">Sắp có</Text>
-              </View>
-            ) : null}
-          </Pressable>
-        ))}
-      </View>
+      {/* Feature-grid tiện ích — tùy chỉnh được (thay lưới cứng cũ) */}
+      <FeatureGrid variant="staff" />
 
       {/* Today's history */}
       <SectionCard title={t('checkin.todayHistory')} icon="history" count={logs.length} collapsible defaultExpanded={false}>

@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isAdminUser } from 'src/auth/roles';
+import { usesAdminShell } from 'src/auth/roles';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
@@ -224,12 +224,12 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
 
 export default function TabsLayout() {
   const { user } = useAuthContext();
-  // Menu theo role (1 tài khoản nhiều role → Admin thắng):
-  //   Admin          → Dashboard | Chat | Tôi
-  //   Staff/Manager  → 5 tab nhân viên hiện tại
-  // Navigator luôn đăng ký đủ screen; tab bar tra route theo tên nên không
-  // phụ thuộc thứ tự đăng ký. RoleGuard trong từng màn vẫn chặn 403.
-  const tabs = isAdminUser(user) ? ADMIN_TABS : STAFF_TABS;
+  // Shell điều hướng CỐ ĐỊNH theo nhóm (không đẻ tab theo từng quyền):
+  //   Admin thuần                     → Dashboard | Chat | Tôi (3 tab)
+  //   Staff / Manager / Admin-kiêm-ca → 5 tab nhân viên
+  // Tính năng quản lý/quản trị được đưa vào feature-grid ở màn home, không
+  // thêm tab. Navigator đăng ký đủ screen; tab bar tra route theo tên.
+  const tabs = usesAdminShell(user) ? ADMIN_TABS : STAFF_TABS;
 
   // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
   return (
