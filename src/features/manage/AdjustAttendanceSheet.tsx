@@ -7,7 +7,6 @@ import { Button, Text, TextField, Icon } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
-import type { IShiftAssignment } from 'src/types/corecms-api';
 
 import { useManualAdjustment } from './hooks';
 
@@ -15,7 +14,22 @@ import { useManualAdjustment } from './hooks';
 // Điều chỉnh chấm công của 1 nhân viên trên 1 ca (Manager/Admin). Nhập giờ
 // vào/ra dạng HH:mm — ghép với ngày của ca thành ISO gửi manual-adjustment.
 // Không thêm lib date-picker: dùng ô nhập HH:mm nhẹ, prefill từ log hiện có.
+// Dùng chung: Lịch đội ngũ (từ IShiftAssignment) & Chi tiết bảng lương
+// (từ IPayrollShiftItem) — chỉ cần AdjustTarget tối giản.
 // ----------------------------------------------------------------------
+
+/** Dữ liệu tối thiểu để điều chỉnh 1 ca. */
+export type AdjustTarget = {
+  shiftAssignmentId: string;
+  staffId: string;
+  staffName: string;
+  shiftName: string;
+  date: string;       // "yyyy-MM-dd"
+  startTime: string;  // "HH:mm"
+  endTime: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+};
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -26,11 +40,11 @@ function toIso(date: string, hhmm: string): string {
 }
 
 export function AdjustAttendanceSheet({
-  assignment,
+  target,
   visible,
   onClose,
 }: {
-  assignment: IShiftAssignment | null;
+  target: AdjustTarget | null;
   visible: boolean;
   onClose: () => void;
 }) {
@@ -42,18 +56,17 @@ export function AdjustAttendanceSheet({
 
   // Prefill mỗi khi mở với 1 ca khác.
   useEffect(() => {
-    if (!visible || !assignment) return;
-    const log = assignment.attendanceLog;
-    setCheckIn(log?.checkInTime ? dayjs(log.checkInTime).format('HH:mm') : '');
-    setCheckOut(log?.checkOutTime ? dayjs(log.checkOutTime).format('HH:mm') : '');
+    if (!visible || !target) return;
+    setCheckIn(target.checkInTime ? dayjs(target.checkInTime).format('HH:mm') : '');
+    setCheckOut(target.checkOutTime ? dayjs(target.checkOutTime).format('HH:mm') : '');
     setNote('');
     setError('');
-  }, [visible, assignment?.id]);
+  }, [visible, target?.shiftAssignmentId]);
 
-  if (!assignment) return null;
+  if (!target) return null;
 
   async function submit() {
-    if (!assignment) return;
+    if (!target) return;
     setError('');
     if (checkIn && !HHMM.test(checkIn)) return setError('Giờ vào phải dạng HH:mm (vd 08:30).');
     if (checkOut && !HHMM.test(checkOut)) return setError('Giờ ra phải dạng HH:mm (vd 17:00).');
@@ -62,10 +75,10 @@ export function AdjustAttendanceSheet({
 
     try {
       await mutation.mutateAsync({
-        shiftAssignmentId: assignment.id,
-        staffId: assignment.staffId,
-        checkInTime: checkIn ? toIso(assignment.date, checkIn) : undefined,
-        checkOutTime: checkOut ? toIso(assignment.date, checkOut) : undefined,
+        shiftAssignmentId: target.shiftAssignmentId,
+        staffId: target.staffId,
+        checkInTime: checkIn ? toIso(target.date, checkIn) : undefined,
+        checkOutTime: checkOut ? toIso(target.date, checkOut) : undefined,
         note: note.trim() || undefined,
       });
       haptics.success();
@@ -93,9 +106,9 @@ export function AdjustAttendanceSheet({
         <View className="flex-row items-center gap-3 p-3 rounded-2xl bg-primary-soft">
           <Icon name="account-clock" size={20} tone="primary" />
           <View className="flex-1">
-            <Text variant="subtitle">{assignment.staffName}</Text>
+            <Text variant="subtitle">{target.staffName}</Text>
             <Text variant="caption" tone="muted">
-              {assignment.shiftName} · {dayjs(assignment.date).format('DD/MM/YYYY')} · {assignment.startTime}–{assignment.endTime}
+              {target.shiftName} · {dayjs(target.date).format('DD/MM/YYYY')} · {target.startTime}–{target.endTime}
             </Text>
           </View>
         </View>

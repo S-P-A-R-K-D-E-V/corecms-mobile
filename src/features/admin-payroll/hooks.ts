@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getAllPayrollCycles, createPayrollCycle } from 'src/api/payrollCycle';
-import { generateBatchPayroll, getPayrollByCycle, recalculatePayrollByCycle } from 'src/api/payroll';
+import {
+  generateBatchPayroll,
+  getPayrollByCycle,
+  getPayrollShiftDetails,
+  recalculatePayrollByCycle,
+} from 'src/api/payroll';
 import type {
   IBatchPayrollCalculationRequest,
   ICreatePayrollCycleRequest,
@@ -27,6 +32,16 @@ export function usePayrollByCycle(cycleId?: string) {
     queryKey: ['admin', 'payroll-by-cycle', cycleId],
     queryFn: () => getPayrollByCycle(cycleId!),
     enabled: !!cycleId,
+    staleTime: MINUTE,
+  });
+}
+
+/** Chi tiết từng ca trong 1 bảng lương (1 nhân viên). */
+export function usePayrollShiftDetails(recordId?: string) {
+  return useQuery({
+    queryKey: ['admin', 'payroll-shift-details', recordId],
+    queryFn: () => getPayrollShiftDetails(recordId!),
+    enabled: !!recordId,
     staleTime: MINUTE,
   });
 }

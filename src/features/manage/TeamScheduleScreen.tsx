@@ -30,6 +30,9 @@ const STATUS_META: Record<AssignmentStatus, { tone: 'info' | 'success' | 'error'
   Late: { tone: 'warning', label: 'Muộn' },
 };
 
+// Số nhân viên tối thiểu (đã chấm công vào) để coi 1 ca là "đông bất thường".
+const OVERLAP_WARN_THRESHOLD = 3;
+
 function ShiftGroup({
   title,
   time,
@@ -43,6 +46,8 @@ function ShiftGroup({
   avatarOf: (staffId: string) => string | null;
   onPick: (a: IShiftAssignment) => void;
 }) {
+  const checkedInCount = items.filter((a) => a.attendanceLog?.checkInTime).length;
+  const overstaffed = checkedInCount >= OVERLAP_WARN_THRESHOLD;
   return (
     <Card className="p-4 gap-1">
       <View className="flex-row items-center gap-2 mb-1">
@@ -50,6 +55,14 @@ function ShiftGroup({
         <Text variant="subtitle" className="flex-1">{title}</Text>
         <Text variant="caption" tone="muted">{time}</Text>
       </View>
+      {overstaffed ? (
+        <View className="flex-row items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-warning-soft mb-1">
+          <Icon name="account-alert-outline" size={14} tone="warning" />
+          <Text variant="caption" tone="warning" className="font-semibold flex-1">
+            Cảnh báo: {checkedInCount} nhân viên đã chấm công vào ca này (≥ {OVERLAP_WARN_THRESHOLD}).
+          </Text>
+        </View>
+      ) : null}
       {items.map((a, i) => {
         const meta = STATUS_META[deriveStatus(a)];
         return (
@@ -165,7 +178,21 @@ export function TeamScheduleScreen() {
       )}
 
       <AdjustAttendanceSheet
-        assignment={adjusting}
+        target={
+          adjusting
+            ? {
+                shiftAssignmentId: adjusting.id,
+                staffId: adjusting.staffId,
+                staffName: adjusting.staffName,
+                shiftName: adjusting.shiftName,
+                date: dayjs(adjusting.date).format('YYYY-MM-DD'),
+                startTime: adjusting.startTime,
+                endTime: adjusting.endTime,
+                checkInTime: adjusting.attendanceLog?.checkInTime,
+                checkOutTime: adjusting.attendanceLog?.checkOutTime,
+              }
+            : null
+        }
         visible={!!adjusting}
         onClose={() => setAdjusting(null)}
       />

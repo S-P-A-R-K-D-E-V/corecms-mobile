@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, StatCard, EmptyState, ErrorView } from 'src/components/shared';
-import { Card, Text, Badge, Button, Icon, Skeleton, Divider } from 'src/components/ui';
+import { Card, Text, Badge, Button, Icon, Skeleton, Divider, Pressable } from 'src/components/ui';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
@@ -20,10 +20,16 @@ import { usePayrollByCycle, useRecalculateCycle } from './hooks';
 
 function RecordCard({ r }: { r: IPayrollRecord }) {
   return (
-    <View className="py-3 gap-1.5">
+    <Pressable
+      onPress={() => router.push({ pathname: '/admin/payroll-record' as any, params: { recordId: r.id, userName: r.userName } })}
+      className="py-3 gap-1.5"
+    >
       <View className="flex-row items-center justify-between">
         <Text variant="subtitle" className="flex-1" numberOfLines={1}>{r.userName}</Text>
-        <Text className="text-lg font-bold text-primary">{fmtMoney(r.totalSalary)}</Text>
+        <View className="flex-row items-center gap-1">
+          <Text className="text-lg font-bold text-primary">{fmtMoney(r.totalSalary)}</Text>
+          <Icon name="chevron-right" size={16} tone="faint" />
+        </View>
       </View>
       <View className="flex-row flex-wrap gap-x-3 gap-y-1">
         <View className="flex-row items-center gap-1">
@@ -47,7 +53,7 @@ function RecordCard({ r }: { r: IPayrollRecord }) {
         <Text variant="caption" tone="muted">Cơ bản {fmtCompact(r.baseSalary)}{r.overtimeSalary > 0 ? ` · OT ${fmtCompact(r.overtimeSalary)}` : ''}</Text>
         <Badge tone={r.isFinalized ? 'success' : 'warning'}>{r.isFinalized ? 'Đã chốt' : 'Tạm tính'}</Badge>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
