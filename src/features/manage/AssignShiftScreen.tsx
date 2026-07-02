@@ -1,30 +1,38 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
-import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
-import { Card, Text, Badge, Button, Icon, Pressable, Skeleton, Divider } from 'src/components/ui';
+import { Screen, AppHeader, EmptyState, ErrorView, ToggleRow } from 'src/components/shared';
+import { Card, Text, Badge, Button, Icon, Pressable, Skeleton, Divider, Avatar } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
-import { useAuthContext } from 'src/auth/auth-context';
-import { isAdminUser } from 'src/auth/roles';
+import { getStorageUrl } from 'src/api/axios';
 import type { IShiftSchedule } from 'src/types/corecms-api';
 
-import { useAllStaff, useManageShiftAssignments, useShiftSchedules, useTeamAssignments } from './hooks';
-import { DayStrip } from './DayStrip';
-import { hasCheckin, hasShiftStarted, isScheduleOnDate } from './utils';
+import { useAllStaff, useBulkAssign, useShiftSchedules } from './hooks';
 
 dayjs.locale('vi');
 
 // ----------------------------------------------------------------------
-// Xếp ca (Manager/Admin): chọn ngày → chọn ca → tick nhân viên → Lưu.
-// Gửi manage-shift: danh sách tick trở thành tập phân công (BE tính thêm/gỡ).
-// Luật ShiftMutationGuard phản chiếu lên UI: ca đã bắt đầu → Manager bị khoá
-// toàn màn; nhân viên đã checkin → không gỡ được (trừ Admin).
+// Xếp ca tự động (phân công hàng loạt) — như core-fe: chọn 1 ca + nhiều nhân
+// viên + khoảng tuần, BE tự tạo phân công cho mọi ngày ca lặp lại trong khoảng
+// (lọc thêm theo thứ nếu chọn). "Ghi đè" = gỡ NV không được chọn khỏi ca.
+// Luật ca-đã-bắt-đầu/checkin do BE ShiftMutationGuard chặn khi ghi.
 // ----------------------------------------------------------------------
+
+// WeekDays bitmask, index JS getDay(): 0=CN. Chip hiển thị T2→CN.
+const WEEKDAYS: { label: string; bit: number }[] = [
+  { label: 'T2', bit: 1 },
+  { label: 'T3', bit: 2 },
+  { label: 'T4', bit: 4 },
+  { label: 'T5', bit: 8 },
+  { label: 'T6', bit: 16 },
+  { label: 'T7', bit: 32 },
+  { label: 'CN', bit: 64 },
+];
 
 function ScheduleChip({ s, active, onPress }: { s: IShiftSchedule; active: boolean; onPress: () => void }) {
   return (
@@ -46,202 +54,172 @@ function ScheduleChip({ s, active, onPress }: { s: IShiftSchedule; active: boole
 }
 
 export function AssignShiftScreen() {
-  const { user } = useAuthContext();
-  const isAdmin = isAdminUser(user);
-
   const [weekStart, setWeekStart] = useState(() => dayjs().startOf('week'));
-  const [selected, setSelected] = useState(() => dayjs().format('YYYY-MM-DD'));
   const [scheduleId, setScheduleId] = useState<string | null>(null);
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [staffIds, setStaffIds] = useState<Set<string>>(new Set());
+  const [dayBits, setDayBits] = useState<number>(0); // 0 = mọi ngày ca lặp lại
+  const [overwrite, setOverwrite] = useState(false);
 
   const fromDate = weekStart.format('YYYY-MM-DD');
   const toDate = weekStart.add(6, 'day').format('YYYY-MM-DD');
 
   const schedulesQ = useShiftSchedules(fromDate, toDate);
-  const assignmentsQ = useTeamAssignments(fromDate, toDate);
   const staffQ = useAllStaff();
-  const mutation = useManageShiftAssignments();
+  const mutation = useBulkAssign();
 
-  // Ca áp dụng cho ngày đang chọn.
-  const daySchedules = useMemo(
-    () =>
-      (schedulesQ.data ?? [])
-        .filter((s) => s.isActive && isScheduleOnDate(s, dayjs(selected)))
-        .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [schedulesQ.data, selected]
+  const schedules = useMemo(
+    () => (schedulesQ.data ?? []).filter((s) => s.isActive).sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [schedulesQ.data]
   );
-  const schedule = daySchedules.find((s) => s.id === scheduleId) ?? null;
+  const schedule = schedules.find((s) => s.id === scheduleId) ?? null;
 
-  // Phân công hiện tại của (ca, ngày) — nguồn khởi tạo danh sách tick.
-  const currentAssignments = useMemo(
-    () =>
-      (assignmentsQ.data ?? []).filter(
-        (a) => a.shiftScheduleId === scheduleId && dayjs(a.date).format('YYYY-MM-DD') === selected
-      ),
-    [assignmentsQ.data, scheduleId, selected]
-  );
-  const initialIds = useMemo(() => new Set(currentAssignments.map((a) => a.staffId)), [currentAssignments]);
+  const staffAvatar = (u: { avatarUrl?: string; profileImageUrl?: string }) =>
+    getStorageUrl(u.avatarUrl || u.profileImageUrl) || null;
 
-  // Đổi ngày/ca → reset tick về hiện trạng server.
-  useEffect(() => {
-    setChecked(new Set(initialIds));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleId, selected, assignmentsQ.dataUpdatedAt]);
-
-  // Ngày đổi → nếu ca đang chọn không áp dụng cho ngày mới thì bỏ chọn.
-  useEffect(() => {
-    if (scheduleId && !daySchedules.some((s) => s.id === scheduleId)) setScheduleId(null);
-  }, [selected, daySchedules, scheduleId]);
-
-  // Khoá toàn màn khi ca đã bắt đầu (giờ VN) và không phải Admin.
-  const shiftLocked =
-    !!schedule && !isAdmin && hasShiftStarted({ date: selected, startTime: schedule.startTime });
-
-  // Nhân viên đã checkin trong ca → không gỡ được (trừ Admin).
-  const lockedStaffIds = useMemo(() => {
-    if (isAdmin) return new Set<string>();
-    return new Set(currentAssignments.filter((a) => hasCheckin(a)).map((a) => a.staffId));
-  }, [currentAssignments, isAdmin]);
-
-  const dirty =
-    checked.size !== initialIds.size || [...checked].some((id) => !initialIds.has(id));
-
-  function toggle(staffId: string) {
-    if (shiftLocked) return;
-    if (lockedStaffIds.has(staffId)) {
-      toast.info('Nhân viên này đã checkin — chỉ Admin được gỡ.', 'Đã khoá');
-      return;
-    }
+  function toggleStaff(id: string) {
     haptics.selection();
-    setChecked((prev) => {
+    setStaffIds((prev) => {
       const next = new Set(prev);
-      if (next.has(staffId)) next.delete(staffId);
-      else next.add(staffId);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
+  function toggleDay(bit: number) {
+    haptics.selection();
+    setDayBits((prev) => prev ^ bit);
+  }
+  function shiftWeek(dir: -1 | 1) {
+    haptics.light();
+    setWeekStart((w) => w.add(dir, 'week'));
+  }
 
-  async function save() {
-    if (!schedule) return;
-    const added = [...checked].filter((id) => !initialIds.has(id)).length;
-    const removed = [...initialIds].filter((id) => !checked.has(id)).length;
+  async function submit() {
+    if (!schedule || staffIds.size === 0) return;
+    const dayText = dayBits === 0 ? 'mọi ngày ca lặp lại' : WEEKDAYS.filter((d) => dayBits & d.bit).map((d) => d.label).join(', ');
     const ok = await confirm({
-      title: 'Lưu phân công',
-      message: `Ca ${schedule.templateName} ngày ${dayjs(selected).format('DD/MM')}: thêm ${added}, gỡ ${removed} nhân viên?`,
-      confirmText: 'Lưu',
+      title: 'Phân công hàng loạt',
+      message:
+        `Ca ${schedule.templateName} · ${staffIds.size} nhân viên\n` +
+        `Tuần ${weekStart.format('DD/MM')} – ${weekStart.add(6, 'day').format('DD/MM')} (${dayText})` +
+        (overwrite ? '\n⚠️ Ghi đè: gỡ nhân viên không được chọn khỏi ca.' : ''),
+      confirmText: 'Phân công',
     });
     if (!ok) return;
     try {
       const res = await mutation.mutateAsync({
+        staffIds: [...staffIds],
         shiftScheduleId: schedule.id,
-        date: selected,
-        staffIds: [...checked],
+        fromDate,
+        toDate,
+        filterDays: dayBits === 0 ? undefined : dayBits,
+        overwrite,
       });
       haptics.success();
-      toast.success(`Đã thêm ${res.added} · gỡ ${res.removed} nhân viên.`, 'Xếp ca thành công');
+      toast.success(`Đã tạo ${res.count} phân công.`, 'Xếp ca thành công');
     } catch (err) {
       haptics.error();
-      toast.error(extractApiError(err), 'Không lưu được');
+      toast.error(extractApiError(err), 'Không phân công được');
     }
   }
 
-  function shiftWeek(dir: -1 | 1) {
-    haptics.light();
-    const next = weekStart.add(dir, 'week');
-    setWeekStart(next);
-    setSelected(next.format('YYYY-MM-DD'));
-  }
-
-  const loading = schedulesQ.isLoading || assignmentsQ.isLoading || staffQ.isLoading;
+  const loading = schedulesQ.isLoading || staffQ.isLoading;
+  const canSubmit = !!schedule && staffIds.size > 0;
 
   return (
-    <Screen scroll tabBarInset={false} refreshing={assignmentsQ.isFetching} onRefresh={assignmentsQ.refetch}>
-      <AppHeader title="Xếp ca" subtitle="Phân công nhân viên vào ca" back />
+    <Screen scroll tabBarInset={false} refreshing={schedulesQ.isFetching} onRefresh={schedulesQ.refetch}>
+      <AppHeader title="Xếp ca tự động" subtitle="Phân công hàng loạt theo tuần" back />
 
-      <DayStrip weekStart={weekStart} selected={selected} onSelectDate={setSelected} onShiftWeek={shiftWeek} />
+      {/* Tuần áp dụng */}
+      <Card className="p-3 flex-row items-center justify-between">
+        <Pressable onPress={() => shiftWeek(-1)} hitSlop={8} className="w-9 h-9 items-center justify-center rounded-full bg-surface dark:bg-surface-dark">
+          <Icon name="chevron-left" size={20} tone="muted" />
+        </Pressable>
+        <View className="items-center">
+          <Text variant="caption" tone="muted">Tuần áp dụng</Text>
+          <Text variant="subtitle">{weekStart.format('DD/MM')} – {weekStart.add(6, 'day').format('DD/MM/YYYY')}</Text>
+        </View>
+        <Pressable onPress={() => shiftWeek(1)} hitSlop={8} className="w-9 h-9 items-center justify-center rounded-full bg-surface dark:bg-surface-dark">
+          <Icon name="chevron-right" size={20} tone="muted" />
+        </Pressable>
+      </Card>
 
       {loading ? (
         <View className="gap-3">
           <Skeleton width="100%" height={54} radius={16} />
           <Skeleton width="100%" height={220} radius={16} />
         </View>
-      ) : schedulesQ.isError || assignmentsQ.isError || staffQ.isError ? (
-        <ErrorView onRetry={() => { schedulesQ.refetch(); assignmentsQ.refetch(); staffQ.refetch(); }} />
-      ) : daySchedules.length === 0 ? (
-        <EmptyState icon="calendar-remove" title="Không có ca" description={`Không có định nghĩa ca nào áp dụng cho ${dayjs(selected).format('DD/MM')}.`} />
+      ) : schedulesQ.isError || staffQ.isError ? (
+        <ErrorView onRetry={() => { schedulesQ.refetch(); staffQ.refetch(); }} />
+      ) : schedules.length === 0 ? (
+        <EmptyState icon="calendar-remove" title="Không có ca" description="Không có định nghĩa ca nào đang hoạt động trong tuần này." />
       ) : (
         <>
           {/* Chọn ca */}
-          <View className="flex-row flex-wrap gap-2">
-            {daySchedules.map((s) => (
-              <ScheduleChip key={s.id} s={s} active={s.id === scheduleId} onPress={() => { haptics.selection(); setScheduleId(s.id); }} />
-            ))}
+          <View>
+            <Text variant="label" tone="muted" className="mb-1.5">CHỌN CA</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {schedules.map((s) => (
+                <ScheduleChip key={s.id} s={s} active={s.id === scheduleId} onPress={() => { haptics.selection(); setScheduleId(s.id); }} />
+              ))}
+            </View>
           </View>
 
-          {!schedule ? (
-            <EmptyState icon="gesture-tap" title="Chọn một ca" description="Chọn ca ở trên để phân công nhân viên." />
-          ) : (
-            <>
-              {shiftLocked ? (
-                <View className="flex-row items-center gap-2 px-3.5 py-2.5 rounded-xl bg-warning-soft">
-                  <Icon name="lock-outline" size={16} tone="warning" />
-                  <Text variant="bodySmall" tone="warning" className="font-semibold flex-1">
-                    Ca đã bắt đầu — chỉ Admin được thay đổi phân công.
-                  </Text>
+          {/* Lọc theo thứ (tùy chọn) */}
+          <View>
+            <Text variant="label" tone="muted" className="mb-1.5">GIỚI HẠN THỨ (tùy chọn — bỏ trống = mọi ngày ca lặp lại)</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {WEEKDAYS.map((d) => {
+                const on = (dayBits & d.bit) !== 0;
+                return (
+                  <Pressable
+                    key={d.bit}
+                    onPress={() => toggleDay(d.bit)}
+                    className={cn('w-11 h-11 rounded-full items-center justify-center border', on ? 'bg-primary border-primary' : 'bg-surface dark:bg-surface-dark border-line/60 dark:border-line-dark')}
+                  >
+                    <Text variant="caption" className={cn('font-bold', on ? 'text-white' : 'text-muted')}>{d.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Chọn nhân viên */}
+          <Card className="p-4">
+            <View className="flex-row items-center gap-2 mb-2">
+              <Icon name="account-multiple-check" size={18} tone="primary" />
+              <Text variant="subtitle" className="flex-1">Nhân viên</Text>
+              <Badge tone="info">{staffIds.size} đã chọn</Badge>
+            </View>
+            {(staffQ.data ?? []).map((u, i) => {
+              const on = staffIds.has(u.id);
+              return (
+                <View key={u.id}>
+                  {i > 0 ? <Divider /> : null}
+                  <Pressable onPress={() => toggleStaff(u.id)} className="flex-row items-center gap-3 py-2.5">
+                    <Avatar name={u.fullName} uri={staffAvatar(u)} size={36} />
+                    <Text variant="bodySmall" className="flex-1 font-medium">{u.fullName}</Text>
+                    <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} tone={on ? 'primary' : 'faint'} />
+                  </Pressable>
                 </View>
-              ) : null}
+              );
+            })}
+          </Card>
 
-              <Card className="p-4">
-                <View className="flex-row items-center gap-2 mb-2">
-                  <Icon name="account-multiple-check" size={18} tone="primary" />
-                  <Text variant="subtitle" className="flex-1">Nhân viên</Text>
-                  <Badge tone="info">{checked.size} đã chọn</Badge>
-                </View>
+          {/* Ghi đè */}
+          <Card className="px-4">
+            <ToggleRow
+              icon="content-duplicate"
+              title="Ghi đè phân công"
+              description="Gỡ nhân viên không được chọn khỏi ca trong khoảng này."
+              value={overwrite}
+              onToggle={setOverwrite}
+            />
+          </Card>
 
-                {(staffQ.data ?? []).map((u, i) => {
-                  const on = checked.has(u.id);
-                  const locked = lockedStaffIds.has(u.id);
-                  return (
-                    <View key={u.id}>
-                      {i > 0 ? <Divider /> : null}
-                      <Pressable
-                        onPress={() => toggle(u.id)}
-                        disabled={shiftLocked}
-                        className={cn('flex-row items-center gap-3 py-2.5', shiftLocked && 'opacity-50')}
-                      >
-                        <View className="w-8 h-8 rounded-full bg-primary-soft items-center justify-center">
-                          <Text className="text-primary font-bold text-xs">
-                            {(u.fullName ?? '?').trim().charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View className="flex-1">
-                          <Text variant="bodySmall" className="font-medium">{u.fullName}</Text>
-                          {locked ? (
-                            <Text variant="caption" tone="warning">Đã checkin — chỉ Admin gỡ được</Text>
-                          ) : null}
-                        </View>
-                        <Icon
-                          name={on ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                          size={24}
-                          tone={on ? 'primary' : 'faint'}
-                        />
-                      </Pressable>
-                    </View>
-                  );
-                })}
-              </Card>
-
-              <Button
-                fullWidth
-                disabled={!dirty || shiftLocked}
-                loading={mutation.isPending}
-                onPress={save}
-                icon="content-save-outline"
-              >
-                Lưu phân công
-              </Button>
-            </>
-          )}
+          <Button fullWidth disabled={!canSubmit} loading={mutation.isPending} onPress={submit} icon="calendar-check">
+            Phân công hàng loạt
+          </Button>
         </>
       )}
     </Screen>

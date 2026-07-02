@@ -4,12 +4,14 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/vi';
 
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
-import { Card, Text, Badge, Icon, Skeleton, Divider } from 'src/components/ui';
+import { Card, Text, Badge, Icon, Pressable, Skeleton, Divider, Avatar } from 'src/components/ui';
 import { haptics } from 'src/services/haptics';
+import { getStorageUrl } from 'src/api/axios';
 import type { IShiftAssignment } from 'src/types/corecms-api';
 
-import { useTeamAssignments } from './hooks';
+import { useAllStaff, useTeamAssignments } from './hooks';
 import { DayStrip } from './DayStrip';
+import { AdjustAttendanceSheet } from './AdjustAttendanceSheet';
 import { deriveStatus, type AssignmentStatus } from './utils';
 
 dayjs.locale('vi');
@@ -17,7 +19,8 @@ dayjs.locale('vi');
 // ----------------------------------------------------------------------
 // Lịch đội ngũ (Manager/Admin): xem ca của MỌI nhân viên theo tuần — chọn
 // ngày trên dải 7 ngày, danh sách gom theo ca (giờ bắt đầu → tên ca → NV).
-// Trạng thái suy từ attendanceLog (BE không trả field status).
+// Avatar lấy từ danh sách nhân viên (assignment không trả avatar). Chạm 1 NV
+// để điều chỉnh chấm công. Trạng thái suy từ attendanceLog.
 // ----------------------------------------------------------------------
 
 const STATUS_META: Record<AssignmentStatus, { tone: 'info' | 'success' | 'error' | 'warning'; label: string }> = {
@@ -27,7 +30,19 @@ const STATUS_META: Record<AssignmentStatus, { tone: 'info' | 'success' | 'error'
   Late: { tone: 'warning', label: 'Muộn' },
 };
 
-function ShiftGroup({ title, time, items }: { title: string; time: string; items: IShiftAssignment[] }) {
+function ShiftGroup({
+  title,
+  time,
+  items,
+  avatarOf,
+  onPick,
+}: {
+  title: string;
+  time: string;
+  items: IShiftAssignment[];
+  avatarOf: (staffId: string) => string | null;
+  onPick: (a: IShiftAssignment) => void;
+}) {
   return (
     <Card className="p-4 gap-1">
       <View className="flex-row items-center gap-2 mb-1">
@@ -40,18 +55,22 @@ function ShiftGroup({ title, time, items }: { title: string; time: string; items
         return (
           <View key={a.id}>
             {i > 0 ? <Divider /> : null}
-            <View className="flex-row items-center gap-3 py-2">
-              <View className="w-8 h-8 rounded-full bg-primary-soft items-center justify-center">
-                <Text className="text-primary font-bold text-xs">
-                  {(a.staffName ?? '?').trim().charAt(0).toUpperCase()}
-                </Text>
-              </View>
+            <Pressable onPress={() => onPick(a)} className="flex-row items-center gap-3 py-2">
+              <Avatar name={a.staffName} uri={avatarOf(a.staffId)} size={36} />
               <View className="flex-1">
                 <Text variant="bodySmall" className="font-medium">{a.staffName}</Text>
-                {a.note ? <Text variant="caption" tone="muted" numberOfLines={1}>{a.note}</Text> : null}
+                {a.attendanceLog?.checkInTime ? (
+                  <Text variant="caption" tone="muted">
+                    Vào {dayjs(a.attendanceLog.checkInTime).format('HH:mm')}
+                    {a.attendanceLog.checkOutTime ? ` · Ra ${dayjs(a.attendanceLog.checkOutTime).format('HH:mm')}` : ''}
+                  </Text>
+                ) : a.note ? (
+                  <Text variant="caption" tone="muted" numberOfLines={1}>{a.note}</Text>
+                ) : null}
               </View>
               <Badge tone={meta.tone}>{meta.label}</Badge>
-            </View>
+              <Icon name="pencil-outline" size={16} tone="faint" />
+            </Pressable>
           </View>
         );
       })}
@@ -62,10 +81,23 @@ function ShiftGroup({ title, time, items }: { title: string; time: string; items
 export function TeamScheduleScreen() {
   const [weekStart, setWeekStart] = useState(() => dayjs().startOf('week'));
   const [selected, setSelected] = useState(() => dayjs().format('YYYY-MM-DD'));
+  const [adjusting, setAdjusting] = useState<IShiftAssignment | null>(null);
 
   const fromDate = weekStart.format('YYYY-MM-DD');
   const toDate = weekStart.add(6, 'day').format('YYYY-MM-DD');
   const { data, isLoading, isError, refetch, isFetching } = useTeamAssignments(fromDate, toDate);
+  const staffQ = useAllStaff();
+
+  // Map staffId → URL avatar (assignment không kèm avatar).
+  const avatarByStaff = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of staffQ.data ?? []) {
+      const uri = getStorageUrl(u.avatarUrl || u.profileImageUrl);
+      if (uri) map.set(u.id, uri);
+    }
+    return map;
+  }, [staffQ.data]);
+  const avatarOf = (staffId: string) => avatarByStaff.get(staffId) ?? null;
 
   // Số ca mỗi ngày (badge trên dải ngày) + nhóm ca của ngày đang chọn.
   const { countByDate, groups } = useMemo(() => {
@@ -98,7 +130,7 @@ export function TeamScheduleScreen() {
 
   return (
     <Screen scroll tabBarInset={false} refreshing={isFetching} onRefresh={refetch}>
-      <AppHeader title="Lịch đội ngũ" subtitle="Ca làm của mọi nhân viên" back />
+      <AppHeader title="Lịch đội ngũ" subtitle="Chạm nhân viên để điều chỉnh chấm công" back />
 
       <DayStrip
         weekStart={weekStart}
@@ -127,8 +159,16 @@ export function TeamScheduleScreen() {
           description={`Chưa có nhân viên nào được xếp ca ngày ${dayjs(selected).format('DD/MM')}.`}
         />
       ) : (
-        groups.map((g) => <ShiftGroup key={`${g.time}-${g.title}`} title={g.title} time={g.time} items={g.items} />)
+        groups.map((g) => (
+          <ShiftGroup key={`${g.time}-${g.title}`} title={g.title} time={g.time} items={g.items} avatarOf={avatarOf} onPick={setAdjusting} />
+        ))
       )}
+
+      <AdjustAttendanceSheet
+        assignment={adjusting}
+        visible={!!adjusting}
+        onClose={() => setAdjusting(null)}
+      />
     </Screen>
   );
 }

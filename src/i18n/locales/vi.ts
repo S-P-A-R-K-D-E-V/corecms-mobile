@@ -38,6 +38,8 @@ export const vi = {
     revenueTrend: 'Xu hướng doanh thu',
     last7Days: '7 ngày qua',
     last30Days: '30 ngày qua',
+    range7: '7 ngày',
+    range30: '30 ngày',
     topProducts: 'Sản phẩm bán chạy',
     recentOrders: 'Đơn gần đây',
     paymentMix: 'Cơ cấu thanh toán',

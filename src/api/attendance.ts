@@ -9,6 +9,7 @@ import type {
   ICheckinFaceRequest,
   ICheckinFaceResponse,
   ICreateAttendanceRequestDto,
+  IManualAttendanceAdjustmentRequest,
   IProcessAttendanceRequestDto,
   ISmartCheckInRequest,
   ISmartCheckOutRequest,
@@ -72,6 +73,12 @@ export async function createAttendanceRequest(data: ICreateAttendanceRequestDto)
 
 export async function processAttendanceRequest(id: string, data: IProcessAttendanceRequestDto): Promise<void> {
   await axios.patch(endpoints.attendance.processRequest(id), data);
+}
+
+/** [Manager/Admin] Điều chỉnh giờ chấm công của 1 nhân viên trên 1 ca. */
+export async function manualAdjustment(data: IManualAttendanceAdjustmentRequest): Promise<IAttendanceLog> {
+  const response = await axios.post<IAttendanceLog>(endpoints.attendance.manualAdjustment, data);
+  return response.data;
 }
 
 export async function getBranchLocations(): Promise<IBranchLocation[]> {

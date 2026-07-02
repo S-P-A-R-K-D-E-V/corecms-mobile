@@ -1,5 +1,6 @@
 import axios, { endpoints } from './axios';
 import type {
+  IBulkAssignShiftScheduleRequest,
   IManageShiftAssignmentsRequest,
   IMyScheduleItem,
   IShiftAssignment,
@@ -34,6 +35,17 @@ export async function getTeamAssignments(fromDate: string, toDate: string): Prom
   const response = await axios.get<IShiftAssignment[]>(endpoints.shiftAssignments.list, {
     params: { fromDate, toDate },
   });
+  return response.data;
+}
+
+/** [Manager] Phân công hàng loạt: 1 ca cho nhiều NV qua khoảng ngày. */
+export async function bulkAssignShiftSchedule(
+  data: IBulkAssignShiftScheduleRequest
+): Promise<{ count: number; assignments: IShiftAssignment[] }> {
+  const response = await axios.post<{ count: number; assignments: IShiftAssignment[] }>(
+    endpoints.shiftAssignments.bulkAssign,
+    data
+  );
   return response.data;
 }
 

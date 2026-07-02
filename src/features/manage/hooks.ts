@@ -1,16 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import {
+  bulkAssignShiftSchedule,
   getShiftSchedules,
   getTeamAssignments,
-  manageShiftAssignments,
   swapShiftAssignments,
 } from 'src/api/schedule';
 import { getAllUsers } from 'src/api/users';
-import { getAttendanceRequests, processAttendanceRequest } from 'src/api/attendance';
+import { getAttendanceRequests, manualAdjustment, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
 import { getPendingLateCoverRequests, reviewLateCoverRequest } from 'src/api/lateCover';
-import type { IManageShiftAssignmentsRequest, ISwapShiftAssignmentsRequest } from 'src/types/corecms-api';
+import type {
+  IBulkAssignShiftScheduleRequest,
+  IManualAttendanceAdjustmentRequest,
+  ISwapShiftAssignmentsRequest,
+} from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 // Hooks cho khu "Quản lý" (Manager/Admin): lịch đội ngũ + duyệt yêu cầu.
@@ -46,11 +50,22 @@ export function useAllStaff() {
   });
 }
 
-/** Đặt danh sách nhân viên cho (ca, ngày) — invalidate lịch đội ngũ. */
-export function useManageShiftAssignments() {
+/** Phân công hàng loạt (auto assign) — invalidate lịch đội ngũ. */
+export function useBulkAssign() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: IManageShiftAssignmentsRequest) => manageShiftAssignments(data),
+    mutationFn: (data: IBulkAssignShiftScheduleRequest) => bulkAssignShiftSchedule(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
+    },
+  });
+}
+
+/** Điều chỉnh giờ chấm công của nhân viên — invalidate lịch đội ngũ. */
+export function useManualAdjustment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: IManualAttendanceAdjustmentRequest) => manualAdjustment(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
     },

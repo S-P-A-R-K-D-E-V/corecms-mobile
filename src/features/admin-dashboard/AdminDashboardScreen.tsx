@@ -305,8 +305,8 @@ export function AdminDashboardScreen() {
 
       <SegmentedControl
         segments={[
-          { key: '7', label: t('admin.last7Days') },
-          { key: '30', label: t('admin.last30Days') },
+          { key: '7', label: t('admin.range7') },
+          { key: '30', label: t('admin.range30') },
         ]}
         value={String(days)}
         onChange={(k) => setDays(Number(k))}

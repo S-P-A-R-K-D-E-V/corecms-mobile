@@ -681,6 +681,28 @@ export interface IManageShiftAssignmentsRequest {
   staffIds: string[];
 }
 
+/** Body POST /shift-assignments/bulk — phân công hàng loạt 1 ca cho nhiều
+ *  nhân viên qua khoảng ngày. FilterDays = WeekDays bitmask (int) hoặc bỏ
+ *  trống để áp mọi ngày ca lặp lại; Overwrite = gỡ NV không được chọn. */
+export interface IBulkAssignShiftScheduleRequest {
+  staffIds: string[];
+  shiftScheduleId: string;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate: string;   // "yyyy-MM-dd"
+  filterDays?: number;
+  overwrite?: boolean;
+}
+
+/** Body POST /attendance/manual-adjustment — Manager/Admin điều chỉnh giờ
+ *  chấm công của 1 nhân viên trên 1 ca. */
+export interface IManualAttendanceAdjustmentRequest {
+  shiftAssignmentId: string;
+  staffId: string;
+  checkInTime?: string;  // ISO; bỏ trống = giữ nguyên
+  checkOutTime?: string;
+  note?: string;
+}
+
 /** Body POST /shift-assignments/swap — hoán đổi 2 phân công. */
 export interface ISwapShiftAssignmentsRequest {
   staffId1: string;

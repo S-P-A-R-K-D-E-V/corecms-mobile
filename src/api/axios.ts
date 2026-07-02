@@ -71,6 +71,7 @@ export const endpoints = {
     byStaffAndDate: (staffId: string, date: string) => `/shift-assignments/staff/${staffId}/date/${date}`,
     byStaffAndDateRange: (staffId: string) => `/shift-assignments/staff/${staffId}/range`,
     manageShift: '/shift-assignments/manage-shift',
+    bulkAssign: '/shift-assignments/bulk',
     swap: '/shift-assignments/swap',
   },
   attendance: {
@@ -85,6 +86,7 @@ export const endpoints = {
     processRequest: (id: string) => `/attendance/requests/${id}/process`,
     myReport: '/attendance/my-report',
     report: '/attendance/report',
+    manualAdjustment: '/attendance/manual-adjustment',
   },
   branches: {
     list: '/branches',
