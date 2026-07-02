@@ -103,10 +103,14 @@ export function LauncherEditor({
       onClose={onClose}
       footer={
         <View className="flex-row gap-2">
-          <Button variant="ghost" className="flex-1" onPress={() => reset(variant)}>
-            Khôi phục mặc định
-          </Button>
-          <Button className="flex-1" onPress={onClose}>Xong</Button>
+          <View className="flex-1">
+            <Button variant="ghost" onPress={() => reset(variant)}>
+              Khôi phục mặc định
+            </Button>
+          </View>
+          <View className="flex-1">
+            <Button onPress={onClose}>Xong</Button>
+          </View>
         </View>
       }
     >

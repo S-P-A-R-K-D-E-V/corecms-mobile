@@ -68,9 +68,14 @@ export function AdjustAttendanceSheet({
   async function submit() {
     if (!target) return;
     setError('');
+    // Giờ vào & giờ ra đều KHÔNG bắt buộc — cho phép chỉnh riêng lẻ (giờ còn lại
+    // giữ nguyên từ log hiện có). Chỉ chặn khi cả hai đều trống (không có gì để lưu).
     if (checkIn && !HHMM.test(checkIn)) return setError('Giờ vào phải dạng HH:mm (vd 08:30).');
     if (checkOut && !HHMM.test(checkOut)) return setError('Giờ ra phải dạng HH:mm (vd 17:00).');
-    if (!checkIn && !checkOut) return setError('Nhập ít nhất giờ vào hoặc giờ ra.');
+    if (!checkIn && !checkOut) {
+      toast.info('Chưa nhập giờ nào để điều chỉnh.', 'Không có thay đổi');
+      return;
+    }
     if (checkIn && checkOut && checkOut <= checkIn) return setError('Giờ ra phải sau giờ vào.');
 
     try {

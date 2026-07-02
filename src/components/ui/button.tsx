@@ -90,7 +90,7 @@ export function Button({
           <>
             <Icon name={icon} size={18} color={s.icon} />
             {typeof children === 'string' ? (
-              <Text className={cn('flex-1 text-center font-semibold', sizeText[size], s.label)}>{children}</Text>
+              <Text numberOfLines={1} className={cn('flex-1 text-center font-semibold', sizeText[size], s.label)}>{children}</Text>
             ) : (
               <View style={{ flex: 1, alignItems: 'center' }}>{children}</View>
             )}
@@ -98,7 +98,7 @@ export function Button({
           </>
         ) : (
           typeof children === 'string' ? (
-            <Text className={cn('font-semibold', sizeText[size], s.label)}>{children}</Text>
+            <Text numberOfLines={1} className={cn('font-semibold', sizeText[size], s.label)}>{children}</Text>
           ) : (
             children
           )

@@ -47,6 +47,62 @@ function shiftStatus(s: IPayrollShiftItem): { label: string; tone: 'info' | 'war
   return { label: 'Vắng', tone: 'error' };
 }
 
+const WEEKDAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+/** Chi tiết ca làm dạng AGENDA lịch: gộp theo ngày, cột ngày bên trái + các ca. */
+function ShiftAgenda({ shifts }: { shifts: IPayrollShiftItem[] }) {
+  const days = new Map<string, IPayrollShiftItem[]>();
+  for (const s of shifts) {
+    const key = dayjs(s.date).format('YYYY-MM-DD');
+    if (!days.has(key)) days.set(key, []);
+    days.get(key)!.push(s);
+  }
+  const entries = [...days.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  return (
+    <View>
+      {entries.map(([key, items], gi) => {
+        const d = dayjs(key);
+        return (
+          <View key={key} className="flex-row gap-3 py-2">
+            {gi > 0 ? <View className="absolute left-[21px] -top-0 w-px h-2 bg-line dark:bg-line-dark" /> : null}
+            <View className="items-center w-11 pt-0.5">
+              <Text className="text-xl font-bold text-primary leading-6" style={{ fontVariant: ['tabular-nums'] }}>{d.format('DD')}</Text>
+              <Text variant="caption" tone="muted">Th{d.format('MM')}</Text>
+              <Text variant="caption" tone="faint">{WEEKDAYS[d.day()]}</Text>
+            </View>
+            <View className="flex-1 gap-2">
+              {items.map((s, i) => {
+                const st = shiftStatus(s);
+                return (
+                  <View key={s.shiftAssignmentId || `${key}-${i}`} className="rounded-xl bg-ink/[0.03] dark:bg-white/[0.04] p-2.5 gap-1">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-row items-center gap-1.5 flex-1">
+                        <Text className="font-semibold" numberOfLines={1}>{s.shiftName}</Text>
+                        {s.isHolidayShift ? <Badge tone="warning">Lễ</Badge> : null}
+                      </View>
+                      <Badge tone={st.tone}>{st.label}</Badge>
+                    </View>
+                    <Text variant="caption" tone="muted">
+                      {s.shiftStartTime}–{s.shiftEndTime}
+                      {s.paidHours > 0 ? ` · ${s.paidHours.toFixed(1)}h tính lương` : ''}
+                    </Text>
+                    {s.checkInTime || s.checkOutTime ? (
+                      <Text variant="caption" tone="faint">
+                        Vào {timePart(s.checkInTime)} · Ra {timePart(s.checkOutTime)}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 export function PayrollDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: records } = useMyPayroll();
@@ -140,32 +196,7 @@ export function PayrollDetailScreen() {
         ) : !details || details.shifts.length === 0 ? (
           <Text tone="muted" className="text-center py-4">Không có dữ liệu ca</Text>
         ) : (
-          details.shifts.map((s, i) => {
-            const st = shiftStatus(s);
-            return (
-              <View key={s.shiftAssignmentId || `${s.date}-${i}`}>
-                {i > 0 ? <Divider className="my-1" /> : null}
-                <View className="py-2 gap-1">
-                  <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center gap-1.5 flex-1">
-                      <Text className="font-semibold" numberOfLines={1}>{s.shiftName}</Text>
-                      {s.isHolidayShift ? <Badge tone="warning">Lễ</Badge> : null}
-                    </View>
-                    <Badge tone={st.tone}>{st.label}</Badge>
-                  </View>
-                  <Text variant="bodySmall" tone="muted">
-                    {dayjs(s.date).format('DD/MM')} · {s.shiftStartTime}–{s.shiftEndTime}
-                    {s.paidHours > 0 ? ` · ${s.paidHours.toFixed(1)}h tính lương` : ''}
-                  </Text>
-                  {s.checkInTime || s.checkOutTime ? (
-                    <Text variant="caption" tone="faint">
-                      Vào {timePart(s.checkInTime)} · Ra {timePart(s.checkOutTime)}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            );
-          })
+          <ShiftAgenda shifts={details.shifts} />
         )}
       </SectionCard>
     </Screen>

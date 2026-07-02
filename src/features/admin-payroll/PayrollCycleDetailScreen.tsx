@@ -4,10 +4,11 @@ import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, StatCard, EmptyState, ErrorView } from 'src/components/shared';
-import { Card, Text, Badge, Button, Icon, Skeleton, Divider, Pressable } from 'src/components/ui';
+import { Card, Text, Badge, Button, Icon, Skeleton, Divider, Pressable, TextField } from 'src/components/ui';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
+import { cn } from 'src/components/ui/utils';
 import { fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 
@@ -58,12 +59,60 @@ function RecordCard({ r }: { r: IPayrollRecord }) {
   );
 }
 
+/** "Lương theo nhân viên" dạng agenda: gộp theo trạng thái (Chưa chốt / Đã chốt)
+ *  với tiêu đề mốc + đếm số, kèm ô tìm kiếm theo tên. */
+function EmployeeAgenda({ records, q, setQ }: { records: IPayrollRecord[]; q: string; setQ: (v: string) => void }) {
+  const groups = useMemo(() => {
+    const kw = q.trim().toLowerCase();
+    const filtered = kw ? records.filter((r) => r.userName.toLowerCase().includes(kw)) : records;
+    const pending = filtered.filter((r) => !r.isFinalized);
+    const done = filtered.filter((r) => r.isFinalized);
+    return [
+      { key: 'pending', label: 'Chưa chốt', tone: 'warning' as const, items: pending },
+      { key: 'done', label: 'Đã chốt', tone: 'success' as const, items: done },
+    ].filter((g) => g.items.length > 0);
+  }, [records, q]);
+
+  return (
+    <Card className="p-4 gap-2">
+      <View className="flex-row items-center gap-2">
+        <Icon name="account-cash-outline" size={18} tone="primary" />
+        <Text variant="subtitle" className="flex-1">Lương theo nhân viên</Text>
+        <Badge tone="info">{records.length}</Badge>
+      </View>
+      <TextField icon="magnify" placeholder="Tìm nhân viên…" value={q} onChangeText={setQ} />
+
+      {groups.length === 0 ? (
+        <Text tone="muted" className="text-center py-6">Không tìm thấy nhân viên phù hợp</Text>
+      ) : (
+        groups.map((g) => (
+          <View key={g.key} className="pt-1">
+            <View className="flex-row items-center gap-2 py-1.5">
+              <View className={cn('w-1.5 h-1.5 rounded-full', g.tone === 'warning' ? 'bg-warning' : 'bg-success')} />
+              <Text variant="label" tone="muted" className="font-semibold">{g.label.toUpperCase()}</Text>
+              <View className="flex-1 h-px bg-line dark:bg-line-dark" />
+              <Text variant="caption" tone="faint">{g.items.length}</Text>
+            </View>
+            {g.items.map((r, i) => (
+              <View key={r.id}>
+                {i > 0 ? <Divider /> : null}
+                <RecordCard r={r} />
+              </View>
+            ))}
+          </View>
+        ))
+      )}
+    </Card>
+  );
+}
+
 export function PayrollCycleDetailScreen() {
   const params = useLocalSearchParams<{ cycleId: string; name?: string }>();
   const cycleId = params.cycleId;
   const { data, isLoading, isError, refetch, isFetching } = usePayrollByCycle(cycleId);
   const bulkM = useBulkFinalize();
   const [recalcOpen, setRecalcOpen] = useState(false);
+  const [q, setQ] = useState('');
 
   const { totals, pendingIds, pendingTargets } = useMemo(() => {
     const records = data?.records ?? [];
@@ -126,12 +175,16 @@ export function PayrollCycleDetailScreen() {
 
           {!data.isLocked ? (
             <View className="flex-row gap-2">
-              <Button variant="soft" action="neutral" className="flex-1" icon="calculator-variant-outline" disabled={pendingIds.length === 0} onPress={() => setRecalcOpen(true)}>
-                Tính lại (chưa chốt){pendingIds.length ? ` ${pendingIds.length}` : ''}
-              </Button>
-              <Button className="flex-1" action="primary" icon="lock-check-outline" disabled={pendingIds.length === 0} loading={bulkM.isPending} onPress={finalizeAll}>
-                Chốt cả kỳ{pendingIds.length ? ` (${pendingIds.length})` : ''}
-              </Button>
+              <View className="flex-1">
+                <Button variant="soft" action="neutral" icon="calculator-variant-outline" disabled={pendingIds.length === 0} onPress={() => setRecalcOpen(true)}>
+                  Tính lại{pendingIds.length ? ` ${pendingIds.length}` : ''}
+                </Button>
+              </View>
+              <View className="flex-1">
+                <Button action="primary" icon="lock-check-outline" disabled={pendingIds.length === 0} loading={bulkM.isPending} onPress={finalizeAll}>
+                  Chốt kỳ{pendingIds.length ? ` ${pendingIds.length}` : ''}
+                </Button>
+              </View>
             </View>
           ) : (
             <View className="flex-row items-center gap-2 px-3.5 py-2.5 rounded-xl bg-error-soft">
@@ -143,19 +196,7 @@ export function PayrollCycleDetailScreen() {
           {data.records.length === 0 ? (
             <EmptyState icon="cash-remove" title="Chưa có bảng lương" description="Chu kỳ này chưa tính lương nhân viên nào." />
           ) : (
-            <Card className="p-4">
-              <View className="flex-row items-center gap-2 mb-1">
-                <Icon name="account-cash-outline" size={18} tone="primary" />
-                <Text variant="subtitle" className="flex-1">Lương theo nhân viên</Text>
-                <Badge tone="info">{data.records.length}</Badge>
-              </View>
-              {data.records.map((r, i) => (
-                <View key={r.id}>
-                  {i > 0 ? <Divider /> : null}
-                  <RecordCard r={r} />
-                </View>
-              ))}
-            </Card>
+            <EmployeeAgenda records={data.records} q={q} setQ={setQ} />
           )}
         </>
       )}

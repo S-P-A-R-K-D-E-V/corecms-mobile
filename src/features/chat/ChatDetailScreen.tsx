@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image, Keyboard } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as WebBrowser from 'expo-web-browser';
@@ -10,8 +10,9 @@ import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
 
-import { AppHeader, Loading } from 'src/components/shared';
+import { Loading } from 'src/components/shared';
 import { Text, Pressable, Icon, Spinner } from 'src/components/ui';
+import { ChatAvatar } from './ChatAvatar';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { showActionSheet, toast } from 'src/components/overlay';
@@ -136,6 +137,14 @@ export function ChatDetailScreen() {
   const messages = useMessengerStore(selectMessages(conversationId!));
   const typing = useMessengerStore(selectTyping(conversationId!));
   const { setMessages, prependMessages, clearUnread, setActiveConversation } = useMessengerStore();
+
+  // Đối tác trò chuyện (để hiện avatar + trạng thái trên header).
+  const conv = useMessengerStore((s) => s.conversations.find((c) => c.id === conversationId));
+  const userCache = useMessengerStore((s) => s.userCache);
+  const isPrivate = conv?.type !== 'Group';
+  const otherId = conv?.participantIds.find((id) => id !== user?.id);
+  const other = otherId ? userCache[otherId] : undefined;
+  const headerName = name || other?.fullName || 'Chat';
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -308,10 +317,28 @@ export function ChatDetailScreen() {
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
-      <View className="px-4 pt-2">
-        <AppHeader title={name || 'Chat'} subtitle={typing.length > 0 ? 'Đang nhập...' : undefined} back />
+      <View className="px-4 pt-2 pb-1 flex-row items-center gap-2">
+        <Pressable onPress={() => router.back()} className="w-9 h-9 -ml-1 items-center justify-center rounded-full">
+          <Icon name="chevron-left" size={26} tone="default" />
+        </Pressable>
+        <ChatAvatar
+          name={headerName}
+          avatarUrl={isPrivate ? other?.avatarUrl : null}
+          size={40}
+          online={isPrivate && (other?.online ?? false)}
+        />
+        <View className="flex-1">
+          <Text variant="subtitle" numberOfLines={1}>{headerName}</Text>
+          {typing.length > 0 ? (
+            <Text variant="caption" tone="primary">Đang nhập...</Text>
+          ) : isPrivate ? (
+            <Text variant="caption" tone={other?.online ? 'primary' : 'muted'}>
+              {other?.online ? 'Đang hoạt động' : 'Ngoại tuyến'}
+            </Text>
+          ) : null}
+        </View>
       </View>
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + 52}>
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         {loading ? (
           <Loading />
         ) : (
