@@ -9,7 +9,7 @@ import {
   getTeamAssignments,
   swapShiftAssignments,
 } from 'src/api/schedule';
-import { getAllUsers } from 'src/api/users';
+import { getAllUsers, isActiveUser } from 'src/api/users';
 import { getAttendanceReport } from 'src/api/reports';
 import { getAttendanceRequests, manualAdjustment, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
@@ -51,7 +51,9 @@ export function useAllStaff() {
     queryKey: ['manage', 'staff'],
     queryFn: getAllUsers,
     staleTime: 5 * MINUTE,
-    select: (users) => users.filter((u) => u.isActive),
+    // BE trả `status`, không có `isActive` — lọc bằng u.isActive từng làm danh
+    // sách nhân viên trống → không chọn được ai để xếp ca.
+    select: (users) => users.filter(isActiveUser),
   });
 }
 

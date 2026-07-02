@@ -56,6 +56,7 @@ import {
   sendMessage,
   sendAttachment,
   markRead,
+  isGroupConversation,
   type DirectMessage,
   type MessageAttachment,
   type ChatFile,
@@ -141,7 +142,7 @@ export function ChatDetailScreen() {
   // Đối tác trò chuyện (để hiện avatar + trạng thái trên header).
   const conv = useMessengerStore((s) => s.conversations.find((c) => c.id === conversationId));
   const userCache = useMessengerStore((s) => s.userCache);
-  const isPrivate = conv?.type !== 'Group';
+  const isPrivate = !isGroupConversation(conv?.type);
   const otherId = conv?.participantIds.find((id) => id !== user?.id);
   const other = otherId ? userCache[otherId] : undefined;
   const headerName = name || other?.fullName || 'Chat';

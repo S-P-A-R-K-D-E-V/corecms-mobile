@@ -85,23 +85,25 @@ export function Button({
       >
         {loading ? (
           <Spinner color={variant === 'solid' ? '#FFFFFF' : s.icon} />
-        ) : icon ? (
-          // Icon present: icon anchored left, text truly centered, right spacer balances.
-          <>
-            <Icon name={icon} size={18} color={s.icon} />
-            {typeof children === 'string' ? (
-              <Text numberOfLines={1} className={cn('flex-1 text-center font-semibold', sizeText[size], s.label)}>{children}</Text>
-            ) : (
-              <View style={{ flex: 1, alignItems: 'center' }}>{children}</View>
-            )}
-            <View style={{ width: 18 }} />
-          </>
         ) : (
-          typeof children === 'string' ? (
-            <Text numberOfLines={1} className={cn('font-semibold', sizeText[size], s.label)}>{children}</Text>
-          ) : (
-            children
-          )
+          // Icon + text xếp cạnh nhau, cả cụm căn giữa nhờ justify-center của box.
+          // KHÔNG dùng mẹo "text flex-1 + spacer cân đối": flex-basis 0 làm text
+          // co về 0 khi bề rộng box bị tính theo nội dung (nút trong hàng flex-1)
+          // → chỉ còn icon, mất chữ. flex-shrink cho phép cắt chữ khi quá chật.
+          <>
+            {icon ? <Icon name={icon} size={18} color={s.icon} /> : null}
+            {typeof children === 'string' ? (
+              <Text
+                numberOfLines={1}
+                style={{ flexShrink: 1 }}
+                className={cn('text-center font-semibold', sizeText[size], s.label)}
+              >
+                {children}
+              </Text>
+            ) : (
+              children
+            )}
+          </>
         )}
       </View>
     </PressableScale>

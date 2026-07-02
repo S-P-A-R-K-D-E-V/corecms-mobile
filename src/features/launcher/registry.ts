@@ -37,7 +37,8 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'shift-swap', label: 'Đổi ca', icon: 'swap-horizontal', href: '/shift-swap', group: 'personal' },
   { key: 'shift-pool', label: 'Nhận ca', icon: 'hand-heart', href: '/shift-pool', group: 'personal' },
   { key: 'shift-cash', label: 'Kiểm quầy', icon: 'cash-register', href: '/shift-cash', group: 'personal' },
-  { key: 'attendance', label: 'Bảng công', icon: 'clipboard-text-clock', href: '/attendance', group: 'personal' },
+  // Bảng công đang làm lại — tạm đánh dấu "Sắp có" để không điều hướng vào màn dở dang.
+  { key: 'attendance', label: 'Bảng công', icon: 'clipboard-text-clock', href: '/attendance', group: 'personal', comingSoon: true },
   { key: 'notifications', label: 'Thông báo', icon: 'bell-outline', href: '/notifications', group: 'personal' },
 
   // ── Quản lý (Manager/Admin) ────────────────────────────────────────

@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
 import { Card, Text, Badge, Icon, Skeleton, Divider, Avatar, TextField, Pressable } from 'src/components/ui';
 import { getStorageUrl } from 'src/api/axios';
+import { isActiveUser } from 'src/api/users';
 import type { IUser } from 'src/types/corecms-api';
 
 import { useUsers } from './hooks';
@@ -72,11 +73,11 @@ export function UsersScreen() {
           [u.fullName, u.email, u.phoneNumber].filter(Boolean).some((s) => s!.toLowerCase().includes(kw))
         )
       : list;
-    // Đang hoạt động trước, rồi theo tên.
-    return [...matched].sort((a, b) => Number(b.isActive) - Number(a.isActive) || a.fullName.localeCompare(b.fullName));
+    // Đang hoạt động trước, rồi theo tên (BE trả `status`, không có `isActive`).
+    return [...matched].sort((a, b) => Number(isActiveUser(b)) - Number(isActiveUser(a)) || a.fullName.localeCompare(b.fullName));
   }, [data, q]);
 
-  const activeCount = (data ?? []).filter((u) => u.isActive).length;
+  const activeCount = (data ?? []).filter(isActiveUser).length;
 
   return (
     <Screen scroll tabBarInset={false} refreshing={isFetching} onRefresh={refetch}>

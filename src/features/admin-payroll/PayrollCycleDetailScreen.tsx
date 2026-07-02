@@ -117,6 +117,10 @@ export function PayrollCycleDetailScreen() {
   const { totals, pendingIds, pendingTargets } = useMemo(() => {
     const records = data?.records ?? [];
     const pending = records.filter((r) => !r.isFinalized);
+    // Dữ liệu cũ có thể còn bản ghi TRÙNG (1 NV nhiều record/chu kỳ) — chỉ tính
+    // lại 1 record/NV; BE tự dọn bản trùng khi tính lại nên loop không báo lỗi ảo.
+    const seen = new Set<string>();
+    const uniquePending = pending.filter((r) => (seen.has(r.userId) ? false : (seen.add(r.userId), true)));
     return {
       totals: {
         count: records.length,
@@ -124,7 +128,7 @@ export function PayrollCycleDetailScreen() {
         finalized: records.filter((r) => r.isFinalized).length,
       },
       pendingIds: pending.map((r) => r.id),
-      pendingTargets: pending.map<RecalcTarget>((r) => ({ recordId: r.id, userId: r.userId, userName: r.userName })),
+      pendingTargets: uniquePending.map<RecalcTarget>((r) => ({ recordId: r.id, userId: r.userId, userName: r.userName })),
     };
   }, [data]);
 

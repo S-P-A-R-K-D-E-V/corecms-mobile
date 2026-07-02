@@ -1,12 +1,15 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
-import { brand } from 'src/theme';
+import { useColorScheme } from 'nativewind';
+import { brand, grey } from 'src/theme';
 import { SOLAR_ICONS } from './solar-registry';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 type Tone = 'default' | 'muted' | 'faint' | 'primary' | 'secondary' | 'error' | 'success' | 'warning' | 'info' | 'inverse';
 
-const toneColor: Record<Tone, string> = {
+// Màu tone theo scheme — trước đây cố định bảng LIGHT (default = grey800) nên
+// ở dark mode icon gần như tàng hình trên nền tối (vd nút "đánh dấu đã đọc").
+const toneColorLight: Record<Tone, string> = {
   default: brand.ink,
   muted: brand.muted,
   faint: brand.faint,
@@ -17,6 +20,13 @@ const toneColor: Record<Tone, string> = {
   warning: brand.warning,
   info: brand.info,
   inverse: '#FFFFFF',
+};
+
+const toneColorDark: Record<Tone, string> = {
+  ...toneColorLight,
+  default: brand.inkDark,   // trắng
+  muted: grey[500],         // text.secondary của Minimal dark
+  faint: grey[600],
 };
 
 export type IconProps = {
@@ -32,7 +42,8 @@ export type IconProps = {
  * anything not yet mapped falls back to MaterialCommunityIcons.
  */
 export function Icon({ name, size = 22, tone = 'default', color }: IconProps) {
-  const tint = color ?? toneColor[tone];
+  const { colorScheme } = useColorScheme();
+  const tint = color ?? (colorScheme === 'dark' ? toneColorDark : toneColorLight)[tone];
   const xml = SOLAR_ICONS[name];
   if (xml) {
     return <SvgXml xml={xml} width={size} height={size} color={tint} />;
