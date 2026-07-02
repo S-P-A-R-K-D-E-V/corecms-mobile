@@ -72,6 +72,7 @@ export const endpoints = {
     byStaffAndDateRange: (staffId: string) => `/shift-assignments/staff/${staffId}/range`,
     manageShift: '/shift-assignments/manage-shift',
     bulkAssign: '/shift-assignments/bulk',
+    autoAssignApply: '/shift-assignments/auto-assign-apply',
     swap: '/shift-assignments/swap',
   },
   attendance: {

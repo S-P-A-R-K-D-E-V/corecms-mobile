@@ -743,6 +743,18 @@ export interface IManualAttendanceAdjustmentRequest {
   note?: string;
 }
 
+/** 1 slot đề xuất phân công tự động (khớp BE AutoAssignSlotDto). */
+export interface IAutoAssignSlotDto {
+  scheduleId: string;
+  date: string; // "yyyy-MM-dd"
+  staffIds: string[];
+}
+
+/** Body POST /shift-assignments/auto-assign-apply. */
+export interface IApplyAutoAssignRequest {
+  slots: IAutoAssignSlotDto[];
+}
+
 /** Body POST /shift-assignments/swap — hoán đổi 2 phân công. */
 export interface ISwapShiftAssignmentsRequest {
   staffId1: string;

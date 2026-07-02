@@ -1,16 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import dayjs from 'dayjs';
+
 import {
+  applyAutoAssign,
   bulkAssignShiftSchedule,
   getShiftSchedules,
   getTeamAssignments,
   swapShiftAssignments,
 } from 'src/api/schedule';
 import { getAllUsers } from 'src/api/users';
+import { getAttendanceReport } from 'src/api/reports';
 import { getAttendanceRequests, manualAdjustment, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
 import { getPendingLateCoverRequests, reviewLateCoverRequest } from 'src/api/lateCover';
 import type {
+  IAutoAssignSlotDto,
   IBulkAssignShiftScheduleRequest,
   IManualAttendanceAdjustmentRequest,
   ISwapShiftAssignmentsRequest,
@@ -69,6 +74,31 @@ export function useManualAdjustment() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
     },
+  });
+}
+
+/** Điểm chuyên cần 30 ngày gần nhất: staffId → (muộn + về sớm). Càng thấp càng tốt. */
+export function useStaffPunctuality() {
+  const toDate = dayjs().format('YYYY-MM-DD');
+  const fromDate = dayjs().subtract(29, 'day').format('YYYY-MM-DD');
+  return useQuery({
+    queryKey: ['manage', 'punctuality', fromDate, toDate],
+    queryFn: () => getAttendanceReport({ fromDate, toDate }),
+    staleTime: 5 * MINUTE,
+    select: (rows) => {
+      const map = new Map<string, number>();
+      for (const r of rows) map.set(r.staffId, (r.lateCount ?? 0) + (r.earlyLeaveCount ?? 0));
+      return map;
+    },
+  });
+}
+
+/** Áp dụng phân công tự động (auto-assign) — invalidate lịch đội ngũ. */
+export function useApplyAutoAssign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slots: IAutoAssignSlotDto[]) => applyAutoAssign(slots),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] }),
   });
 }
 

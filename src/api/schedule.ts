@@ -1,5 +1,7 @@
 import axios, { endpoints } from './axios';
 import type {
+  IApplyAutoAssignRequest,
+  IAutoAssignSlotDto,
   IBulkAssignShiftScheduleRequest,
   IManageShiftAssignmentsRequest,
   IMyScheduleItem,
@@ -56,6 +58,18 @@ export async function manageShiftAssignments(
   const response = await axios.post<{ added: number; removed: number }>(
     endpoints.shiftAssignments.manageShift,
     data
+  );
+  return response.data;
+}
+
+/** [Manager] Áp dụng phân công tự động: mỗi slot = (ca, ngày, danh sách NV). */
+export async function applyAutoAssign(
+  slots: IAutoAssignSlotDto[]
+): Promise<{ added: number; removed: number }> {
+  const body: IApplyAutoAssignRequest = { slots };
+  const response = await axios.post<{ added: number; removed: number }>(
+    endpoints.shiftAssignments.autoAssignApply,
+    body
   );
   return response.data;
 }
