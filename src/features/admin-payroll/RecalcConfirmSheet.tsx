@@ -25,11 +25,10 @@ const TYPES: { key: SalaryType; label: string }[] = [
   { key: 'Hourly', label: 'Theo giờ' },
   { key: 'Monthly', label: 'Theo tháng' },
 ];
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export type RecalcTarget = { recordId: string; userId: string; userName: string };
 
-type EditState = { type: SalaryType; amount: string; probation: string; effectiveFrom: string; error: string };
+type EditState = { type: SalaryType; amount: string; probation: string; error: string };
 
 export function RecalcConfirmSheet({
   visible,
@@ -69,8 +68,6 @@ export function RecalcConfirmSheet({
       type: (cfg?.salaryType as SalaryType) ?? 'PerShift',
       amount: cfg?.amount ? String(cfg.amount) : '',
       probation: cfg?.probationRate != null ? String(cfg.probationRate) : '',
-      // Hiệu lực từ ĐẦU KỲ để mức mới áp cho kỳ đang tính lại.
-      effectiveFrom: fromDate ?? dayjs().format('YYYY-MM-DD'),
       error: '',
     });
   }
@@ -84,16 +81,17 @@ export function RecalcConfirmSheet({
     if (!edit) return;
     const amt = Number(edit.amount.replace(/[^\d.]/g, ''));
     if (!amt || amt <= 0) return setEdit({ ...edit, error: 'Nhập số tiền hợp lệ.' });
-    if (!DATE_RE.test(edit.effectiveFrom)) return setEdit({ ...edit, error: 'Ngày hiệu lực phải dạng yyyy-MM-dd.' });
     const rate = edit.probation.trim() ? Number(edit.probation) : undefined;
     if (rate != null && (isNaN(rate) || rate < 0 || rate > 100)) return setEdit({ ...edit, error: '% thử việc phải trong 0–100.' });
     try {
+      // Hiệu lực tự lấy NGÀY ĐẦU CHU KỲ (như core-fe) — không cần người dùng nhập,
+      // đảm bảo mức mới áp trọn kỳ đang tính lại.
       await upsertM.mutateAsync({
         userId,
         salaryType: edit.type,
         amount: amt,
         probationRate: rate,
-        effectiveFrom: edit.effectiveFrom,
+        effectiveFrom: fromDate ?? dayjs().format('YYYY-MM-DD'),
       });
       await previewQ.refetch();
       haptics.success();
@@ -207,14 +205,9 @@ export function RecalcConfirmSheet({
                             />
                           </View>
                         </View>
-                        <TextField
-                          label="Hiệu lực từ ngày"
-                          value={edit.effectiveFrom}
-                          onChangeText={(v) => setEdit({ ...edit, effectiveFrom: v })}
-                          placeholder="2026-06-01"
-                          keyboardType="numbers-and-punctuation"
-                          maxLength={10}
-                        />
+                        <Text variant="caption" tone="muted">
+                          Mức mới hiệu lực từ đầu kỳ ({fromDate ? dayjs(fromDate).format('DD/MM/YYYY') : 'hôm nay'}) — áp trọn kỳ này khi tính lại.
+                        </Text>
                         {edit.error ? <Text variant="caption" tone="error">{edit.error}</Text> : null}
                         <View className="flex-row gap-2">
                           <View className="flex-1">

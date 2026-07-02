@@ -115,26 +115,33 @@ export function ShiftPoolScreen() {
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-4 pb-24 gap-3"
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[brand.primary]} tintColor={brand.primary} />}
-          renderItem={({ item, index }) => (
+          renderItem={({ item, index }) => {
+            // Ca đã bắt đầu/kết thúc → hết hạn nhận (BE cũng chặn, nhưng disable
+            // trước để không bấm nhầm). Mốc = giờ BẮT ĐẦU ca theo ngày ca.
+            const expired = dayjs(`${String(item.shiftDate).slice(0, 10)} ${item.shiftStartTime}`).isBefore(dayjs());
+            return (
             <Appear index={Math.min(index, 8)}>
             <Card className="p-4 gap-1.5">
               <View className="flex-row items-center justify-between">
                 <Text variant="subtitle">{NEED_TYPE_LABEL[item.needType]} · {item.shiftName}</Text>
-                <Badge tone={POOL_STATUS_TONE[item.status]}>{POOL_STATUS_LABEL[item.status]}</Badge>
+                <Badge tone={expired && item.status === 'Open' ? 'error' : POOL_STATUS_TONE[item.status]}>
+                  {expired && item.status === 'Open' ? 'Quá hạn' : POOL_STATUS_LABEL[item.status]}
+                </Badge>
               </View>
               <Text variant="bodySmall" tone="muted">{dayjs(item.shiftDate).format('DD/MM/YYYY')} · {item.shiftStartTime} – {item.shiftEndTime}</Text>
               <Text variant="bodySmall" tone="muted">{tab === 'open' || tab === 'claims' ? `Người đăng: ${item.posterName}` : item.claimerName ? `Người nhận: ${item.claimerName}` : 'Chưa có người nhận'}</Text>
               {item.extraPayAmount ? <Text variant="bodySmall" tone="primary" className="font-semibold">Phụ cấp: {fmtMoney(item.extraPayAmount)}</Text> : null}
 
               {tab === 'open' ? (
-                <><Divider className="my-1" /><Button size="sm" icon="hand-back-right-outline" loading={busy} onPress={() => onClaim(item)}>Nhận ca</Button></>
+                <><Divider className="my-1" /><Button size="sm" icon={expired ? 'clock-alert-outline' : 'hand-back-right-outline'} disabled={expired} loading={busy} onPress={() => onClaim(item)}>{expired ? 'Ca đã qua — không thể nhận' : 'Nhận ca'}</Button></>
               ) : null}
               {tab === 'mine' && (item.status === 'Open' || item.status === 'WaitingApproval') ? (
                 <><Divider className="my-1" /><Button size="sm" variant="outline" loading={busy} onPress={() => onManage(item)}>{item.status === 'Open' ? 'Quản lý / Huỷ' : 'Duyệt người nhận'}</Button></>
               ) : null}
             </Card>
             </Appear>
-          )}
+            );
+          }}
           ListEmptyComponent={
             <EmptyState
               icon="account-group-outline"

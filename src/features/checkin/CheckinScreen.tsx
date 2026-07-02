@@ -382,7 +382,10 @@ export function CheckinScreen() {
                 style={softShadow}
               >
                 {submitting ? <Spinner color={brand.error} /> : <Icon name="logout" size={20} color={brand.error} />}
-                <Text className="text-error font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
+                {/* tone="error" thay vì className="text-error": tone mặc định kèm
+                    dark:text-ink-dark (trắng) đè text-error ở dark → chữ trắng
+                    trên nút trắng, mất chữ Checkout. */}
+                <Text tone="error" className="font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
               </Pressable>
             </>
           ) : (

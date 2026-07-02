@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { Sheet } from 'src/components/shared';
 import { Button, Text, Badge, Icon, Spinner, TextField, Pressable } from 'src/components/ui';
-import { toast, confirm } from 'src/components/overlay';
+import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import type { IPreparePayrollPaymentResponse } from 'src/types/corecms-api';
@@ -56,12 +56,16 @@ export function PaymentQRSheet({
   const [content, setContent] = useState('');
   const [txnRef, setTxnRef] = useState('');
   const [downloading, setDownloading] = useState(false);
+  // Xác nhận 2 bước NGAY TRÊN NÚT — KHÔNG dùng confirm() overlay: dialog đó là
+  // một RN Modal khác, mở chồng lên Modal của Sheet làm dialog vô hình nhưng
+  // vẫn chặn touch → "không phản hồi", đóng sheet xong app treo.
+  const [confirmArm, setConfirmArm] = useState(false);
 
   const alreadyPaid = paymentQ.data?.status === 'Paid';
 
   // Nạp thông tin prepare mỗi khi mở.
   useEffect(() => {
-    if (!visible) { setPrep(null); return; }
+    if (!visible) { setPrep(null); setConfirmArm(false); return; }
     let cancelled = false;
     prepareM
       .mutateAsync(recordId)
@@ -93,12 +97,12 @@ export function PaymentQRSheet({
 
   async function markPaid() {
     if (!prep) return;
-    const ok = await confirm({
-      title: 'Đánh dấu đã thanh toán',
-      message: `Xác nhận đã trả ${Number(prep.amount).toLocaleString('vi-VN')}đ cho ${prep.userFullName}?`,
-      confirmText: 'Đã thanh toán',
-    });
-    if (!ok) return;
+    // Chạm lần 1: bật trạng thái xác nhận; chạm lần 2 mới ghi nhận.
+    if (!confirmArm) {
+      haptics.light();
+      setConfirmArm(true);
+      return;
+    }
     try {
       await markM.mutateAsync({
         id: recordId,
@@ -115,6 +119,8 @@ export function PaymentQRSheet({
     } catch (e) {
       haptics.error();
       toast.error(extractApiError(e), 'Không cập nhật được');
+    } finally {
+      setConfirmArm(false);
     }
   }
 
@@ -131,9 +137,26 @@ export function PaymentQRSheet({
             <Button fullWidth variant="soft" icon="share-variant-outline" disabled={!qrUrl || downloading} loading={downloading} onPress={shareQr}>
               Tải / chia sẻ QR
             </Button>
-            <Button fullWidth icon="check-decagram-outline" disabled={!prep?.canPay} loading={markM.isPending} onPress={markPaid}>
-              Đánh dấu đã thanh toán
+            {confirmArm && prep ? (
+              <Text variant="caption" tone="warning" className="text-center font-semibold">
+                Xác nhận đã trả {Number(prep.amount).toLocaleString('vi-VN')}đ cho {prep.userFullName}?
+              </Text>
+            ) : null}
+            <Button
+              fullWidth
+              action={confirmArm ? 'error' : 'primary'}
+              icon={confirmArm ? 'alert-circle-outline' : 'check-decagram-outline'}
+              disabled={!prep?.canPay}
+              loading={markM.isPending}
+              onPress={markPaid}
+            >
+              {confirmArm ? 'Chạm lần nữa để xác nhận' : 'Đánh dấu đã thanh toán'}
             </Button>
+            {confirmArm ? (
+              <Button fullWidth variant="ghost" action="neutral" size="sm" onPress={() => setConfirmArm(false)}>
+                Huỷ
+              </Button>
+            ) : null}
           </View>
         )
       }

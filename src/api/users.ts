@@ -10,6 +10,13 @@ import type {
 
 export type RNFile = { uri: string; name: string; type: string };
 
+/** BE UserResponse chỉ trả `status` (KHÔNG có `isActive`) — suy trạng thái hoạt
+ *  động từ status; fallback isActive cho payload cũ. Lọc bằng `u.isActive` trực
+ *  tiếp sẽ loại NHẦM toàn bộ nhân viên (undefined). */
+export function isActiveUser(u: Pick<IUser, 'status' | 'isActive'>): boolean {
+  return u.status != null ? u.status === 'Active' : u.isActive !== false;
+}
+
 export async function getMe(): Promise<IUser> {
   const response = await axios.get<IUser>(endpoints.users.me);
   return response.data;
