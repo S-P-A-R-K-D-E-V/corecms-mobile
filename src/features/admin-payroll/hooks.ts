@@ -2,14 +2,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { getAllPayrollCycles, createPayrollCycle } from 'src/api/payrollCycle';
 import {
+  bulkFinalizePayroll,
+  finalizePayroll,
   generateBatchPayroll,
   getPayrollByCycle,
   getPayrollShiftDetails,
   recalculatePayrollByCycle,
+  recalculatePayrollRecord,
 } from 'src/api/payroll';
+import { getUserSalaryConfigs, versionedUpsertSalaryConfig } from 'src/api/salary';
 import type {
   IBatchPayrollCalculationRequest,
+  IBulkFinalizePayrollRequest,
   ICreatePayrollCycleRequest,
+  IFinalizePayrollRequest,
+  IVersionedUpsertSalaryConfigRequest,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -72,5 +79,59 @@ export function useRecalculateCycle() {
       qc.invalidateQueries({ queryKey: ['admin', 'payroll-by-cycle', cycleId] });
       qc.invalidateQueries({ queryKey: ['admin', 'payroll-cycles'] });
     },
+  });
+}
+
+// ── Cấu hình lương cá nhân ─────────────────────────────────────────────
+
+export function useUserSalaryConfigs(userId?: string) {
+  return useQuery({
+    queryKey: ['admin', 'salary-configs', userId],
+    queryFn: () => getUserSalaryConfigs(userId!),
+    enabled: !!userId,
+    staleTime: MINUTE,
+  });
+}
+
+export function useUpsertSalaryConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: IVersionedUpsertSalaryConfigRequest) => versionedUpsertSalaryConfig(data),
+    onSuccess: (_r, data) => qc.invalidateQueries({ queryKey: ['admin', 'salary-configs', data.userId] }),
+  });
+}
+
+// ── Tính lại 1 bảng + chốt lương ───────────────────────────────────────
+
+function invalidatePayroll(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['admin', 'payroll-by-cycle'] });
+  qc.invalidateQueries({ queryKey: ['admin', 'payroll-shift-details'] });
+  qc.invalidateQueries({ queryKey: ['admin', 'payroll-cycles'] });
+}
+
+/** Tính lại lương 1 nhân viên (sau khi đổi cấu hình lương). */
+export function useRecalculateRecord() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (recordId: string) => recalculatePayrollRecord(recordId),
+    onSuccess: () => invalidatePayroll(qc),
+  });
+}
+
+/** Chốt / bỏ chốt 1 bảng lương. */
+export function useFinalizePayroll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: IFinalizePayrollRequest }) => finalizePayroll(id, data),
+    onSuccess: () => invalidatePayroll(qc),
+  });
+}
+
+/** Chốt / bỏ chốt hàng loạt. */
+export function useBulkFinalize() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: IBulkFinalizePayrollRequest) => bulkFinalizePayroll(data),
+    onSuccess: () => invalidatePayroll(qc),
   });
 }

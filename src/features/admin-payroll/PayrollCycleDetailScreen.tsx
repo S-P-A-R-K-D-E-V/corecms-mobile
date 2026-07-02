@@ -11,7 +11,7 @@ import { extractApiError } from 'src/services/error';
 import { fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 
-import { usePayrollByCycle, useRecalculateCycle } from './hooks';
+import { usePayrollByCycle, useRecalculateCycle, useBulkFinalize } from './hooks';
 
 // ----------------------------------------------------------------------
 // Chi tiết chu kỳ lương (Admin): tổng quan (tự tính từ records) + bảng lương
@@ -21,7 +21,7 @@ import { usePayrollByCycle, useRecalculateCycle } from './hooks';
 function RecordCard({ r }: { r: IPayrollRecord }) {
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/admin/payroll-record' as any, params: { recordId: r.id, userName: r.userName } })}
+      onPress={() => router.push({ pathname: '/admin/payroll-record' as any, params: { recordId: r.id, userName: r.userName, finalized: String(r.isFinalized) } })}
       className="py-3 gap-1.5"
     >
       <View className="flex-row items-center justify-between">
@@ -62,15 +62,37 @@ export function PayrollCycleDetailScreen() {
   const cycleId = params.cycleId;
   const { data, isLoading, isError, refetch, isFetching } = usePayrollByCycle(cycleId);
   const recalcM = useRecalculateCycle();
+  const bulkM = useBulkFinalize();
 
-  const totals = useMemo(() => {
+  const { totals, pendingIds } = useMemo(() => {
     const records = data?.records ?? [];
     return {
-      count: records.length,
-      total: records.reduce((s, r) => s + r.totalSalary, 0),
-      finalized: records.filter((r) => r.isFinalized).length,
+      totals: {
+        count: records.length,
+        total: records.reduce((s, r) => s + r.totalSalary, 0),
+        finalized: records.filter((r) => r.isFinalized).length,
+      },
+      pendingIds: records.filter((r) => !r.isFinalized).map((r) => r.id),
     };
   }, [data]);
+
+  async function finalizeAll() {
+    if (pendingIds.length === 0) return;
+    const ok = await confirm({
+      title: 'Chốt cả kỳ',
+      message: `Chốt ${pendingIds.length} bảng lương chưa chốt trong chu kỳ? Sau khi chốt sẽ khoá khỏi chỉnh sửa.`,
+      confirmText: 'Chốt tất cả',
+    });
+    if (!ok) return;
+    try {
+      const res = await bulkM.mutateAsync({ payrollIds: pendingIds, isFinalized: true });
+      haptics.success();
+      toast.success(`Đã chốt ${res.successCount}${res.failedCount ? ` · lỗi ${res.failedCount}` : ''}.`, 'Chốt lương');
+    } catch (e) {
+      haptics.error();
+      toast.error(extractApiError(e), 'Không chốt được');
+    }
+  }
 
   async function recalc() {
     if (!cycleId) return;
@@ -118,9 +140,14 @@ export function PayrollCycleDetailScreen() {
           </View>
 
           {!data.isLocked ? (
-            <Button variant="soft" fullWidth icon="calculator-variant-outline" loading={recalcM.isPending} onPress={recalc}>
-              Tính lại toàn kỳ
-            </Button>
+            <View className="flex-row gap-2">
+              <Button variant="soft" action="neutral" className="flex-1" icon="calculator-variant-outline" loading={recalcM.isPending} onPress={recalc}>
+                Tính lại toàn kỳ
+              </Button>
+              <Button className="flex-1" action="primary" icon="lock-check-outline" disabled={pendingIds.length === 0} loading={bulkM.isPending} onPress={finalizeAll}>
+                Chốt cả kỳ{pendingIds.length ? ` (${pendingIds.length})` : ''}
+              </Button>
+            </View>
           ) : (
             <View className="flex-row items-center gap-2 px-3.5 py-2.5 rounded-xl bg-error-soft">
               <Icon name="lock-outline" size={16} tone="error" />

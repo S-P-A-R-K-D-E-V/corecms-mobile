@@ -108,10 +108,17 @@ export const endpoints = {
     generateBatch: '/payroll/generate-batch',
     byCycle: (cycleId: string) => `/payroll/by-cycle/${cycleId}`,
     recalculateCycle: (cycleId: string) => `/payroll/recalculate-cycle/${cycleId}`,
+    recalculateRecord: (id: string) => `/payroll/${id}/recalculate`,
+    finalize: (id: string) => `/payroll/${id}/finalize`,
+    bulkFinalize: '/payroll/bulk-finalize',
   },
   payrollCycle: {
     list: '/payroll-cycles',
     create: '/payroll-cycles',
+  },
+  salaryConfig: {
+    byUser: (userId: string) => `/salary-configurations/user/${userId}`,
+    versionedUpsert: '/salary-configurations/versioned-upsert',
   },
   salaryHistory: {
     mySalaryHistory: '/salary-history/my-history',

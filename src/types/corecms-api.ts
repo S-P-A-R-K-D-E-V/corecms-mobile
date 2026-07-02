@@ -494,6 +494,50 @@ export interface IFinalizePayrollRequest {
   isFinalized: boolean;
 }
 
+/** POST /payroll/bulk-finalize — chốt/bỏ chốt hàng loạt. */
+export interface IBulkFinalizePayrollRequest {
+  payrollIds: string[];
+  isFinalized: boolean;
+}
+
+export interface IBulkFinalizeError {
+  payrollId: string;
+  reason: string;
+}
+
+export interface IBulkFinalizePayrollResponse {
+  successCount: number;
+  failedCount: number;
+  errors: IBulkFinalizeError[];
+}
+
+// --- Cấu hình lương cá nhân (khớp BE SalaryConfigurationContracts) ---
+
+export type SalaryType = 'PerShift' | 'Hourly' | 'Monthly';
+
+export interface ISalaryConfiguration {
+  id: string;
+  userId: string;
+  userName: string;
+  salaryType: string;
+  amount: number;
+  probationRate?: number;
+  effectiveFrom: string;  // "yyyy-MM-dd"
+  effectiveTo?: string;
+  note?: string;
+  createdAt: string;
+}
+
+/** POST /salary-configurations/versioned-upsert — đặt mức lương hiệu lực từ ngày. */
+export interface IVersionedUpsertSalaryConfigRequest {
+  userId: string;
+  salaryType: SalaryType;
+  amount: number;
+  probationRate?: number;
+  effectiveFrom: string; // "yyyy-MM-dd"
+  note?: string;
+}
+
 export interface IPayrollCycleDetailResponse {
   cycleId: string;
   cycleName: string;

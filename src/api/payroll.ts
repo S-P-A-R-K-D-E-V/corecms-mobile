@@ -2,6 +2,9 @@ import axios, { endpoints } from './axios';
 import type {
   IBatchPayrollCalculationRequest,
   IBatchPayrollResponse,
+  IBulkFinalizePayrollRequest,
+  IBulkFinalizePayrollResponse,
+  IFinalizePayrollRequest,
   IPayrollCalculationRequest,
   IPayrollCycleDetailResponse,
   IPayrollRecord,
@@ -47,5 +50,25 @@ export async function getPayrollByCycle(cycleId: string): Promise<IPayrollCycleD
 /** [Admin] Tính lại toàn bộ bảng lương trong 1 chu kỳ đã tồn tại. */
 export async function recalculatePayrollByCycle(cycleId: string): Promise<IBatchPayrollResponse> {
   const response = await axios.post<IBatchPayrollResponse>(endpoints.payroll.recalculateCycle(cycleId));
+  return response.data;
+}
+
+/** [Admin] Tính lại lương 1 bảng lương (1 nhân viên) → về trạng thái chờ duyệt. */
+export async function recalculatePayrollRecord(id: string): Promise<IPayrollRecord> {
+  const response = await axios.post<IPayrollRecord>(endpoints.payroll.recalculateRecord(id));
+  return response.data;
+}
+
+/** [Admin] Chốt / bỏ chốt 1 bảng lương. */
+export async function finalizePayroll(id: string, data: IFinalizePayrollRequest): Promise<IPayrollRecord> {
+  const response = await axios.put<IPayrollRecord>(endpoints.payroll.finalize(id), data);
+  return response.data;
+}
+
+/** [Admin] Chốt / bỏ chốt hàng loạt bảng lương. */
+export async function bulkFinalizePayroll(
+  data: IBulkFinalizePayrollRequest
+): Promise<IBulkFinalizePayrollResponse> {
+  const response = await axios.post<IBulkFinalizePayrollResponse>(endpoints.payroll.bulkFinalize, data);
   return response.data;
 }
