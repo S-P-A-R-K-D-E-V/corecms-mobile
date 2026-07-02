@@ -661,3 +661,64 @@ export interface IKiotVietDailySummary {
   totalReturns: number;
   netCashImpact: number;
 }
+
+// ======================================================================
+// Reports / Admin Dashboard (khớp BE /reports/*, đồng bộ core-fe corecms-api)
+// ======================================================================
+
+export interface ITopSellingProduct {
+  productId: string;
+  productName: string;
+  productSKU: string;
+  quantitySold: number;
+  revenue: number;
+}
+
+export interface IRecentOrder {
+  id: string;
+  orderNumber: string;
+  customerName?: string;
+  totalAmount: number;
+  status: string;
+  paymentStatus: string;
+  createdAt: string;
+}
+
+/** Tổng quan bảng điều khiển — nguồn cho dashboard Quản trị. */
+export interface IDashboardSummary {
+  todayRevenue: number;
+  todayOrders: number;
+  monthRevenue: number;
+  monthOrders: number;
+  totalProducts: number;
+  totalCustomers: number;
+  lowStockCount: number;
+  topSellingProducts: ITopSellingProduct[];
+  recentOrders: IRecentOrder[];
+}
+
+export interface IRevenuePeriod {
+  period: string;
+  revenue: number;
+  cost: number;
+  profit: number;
+  orderCount: number;
+  itemsSold: number;
+}
+
+export interface IRevenueReport {
+  totalRevenue: number;
+  totalCost: number;
+  grossProfit: number;
+  totalOrders: number;
+  totalItemsSold: number;
+  averageOrderValue: number;
+  periods: IRevenuePeriod[];
+}
+
+export interface IPaymentMethodReport {
+  method: string;
+  count: number;
+  totalAmount: number;
+  percentage: number;
+}

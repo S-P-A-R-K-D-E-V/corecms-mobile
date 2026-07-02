@@ -5,6 +5,8 @@ import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
+import { useAuthContext } from 'src/auth/auth-context';
+import { isAdminUser } from 'src/auth/roles';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
@@ -15,13 +17,18 @@ const NAV_COLORS: [string, string, string] = ['#D86A88', '#C84D71', '#A83C5D'];
 
 // Solar icons (bold-duotone when active, linear when idle) keyed into the registry.
 type TabDef = { name: string; off?: string; on: string; label: string };
-const TABS: TabDef[] = [
+const BASE_TABS: TabDef[] = [
   { name: 'schedule', off: 'tab-schedule-off', on: 'tab-schedule-on', label: 'Lịch làm' },
   { name: 'payroll', off: 'tab-payroll-off', on: 'tab-payroll-on', label: 'Lương' },
   { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // index 2 = center
   { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
   { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
+
+// Tab Quản trị chỉ dành cho Manager/Admin — nối vào cuối danh sách (giữ nguyên
+// index 2 = center = checkin). Route 'admin' luôn được đăng ký nhưng chỉ hiện
+// nút khi user đủ quyền; deep-link vào vẫn bị RoleGuard chặn 403.
+const ADMIN_TAB: TabDef = { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', label: 'Quản trị' };
 
 const PILL_H = 72;
 
@@ -31,7 +38,7 @@ function TabIcon({ xmlKey, size, color }: { xmlKey?: string; size: number; color
   return <SvgXml xml={xml} width={size} height={size} color={color} />;
 }
 
-function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
+function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; tabs: TabDef[] }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Math.max(insets.bottom, 8);
 
@@ -69,7 +76,7 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
             elevation: 18,
           }}
         >
-          {TABS.map((tab, i) => {
+          {tabs.map((tab, i) => {
             const route = state.routes[i];
             const isFocused = state.index === i;
             const isCenter = i === 2;
@@ -208,20 +215,26 @@ function CiCiTabBar({ state, navigation }: { state: any; navigation: any }) {
 }
 
 export default function TabsLayout() {
+  const { user } = useAuthContext();
+  // Tab Quản trị chỉ hiện với Manager/Admin. Route 'admin' vẫn luôn được đăng ký
+  // (RoleGuard trong màn xử lý phân quyền), chỉ NÚT trên tab bar là có điều kiện.
+  const tabs = isAdminUser(user) ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
+
   // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
   return (
     <InternalAppGuard>
       <MessengerProvider>
         <Tabs
           screenOptions={{ headerShown: false }}
-          tabBar={(props) => <CiCiTabBar {...props} />}
+          tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
         >
-          {/* Order must match TABS array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) */}
+          {/* Order must match tabs array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) | admin(5) */}
           <Tabs.Screen name="schedule" />
           <Tabs.Screen name="payroll" />
           <Tabs.Screen name="checkin" />
           <Tabs.Screen name="chat" />
           <Tabs.Screen name="profile" />
+          <Tabs.Screen name="admin" />
         </Tabs>
         <InAppNotificationHost />
       </MessengerProvider>

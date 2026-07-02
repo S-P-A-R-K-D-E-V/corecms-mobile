@@ -82,6 +82,7 @@ export const endpoints = {
     myRequests: '/attendance/my-requests',
     processRequest: (id: string) => `/attendance/requests/${id}/process`,
     myReport: '/attendance/my-report',
+    report: '/attendance/report',
   },
   branches: {
     list: '/branches',
@@ -151,6 +152,11 @@ export const endpoints = {
   },
   kiotViet: {
     dailySummary: '/kiotviet/daily-summary',
+  },
+  reports: {
+    dashboard: '/reports/dashboard',
+    revenue: '/reports/revenue',
+    paymentMethods: '/reports/payment-methods',
   },
 };
 

@@ -12,6 +12,9 @@ export const INTERNAL_APP_ROLES = ['Staff', 'Manager', 'Admin'] as const;
 /** Vai trò được phép vào tính năng Kiểm tiền quầy (đồng bộ core-fe nav). */
 export const SHIFT_CASH_ROLES = ['Staff', 'Manager', 'Admin'] as const;
 
+/** Vai trò quản trị: được thấy tab & màn Quản trị (dashboard, duyệt yêu cầu, báo cáo). */
+export const ADMIN_ROLES = ['Manager', 'Admin'] as const;
+
 /** Gộp `role` (đơn) + `roles[]` thành 1 danh sách duy nhất, loại trùng. */
 export function getUserRoles(user: AuthUser | null | undefined): string[] {
   if (!user) return [];
@@ -37,4 +40,9 @@ export function hasAnyPermission(user: AuthUser | null | undefined, permissions?
 /** Cổng chặn cấp app: user có được phép dùng app nội bộ này không. */
 export function canUseInternalApp(user: AuthUser | null | undefined): boolean {
   return hasAnyRole(user, INTERNAL_APP_ROLES);
+}
+
+/** True nếu user là cấp quản trị (Manager/Admin) — dùng để hiện tab Quản trị. */
+export function isAdminUser(user: AuthUser | null | undefined): boolean {
+  return hasAnyRole(user, ADMIN_ROLES);
 }
