@@ -663,6 +663,51 @@ export interface IKiotVietDailySummary {
 }
 
 // ======================================================================
+// Manager — duyệt yêu cầu (đồng bộ core-fe corecms-api)
+// ======================================================================
+
+/** Body duyệt/từ chối yêu cầu đổi ca — PUT /shift-swap/{id}/review. */
+export interface IReviewShiftSwapRequestRequest {
+  status: string; // "Approved" | "Rejected"
+  reviewNote?: string;
+}
+
+/** Yêu cầu làm hộ ca (đi muộn) — khớp BE LateCoverRequestResponse. */
+export interface ILateCoverRequest {
+  id: string;
+  requesterId: string;
+  requesterName: string;
+  lateStaffId: string;
+  lateStaffName: string;
+  coveringStaffId: string;
+  coveringStaffName: string;
+  lateStaffAssignmentId: string;
+  lateShiftName: string;
+  lateShiftDate: string;
+  coveringStaffAssignmentId: string;
+  coveringShiftName: string;
+  coveringShiftDate: string;
+  coveringStartTime: string;
+  coveringEndTime: string;
+  coveringHours: number;
+  lateStaffHourlyRate: number;
+  extraPayAmount: number;
+  reason?: string;
+  status: string;
+  reviewedBy?: string;
+  reviewerName?: string;
+  reviewedAt?: string;
+  reviewNote?: string;
+  createdAt: string;
+}
+
+/** Body duyệt/từ chối yêu cầu làm hộ — PUT /late-cover/{id}/review. */
+export interface IReviewLateCoverRequestDto {
+  status: string; // "Approved" | "Rejected"
+  reviewNote?: string;
+}
+
+// ======================================================================
 // Reports / Admin Dashboard (khớp BE /reports/*, đồng bộ core-fe corecms-api)
 // ======================================================================
 

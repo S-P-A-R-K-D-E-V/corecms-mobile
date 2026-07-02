@@ -57,6 +57,14 @@ export async function getMyAttendanceRequests(): Promise<IAttendanceRequest[]> {
   return response.data;
 }
 
+/** [Manager] Danh sách yêu cầu chấm công của mọi nhân viên (lọc theo status). */
+export async function getAttendanceRequests(status?: string): Promise<IAttendanceRequest[]> {
+  const response = await axios.get<IAttendanceRequest[]>(endpoints.attendance.requests, {
+    params: status ? { status } : undefined,
+  });
+  return response.data;
+}
+
 export async function createAttendanceRequest(data: ICreateAttendanceRequestDto): Promise<IAttendanceRequest> {
   const response = await axios.post<IAttendanceRequest>(endpoints.attendance.requests, data);
   return response.data;

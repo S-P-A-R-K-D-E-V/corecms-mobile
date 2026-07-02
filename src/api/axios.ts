@@ -132,6 +132,12 @@ export const endpoints = {
     myRequests: '/shift-swap/my-requests',
     myConfirmationRequests: '/shift-swap/my-confirmation-requests',
     targetConfirm: (id: string) => `/shift-swap/${id}/target-confirm`,
+    pending: '/shift-swap/pending',
+    review: (id: string) => `/shift-swap/${id}/review`,
+  },
+  lateCover: {
+    pending: '/late-cover/pending',
+    review: (id: string) => `/late-cover/${id}/review`,
   },
   shiftPool: {
     create: '/shift-pool',

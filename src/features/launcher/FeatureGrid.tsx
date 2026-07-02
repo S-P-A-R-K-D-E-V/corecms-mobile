@@ -6,7 +6,6 @@ import { SectionCard } from 'src/components/shared';
 import { Text, Icon, Pressable } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { haptics } from 'src/services/haptics';
-import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 
 import { availableFeatures, getFeature, type FeatureItem, type LauncherVariant } from './registry';
@@ -16,25 +15,30 @@ import { LauncherEditor } from './LauncherEditor';
 // ----------------------------------------------------------------------
 
 function FeatureTile({ item }: { item: FeatureItem }) {
+  // Tính năng đang phát triển: nút vẫn hiển thị nhưng DISABLED — không điều
+  // hướng (tránh lỗi route chưa tồn tại), chỉ mờ đi + tag "Đang phát triển".
+  const disabled = !!item.comingSoon;
+
   function onPress() {
-    if (item.comingSoon) {
-      toast.info('Tính năng đang được phát triển.', 'Sắp có');
-      return;
-    }
     haptics.light();
     router.push(item.href as any);
   }
 
   return (
-    <Pressable onPress={onPress} style={{ width: '25%' }} className={cn('items-center gap-1.5 py-2', item.comingSoon && 'opacity-45')}>
+    <Pressable
+      onPress={disabled ? undefined : onPress}
+      disabled={disabled}
+      style={{ width: '25%' }}
+      className={cn('items-center gap-1.5 py-2', disabled && 'opacity-45')}
+    >
       <View className="w-[52px] h-[52px] rounded-2xl bg-primary-soft items-center justify-center relative">
-        <Icon name={item.icon} size={26} tone="primary" />
-        {item.comingSoon ? (
-          <View className="absolute -top-1 -right-1 rounded-full px-1 bg-surface dark:bg-surface-dark border border-line/40">
-            <Text className="text-[8px] text-faint font-bold">soon</Text>
-          </View>
-        ) : null}
+        <Icon name={item.icon} size={26} tone={disabled ? 'faint' : 'primary'} />
       </View>
+      {disabled ? (
+        <View className="rounded-full px-1.5 py-px bg-warning-soft -mt-0.5">
+          <Text className="text-[8px] text-warning-text font-bold">Đang phát triển</Text>
+        </View>
+      ) : null}
       <Text variant="caption" numberOfLines={2} className="text-center text-[11px] leading-[13px]">
         {item.label}
       </Text>

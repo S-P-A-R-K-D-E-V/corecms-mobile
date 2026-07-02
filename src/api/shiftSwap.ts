@@ -2,6 +2,7 @@ import axios, { endpoints } from './axios';
 import type {
   IConfirmShiftSwapTargetRequest,
   ICreateShiftSwapRequestRequest,
+  IReviewShiftSwapRequestRequest,
   IShiftAssignment,
   IShiftSwapRequest,
 } from 'src/types/corecms-api';
@@ -30,6 +31,21 @@ export async function confirmShiftSwapTarget(
   data: IConfirmShiftSwapTargetRequest
 ): Promise<IShiftSwapRequest> {
   const response = await axios.put<IShiftSwapRequest>(endpoints.shiftSwap.targetConfirm(id), data);
+  return response.data;
+}
+
+/** [Manager] Danh sách yêu cầu đổi ca đang chờ duyệt. */
+export async function getPendingShiftSwapRequests(): Promise<IShiftSwapRequest[]> {
+  const response = await axios.get<IShiftSwapRequest[]>(endpoints.shiftSwap.pending);
+  return response.data;
+}
+
+/** [Manager] Duyệt / từ chối yêu cầu đổi ca. */
+export async function reviewShiftSwapRequest(
+  id: string,
+  data: IReviewShiftSwapRequestRequest
+): Promise<IShiftSwapRequest> {
+  const response = await axios.put<IShiftSwapRequest>(endpoints.shiftSwap.review(id), data);
   return response.data;
 }
 

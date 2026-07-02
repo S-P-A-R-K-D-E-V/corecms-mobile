@@ -37,7 +37,7 @@ function Row({
       <View className="flex-1">
         <Text variant="bodySmall" className="font-medium">{item.label}</Text>
         <Text variant="caption" tone="muted" className="text-[10px]">
-          {GROUP_LABELS[item.group]}{item.comingSoon ? ' · Sắp có' : ''}
+          {GROUP_LABELS[item.group]}{item.comingSoon ? ' · Đang phát triển' : ''}
         </Text>
       </View>
       {children}

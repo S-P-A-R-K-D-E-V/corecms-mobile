@@ -40,11 +40,12 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'attendance', label: 'Bảng công', icon: 'clipboard-text-clock', href: '/attendance', group: 'personal' },
   { key: 'notifications', label: 'Thông báo', icon: 'bell-outline', href: '/notifications', group: 'personal' },
 
-  // ── Quản lý (Manager/Admin) — Phase 2, chưa dựng route ─────────────
-  { key: 'team-schedule', label: 'Lịch đội ngũ', icon: 'calendar-account', href: '/manage/schedule', group: 'manage', roles: MANAGER_ROLES, comingSoon: true },
+  // ── Quản lý (Manager/Admin) ────────────────────────────────────────
+  { key: 'team-schedule', label: 'Lịch đội ngũ', icon: 'calendar-account', href: '/manage/schedule', group: 'manage', roles: MANAGER_ROLES },
+  { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', group: 'manage', roles: MANAGER_ROLES },
+  // Phase 2B — chưa dựng route:
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', group: 'manage', roles: MANAGER_ROLES, comingSoon: true },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', group: 'manage', roles: MANAGER_ROLES, comingSoon: true },
-  { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', group: 'manage', roles: MANAGER_ROLES, comingSoon: true },
 
   // ── Quản trị (Admin) ───────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', group: 'admin', roles: ADMIN_ROLES },
@@ -67,8 +68,12 @@ export function availableFeatures(user: AuthUser | null | undefined): FeatureIte
 // Biến thể lưới theo shell điều hướng. 'staff' = màn Điểm danh, 'admin' = Dashboard.
 export type LauncherVariant = 'staff' | 'admin';
 
-/** Ghim mặc định khi user chưa tùy chỉnh — chọn theo shell để hữu ích ngay. */
+/**
+ * Ghim mặc định khi user chưa tùy chỉnh — chọn theo shell để hữu ích ngay.
+ * Key nhóm quản lý vẫn nằm trong default của shell staff: Staff thuần bị lọc
+ * role tự ẩn, còn Manager/Admin-kiêm-ca thấy ngay không cần tùy chỉnh.
+ */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
-  staff: ['shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
-  admin: ['notifications', 'approvals', 'revenue-report', 'attendance-report', 'users'],
+  staff: ['team-schedule', 'approvals', 'shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
+  admin: ['team-schedule', 'approvals', 'notifications', 'revenue-report', 'attendance-report', 'users'],
 };
