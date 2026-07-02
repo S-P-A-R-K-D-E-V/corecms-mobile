@@ -17,18 +17,24 @@ const NAV_COLORS: [string, string, string] = ['#D86A88', '#C84D71', '#A83C5D'];
 
 // Solar icons (bold-duotone when active, linear when idle) keyed into the registry.
 type TabDef = { name: string; off?: string; on: string; label: string };
-const BASE_TABS: TabDef[] = [
+
+// Menu nhân viên (Staff/Manager): 5 tab, checkin là nút center nổi bật.
+const STAFF_TABS: TabDef[] = [
   { name: 'schedule', off: 'tab-schedule-off', on: 'tab-schedule-on', label: 'Lịch làm' },
   { name: 'payroll', off: 'tab-payroll-off', on: 'tab-payroll-on', label: 'Lương' },
-  { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // index 2 = center
+  { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // center
   { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
   { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
 
-// Tab Quản trị chỉ dành cho Manager/Admin — nối vào cuối danh sách (giữ nguyên
-// index 2 = center = checkin). Route 'admin' luôn được đăng ký nhưng chỉ hiện
-// nút khi user đủ quyền; deep-link vào vẫn bị RoleGuard chặn 403.
-const ADMIN_TAB: TabDef = { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', label: 'Quản trị' };
+// Menu riêng cho Quản trị viên: Dashboard | Chat | Tôi (không có nút center).
+// Mọi route vẫn được đăng ký trong navigator — chỉ NÚT trên tab bar đổi theo
+// role; deep-link vào màn không thuộc menu vẫn hoạt động (Admin full quyền).
+const ADMIN_TABS: TabDef[] = [
+  { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', label: 'Dashboard' },
+  { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
+  { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
+];
 
 const PILL_H = 72;
 
@@ -76,10 +82,12 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
             elevation: 18,
           }}
         >
-          {tabs.map((tab, i) => {
-            const route = state.routes[i];
-            const isFocused = state.index === i;
-            const isCenter = i === 2;
+          {tabs.map((tab) => {
+            // Tra route theo TÊN (không theo index) — navigator đăng ký đủ mọi
+            // screen nhưng menu chỉ hiển thị 1 tập con tuỳ role (Staff vs Admin).
+            const route = state.routes.find((r: any) => r.name === tab.name);
+            const isFocused = focusedTab?.name === tab.name;
+            const isCenter = tab.name === 'checkin';
 
             function onPress() {
               if (!route) return;
@@ -216,9 +224,12 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
 
 export default function TabsLayout() {
   const { user } = useAuthContext();
-  // Tab Quản trị chỉ hiện với Manager/Admin. Route 'admin' vẫn luôn được đăng ký
-  // (RoleGuard trong màn xử lý phân quyền), chỉ NÚT trên tab bar là có điều kiện.
-  const tabs = isAdminUser(user) ? [...BASE_TABS, ADMIN_TAB] : BASE_TABS;
+  // Menu theo role (1 tài khoản nhiều role → Admin thắng):
+  //   Admin          → Dashboard | Chat | Tôi
+  //   Staff/Manager  → 5 tab nhân viên hiện tại
+  // Navigator luôn đăng ký đủ screen; tab bar tra route theo tên nên không
+  // phụ thuộc thứ tự đăng ký. RoleGuard trong từng màn vẫn chặn 403.
+  const tabs = isAdminUser(user) ? ADMIN_TABS : STAFF_TABS;
 
   // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
   return (
@@ -228,7 +239,6 @@ export default function TabsLayout() {
           screenOptions={{ headerShown: false }}
           tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
         >
-          {/* Order must match tabs array: schedule(0) | payroll(1) | checkin(2) | chat(3) | profile(4) | admin(5) */}
           <Tabs.Screen name="schedule" />
           <Tabs.Screen name="payroll" />
           <Tabs.Screen name="checkin" />

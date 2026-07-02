@@ -28,7 +28,8 @@ export function VerifyOtpScreen() {
     setError('');
     try {
       await verifyOtp(email!, otp);
-      router.replace('/(tabs)/checkin');
+      // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
+      router.replace('/');
     } catch (err: any) {
       setError(extractApiError(err) || 'Mã OTP không hợp lệ');
     } finally {

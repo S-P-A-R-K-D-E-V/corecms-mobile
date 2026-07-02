@@ -12,8 +12,14 @@ export const INTERNAL_APP_ROLES = ['Staff', 'Manager', 'Admin'] as const;
 /** Vai trò được phép vào tính năng Kiểm tiền quầy (đồng bộ core-fe nav). */
 export const SHIFT_CASH_ROLES = ['Staff', 'Manager', 'Admin'] as const;
 
-/** Vai trò quản trị: được thấy tab & màn Quản trị (dashboard, duyệt yêu cầu, báo cáo). */
-export const ADMIN_ROLES = ['Manager', 'Admin'] as const;
+/** Vai trò được thấy menu & Dashboard Quản trị — CHỈ Admin (theo dõi, full quyền). */
+export const ADMIN_ROLES = ['Admin'] as const;
+
+/**
+ * Vai trò quản lý đội ngũ: xem lịch nhân viên, xếp ca, đổi ca hộ, duyệt yêu cầu.
+ * Admin bao trùm quyền Manager (full quyền). Dùng cho các màn "Quản lý" (Phase 2).
+ */
+export const MANAGER_ROLES = ['Manager', 'Admin'] as const;
 
 /** Gộp `role` (đơn) + `roles[]` thành 1 danh sách duy nhất, loại trùng. */
 export function getUserRoles(user: AuthUser | null | undefined): string[] {
@@ -42,7 +48,22 @@ export function canUseInternalApp(user: AuthUser | null | undefined): boolean {
   return hasAnyRole(user, INTERNAL_APP_ROLES);
 }
 
-/** True nếu user là cấp quản trị (Manager/Admin) — dùng để hiện tab Quản trị. */
+/** True nếu user là Quản trị viên — thấy menu riêng (Dashboard | Chat | Tôi). */
 export function isAdminUser(user: AuthUser | null | undefined): boolean {
   return hasAnyRole(user, ADMIN_ROLES);
+}
+
+/** True nếu user là cấp quản lý (Manager/Admin) — vào được các màn "Quản lý". */
+export function isManagerUser(user: AuthUser | null | undefined): boolean {
+  return hasAnyRole(user, MANAGER_ROLES);
+}
+
+/**
+ * Màn hình "nhà" sau đăng nhập, theo role:
+ *   Admin           → Dashboard quản trị
+ *   Staff / Manager → Điểm danh (tab center hiện tại)
+ * 1 tài khoản nhiều role: Admin thắng (menu quản trị là trải nghiệm chính).
+ */
+export function homeHref(user: AuthUser | null | undefined): string {
+  return isAdminUser(user) ? '/(tabs)/admin' : '/(tabs)/checkin';
 }
