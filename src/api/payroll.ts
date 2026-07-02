@@ -5,10 +5,14 @@ import type {
   IBulkFinalizePayrollRequest,
   IBulkFinalizePayrollResponse,
   IFinalizePayrollRequest,
+  IMarkPayrollPaidRequest,
   IPayrollCalculationRequest,
   IPayrollCycleDetailResponse,
+  IPayrollPaymentDetail,
   IPayrollRecord,
   IPayrollShiftDetailResponse,
+  IPreparePayrollPaymentResponse,
+  ISalaryConfigPreviewItem,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -70,5 +74,33 @@ export async function bulkFinalizePayroll(
   data: IBulkFinalizePayrollRequest
 ): Promise<IBulkFinalizePayrollResponse> {
   const response = await axios.post<IBulkFinalizePayrollResponse>(endpoints.payroll.bulkFinalize, data);
+  return response.data;
+}
+
+/** [Admin/Manager] Preview cấu hình lương mọi NV tại 1 ngày (phát hiện thiếu config). */
+export async function getSalaryConfigPreview(fromDate: string): Promise<ISalaryConfigPreviewItem[]> {
+  const response = await axios.get<ISalaryConfigPreviewItem[]>(endpoints.payroll.salaryConfigPreview, {
+    params: { fromDate },
+  });
+  return response.data;
+}
+
+// ── Thanh toán lương (QR + đánh dấu đã trả) ────────────────────────────
+
+/** [Admin/Manager] Trạng thái thanh toán gần nhất của 1 bảng lương (null nếu chưa). */
+export async function getPayrollPayment(id: string): Promise<IPayrollPaymentDetail | null> {
+  const response = await axios.get<IPayrollPaymentDetail | null>(endpoints.payroll.payment(id));
+  return response.data;
+}
+
+/** [Admin/Manager] Thông tin dựng QR VietQR để trả lương. */
+export async function preparePayrollPayment(id: string): Promise<IPreparePayrollPaymentResponse> {
+  const response = await axios.post<IPreparePayrollPaymentResponse>(endpoints.payroll.paymentPrepare(id));
+  return response.data;
+}
+
+/** [Admin] Đánh dấu 1 bảng lương đã thanh toán. */
+export async function markPayrollPaid(id: string, data: IMarkPayrollPaidRequest): Promise<IPayrollPaymentDetail> {
+  const response = await axios.post<IPayrollPaymentDetail>(endpoints.payroll.markPaid(id), data);
   return response.data;
 }

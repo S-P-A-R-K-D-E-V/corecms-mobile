@@ -111,6 +111,10 @@ export const endpoints = {
     recalculateRecord: (id: string) => `/payroll/${id}/recalculate`,
     finalize: (id: string) => `/payroll/${id}/finalize`,
     bulkFinalize: '/payroll/bulk-finalize',
+    salaryConfigPreview: '/payroll/salary-config-preview',
+    payment: (id: string) => `/payroll/${id}/payment`,
+    paymentPrepare: (id: string) => `/payroll/${id}/payment/prepare`,
+    markPaid: (id: string) => `/payroll/${id}/mark-paid`,
   },
   payrollCycle: {
     list: '/payroll-cycles',

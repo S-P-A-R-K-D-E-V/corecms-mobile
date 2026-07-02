@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
@@ -11,7 +11,8 @@ import { extractApiError } from 'src/services/error';
 import { fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 
-import { usePayrollByCycle, useRecalculateCycle, useBulkFinalize } from './hooks';
+import { usePayrollByCycle, useBulkFinalize } from './hooks';
+import { RecalcConfirmSheet, type RecalcTarget } from './RecalcConfirmSheet';
 
 // ----------------------------------------------------------------------
 // Chi tiết chu kỳ lương (Admin): tổng quan (tự tính từ records) + bảng lương
@@ -61,18 +62,20 @@ export function PayrollCycleDetailScreen() {
   const params = useLocalSearchParams<{ cycleId: string; name?: string }>();
   const cycleId = params.cycleId;
   const { data, isLoading, isError, refetch, isFetching } = usePayrollByCycle(cycleId);
-  const recalcM = useRecalculateCycle();
   const bulkM = useBulkFinalize();
+  const [recalcOpen, setRecalcOpen] = useState(false);
 
-  const { totals, pendingIds } = useMemo(() => {
+  const { totals, pendingIds, pendingTargets } = useMemo(() => {
     const records = data?.records ?? [];
+    const pending = records.filter((r) => !r.isFinalized);
     return {
       totals: {
         count: records.length,
         total: records.reduce((s, r) => s + r.totalSalary, 0),
         finalized: records.filter((r) => r.isFinalized).length,
       },
-      pendingIds: records.filter((r) => !r.isFinalized).map((r) => r.id),
+      pendingIds: pending.map((r) => r.id),
+      pendingTargets: pending.map<RecalcTarget>((r) => ({ recordId: r.id, userId: r.userId, userName: r.userName })),
     };
   }, [data]);
 
@@ -91,24 +94,6 @@ export function PayrollCycleDetailScreen() {
     } catch (e) {
       haptics.error();
       toast.error(extractApiError(e), 'Không chốt được');
-    }
-  }
-
-  async function recalc() {
-    if (!cycleId) return;
-    const ok = await confirm({
-      title: 'Tính lại toàn kỳ',
-      message: 'Tính lại bảng lương cho toàn bộ nhân viên trong chu kỳ này?',
-      confirmText: 'Tính lại',
-    });
-    if (!ok) return;
-    try {
-      const res = await recalcM.mutateAsync(cycleId);
-      haptics.success();
-      toast.success(`Đã tính lại ${res.successCount} nhân viên.`, 'Hoàn tất');
-    } catch (e) {
-      haptics.error();
-      toast.error(extractApiError(e), 'Không tính lại được');
     }
   }
 
@@ -141,8 +126,8 @@ export function PayrollCycleDetailScreen() {
 
           {!data.isLocked ? (
             <View className="flex-row gap-2">
-              <Button variant="soft" action="neutral" className="flex-1" icon="calculator-variant-outline" loading={recalcM.isPending} onPress={recalc}>
-                Tính lại toàn kỳ
+              <Button variant="soft" action="neutral" className="flex-1" icon="calculator-variant-outline" disabled={pendingIds.length === 0} onPress={() => setRecalcOpen(true)}>
+                Tính lại (chưa chốt){pendingIds.length ? ` ${pendingIds.length}` : ''}
               </Button>
               <Button className="flex-1" action="primary" icon="lock-check-outline" disabled={pendingIds.length === 0} loading={bulkM.isPending} onPress={finalizeAll}>
                 Chốt cả kỳ{pendingIds.length ? ` (${pendingIds.length})` : ''}
@@ -174,6 +159,15 @@ export function PayrollCycleDetailScreen() {
           )}
         </>
       )}
+
+      {data ? (
+        <RecalcConfirmSheet
+          visible={recalcOpen}
+          onClose={() => setRecalcOpen(false)}
+          fromDate={dayjs(data.fromDate).format('YYYY-MM-DD')}
+          targets={pendingTargets}
+        />
+      ) : null}
     </Screen>
   );
 }

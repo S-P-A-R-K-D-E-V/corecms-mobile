@@ -11,8 +11,10 @@ import { extractApiError } from 'src/services/error';
 import { AdjustAttendanceSheet, type AdjustTarget } from 'src/features/manage/AdjustAttendanceSheet';
 import type { IPayrollShiftItem, ISalaryConfiguration } from 'src/types/corecms-api';
 
-import { usePayrollShiftDetails, useUserSalaryConfigs, useRecalculateRecord, useFinalizePayroll } from './hooks';
+import { usePayrollShiftDetails, useUserSalaryConfigs, useFinalizePayroll, usePayrollPayment } from './hooks';
 import { SalaryConfigSheet } from './SalaryConfigSheet';
+import { RecalcConfirmSheet } from './RecalcConfirmSheet';
+import { PaymentQRSheet } from './PaymentQRSheet';
 
 // ----------------------------------------------------------------------
 // Chi tiết bảng lương 1 nhân viên: cấu hình lương cá nhân + tính lại + chốt;
@@ -88,34 +90,18 @@ export function PayrollRecordDetailScreen() {
   const recordId = params.recordId;
   const { data, isLoading, isError, refetch, isFetching } = usePayrollShiftDetails(recordId);
   const salaryQ = useUserSalaryConfigs(data?.userId);
-  const recalcM = useRecalculateRecord();
   const finalizeM = useFinalizePayroll();
+  const paymentQ = usePayrollPayment(recordId);
 
   const [adjust, setAdjust] = useState<AdjustTarget | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
+  const [recalcOpen, setRecalcOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
   // Trạng thái chốt: khởi tạo từ param, cập nhật sau khi thao tác.
   const [finalized, setFinalized] = useState(params.finalized === 'true');
 
   const config = useMemo(() => activeConfig(salaryQ.data), [salaryQ.data]);
-
-  async function recalc() {
-    if (!recordId) return;
-    const ok = await confirm({
-      title: 'Tính lại lương',
-      message: `Tính lại bảng lương của "${data?.userName}" theo cấu hình hiện tại? (chuyển về trạng thái chờ duyệt)`,
-      confirmText: 'Tính lại',
-    });
-    if (!ok) return;
-    try {
-      await recalcM.mutateAsync(recordId);
-      setFinalized(false);
-      haptics.success();
-      toast.success('Đã tính lại lương.', 'Hoàn tất');
-    } catch (e) {
-      haptics.error();
-      toast.error(extractApiError(e), 'Không tính lại được');
-    }
-  }
+  const paid = paymentQ.data?.status === 'Paid';
 
   async function toggleFinalize() {
     if (!recordId) return;
@@ -172,13 +158,26 @@ export function PayrollRecordDetailScreen() {
           </Button>
 
           <View className="flex-row gap-2">
-            <Button variant="soft" action="neutral" size="sm" className="flex-1" icon="calculator-variant-outline" disabled={finalized} loading={recalcM.isPending} onPress={recalc}>
+            <Button variant="soft" action="neutral" size="sm" className="flex-1" icon="calculator-variant-outline" disabled={finalized} onPress={() => setRecalcOpen(true)}>
               Tính lại lương
             </Button>
             <Button size="sm" className="flex-1" action={finalized ? 'error' : 'primary'} variant={finalized ? 'soft' : 'solid'} icon={finalized ? 'lock-open-variant-outline' : 'lock-check-outline'} loading={finalizeM.isPending} onPress={toggleFinalize}>
               {finalized ? 'Bỏ chốt' : 'Chốt lương'}
             </Button>
           </View>
+
+          {/* Thanh toán chỉ sau khi đã chốt lương */}
+          {finalized ? (
+            <Button
+              size="sm"
+              action={paid ? 'neutral' : 'primary'}
+              variant={paid ? 'soft' : 'solid'}
+              icon={paid ? 'check-decagram' : 'qrcode'}
+              onPress={() => setPayOpen(true)}
+            >
+              {paid ? 'Đã thanh toán · xem lại' : 'Thanh toán QR'}
+            </Button>
+          ) : null}
         </Card>
       ) : null}
 
@@ -218,6 +217,18 @@ export function PayrollRecordDetailScreen() {
           onSaved={() => salaryQ.refetch()}
         />
       ) : null}
+
+      {data ? (
+        <RecalcConfirmSheet
+          visible={recalcOpen}
+          onClose={() => setRecalcOpen(false)}
+          fromDate={dayjs(data.fromDate).format('YYYY-MM-DD')}
+          targets={[{ recordId, userId: data.userId, userName: data.userName }]}
+          onDone={() => setFinalized(false)}
+        />
+      ) : null}
+
+      <PaymentQRSheet recordId={recordId} visible={payOpen} onClose={() => setPayOpen(false)} />
     </Screen>
   );
 }

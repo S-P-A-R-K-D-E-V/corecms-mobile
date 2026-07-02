@@ -6,7 +6,11 @@ import {
   finalizePayroll,
   generateBatchPayroll,
   getPayrollByCycle,
+  getPayrollPayment,
   getPayrollShiftDetails,
+  getSalaryConfigPreview,
+  markPayrollPaid,
+  preparePayrollPayment,
   recalculatePayrollByCycle,
   recalculatePayrollRecord,
 } from 'src/api/payroll';
@@ -16,6 +20,7 @@ import type {
   IBulkFinalizePayrollRequest,
   ICreatePayrollCycleRequest,
   IFinalizePayrollRequest,
+  IMarkPayrollPaidRequest,
   IVersionedUpsertSalaryConfigRequest,
 } from 'src/types/corecms-api';
 
@@ -133,5 +138,61 @@ export function useBulkFinalize() {
   return useMutation({
     mutationFn: (data: IBulkFinalizePayrollRequest) => bulkFinalizePayroll(data),
     onSuccess: () => invalidatePayroll(qc),
+  });
+}
+
+// ── Preview cấu hình + tính lại theo danh sách (loop) ──────────────────
+
+export function useSalaryConfigPreview(fromDate?: string) {
+  return useQuery({
+    queryKey: ['admin', 'salary-config-preview', fromDate],
+    queryFn: () => getSalaryConfigPreview(fromDate!),
+    enabled: !!fromDate,
+    staleTime: MINUTE,
+  });
+}
+
+/**
+ * Tính lại lương cho DANH SÁCH record (tuần tự) — dùng cho "tính lại toàn bộ
+ * chỉ NV chưa chốt" (truyền các recordId chưa chốt) và tính lại 1 NV.
+ */
+export function useRecalculateMany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (recordIds: string[]) => {
+      let success = 0;
+      let failed = 0;
+      for (const id of recordIds) {
+        try { await recalculatePayrollRecord(id); success += 1; } catch { failed += 1; }
+      }
+      return { success, failed };
+    },
+    onSuccess: () => invalidatePayroll(qc),
+  });
+}
+
+// ── Thanh toán lương ───────────────────────────────────────────────────
+
+export function usePayrollPayment(recordId?: string) {
+  return useQuery({
+    queryKey: ['admin', 'payroll-payment', recordId],
+    queryFn: () => getPayrollPayment(recordId!),
+    enabled: !!recordId,
+    staleTime: MINUTE,
+  });
+}
+
+export function usePreparePayment() {
+  return useMutation({ mutationFn: (recordId: string) => preparePayrollPayment(recordId) });
+}
+
+export function useMarkPaid() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: IMarkPayrollPaidRequest }) => markPayrollPaid(id, data),
+    onSuccess: (_r, { id }) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'payroll-payment', id] });
+      invalidatePayroll(qc);
+    },
   });
 }

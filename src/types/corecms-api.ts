@@ -538,6 +538,68 @@ export interface IVersionedUpsertSalaryConfigRequest {
   note?: string;
 }
 
+// --- Preview cấu hình lương (GET /payroll/salary-config-preview?fromDate=) ---
+
+export interface ISalaryConfigSummary {
+  id: string;
+  salaryType: string;
+  amount: number;
+  probationRate?: number;
+  effectiveFrom: string;
+  effectiveTo?: string;
+  note?: string;
+}
+
+export interface ISalaryConfigPreviewItem {
+  userId: string;
+  userName: string;
+  hasActiveConfig: boolean;
+  activeConfig?: ISalaryConfigSummary;
+  isStaff?: boolean;
+}
+
+// --- Thanh toán lương (QR + đánh dấu đã trả) ---
+
+/** GET /payroll/{id}/payment/prepare — thông tin để dựng QR VietQR. */
+export interface IPreparePayrollPaymentResponse {
+  payrollId: string;
+  userFullName: string;
+  amount: number;
+  computedAmount: number;
+  bankAccount?: string;
+  bankCode?: string;
+  accountName?: string;
+  suggestedContent: string;
+  canPay: boolean;
+  missingInfoReason?: string;
+}
+
+/** POST /payroll/{id}/mark-paid. */
+export interface IMarkPayrollPaidRequest {
+  amount: number;
+  computedAmount: number;
+  content: string;
+  transactionRef?: string;
+  note?: string;
+}
+
+export interface IPayrollPaymentDetail {
+  id: string;
+  payrollRecordId: string;
+  status: 'Paid' | 'Unpaid' | 'Failed';
+  amount: number;
+  bankAccount: string;
+  bankCode: string;
+  accountName: string;
+  content: string;
+  transactionRef?: string;
+  note?: string;
+  paidBy: string;
+  paidByName: string;
+  paidAt: string;
+  createdAt: string;
+}
+
 export interface IPayrollCycleDetailResponse {
   cycleId: string;
   cycleName: string;
