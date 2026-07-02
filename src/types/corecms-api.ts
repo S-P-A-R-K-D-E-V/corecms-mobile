@@ -67,7 +67,30 @@ export interface IUser {
   roles: string[];
   permissions: string[];
   isActive: boolean;
+  /** Trạng thái tài khoản (BE trả về; isActive suy từ status='Active'). */
+  status?: UserStatus;
   createdAt: string;
+}
+
+export type UserStatus = 'Active' | 'Pending' | 'Banned' | 'Rejected';
+
+export interface IChangeUserStatusRequest {
+  status: UserStatus;
+}
+
+/** Vai trò — khớp BE RoleResponse (permissions rút gọn). */
+export interface IRole {
+  id: string;
+  name: string;
+  description?: string;
+  isActive: boolean;
+  userCount: number;
+  permissions: { id: string; name: string; description?: string }[];
+}
+
+export interface IAssignRoleRequest {
+  userId: string;
+  roleIds: string[];
 }
 
 export interface IUpdateProfileRequest {

@@ -162,7 +162,10 @@ export function ChatListScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(i) => i.id}
-          contentContainerClassName="pb-4"
+          // Chừa chỗ cho tab bar nổi (PILL 72 + safe-area + đệm) — trước chỉ pb-4
+          // nên các mục cuối bị tab bar che.
+          contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) + 16 }}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brand.primary]} tintColor={brand.primary} />}
           ListHeaderComponent={!search ? <OnlineRow onOpen={goToConversation} /> : null}
           ItemSeparatorComponent={() => <Divider className="ml-[72px]" />}

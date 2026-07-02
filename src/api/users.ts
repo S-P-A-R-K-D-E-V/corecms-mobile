@@ -1,5 +1,10 @@
 import axios, { endpoints } from './axios';
-import type { IChangePasswordRequest, IUpdateProfileRequest, IUser } from 'src/types/corecms-api';
+import type {
+  IChangePasswordRequest,
+  IChangeUserStatusRequest,
+  IUpdateProfileRequest,
+  IUser,
+} from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 
@@ -13,6 +18,17 @@ export async function getMe(): Promise<IUser> {
 export async function getAllUsers(): Promise<IUser[]> {
   const response = await axios.get<IUser[]>(endpoints.users.list);
   return response.data;
+}
+
+/** [Admin/Manager] Chi tiết 1 người dùng. */
+export async function getUserById(id: string): Promise<IUser> {
+  const response = await axios.get<IUser>(endpoints.users.details(id));
+  return response.data;
+}
+
+/** [Admin] Đổi trạng thái tài khoản (Active/Pending/Banned/Rejected). PATCH. */
+export async function changeUserStatus(id: string, data: IChangeUserStatusRequest): Promise<void> {
+  await axios.patch(endpoints.users.changeStatus(id), data);
 }
 
 export async function updateMyProfile(data: IUpdateProfileRequest): Promise<void> {

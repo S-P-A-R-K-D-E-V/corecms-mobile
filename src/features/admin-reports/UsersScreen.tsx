@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
-import { Card, Text, Badge, Icon, Skeleton, Divider, Avatar, TextField } from 'src/components/ui';
+import { Card, Text, Badge, Icon, Skeleton, Divider, Avatar, TextField, Pressable } from 'src/components/ui';
 import { getStorageUrl } from 'src/api/axios';
 import type { IUser } from 'src/types/corecms-api';
 
@@ -26,14 +27,26 @@ function rolesOf(u: IUser): string[] {
   return [...set];
 }
 
+const STATUS_BADGE: Record<string, { tone: 'success' | 'warning' | 'error' | 'info'; label: string }> = {
+  Active: { tone: 'success', label: 'Hoạt động' },
+  Pending: { tone: 'warning', label: 'Chờ duyệt' },
+  Banned: { tone: 'error', label: 'Cấm' },
+  Rejected: { tone: 'info', label: 'Từ chối' },
+};
+
 function UserRow({ u }: { u: IUser }) {
+  const status = u.status ?? (u.isActive ? 'Active' : 'Banned');
+  const sb = STATUS_BADGE[status];
   return (
-    <View className="flex-row items-center gap-3 py-2.5">
+    <Pressable
+      onPress={() => router.push({ pathname: '/admin/user-detail' as any, params: { userId: u.id, name: u.fullName } })}
+      className="flex-row items-center gap-3 py-2.5"
+    >
       <Avatar name={u.fullName} uri={getStorageUrl(u.avatarUrl || u.profileImageUrl) || null} size={40} />
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
           <Text variant="bodySmall" className="font-semibold flex-shrink" numberOfLines={1}>{u.fullName}</Text>
-          {!u.isActive ? <Badge tone="error">Ngừng</Badge> : null}
+          {sb && status !== 'Active' ? <Badge tone={sb.tone}>{sb.label}</Badge> : null}
         </View>
         <Text variant="caption" tone="muted" numberOfLines={1}>{u.email}{u.phoneNumber ? ` · ${u.phoneNumber}` : ''}</Text>
         <View className="flex-row flex-wrap gap-1 mt-1">
@@ -42,7 +55,8 @@ function UserRow({ u }: { u: IUser }) {
           ))}
         </View>
       </View>
-    </View>
+      <Icon name="chevron-right" size={18} tone="faint" />
+    </Pressable>
   );
 }
 

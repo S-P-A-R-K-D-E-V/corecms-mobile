@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image } from 'react-native';
+import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image, Keyboard } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -132,7 +132,18 @@ export function ChatDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [kbUp, setKbUp] = useState(false);
   const flatRef = useRef<FlatList<DirectMessage>>(null);
+
+  // Bàn phím hiện → thu gọn đệm an toàn dưới ô nhập để nó sát bàn phím
+  // (trước đây paddingBottom = safe-area luôn hằng → ô input cách bàn phím xa).
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const s = Keyboard.addListener(showEvt, () => setKbUp(true));
+    const h = Keyboard.addListener(hideEvt, () => setKbUp(false));
+    return () => { s.remove(); h.remove(); };
+  }, []);
 
   useEffect(() => {
     joinConversation(conversationId!);
@@ -265,11 +276,11 @@ export function ChatDetailScreen() {
   const reversed = [...messages].reverse();
 
   return (
-    <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
+    <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-2">
         <AppHeader title={name || 'Chat'} subtitle={typing.length > 0 ? 'Đang nhập...' : undefined} back />
       </View>
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={insets.top + 52}>
         {loading ? (
           <Loading />
         ) : (
@@ -303,7 +314,10 @@ export function ChatDetailScreen() {
           </View>
         ) : null}
 
-        <View className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark">
+        <View
+          className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark"
+          style={{ paddingBottom: kbUp ? 8 : Math.max(insets.bottom, 8) }}
+        >
           <Pressable onPress={handleAttachPress} disabled={uploading || sending} className="w-11 h-11 items-center justify-center rounded-full">
             <Icon name="paperclip" size={24} tone={uploading || sending ? 'faint' : 'muted'} />
           </Pressable>

@@ -32,6 +32,7 @@ const STAFF_TABS: TabDef[] = [
 // role; deep-link vào màn không thuộc menu vẫn hoạt động (Admin full quyền).
 const ADMIN_TABS: TabDef[] = [
   { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', label: 'Dashboard' },
+  { name: 'features', off: 'tab-apps-off', on: 'tab-apps-on', label: 'Tiện ích' },
   { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
   { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
@@ -245,6 +246,7 @@ export default function TabsLayout() {
           <Tabs.Screen name="chat" />
           <Tabs.Screen name="profile" />
           <Tabs.Screen name="admin" />
+          <Tabs.Screen name="features" />
         </Tabs>
         <InAppNotificationHost />
       </MessengerProvider>

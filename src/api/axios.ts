@@ -47,11 +47,16 @@ export const endpoints = {
   users: {
     list: '/users',
     details: (id: string) => `/users/${id}`,
+    changeStatus: (id: string) => `/users/${id}/status`,
     me: '/users/me',
     updateProfile: '/users/me/profile',
     changePassword: '/users/me/change-password',
     uploadAvatar: '/users/me/avatar',
     uploadMyIdCard: '/users/me/id-card',
+  },
+  roles: {
+    list: '/roles',
+    assign: '/roles/assign',
   },
   shifts: {
     list: '/shifts',
