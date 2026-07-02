@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Image, Keyboard } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -62,6 +62,17 @@ import {
 import { useMessengerStore, selectMessages, selectTyping } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { useMessengerCtx } from 'src/components/messenger/messenger-provider';
+import { ImageViewer, type ViewerImage } from './ImageViewer';
+
+/** Mở tệp (không phải ảnh) trong trình xem in-app (SFSafariVC / Custom Tabs). */
+function openFileInApp(url: string) {
+  WebBrowser.openBrowserAsync(url, {
+    presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+    controlsColor: brand.primary,
+    toolbarColor: '#FFFFFF',
+    enableBarCollapsing: true,
+  }).catch(() => {});
+}
 
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10MB — đồng bộ giới hạn BE
 
@@ -71,18 +82,18 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function AttachmentView({ att, isMine }: { att: MessageAttachment; isMine: boolean }) {
+function AttachmentView({ att, isMine, onOpenImage }: { att: MessageAttachment; isMine: boolean; onOpenImage: (objectKey: string) => void }) {
   const url = getStorageUrl(att.objectKey);
   if (att.kind === 'image') {
     return (
-      <Pressable onPress={() => WebBrowser.openBrowserAsync(url)} className="mt-1">
+      <Pressable onPress={() => onOpenImage(att.objectKey)} className="mt-1">
         <Image source={{ uri: url }} className="w-52 h-52 rounded-xl" resizeMode="cover" />
       </Pressable>
     );
   }
   return (
     <Pressable
-      onPress={() => WebBrowser.openBrowserAsync(url)}
+      onPress={() => openFileInApp(url)}
       className={cn(
         'mt-1 flex-row items-center gap-2 px-3 py-2.5 rounded-xl',
         isMine ? 'bg-white/15' : 'bg-bg dark:bg-bg-dark'
@@ -98,7 +109,7 @@ function AttachmentView({ att, isMine }: { att: MessageAttachment; isMine: boole
   );
 }
 
-function Bubble({ msg, isMine }: { msg: DirectMessage; isMine: boolean }) {
+function Bubble({ msg, isMine, onOpenImage }: { msg: DirectMessage; isMine: boolean; onOpenImage: (objectKey: string) => void }) {
   const hasText = !!msg.content?.trim();
   const attachments = msg.attachments ?? [];
   return (
@@ -106,7 +117,7 @@ function Bubble({ msg, isMine }: { msg: DirectMessage; isMine: boolean }) {
       <View className={cn('max-w-[78%] px-3.5 py-2.5 rounded-2xl', isMine ? 'bg-primary' : 'bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark')}>
         {hasText ? <Text className={isMine ? 'text-white' : ''}>{msg.content}</Text> : null}
         {attachments.map((att, i) => (
-          <AttachmentView key={att.objectKey + i} att={att} isMine={isMine} />
+          <AttachmentView key={att.objectKey + i} att={att} isMine={isMine} onOpenImage={onOpenImage} />
         ))}
         <Text className={cn('text-[10px] text-right mt-1', isMine ? 'text-white/65' : 'text-faint')}>
           {dayjs(msg.createdAt).format('HH:mm')}
@@ -133,7 +144,27 @@ export function ChatDetailScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [kbUp, setKbUp] = useState(false);
+  const [viewer, setViewer] = useState<{ open: boolean; index: number }>({ open: false, index: 0 });
   const flatRef = useRef<FlatList<DirectMessage>>(null);
+
+  // Gom mọi ảnh trong hội thoại (thứ tự thời gian) để xem/vuốt như gallery.
+  const gallery = useMemo<(ViewerImage & { key: string })[]>(() => {
+    const arr: (ViewerImage & { key: string })[] = [];
+    for (const m of messages) {
+      for (const a of m.attachments ?? []) {
+        if (a.kind === 'image') arr.push({ uri: getStorageUrl(a.objectKey), fileName: a.fileName, key: a.objectKey });
+      }
+    }
+    return arr;
+  }, [messages]);
+
+  const openImage = useCallback(
+    (objectKey: string) => {
+      const i = gallery.findIndex((g) => g.key === objectKey);
+      setViewer({ open: true, index: i < 0 ? 0 : i });
+    },
+    [gallery]
+  );
 
   // Bàn phím hiện → thu gọn đệm an toàn dưới ô nhập để nó sát bàn phím
   // (trước đây paddingBottom = safe-area luôn hằng → ô input cách bàn phím xa).
@@ -300,7 +331,7 @@ export function ChatDetailScreen() {
               return (
                 <>
                   {showDate ? <DayChip iso={item.createdAt} /> : null}
-                  <Bubble msg={item} isMine={item.senderId === user?.id} />
+                  <Bubble msg={item} isMine={item.senderId === user?.id} onOpenImage={openImage} />
                 </>
               );
             }}
@@ -335,6 +366,15 @@ export function ChatDetailScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      {viewer.open ? (
+        <ImageViewer
+          images={gallery}
+          initialIndex={viewer.index}
+          visible
+          onClose={() => setViewer({ open: false, index: 0 })}
+        />
+      ) : null}
     </View>
   );
 }
