@@ -70,6 +70,8 @@ export const endpoints = {
     mySchedule: '/shift-assignments/my-schedule',
     byStaffAndDate: (staffId: string, date: string) => `/shift-assignments/staff/${staffId}/date/${date}`,
     byStaffAndDateRange: (staffId: string) => `/shift-assignments/staff/${staffId}/range`,
+    manageShift: '/shift-assignments/manage-shift',
+    swap: '/shift-assignments/swap',
   },
   attendance: {
     checkIn: '/attendance/check-in',

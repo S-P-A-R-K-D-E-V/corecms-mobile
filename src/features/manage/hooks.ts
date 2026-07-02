@@ -1,9 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getTeamAssignments } from 'src/api/schedule';
+import {
+  getShiftSchedules,
+  getTeamAssignments,
+  manageShiftAssignments,
+  swapShiftAssignments,
+} from 'src/api/schedule';
+import { getAllUsers } from 'src/api/users';
 import { getAttendanceRequests, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
 import { getPendingLateCoverRequests, reviewLateCoverRequest } from 'src/api/lateCover';
+import type { IManageShiftAssignmentsRequest, ISwapShiftAssignmentsRequest } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 // Hooks cho khu "Quản lý" (Manager/Admin): lịch đội ngũ + duyệt yêu cầu.
@@ -17,6 +24,47 @@ export function useTeamAssignments(fromDate: string, toDate: string) {
     queryKey: ['manage', 'team-assignments', fromDate, toDate],
     queryFn: () => getTeamAssignments(fromDate, toDate),
     staleTime: MINUTE,
+  });
+}
+
+/** Định nghĩa ca (versioned) áp dụng trong khoảng — nguồn cho màn Xếp ca. */
+export function useShiftSchedules(fromDate: string, toDate: string) {
+  return useQuery({
+    queryKey: ['manage', 'shift-schedules', fromDate, toDate],
+    queryFn: () => getShiftSchedules(fromDate, toDate),
+    staleTime: 5 * MINUTE, // định nghĩa ca ít thay đổi
+  });
+}
+
+/** Toàn bộ nhân viên (đang hoạt động) — chọn người khi xếp ca. */
+export function useAllStaff() {
+  return useQuery({
+    queryKey: ['manage', 'staff'],
+    queryFn: getAllUsers,
+    staleTime: 5 * MINUTE,
+    select: (users) => users.filter((u) => u.isActive),
+  });
+}
+
+/** Đặt danh sách nhân viên cho (ca, ngày) — invalidate lịch đội ngũ. */
+export function useManageShiftAssignments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: IManageShiftAssignmentsRequest) => manageShiftAssignments(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
+    },
+  });
+}
+
+/** Hoán đổi 2 phân công ca — invalidate lịch đội ngũ. */
+export function useSwapShiftAssignments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: ISwapShiftAssignmentsRequest) => swapShiftAssignments(data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
+    },
   });
 }
 

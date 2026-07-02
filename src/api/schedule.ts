@@ -1,5 +1,12 @@
 import axios, { endpoints } from './axios';
-import type { IMyScheduleItem, IShiftAssignment, IShiftSchedule, IShiftTemplate } from 'src/types/corecms-api';
+import type {
+  IManageShiftAssignmentsRequest,
+  IMyScheduleItem,
+  IShiftAssignment,
+  IShiftSchedule,
+  IShiftTemplate,
+  ISwapShiftAssignmentsRequest,
+} from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 
@@ -27,5 +34,24 @@ export async function getTeamAssignments(fromDate: string, toDate: string): Prom
   const response = await axios.get<IShiftAssignment[]>(endpoints.shiftAssignments.list, {
     params: { fromDate, toDate },
   });
+  return response.data;
+}
+
+/** [Manager] Đặt danh sách nhân viên cho 1 ca 1 ngày — BE tự tính thêm/gỡ. */
+export async function manageShiftAssignments(
+  data: IManageShiftAssignmentsRequest
+): Promise<{ added: number; removed: number }> {
+  const response = await axios.post<{ added: number; removed: number }>(
+    endpoints.shiftAssignments.manageShift,
+    data
+  );
+  return response.data;
+}
+
+/** [Manager] Hoán đổi 2 phân công ca (đổi ca hộ nhân viên). */
+export async function swapShiftAssignments(
+  data: ISwapShiftAssignmentsRequest
+): Promise<{ success: boolean }> {
+  const response = await axios.post<{ success: boolean }>(endpoints.shiftAssignments.swap, data);
   return response.data;
 }

@@ -126,17 +126,24 @@ export interface IShiftTemplate {
 // Shift Assignment
 // ======================================================================
 
+/** Khớp BE ShiftAssignmentScheduleResponse (GET /shift-assignments/range). */
 export interface IShiftAssignment {
   id: string;
   staffId: string;
   staffName: string;
-  shiftTemplateId: string;
-  shiftTemplateName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: 'Scheduled' | 'Present' | 'Absent' | 'Late';
+  /** Legacy — BE luôn trả null ở hệ mới. */
+  shiftId?: string | null;
+  shiftScheduleId?: string | null;
+  shiftName: string;
+  startTime: string;  // "HH:mm"
+  endTime: string;    // "HH:mm"
+  shiftType: string;
+  date: string;       // "yyyy-MM-dd"
   note?: string;
+  isNewSystem: boolean;
+  createdAt: string;
+  /** Log chấm công mới nhất của ca (null nếu chưa checkin). */
+  attendanceLog?: IAttendanceLog | null;
 }
 
 // Maps to MyScheduleResponse from the API — richer than IShiftAssignment
@@ -660,6 +667,28 @@ export interface IKiotVietDailySummary {
   totalCard: number;
   totalReturns: number;
   netCashImpact: number;
+}
+
+// ======================================================================
+// Manager — xếp ca / đổi ca hộ (khớp BE ShiftAssignmentContracts)
+// ======================================================================
+
+/** Body POST /shift-assignments/manage-shift — danh sách staffIds trở thành
+ *  tập phân công của (schedule, ngày); BE tự tính thêm/gỡ. */
+export interface IManageShiftAssignmentsRequest {
+  shiftScheduleId: string;
+  date: string; // "yyyy-MM-dd"
+  staffIds: string[];
+}
+
+/** Body POST /shift-assignments/swap — hoán đổi 2 phân công. */
+export interface ISwapShiftAssignmentsRequest {
+  staffId1: string;
+  shiftScheduleId1: string;
+  date1: string;
+  staffId2: string;
+  shiftScheduleId2: string;
+  date2: string;
 }
 
 // ======================================================================
