@@ -48,9 +48,9 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
 
   // ── Quản trị (Admin) ───────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', group: 'admin', roles: ADMIN_ROLES, comingSoon: true },
-  { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', group: 'admin', roles: ADMIN_ROLES, comingSoon: true },
-  { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', group: 'admin', roles: ADMIN_ROLES, comingSoon: true },
+  { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', group: 'admin', roles: ADMIN_ROLES },
 ];
 
 const BY_KEY = new Map(FEATURE_REGISTRY.map((f) => [f.key, f]));
