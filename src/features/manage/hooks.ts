@@ -9,15 +9,16 @@ import {
   getTeamAssignments,
   swapShiftAssignments,
 } from 'src/api/schedule';
-import { getAllUsers, isActiveUser } from 'src/api/users';
+import { getAllUsers, isActiveUser, setSchedulingPriority } from 'src/api/users';
+import { getShiftRegistrations } from 'src/api/shiftRegistration';
 import { getAttendanceReport } from 'src/api/reports';
-import { getAttendanceRequests, manualAdjustment, processAttendanceRequest } from 'src/api/attendance';
+import { adjustAttendanceTime, getAttendanceRequests, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
 import { getPendingLateCoverRequests, reviewLateCoverRequest } from 'src/api/lateCover';
 import type {
+  IAdjustAttendanceTimeRequest,
   IAutoAssignSlotDto,
   IBulkAssignShiftScheduleRequest,
-  IManualAttendanceAdjustmentRequest,
   ISwapShiftAssignmentsRequest,
 } from 'src/types/corecms-api';
 
@@ -57,6 +58,25 @@ export function useAllStaff() {
   });
 }
 
+/** Đăng ký ca của mọi nhân viên trong tuần — nguồn cho rule "khóa ca". */
+export function useShiftRegistrations(fromDate: string, toDate: string) {
+  return useQuery({
+    queryKey: ['manage', 'registrations', fromDate, toDate],
+    queryFn: () => getShiftRegistrations(fromDate, toDate),
+    staleTime: 2 * MINUTE,
+  });
+}
+
+/** Đặt mức ưu tiên xếp ca (⭐) — cập nhật lạc quan danh sách staff. */
+export function useSetSchedulingPriority() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, priority }: { userId: string; priority: number }) =>
+      setSchedulingPriority(userId, priority),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manage', 'staff'] }),
+  });
+}
+
 /** Phân công hàng loạt (auto assign) — invalidate lịch đội ngũ. */
 export function useBulkAssign() {
   const qc = useQueryClient();
@@ -68,13 +88,15 @@ export function useBulkAssign() {
   });
 }
 
-/** Điều chỉnh giờ chấm công của nhân viên — invalidate lịch đội ngũ. */
-export function useManualAdjustment() {
+/** Điều chỉnh (CẬP NHẬT) giờ chấm công của nhân viên trên 1 ca — ghi đè log cũ
+ *  (adjust-time). Invalidate lịch đội ngũ + chi tiết bảng lương. */
+export function useAdjustAttendanceTime() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: IManualAttendanceAdjustmentRequest) => manualAdjustment(data),
+    mutationFn: (data: IAdjustAttendanceTimeRequest) => adjustAttendanceTime(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'payroll-shift-details'] });
     },
   });
 }

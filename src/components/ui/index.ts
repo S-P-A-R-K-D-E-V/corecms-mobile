@@ -5,6 +5,7 @@ export { Card } from './card';
 export { Badge } from './badge';
 export { Chip } from './chip';
 export { TextField } from './input';
+export { TimeField } from './time-field';
 export { Icon } from './icon';
 export type { IconName } from './icon';
 export { Spinner } from './spinner';

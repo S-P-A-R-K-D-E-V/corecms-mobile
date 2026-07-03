@@ -8,6 +8,7 @@ import type {
   ICheckOutRequest,
   ICheckinFaceRequest,
   ICheckinFaceResponse,
+  IAdjustAttendanceTimeRequest,
   ICreateAttendanceRequestDto,
   IManualAttendanceAdjustmentRequest,
   IProcessAttendanceRequestDto,
@@ -75,9 +76,16 @@ export async function processAttendanceRequest(id: string, data: IProcessAttenda
   await axios.patch(endpoints.attendance.processRequest(id), data);
 }
 
-/** [Manager/Admin] Điều chỉnh giờ chấm công của 1 nhân viên trên 1 ca. */
+/** [Manager/Admin] Tạo bản ghi điều chỉnh chấm công mới (không ghi đè log cũ). */
 export async function manualAdjustment(data: IManualAttendanceAdjustmentRequest): Promise<IAttendanceLog> {
   const response = await axios.post<IAttendanceLog>(endpoints.attendance.manualAdjustment, data);
+  return response.data;
+}
+
+/** [Manager/Admin] CẬP NHẬT (ghi đè) giờ vào/ra của log ca — dùng cho điều chỉnh
+ *  tại bảng lương & lịch đội ngũ (tạo log nếu ca chưa có). Khớp core-fe. */
+export async function adjustAttendanceTime(data: IAdjustAttendanceTimeRequest): Promise<IAttendanceLog> {
+  const response = await axios.put<IAttendanceLog>(endpoints.attendance.adjustTime, data);
   return response.data;
 }
 

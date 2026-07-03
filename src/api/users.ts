@@ -33,6 +33,11 @@ export async function getUserById(id: string): Promise<IUser> {
   return response.data;
 }
 
+/** [Admin/Manager] Đặt mức ưu tiên xếp ca (⭐) của 1 nhân viên. */
+export async function setSchedulingPriority(id: string, priority: number): Promise<void> {
+  await axios.put(endpoints.users.schedulingPriority(id), { priority });
+}
+
 /** [Admin] Đổi trạng thái tài khoản (Active/Pending/Banned/Rejected). PATCH. */
 export async function changeUserStatus(id: string, data: IChangeUserStatusRequest): Promise<void> {
   await axios.patch(endpoints.users.changeStatus(id), data);

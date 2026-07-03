@@ -13,6 +13,8 @@ import type {
   IPayrollShiftDetailResponse,
   IPreparePayrollPaymentResponse,
   ISalaryConfigPreviewItem,
+  IWaivePenaltyRequest,
+  IWaivePenaltyResponse,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -83,6 +85,19 @@ export async function getSalaryConfigPreview(fromDate: string): Promise<ISalaryC
     params: { fromDate },
   });
   return response.data;
+}
+
+// ── Bỏ qua lỗi vi phạm (waive penalty) ─────────────────────────────────
+
+/** [Admin/Manager] Bỏ qua lỗi 1 ca (áp dụng khi tính lại lương). */
+export async function waivePenalty(data: IWaivePenaltyRequest): Promise<IWaivePenaltyResponse> {
+  const response = await axios.post<IWaivePenaltyResponse>(endpoints.payroll.waivePenalty, data);
+  return response.data;
+}
+
+/** [Admin/Manager] Huỷ bỏ-qua-lỗi theo waiverId. */
+export async function removeWaiver(waiverId: string): Promise<void> {
+  await axios.delete(endpoints.payroll.removeWaiver(waiverId));
 }
 
 // ── Thanh toán lương (QR + đánh dấu đã trả) ────────────────────────────

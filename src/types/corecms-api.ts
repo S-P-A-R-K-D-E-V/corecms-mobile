@@ -67,6 +67,8 @@ export interface IUser {
   roles: string[];
   permissions: string[];
   isActive: boolean;
+  /** Mức ưu tiên xếp ca (⭐) — cao hơn được xếp trước khi phân công tự động. */
+  schedulingPriority?: number;
   /** Trạng thái tài khoản (BE trả về; isActive suy từ status='Active'). */
   status?: UserStatus;
   createdAt: string;
@@ -431,6 +433,30 @@ export interface IPayrollShiftDetailResponse {
   shifts: IPayrollShiftItem[];
 }
 
+/** Loại vi phạm có thể bỏ qua lỗi (khớp BE ViolationType). */
+export type WaivableViolationType = 'Late' | 'EarlyLeave' | 'WrongShift' | 'Absent';
+
+/** POST /payroll/waive-penalty — bỏ qua lỗi vi phạm 1 ca của 1 nhân viên. */
+export interface IWaivePenaltyRequest {
+  shiftAssignmentId: string;
+  userId: string;
+  violationType: WaivableViolationType;
+  payrollCycleId?: string;
+  reason?: string;
+}
+
+export interface IWaivePenaltyResponse {
+  id: string;
+  shiftAssignmentId: string;
+  userId: string;
+  userName: string;
+  waivedViolationType: string;
+  reason?: string;
+  waivedBy: string;
+  waivedByName: string;
+  createdAt: string;
+}
+
 // ======================================================================
 // Payroll Calculation (admin)
 // ======================================================================
@@ -607,18 +633,6 @@ export interface IPayrollCycleDetailResponse {
   toDate: string;
   isLocked: boolean;
   records: IPayrollRecord[];
-}
-
-export interface IWaivePenaltyRequest {
-  payrollRecordId: string;
-  reason: string;
-}
-
-export interface IWaivePenaltyResponse {
-  id: string;
-  payrollRecordId: string;
-  reason: string;
-  waivedAt: string;
 }
 
 // ======================================================================
@@ -869,6 +883,15 @@ export interface IManualAttendanceAdjustmentRequest {
   staffId: string;
   checkInTime?: string;  // ISO; bỏ trống = giữ nguyên
   checkOutTime?: string;
+  note?: string;
+}
+
+/** PUT /attendance/adjust-time — CẬP NHẬT log chấm công của 1 ca (tạo nếu chưa
+ *  có). checkInTime/checkOutTime là ISO UTC (có Z); null = xoá giá trị đó. */
+export interface IAdjustAttendanceTimeRequest {
+  shiftAssignmentId: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   note?: string;
 }
 
