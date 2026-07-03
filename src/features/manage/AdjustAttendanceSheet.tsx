@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import dayjs from 'dayjs';
 
 import { Sheet } from 'src/components/shared';
-import { Button, Text, TextField, Icon } from 'src/components/ui';
+import { Button, Text, TextField, TimeField, Icon } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
@@ -120,24 +120,10 @@ export function AdjustAttendanceSheet({
 
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <TextField
-              label="Giờ vào (HH:mm)"
-              value={checkIn}
-              onChangeText={setCheckIn}
-              placeholder="08:30"
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-            />
+            <TimeField label="Giờ vào" value={checkIn} onChangeTime={setCheckIn} placeholder="08:30" />
           </View>
           <View className="flex-1">
-            <TextField
-              label="Giờ ra (HH:mm)"
-              value={checkOut}
-              onChangeText={setCheckOut}
-              placeholder="17:00"
-              keyboardType="numbers-and-punctuation"
-              maxLength={5}
-            />
+            <TimeField label="Giờ ra" value={checkOut} onChangeTime={setCheckOut} placeholder="17:00" />
           </View>
         </View>
 

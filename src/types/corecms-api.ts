@@ -431,6 +431,30 @@ export interface IPayrollShiftDetailResponse {
   shifts: IPayrollShiftItem[];
 }
 
+/** Loại vi phạm có thể bỏ qua lỗi (khớp BE ViolationType). */
+export type WaivableViolationType = 'Late' | 'EarlyLeave' | 'WrongShift' | 'Absent';
+
+/** POST /payroll/waive-penalty — bỏ qua lỗi vi phạm 1 ca của 1 nhân viên. */
+export interface IWaivePenaltyRequest {
+  shiftAssignmentId: string;
+  userId: string;
+  violationType: WaivableViolationType;
+  payrollCycleId?: string;
+  reason?: string;
+}
+
+export interface IWaivePenaltyResponse {
+  id: string;
+  shiftAssignmentId: string;
+  userId: string;
+  userName: string;
+  waivedViolationType: string;
+  reason?: string;
+  waivedBy: string;
+  waivedByName: string;
+  createdAt: string;
+}
+
 // ======================================================================
 // Payroll Calculation (admin)
 // ======================================================================
@@ -607,18 +631,6 @@ export interface IPayrollCycleDetailResponse {
   toDate: string;
   isLocked: boolean;
   records: IPayrollRecord[];
-}
-
-export interface IWaivePenaltyRequest {
-  payrollRecordId: string;
-  reason: string;
-}
-
-export interface IWaivePenaltyResponse {
-  id: string;
-  payrollRecordId: string;
-  reason: string;
-  waivedAt: string;
 }
 
 // ======================================================================

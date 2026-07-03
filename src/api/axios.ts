@@ -112,6 +112,8 @@ export const endpoints = {
     finalize: (id: string) => `/payroll/${id}/finalize`,
     bulkFinalize: '/payroll/bulk-finalize',
     salaryConfigPreview: '/payroll/salary-config-preview',
+    waivePenalty: '/payroll/waive-penalty',
+    removeWaiver: (waiverId: string) => `/payroll/waive-penalty/${waiverId}`,
     payment: (id: string) => `/payroll/${id}/payment`,
     paymentPrepare: (id: string) => `/payroll/${id}/payment/prepare`,
     markPaid: (id: string) => `/payroll/${id}/mark-paid`,

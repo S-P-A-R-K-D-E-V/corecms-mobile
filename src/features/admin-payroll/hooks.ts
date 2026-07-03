@@ -13,6 +13,8 @@ import {
   preparePayrollPayment,
   recalculatePayrollByCycle,
   recalculatePayrollRecord,
+  removeWaiver,
+  waivePenalty,
 } from 'src/api/payroll';
 import { getUserSalaryConfigs, versionedUpsertSalaryConfig } from 'src/api/salary';
 import type {
@@ -22,6 +24,7 @@ import type {
   IFinalizePayrollRequest,
   IMarkPayrollPaidRequest,
   IVersionedUpsertSalaryConfigRequest,
+  IWaivePenaltyRequest,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -120,6 +123,27 @@ export function useRecalculateRecord() {
   return useMutation({
     mutationFn: (recordId: string) => recalculatePayrollRecord(recordId),
     onSuccess: () => invalidatePayroll(qc),
+  });
+}
+
+// ── Bỏ qua lỗi vi phạm (waive penalty) ─────────────────────────────────
+
+/** Bỏ qua lỗi 1 ca — invalidate chi tiết ca để hiện trạng thái "Đã bỏ qua lỗi".
+ *  (Số tiền phạt chỉ được trừ sau khi "Tính lại lương".) */
+export function useWaivePenalty() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: IWaivePenaltyRequest) => waivePenalty(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'payroll-shift-details'] }),
+  });
+}
+
+/** Huỷ bỏ-qua-lỗi theo waiverId. */
+export function useRemoveWaiver() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (waiverId: string) => removeWaiver(waiverId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'payroll-shift-details'] }),
   });
 }
 

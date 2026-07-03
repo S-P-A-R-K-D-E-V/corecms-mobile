@@ -11,10 +11,11 @@ import { extractApiError } from 'src/services/error';
 import { AdjustAttendanceSheet, type AdjustTarget } from 'src/features/manage/AdjustAttendanceSheet';
 import type { IPayrollShiftItem, ISalaryConfiguration } from 'src/types/corecms-api';
 
-import { usePayrollShiftDetails, useUserSalaryConfigs, useFinalizePayroll, usePayrollPayment } from './hooks';
+import { usePayrollShiftDetails, useUserSalaryConfigs, useFinalizePayroll, usePayrollPayment, useRemoveWaiver } from './hooks';
 import { SalaryConfigSheet } from './SalaryConfigSheet';
 import { RecalcConfirmSheet } from './RecalcConfirmSheet';
 import { PaymentQRSheet } from './PaymentQRSheet';
+import { WaivePenaltySheet, waivableViolation } from './WaivePenaltySheet';
 
 // ----------------------------------------------------------------------
 // Chi tiết bảng lương 1 nhân viên: cấu hình lương cá nhân + tính lại + chốt;
@@ -40,48 +41,80 @@ const STATUS_META: Record<string, { tone: 'success' | 'error' | 'warning' | 'inf
   Wrong: { tone: 'warning', label: 'Sai ca' },
 };
 
-function ShiftItem({ item, staffId, staffName, onAdjust }: {
+function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onRemoveWaive }: {
   item: IPayrollShiftItem;
   staffId: string;
   staffName: string;
+  finalized: boolean;
   onAdjust: (t: AdjustTarget) => void;
+  onWaive: (s: IPayrollShiftItem) => void;
+  onRemoveWaive: (s: IPayrollShiftItem) => void;
 }) {
-  const meta = STATUS_META[item.status] ?? { tone: 'info' as const, label: item.status };
+  const meta = item.isWaived
+    ? { tone: 'info' as const, label: 'Đã bỏ qua lỗi' }
+    : STATUS_META[item.status] ?? { tone: 'info' as const, label: item.status };
+  const canWaive = !finalized && waivableViolation(item) != null;
+
   return (
-    <Pressable
-      onPress={() =>
-        onAdjust({
-          shiftAssignmentId: item.shiftAssignmentId,
-          staffId,
-          staffName,
-          shiftName: item.shiftName,
-          date: dayjs(item.date).format('YYYY-MM-DD'),
-          startTime: item.shiftStartTime,
-          endTime: item.shiftEndTime,
-          checkInTime: item.checkInTime,
-          checkOutTime: item.checkOutTime,
-        })
-      }
-      className="py-2.5 gap-1"
-    >
-      <View className="flex-row items-center justify-between">
-        <Text variant="subtitle" className="text-[15px]">{dayjs(item.date).format('DD/MM')} · {item.shiftName}</Text>
-        <View className="flex-row items-center gap-2">
-          <Badge tone={meta.tone}>{meta.label}</Badge>
-          <Icon name="pencil-outline" size={15} tone="faint" />
+    <View className="py-2.5 gap-1.5">
+      <Pressable
+        onPress={() =>
+          onAdjust({
+            shiftAssignmentId: item.shiftAssignmentId,
+            staffId,
+            staffName,
+            shiftName: item.shiftName,
+            date: dayjs(item.date).format('YYYY-MM-DD'),
+            startTime: item.shiftStartTime,
+            endTime: item.shiftEndTime,
+            checkInTime: item.checkInTime,
+            checkOutTime: item.checkOutTime,
+          })
+        }
+        className="gap-1"
+      >
+        <View className="flex-row items-center justify-between">
+          <Text variant="subtitle" className="text-[15px]">{dayjs(item.date).format('DD/MM')} · {item.shiftName}</Text>
+          <View className="flex-row items-center gap-2">
+            <Badge tone={meta.tone}>{meta.label}</Badge>
+            <Icon name="pencil-outline" size={15} tone="faint" />
+          </View>
         </View>
-      </View>
-      <View className="flex-row flex-wrap gap-x-3 gap-y-0.5">
-        <Text variant="caption" tone="muted">
-          {item.checkInTime ? `Vào ${dayjs(item.checkInTime).format('HH:mm')}` : 'Chưa vào'}
-          {item.checkOutTime ? ` · Ra ${dayjs(item.checkOutTime).format('HH:mm')}` : ''}
-        </Text>
-        <Text variant="caption" tone="muted">Ca {item.shiftStartTime}–{item.shiftEndTime}</Text>
-        <Text variant="caption" tone="muted">{item.workedHours.toFixed(1)}h</Text>
-        {item.lateMinutes > 0 ? <Text variant="caption" tone="warning">Muộn {item.lateMinutes}p</Text> : null}
-        {item.isHolidayShift ? <Text variant="caption" tone="primary">Ngày lễ</Text> : null}
-      </View>
-    </Pressable>
+        <View className="flex-row flex-wrap gap-x-3 gap-y-0.5">
+          <Text variant="caption" tone="muted">
+            {item.checkInTime ? `Vào ${dayjs(item.checkInTime).format('HH:mm')}` : 'Chưa vào'}
+            {item.checkOutTime ? ` · Ra ${dayjs(item.checkOutTime).format('HH:mm')}` : ''}
+          </Text>
+          <Text variant="caption" tone="muted">Ca {item.shiftStartTime}–{item.shiftEndTime}</Text>
+          <Text variant="caption" tone="muted">{item.workedHours.toFixed(1)}h</Text>
+          {item.lateMinutes > 0 ? <Text variant="caption" tone="warning">Muộn {item.lateMinutes}p</Text> : null}
+          {item.isHolidayShift ? <Text variant="caption" tone="primary">Ngày lễ</Text> : null}
+        </View>
+      </Pressable>
+
+      {/* Bỏ qua lỗi — rule khớp core-fe */}
+      {item.isWaived ? (
+        <View className="flex-row items-center gap-2">
+          <Icon name="shield-check" size={14} tone="info" />
+          <Text variant="caption" className="flex-1 text-info" numberOfLines={1}>
+            Đã bỏ qua lỗi{item.waiverReason ? ` · ${item.waiverReason}` : ''}
+          </Text>
+          {!finalized ? (
+            <Pressable onPress={() => onRemoveWaive(item)} hitSlop={6}>
+              <Text variant="caption" tone="error" className="font-semibold">Huỷ bỏ qua</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : canWaive ? (
+        <Pressable
+          onPress={() => onWaive(item)}
+          className="self-start flex-row items-center gap-1 px-2.5 py-1 rounded-full bg-info/10"
+        >
+          <Icon name="shield-outline" size={13} tone="info" />
+          <Text variant="caption" className="font-semibold text-info">Bỏ qua lỗi</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -91,9 +124,11 @@ export function PayrollRecordDetailScreen() {
   const { data, isLoading, isError, refetch, isFetching } = usePayrollShiftDetails(recordId);
   const salaryQ = useUserSalaryConfigs(data?.userId);
   const finalizeM = useFinalizePayroll();
+  const removeWaiverM = useRemoveWaiver();
   const paymentQ = usePayrollPayment(recordId);
 
   const [adjust, setAdjust] = useState<AdjustTarget | null>(null);
+  const [waiveShift, setWaiveShift] = useState<IPayrollShiftItem | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [recalcOpen, setRecalcOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
@@ -119,6 +154,25 @@ export function PayrollRecordDetailScreen() {
       setFinalized(next);
       haptics.success();
       toast.success(next ? 'Đã chốt lương.' : 'Đã bỏ chốt.', 'Cập nhật');
+    } catch (e) {
+      haptics.error();
+      toast.error(extractApiError(e), 'Không cập nhật được');
+    }
+  }
+
+  async function handleRemoveWaive(shift: IPayrollShiftItem) {
+    if (!shift.waiverId) return;
+    const ok = await confirm({
+      title: 'Huỷ bỏ qua lỗi',
+      message: `Khôi phục lỗi "${shift.shiftName}" — khoản phạt sẽ tính lại khi "Tính lại lương".`,
+      confirmText: 'Huỷ bỏ qua',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await removeWaiverM.mutateAsync(shift.waiverId);
+      haptics.success();
+      toast.success('Đã huỷ bỏ qua lỗi.', 'Cập nhật');
     } catch (e) {
       haptics.error();
       toast.error(extractApiError(e), 'Không cập nhật được');
@@ -203,13 +257,30 @@ export function PayrollRecordDetailScreen() {
           {data.shifts.map((s, i) => (
             <View key={s.shiftAssignmentId + s.date}>
               {i > 0 ? <Divider /> : null}
-              <ShiftItem item={s} staffId={data.userId} staffName={data.userName} onAdjust={setAdjust} />
+              <ShiftItem
+                item={s}
+                staffId={data.userId}
+                staffName={data.userName}
+                finalized={finalized}
+                onAdjust={setAdjust}
+                onWaive={setWaiveShift}
+                onRemoveWaive={handleRemoveWaive}
+              />
             </View>
           ))}
         </Card>
       )}
 
       <AdjustAttendanceSheet target={adjust} visible={!!adjust} onClose={() => setAdjust(null)} />
+
+      {data ? (
+        <WaivePenaltySheet
+          shift={waiveShift}
+          userId={data.userId}
+          visible={!!waiveShift}
+          onClose={() => setWaiveShift(null)}
+        />
+      ) : null}
 
       {data ? (
         <SalaryConfigSheet
