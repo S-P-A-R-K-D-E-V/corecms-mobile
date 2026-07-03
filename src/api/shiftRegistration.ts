@@ -22,3 +22,11 @@ export async function getMyShiftRegistrations(fromDate: string, toDate: string):
   });
   return response.data;
 }
+
+/** [Admin/Manager] Đăng ký ca của MỌI nhân viên trong khoảng — nguồn "khóa ca". */
+export async function getShiftRegistrations(fromDate: string, toDate: string): Promise<IShiftRegistration[]> {
+  const response = await axios.get<IShiftRegistration[]>(endpoints.shiftRegistrations.list, {
+    params: { fromDate, toDate },
+  });
+  return response.data;
+}

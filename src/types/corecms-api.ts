@@ -67,6 +67,8 @@ export interface IUser {
   roles: string[];
   permissions: string[];
   isActive: boolean;
+  /** Mức ưu tiên xếp ca (⭐) — cao hơn được xếp trước khi phân công tự động. */
+  schedulingPriority?: number;
   /** Trạng thái tài khoản (BE trả về; isActive suy từ status='Active'). */
   status?: UserStatus;
   createdAt: string;
@@ -881,6 +883,15 @@ export interface IManualAttendanceAdjustmentRequest {
   staffId: string;
   checkInTime?: string;  // ISO; bỏ trống = giữ nguyên
   checkOutTime?: string;
+  note?: string;
+}
+
+/** PUT /attendance/adjust-time — CẬP NHẬT log chấm công của 1 ca (tạo nếu chưa
+ *  có). checkInTime/checkOutTime là ISO UTC (có Z); null = xoá giá trị đó. */
+export interface IAdjustAttendanceTimeRequest {
+  shiftAssignmentId: string;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   note?: string;
 }
 

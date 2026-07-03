@@ -48,6 +48,7 @@ export const endpoints = {
     list: '/users',
     details: (id: string) => `/users/${id}`,
     changeStatus: (id: string) => `/users/${id}/status`,
+    schedulingPriority: (id: string) => `/users/${id}/scheduling-priority`,
     me: '/users/me',
     updateProfile: '/users/me/profile',
     changePassword: '/users/me/change-password',
@@ -93,6 +94,7 @@ export const endpoints = {
     myReport: '/attendance/my-report',
     report: '/attendance/report',
     manualAdjustment: '/attendance/manual-adjustment',
+    adjustTime: '/attendance/adjust-time',
   },
   branches: {
     list: '/branches',

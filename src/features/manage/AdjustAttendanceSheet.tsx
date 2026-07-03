@@ -8,7 +8,7 @@ import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 
-import { useManualAdjustment } from './hooks';
+import { useAdjustAttendanceTime } from './hooks';
 
 // ----------------------------------------------------------------------
 // Điều chỉnh chấm công của 1 nhân viên trên 1 ca (Manager/Admin). Nhập giờ
@@ -33,10 +33,13 @@ export type AdjustTarget = {
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
-/** ISO cục bộ (không Z) từ ngày ca + "HH:mm" — khớp hành vi core-fe.
- *  Parse "YYYY-MM-DD HH:mm" như các màn khác (không cần plugin customParseFormat). */
-function toIso(date: string, hhmm: string): string {
-  return dayjs(`${date} ${hhmm}`).format('YYYY-MM-DDTHH:mm:ss');
+/** Giờ VN (UTC+7) từ ngày ca + "HH:mm" → ISO UTC (có Z) để BE lưu timestamptz.
+ *  Trước đây gửi chuỗi cục bộ KHÔNG Z + KHÔNG đổi múi giờ → BE lưu sai / lỗi
+ *  Npgsql (Kind=Unspecified) → "không cập nhật được". Khớp core-fe: -7h. */
+function toUtcIso(date: string, hhmm: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  const [hh, mm] = hhmm.split(':').map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hh - 7, mm)).toISOString();
 }
 
 export function AdjustAttendanceSheet({
@@ -48,7 +51,7 @@ export function AdjustAttendanceSheet({
   visible: boolean;
   onClose: () => void;
 }) {
-  const mutation = useManualAdjustment();
+  const mutation = useAdjustAttendanceTime();
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [note, setNote] = useState('');
@@ -79,11 +82,12 @@ export function AdjustAttendanceSheet({
     if (checkIn && checkOut && checkOut <= checkIn) return setError('Giờ ra phải sau giờ vào.');
 
     try {
+      // adjust-time GHI ĐÈ cả hai trường: gửi null khi để trống để không giữ giá
+      // trị cũ ngoài ý muốn (khớp core-fe — null = xoá giá trị đó).
       await mutation.mutateAsync({
         shiftAssignmentId: target.shiftAssignmentId,
-        staffId: target.staffId,
-        checkInTime: checkIn ? toIso(target.date, checkIn) : undefined,
-        checkOutTime: checkOut ? toIso(target.date, checkOut) : undefined,
+        checkInTime: checkIn ? toUtcIso(target.date, checkIn) : null,
+        checkOutTime: checkOut ? toUtcIso(target.date, checkOut) : null,
         note: note.trim() || undefined,
       });
       haptics.success();
