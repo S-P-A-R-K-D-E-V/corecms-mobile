@@ -6,12 +6,13 @@ import dayjs from 'dayjs';
 import { Screen, AppHeader, EmptyState, Loading, ErrorView } from 'src/components/shared';
 import { Card, Text, Badge, Appear } from 'src/components/ui';
 import { getMyAttendanceRequests } from 'src/api/attendance';
-import type { IAttendanceRequest } from 'src/types/corecms-api';
+import type { AttendanceRequestType, IAttendanceRequest } from 'src/types/corecms-api';
 
-const TYPE_LABEL: Record<IAttendanceRequest['type'], string> = {
-  LeaveRequest: 'Xin nghỉ phép',
-  AdjustCheckIn: 'Điều chỉnh giờ vào',
-  AdjustCheckOut: 'Điều chỉnh giờ ra',
+const TYPE_LABEL: Record<AttendanceRequestType, string> = {
+  MissedCheckIn: 'Điều chỉnh giờ vào',
+  MissedCheckOut: 'Điều chỉnh giờ ra',
+  OvertimeCompensation: 'Bù thêm giờ',
+  ShiftSwap: 'Đổi ca',
 };
 
 const STATUS: Record<IAttendanceRequest['status'], { label: string; tone: 'warning' | 'success' | 'error' }> = {
@@ -66,13 +67,13 @@ export function AttendanceListScreen() {
           <Appear key={req.id} index={i}>
           <Card className="p-4 gap-2">
             <View className="flex-row items-center justify-between">
-              <Text variant="subtitle">{TYPE_LABEL[req.type]}</Text>
+              <Text variant="subtitle">{TYPE_LABEL[req.requestType] ?? req.requestType}</Text>
               <Badge tone={STATUS[req.status].tone}>{STATUS[req.status].label}</Badge>
             </View>
-            {req.requestedCheckIn ? <Text variant="bodySmall" tone="muted">Giờ vào: {dayjs(req.requestedCheckIn).format('DD/MM HH:mm')}</Text> : null}
-            {req.requestedCheckOut ? <Text variant="bodySmall" tone="muted">Giờ ra: {dayjs(req.requestedCheckOut).format('DD/MM HH:mm')}</Text> : null}
+            {req.requestedCheckInTime ? <Text variant="bodySmall" tone="muted">Giờ vào: {dayjs(req.requestedCheckInTime).format('DD/MM HH:mm')}</Text> : null}
+            {req.requestedCheckOutTime ? <Text variant="bodySmall" tone="muted">Giờ ra: {dayjs(req.requestedCheckOutTime).format('DD/MM HH:mm')}</Text> : null}
             <Text variant="bodySmall">{req.reason}</Text>
-            {req.reviewNote ? <Text variant="caption" tone="muted">Phản hồi: {req.reviewNote}</Text> : null}
+            {req.approvalNote ? <Text variant="caption" tone="muted">Phản hồi: {req.approvalNote}</Text> : null}
             <Text variant="caption" tone="faint">{dayjs(req.createdAt).format('DD/MM/YYYY HH:mm')}</Text>
           </Card>
           </Appear>

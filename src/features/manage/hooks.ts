@@ -169,7 +169,7 @@ export function useProcessAttendanceRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status, reviewNote }: ReviewInput) =>
-      processAttendanceRequest(id, { status, reviewNote }),
+      processAttendanceRequest(id, { status, approvalNote: reviewNote }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['manage', 'attendance-requests'] });
     },

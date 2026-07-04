@@ -7,7 +7,7 @@ import { Card, Text, Badge, Button, Icon, Skeleton, SegmentedControl } from 'src
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
-import type { IAttendanceRequest, ILateCoverRequest, IShiftSwapRequest } from 'src/types/corecms-api';
+import type { AttendanceRequestType, IAttendanceRequest, ILateCoverRequest, IShiftSwapRequest } from 'src/types/corecms-api';
 
 import {
   usePendingAttendanceRequests,
@@ -26,10 +26,11 @@ import {
 
 type Tab = 'attendance' | 'swap' | 'cover';
 
-const REQUEST_TYPE_LABEL: Record<IAttendanceRequest['type'], string> = {
-  AdjustCheckIn: 'Sửa giờ vào',
-  AdjustCheckOut: 'Sửa giờ ra',
-  LeaveRequest: 'Xin nghỉ',
+const REQUEST_TYPE_LABEL: Record<AttendanceRequestType, string> = {
+  MissedCheckIn: 'Quên giờ vào',
+  MissedCheckOut: 'Quên giờ ra',
+  OvertimeCompensation: 'Bù thêm giờ',
+  ShiftSwap: 'Đổi ca',
 };
 
 function ReviewActions({
@@ -91,13 +92,13 @@ function AttendanceCard({ item }: { item: IAttendanceRequest }) {
       <View className="flex-row items-center gap-2">
         <Icon name="account-clock" size={18} tone="primary" />
         <Text variant="subtitle" className="flex-1">{item.staffName}</Text>
-        <Badge tone="info">{REQUEST_TYPE_LABEL[item.type] ?? item.type}</Badge>
+        <Badge tone="info">{REQUEST_TYPE_LABEL[item.requestType] ?? item.requestType}</Badge>
       </View>
-      {item.requestedCheckIn ? (
-        <Text variant="bodySmall" tone="muted">Giờ vào đề nghị: {dayjs(item.requestedCheckIn).format('HH:mm DD/MM')}</Text>
+      {item.requestedCheckInTime ? (
+        <Text variant="bodySmall" tone="muted">Giờ vào đề nghị: {dayjs(item.requestedCheckInTime).format('HH:mm DD/MM')}</Text>
       ) : null}
-      {item.requestedCheckOut ? (
-        <Text variant="bodySmall" tone="muted">Giờ ra đề nghị: {dayjs(item.requestedCheckOut).format('HH:mm DD/MM')}</Text>
+      {item.requestedCheckOutTime ? (
+        <Text variant="bodySmall" tone="muted">Giờ ra đề nghị: {dayjs(item.requestedCheckOutTime).format('HH:mm DD/MM')}</Text>
       ) : null}
       <Text variant="bodySmall">Lý do: {item.reason}</Text>
       <Text variant="caption" tone="faint">Gửi lúc {dayjs(item.createdAt).format('HH:mm DD/MM/YYYY')}</Text>
@@ -105,7 +106,7 @@ function AttendanceCard({ item }: { item: IAttendanceRequest }) {
         busy={mutation.isPending}
         onDecide={(status) =>
           decide(
-            `yêu cầu "${REQUEST_TYPE_LABEL[item.type] ?? item.type}" của ${item.staffName}`,
+            `yêu cầu "${REQUEST_TYPE_LABEL[item.requestType] ?? item.requestType}" của ${item.staffName}`,
             status,
             () => mutation.mutateAsync({ id: item.id, status })
           )
