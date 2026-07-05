@@ -11,16 +11,19 @@ import { createAttendanceRequest } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
 import type { ICreateAttendanceRequestDto } from 'src/types/corecms-api';
 
-type RequestType = ICreateAttendanceRequestDto['type'];
+// Chỉ 2 loại nhân viên tự tạo được: quên/sai giờ vào hoặc ra. "OvertimeCompensation"
+// do Admin tạo; "ShiftSwap" có luồng riêng ở /shift-swap (màn Đổi ca) — BE không có
+// tính năng "xin nghỉ phép" nên đã bỏ khỏi màn này (trước đây gửi sẽ luôn lỗi
+// "Invalid request type" vì BE không nhận diện được).
+type RequestType = Extract<ICreateAttendanceRequestDto['requestType'], 'MissedCheckIn' | 'MissedCheckOut'>;
 
-const TYPES: { value: RequestType; label: string; desc: string; icon: IconName; tone: 'warning' | 'info' | 'secondary' }[] = [
-  { value: 'LeaveRequest', label: 'Xin nghỉ phép', desc: 'Nghỉ cả ngày hoặc một phần', icon: 'calendar-remove-outline', tone: 'warning' },
-  { value: 'AdjustCheckIn', label: 'Điều chỉnh giờ vào', desc: 'Quên chấm vào / giờ sai', icon: 'clock-in', tone: 'info' },
-  { value: 'AdjustCheckOut', label: 'Điều chỉnh giờ ra', desc: 'Quên chấm ra / giờ sai', icon: 'clock-out', tone: 'secondary' },
+const TYPES: { value: RequestType; label: string; desc: string; icon: IconName; tone: 'info' | 'secondary' }[] = [
+  { value: 'MissedCheckIn', label: 'Quên/sai giờ vào', desc: 'Quên bấm chấm công vào ca hoặc giờ ghi nhận sai', icon: 'clock-in', tone: 'info' },
+  { value: 'MissedCheckOut', label: 'Quên/sai giờ ra', desc: 'Quên bấm chấm công ra ca hoặc giờ ghi nhận sai', icon: 'clock-out', tone: 'secondary' },
 ];
 
 export function NewAttendanceRequestScreen() {
-  const [type, setType] = useState<RequestType>('LeaveRequest');
+  const [type, setType] = useState<RequestType>('MissedCheckIn');
   const [reason, setReason] = useState('');
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [checkInTime, setCheckInTime] = useState('');
@@ -32,8 +35,8 @@ export function NewAttendanceRequestScreen() {
     const e: Record<string, string> = {};
     if (!reason.trim()) e.reason = 'Vui lòng nhập lý do';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !dayjs(date).isValid()) e.date = 'Định dạng ngày không hợp lệ (YYYY-MM-DD)';
-    if (type === 'AdjustCheckIn' && !/^\d{2}:\d{2}$/.test(checkInTime)) e.checkInTime = 'Giờ vào không hợp lệ (HH:mm)';
-    if (type === 'AdjustCheckOut' && !/^\d{2}:\d{2}$/.test(checkOutTime)) e.checkOutTime = 'Giờ ra không hợp lệ (HH:mm)';
+    if (type === 'MissedCheckIn' && !/^\d{2}:\d{2}$/.test(checkInTime)) e.checkInTime = 'Giờ vào không hợp lệ (HH:mm)';
+    if (type === 'MissedCheckOut' && !/^\d{2}:\d{2}$/.test(checkOutTime)) e.checkOutTime = 'Giờ ra không hợp lệ (HH:mm)';
     setErrors(e);
     return Object.keys(e).length === 0;
   }
@@ -43,10 +46,10 @@ export function NewAttendanceRequestScreen() {
     setSubmitting(true);
     try {
       await createAttendanceRequest({
-        type,
+        requestType: type,
         reason: reason.trim(),
-        requestedCheckIn: type === 'AdjustCheckIn' ? dayjs(`${date}T${checkInTime}`).toISOString() : undefined,
-        requestedCheckOut: type === 'AdjustCheckOut' ? dayjs(`${date}T${checkOutTime}`).toISOString() : undefined,
+        requestedCheckInTime: type === 'MissedCheckIn' ? dayjs(`${date}T${checkInTime}`).toISOString() : undefined,
+        requestedCheckOutTime: type === 'MissedCheckOut' ? dayjs(`${date}T${checkOutTime}`).toISOString() : undefined,
       });
       toast.success('Yêu cầu đã được gửi và đang chờ quản lý duyệt.', 'Gửi thành công');
       router.back();
@@ -83,10 +86,10 @@ export function NewAttendanceRequestScreen() {
 
           <TextField label="Ngày áp dụng (YYYY-MM-DD)" value={date} onChangeText={(v) => { setDate(v); setErrors((e) => ({ ...e, date: '' })); }} icon="calendar" keyboardType="numbers-and-punctuation" error={errors.date} placeholder="2026-06-12" />
 
-          {type === 'AdjustCheckIn' ? (
+          {type === 'MissedCheckIn' ? (
             <TextField label="Giờ vào thực tế (HH:mm)" value={checkInTime} onChangeText={(v) => { setCheckInTime(v); setErrors((e) => ({ ...e, checkInTime: '' })); }} icon="clock-in" keyboardType="numbers-and-punctuation" error={errors.checkInTime} placeholder="08:30" />
           ) : null}
-          {type === 'AdjustCheckOut' ? (
+          {type === 'MissedCheckOut' ? (
             <TextField label="Giờ ra thực tế (HH:mm)" value={checkOutTime} onChangeText={(v) => { setCheckOutTime(v); setErrors((e) => ({ ...e, checkOutTime: '' })); }} icon="clock-out" keyboardType="numbers-and-punctuation" error={errors.checkOutTime} placeholder="17:30" />
           ) : null}
 
@@ -94,7 +97,7 @@ export function NewAttendanceRequestScreen() {
             label="Lý do"
             value={reason}
             onChangeText={(v) => { setReason(v); setErrors((e) => ({ ...e, reason: '' })); }}
-            placeholder={type === 'LeaveRequest' ? 'VD: Bận việc gia đình...' : 'VD: Quên bấm chấm công...'}
+            placeholder="VD: Quên bấm chấm công..."
             multiline
             maxLength={500}
             error={errors.reason}

@@ -297,31 +297,46 @@ export interface ISmartCheckOutRequest {
   faceVerified?: boolean;
 }
 
+/** Khớp BE AttendanceRequestType — KHÔNG có "LeaveRequest" (chưa có tính năng
+ *  xin nghỉ phép ở BE). ShiftSwap có luồng riêng qua /shift-swap/*, không tạo
+ *  qua endpoint này. */
+export type AttendanceRequestType = 'MissedCheckIn' | 'MissedCheckOut' | 'OvertimeCompensation' | 'ShiftSwap';
+
 export interface IAttendanceRequest {
   id: string;
   staffId: string;
   staffName: string;
-  type: 'AdjustCheckIn' | 'AdjustCheckOut' | 'LeaveRequest';
-  requestedCheckIn?: string;
-  requestedCheckOut?: string;
-  reason: string;
+  shiftAssignmentId?: string;
+  requestType: AttendanceRequestType;
   status: 'Pending' | 'Approved' | 'Rejected';
-  reviewedBy?: string;
-  reviewNote?: string;
+  reason: string;
+  requestedCheckInTime?: string;
+  requestedCheckOutTime?: string;
+  compensationHours?: number;
+  targetStaffId?: string;
+  targetStaffName?: string;
+  targetShiftAssignmentId?: string;
+  approvedById?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  approvalNote?: string;
   createdAt: string;
 }
 
 export interface ICreateAttendanceRequestDto {
-  type: 'AdjustCheckIn' | 'AdjustCheckOut' | 'LeaveRequest';
-  attendanceLogId?: string;
-  requestedCheckIn?: string;
-  requestedCheckOut?: string;
+  shiftAssignmentId?: string;
+  requestType: AttendanceRequestType;
   reason: string;
+  requestedCheckInTime?: string;
+  requestedCheckOutTime?: string;
+  compensationHours?: number;
+  targetStaffId?: string;
+  targetShiftAssignmentId?: string;
 }
 
 export interface IProcessAttendanceRequestDto {
   status: 'Approved' | 'Rejected';
-  reviewNote?: string;
+  approvalNote?: string;
 }
 
 export interface ICheckinFaceRequest {
