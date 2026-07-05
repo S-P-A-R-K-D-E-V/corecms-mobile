@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import { router } from 'expo-router';
 
 // ----------------------------------------------------------------------
 
@@ -18,7 +19,22 @@ axiosInstance.interceptors.request.use(async (config) => {
 
 axiosInstance.interceptors.response.use(
   (res) => res,
-  (error) => Promise.reject((error.response && error.response.data) || 'Something went wrong')
+  async (error) => {
+    // BE re-kiểm tra status mỗi request (banned/pending giữa phiên trả 401 dù
+    // access token còn hạn). Đăng xuất ngay thay vì để app lặp lỗi API cho
+    // tới khi hết hạn tự nhiên. Các thao tác dưới đây là idempotent nên vô
+    // hại nếu nhiều request cùng lúc bị 401 và cùng chạy vào nhánh này.
+    if (error?.response?.status === 401) {
+      const hadToken = await SecureStore.getItemAsync('accessToken');
+      if (hadToken) {
+        await SecureStore.deleteItemAsync('accessToken');
+        await SecureStore.deleteItemAsync('refreshToken');
+        delete axiosInstance.defaults.headers.common.Authorization;
+        router.replace('/(auth)/login');
+      }
+    }
+    return Promise.reject((error.response && error.response.data) || 'Something went wrong');
+  }
 );
 
 export default axiosInstance;
@@ -46,6 +62,7 @@ export const endpoints = {
   },
   users: {
     list: '/users',
+    activeStaff: '/users/active-staff',
     details: (id: string) => `/users/${id}`,
     changeStatus: (id: string) => `/users/${id}/status`,
     schedulingPriority: (id: string) => `/users/${id}/scheduling-priority`,
