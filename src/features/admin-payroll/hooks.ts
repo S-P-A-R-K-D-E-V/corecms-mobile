@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getAllPayrollCycles, createPayrollCycle } from 'src/api/payrollCycle';
+import { getAllPayrollCycles, createPayrollCycle, setPayrollCycleVisibility } from 'src/api/payrollCycle';
 import {
   bulkFinalizePayroll,
   finalizePayroll,
@@ -84,6 +84,19 @@ export function useRecalculateCycle() {
   return useMutation({
     mutationFn: (cycleId: string) => recalculatePayrollByCycle(cycleId),
     onSuccess: (_res, cycleId) => {
+      qc.invalidateQueries({ queryKey: ['admin', 'payroll-by-cycle', cycleId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'payroll-cycles'] });
+    },
+  });
+}
+
+/** [Admin] Bật/tắt hiển thị chu kỳ cho nhân viên. */
+export function useSetCycleVisibility() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ cycleId, isVisibleToStaff }: { cycleId: string; isVisibleToStaff: boolean }) =>
+      setPayrollCycleVisibility(cycleId, isVisibleToStaff),
+    onSuccess: (_res, { cycleId }) => {
       qc.invalidateQueries({ queryKey: ['admin', 'payroll-by-cycle', cycleId] });
       qc.invalidateQueries({ queryKey: ['admin', 'payroll-cycles'] });
     },

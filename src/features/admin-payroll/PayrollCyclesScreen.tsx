@@ -19,8 +19,11 @@ function CycleCard({ cycle }: { cycle: IPayrollCycle }) {
   return (
     <Pressable onPress={() => router.push({ pathname: '/admin/payroll-detail' as any, params: { cycleId: cycle.id, name: cycle.name } })}>
       <Card className="p-4 gap-2">
-        <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between gap-2">
           <Text variant="subtitle" className="flex-1" numberOfLines={1}>{cycle.name}</Text>
+          <Badge tone={cycle.isVisibleToStaff ? 'info' : 'warning'}>
+            {cycle.isVisibleToStaff ? 'NV xem được' : 'Ẩn với NV'}
+          </Badge>
           <Badge tone={cycle.isLocked ? 'error' : 'success'}>{cycle.isLocked ? 'Đã khoá' : 'Mở'}</Badge>
         </View>
         <View className="flex-row items-center gap-3">
