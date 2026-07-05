@@ -9,9 +9,10 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { AdjustAttendanceSheet, type AdjustTarget } from 'src/features/manage/AdjustAttendanceSheet';
+import { fmtMoney } from 'src/features/admin-dashboard/hooks';
 import type { IPayrollShiftItem, ISalaryConfiguration } from 'src/types/corecms-api';
 
-import { usePayrollShiftDetails, useUserSalaryConfigs, useFinalizePayroll, usePayrollPayment, useRemoveWaiver } from './hooks';
+import { usePayrollShiftDetails, usePayrollByCycle, useUserSalaryConfigs, useFinalizePayroll, usePayrollPayment, useRemoveWaiver } from './hooks';
 import { SalaryConfigSheet } from './SalaryConfigSheet';
 import { RecalcConfirmSheet } from './RecalcConfirmSheet';
 import { PaymentQRSheet } from './PaymentQRSheet';
@@ -40,6 +41,15 @@ const STATUS_META: Record<string, { tone: 'success' | 'error' | 'warning' | 'inf
   Absent: { tone: 'error', label: 'Vắng' },
   Wrong: { tone: 'warning', label: 'Sai ca' },
 };
+
+function MoneyRow({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'error' }) {
+  return (
+    <View className="flex-row items-center justify-between py-1">
+      <Text variant="bodySmall" tone="muted">{label}</Text>
+      <Text variant="bodySmall" className="font-semibold" tone={tone ?? 'default'} style={{ fontVariant: ['tabular-nums'] }}>{value}</Text>
+    </View>
+  );
+}
 
 function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onRemoveWaive }: {
   item: IPayrollShiftItem;
@@ -86,7 +96,7 @@ function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onR
             {item.checkOutTime ? ` · Ra ${dayjs(item.checkOutTime).format('HH:mm')}` : ''}
           </Text>
           <Text variant="caption" tone="muted">Ca {item.shiftStartTime}–{item.shiftEndTime}</Text>
-          <Text variant="caption" tone="muted">{item.workedHours.toFixed(1)}h</Text>
+          {item.paidHours > 0 ? <Text variant="caption" tone="muted">{item.paidHours.toFixed(1)}h tính lương</Text> : null}
           {item.lateMinutes > 0 ? <Text variant="caption" tone="warning">Muộn {item.lateMinutes}p</Text> : null}
           {item.isHolidayShift ? <Text variant="caption" tone="primary">Ngày lễ</Text> : null}
         </View>
@@ -119,9 +129,16 @@ function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onR
 }
 
 export function PayrollRecordDetailScreen() {
-  const params = useLocalSearchParams<{ recordId: string; userName?: string; finalized?: string }>();
+  const params = useLocalSearchParams<{ recordId: string; userName?: string; finalized?: string; cycleId?: string }>();
   const recordId = params.recordId;
   const { data, isLoading, isError, refetch, isFetching } = usePayrollShiftDetails(recordId);
+  // Số tiền lương của record lấy từ bảng lương chu kỳ (đã cache, tự refetch sau
+  // khi tính lại/chốt nhờ invalidatePayroll).
+  const byCycleQ = usePayrollByCycle(params.cycleId);
+  const rec = useMemo(
+    () => byCycleQ.data?.records.find((r) => r.id === recordId),
+    [byCycleQ.data, recordId]
+  );
   const salaryQ = useUserSalaryConfigs(data?.userId);
   const finalizeM = useFinalizePayroll();
   const removeWaiverM = useRemoveWaiver();
@@ -186,6 +203,26 @@ export function PayrollRecordDetailScreen() {
         subtitle={data ? `${dayjs(data.fromDate).format('DD/MM')} – ${dayjs(data.toDate).format('DD/MM/YYYY')} · ${data.shifts.length} ca` : 'Từng ca đi làm'}
         back
       />
+
+      {/* Lương kỳ này của nhân viên — số liệu từ bảng lương chu kỳ */}
+      {rec ? (
+        <Card className="p-4 gap-2">
+          <View className="flex-row items-center gap-2">
+            <Icon name="wallet-outline" size={18} tone="primary" />
+            <Text variant="subtitle" className="flex-1">Lương kỳ này</Text>
+            <Text className="text-xl font-bold text-primary" style={{ fontVariant: ['tabular-nums'] }}>{fmtMoney(rec.totalSalary)}</Text>
+          </View>
+          <Text variant="caption" tone="muted">
+            {rec.presentShifts}/{rec.totalShifts} ca · {rec.totalHoursWorked.toFixed(1)}h tính lương
+            {rec.totalLateMinutes > 0 ? ` · muộn ${rec.totalLateMinutes}p` : ''}
+          </Text>
+          <Divider />
+          <MoneyRow label="Lương cơ bản" value={fmtMoney(rec.baseSalary)} />
+          {rec.overtimeSalary > 0 ? <MoneyRow label="Phụ cấp làm hộ / OT" value={fmtMoney(rec.overtimeSalary)} /> : null}
+          {rec.bonus > 0 ? <MoneyRow label="Thưởng lễ" value={fmtMoney(rec.bonus)} tone="success" /> : null}
+          {rec.penaltyAmount > 0 ? <MoneyRow label="Tiền phạt" value={`- ${fmtMoney(rec.penaltyAmount)}`} tone="error" /> : null}
+        </Card>
+      ) : null}
 
       {/* Cấu hình lương + hành động */}
       {data ? (
