@@ -20,10 +20,10 @@ import { RecalcConfirmSheet, type RecalcTarget } from './RecalcConfirmSheet';
 // theo nhân viên; nút "Tính lại toàn kỳ" (recalculate-cycle).
 // ----------------------------------------------------------------------
 
-function RecordCard({ r }: { r: IPayrollRecord }) {
+function RecordCard({ r, cycleId }: { r: IPayrollRecord; cycleId: string }) {
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/admin/payroll-record' as any, params: { recordId: r.id, userName: r.userName, finalized: String(r.isFinalized) } })}
+      onPress={() => router.push({ pathname: '/admin/payroll-record' as any, params: { recordId: r.id, userName: r.userName, finalized: String(r.isFinalized), cycleId } })}
       className="py-3 gap-1.5"
     >
       <View className="flex-row items-center justify-between">
@@ -61,7 +61,7 @@ function RecordCard({ r }: { r: IPayrollRecord }) {
 
 /** "Lương theo nhân viên" dạng agenda: gộp theo trạng thái (Chưa chốt / Đã chốt)
  *  với tiêu đề mốc + đếm số, kèm ô tìm kiếm theo tên. */
-function EmployeeAgenda({ records, q, setQ }: { records: IPayrollRecord[]; q: string; setQ: (v: string) => void }) {
+function EmployeeAgenda({ records, cycleId, q, setQ }: { records: IPayrollRecord[]; cycleId: string; q: string; setQ: (v: string) => void }) {
   const groups = useMemo(() => {
     const kw = q.trim().toLowerCase();
     const filtered = kw ? records.filter((r) => r.userName.toLowerCase().includes(kw)) : records;
@@ -96,7 +96,7 @@ function EmployeeAgenda({ records, q, setQ }: { records: IPayrollRecord[]; q: st
             {g.items.map((r, i) => (
               <View key={r.id}>
                 {i > 0 ? <Divider /> : null}
-                <RecordCard r={r} />
+                <RecordCard r={r} cycleId={cycleId} />
               </View>
             ))}
           </View>
@@ -200,7 +200,7 @@ export function PayrollCycleDetailScreen() {
           {data.records.length === 0 ? (
             <EmptyState icon="cash-remove" title="Chưa có bảng lương" description="Chu kỳ này chưa tính lương nhân viên nào." />
           ) : (
-            <EmployeeAgenda records={data.records} q={q} setQ={setQ} />
+            <EmployeeAgenda records={data.records} cycleId={cycleId} q={q} setQ={setQ} />
           )}
         </>
       )}
