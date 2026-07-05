@@ -9,7 +9,7 @@ import {
   getTeamAssignments,
   swapShiftAssignments,
 } from 'src/api/schedule';
-import { getAllUsers, isActiveUser, setSchedulingPriority } from 'src/api/users';
+import { getActiveStaffUsers, setSchedulingPriority } from 'src/api/users';
 import { getShiftRegistrations } from 'src/api/shiftRegistration';
 import { getAttendanceReport } from 'src/api/reports';
 import { adjustAttendanceTime, getAttendanceRequests, processAttendanceRequest } from 'src/api/attendance';
@@ -46,15 +46,13 @@ export function useShiftSchedules(fromDate: string, toDate: string) {
   });
 }
 
-/** Toàn bộ nhân viên (đang hoạt động) — chọn người khi xếp ca. */
+/** Nhân viên (Staff) đang Active — chọn người khi xếp ca. Server đã lọc sẵn
+ *  (không Admin/Manager, không banned/pending). */
 export function useAllStaff() {
   return useQuery({
-    queryKey: ['manage', 'staff'],
-    queryFn: getAllUsers,
+    queryKey: ['manage', 'active-staff'],
+    queryFn: getActiveStaffUsers,
     staleTime: 5 * MINUTE,
-    // BE trả `status`, không có `isActive` — lọc bằng u.isActive từng làm danh
-    // sách nhân viên trống → không chọn được ai để xếp ca.
-    select: (users) => users.filter(isActiveUser),
   });
 }
 
