@@ -27,6 +27,16 @@ export async function getAllUsers(): Promise<IUser[]> {
   return response.data;
 }
 
+/**
+ * [Admin/Manager] Nhân viên (role Staff) đang Active — dùng cho xếp ca, tính
+ * lương, popup điều chỉnh lương. KHÔNG dùng getAllUsers() ở các màn này vì nó
+ * trả cả Admin/Manager và cả banned/pending.
+ */
+export async function getActiveStaffUsers(): Promise<IUser[]> {
+  const response = await axios.get<IUser[]>(endpoints.users.activeStaff);
+  return response.data;
+}
+
 /** [Admin/Manager] Chi tiết 1 người dùng. */
 export async function getUserById(id: string): Promise<IUser> {
   const response = await axios.get<IUser>(endpoints.users.details(id));
