@@ -123,6 +123,7 @@ export const endpoints = {
   payrollCycle: {
     list: '/payroll-cycles',
     create: '/payroll-cycles',
+    visibility: (id: string) => `/payroll-cycles/${id}/visibility`,
   },
   salaryConfig: {
     byUser: (userId: string) => `/salary-configurations/user/${userId}`,

@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 
-import { Screen, AppHeader, StatCard, EmptyState, ErrorView } from 'src/components/shared';
+import { Screen, AppHeader, StatCard, EmptyState, ErrorView, ToggleRow } from 'src/components/shared';
 import { Card, Text, Badge, Button, Icon, Skeleton, Divider, Pressable, TextField } from 'src/components/ui';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
@@ -12,7 +12,7 @@ import { cn } from 'src/components/ui/utils';
 import { fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 
-import { usePayrollByCycle, useBulkFinalize } from './hooks';
+import { usePayrollByCycle, useBulkFinalize, useSetCycleVisibility } from './hooks';
 import { RecalcConfirmSheet, type RecalcTarget } from './RecalcConfirmSheet';
 
 // ----------------------------------------------------------------------
@@ -111,6 +111,7 @@ export function PayrollCycleDetailScreen() {
   const cycleId = params.cycleId;
   const { data, isLoading, isError, refetch, isFetching } = usePayrollByCycle(cycleId);
   const bulkM = useBulkFinalize();
+  const visibilityM = useSetCycleVisibility();
   const [recalcOpen, setRecalcOpen] = useState(false);
   const [q, setQ] = useState('');
 
@@ -131,6 +132,21 @@ export function PayrollCycleDetailScreen() {
       pendingTargets: uniquePending.map<RecalcTarget>((r) => ({ recordId: r.id, userId: r.userId, userName: r.userName })),
     };
   }, [data]);
+
+  // Bật/tắt hiển thị cho nhân viên — staff chỉ thấy my-payroll khi bật.
+  async function toggleVisibility(next: boolean) {
+    try {
+      await visibilityM.mutateAsync({ cycleId, isVisibleToStaff: next });
+      haptics.success();
+      toast.success(
+        next ? 'Nhân viên đã xem được bảng lương kỳ này.' : 'Đã ẩn bảng lương kỳ này với nhân viên.',
+        'Hiển thị chu kỳ'
+      );
+    } catch (e) {
+      haptics.error();
+      toast.error(extractApiError(e), 'Không cập nhật được');
+    }
+  }
 
   async function finalizeAll() {
     if (pendingIds.length === 0) return;
@@ -176,6 +192,22 @@ export function PayrollCycleDetailScreen() {
             <StatCard value={fmtCompact(totals.total)} label="Tổng chi lương" tone="primary" />
             <StatCard value={`${totals.finalized}/${totals.count}`} label="Đã chốt" tone={totals.finalized === totals.count && totals.count > 0 ? 'success' : 'warning'} />
           </View>
+
+          {/* Ẩn/hiện bảng lương kỳ này với nhân viên */}
+          <Card className="px-4 py-1">
+            <ToggleRow
+              icon={data.isVisibleToStaff ? 'eye-outline' : 'eye-off-outline'}
+              title="Hiển thị cho nhân viên"
+              description={
+                data.isVisibleToStaff
+                  ? 'Nhân viên xem được bảng lương kỳ này ở "Lương của tôi"'
+                  : 'Đang ẩn — nhân viên chưa xem được bảng lương kỳ này'
+              }
+              value={data.isVisibleToStaff}
+              onToggle={toggleVisibility}
+              disabled={visibilityM.isPending}
+            />
+          </Card>
 
           {!data.isLocked ? (
             <View className="flex-row gap-2">

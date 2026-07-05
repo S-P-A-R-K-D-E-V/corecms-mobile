@@ -492,6 +492,8 @@ export interface IPayrollCycle {
   toDate: string;
   standardWorkDays: number;
   isLocked: boolean;
+  /** false = staff không thấy bảng lương của chu kỳ này ở my-payroll. */
+  isVisibleToStaff: boolean;
   lockedBy?: string;
   lockerName?: string;
   lockedAt?: string;
@@ -647,6 +649,8 @@ export interface IPayrollCycleDetailResponse {
   fromDate: string;
   toDate: string;
   isLocked: boolean;
+  /** false = staff không thấy bảng lương của chu kỳ này ở my-payroll. */
+  isVisibleToStaff: boolean;
   records: IPayrollRecord[];
 }
 

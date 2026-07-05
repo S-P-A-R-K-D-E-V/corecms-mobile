@@ -14,3 +14,14 @@ export async function createPayrollCycle(data: ICreatePayrollCycleRequest): Prom
   const response = await axios.post<IPayrollCycle>(endpoints.payrollCycle.create, data);
   return response.data;
 }
+
+/** [Admin] Bật/tắt hiển thị chu kỳ cho nhân viên (staff chỉ xem được my-payroll của chu kỳ đã bật). */
+export async function setPayrollCycleVisibility(
+  id: string,
+  isVisibleToStaff: boolean
+): Promise<IPayrollCycle> {
+  const response = await axios.put<IPayrollCycle>(endpoints.payrollCycle.visibility(id), {
+    isVisibleToStaff,
+  });
+  return response.data;
+}
