@@ -183,11 +183,13 @@ function AgendaDay({
     : [];
   // Gộp lịch đăng ký với ca được phân: nếu một ca đăng ký trùng ca đã được phân
   // (cùng shiftSchedule hoặc trùng giờ) thì bỏ dòng đăng ký — ca được phân đã đại diện.
-  const dayRegs = registrations
-    .filter((r) => r.date === key)
-    .filter((r) => !dayAssignments.some(
-      (a) => a.shiftScheduleId === r.shiftScheduleId || timeOverlap(a.startTime, a.endTime, r.startTime, r.endTime),
-    ));
+  const dayRegs = layers.has('registration')
+    ? registrations
+        .filter((r) => r.date === key)
+        .filter((r) => !dayAssignments.some(
+          (a) => a.shiftScheduleId === r.shiftScheduleId || timeOverlap(a.startTime, a.endTime, r.startTime, r.endTime),
+        ))
+    : [];
 
   const allRows = [
     ...dayAssignments.map((a) => ({
@@ -271,10 +273,11 @@ function AgendaDay({
 }
 
 // ── Layer chips ───────────────────────────────────────────────────────────────
-const LAYERS: { key: 'personal' | 'open-pool' | 'my-claim'; label: string }[] = [
-  { key: 'personal',  label: 'Lịch của tôi' },
-  { key: 'open-pool', label: 'Chợ ca' },
-  { key: 'my-claim',  label: 'Ca chờ nhận' },
+const LAYERS: { key: 'personal' | 'open-pool' | 'my-claim' | 'registration'; label: string }[] = [
+  { key: 'personal',     label: 'Lịch của tôi' },
+  { key: 'open-pool',    label: 'Chợ ca' },
+  { key: 'my-claim',     label: 'Ca chờ duyệt' },
+  { key: 'registration', label: 'Lịch đăng ký' },
 ];
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -282,7 +285,8 @@ export function ScheduleScreen() {
   const { user } = useAuthContext();
 
   const [weekStart, setWeekStart] = useState(dayjs().startOf('week'));
-  const [layers, setLayers]  = useState<Set<string>>(new Set(['personal', 'open-pool', 'my-claim']));
+  // Mục tiêu chính là lịch được phân công — các lớp phụ (Chợ ca/Ca chờ duyệt/Lịch đăng ký) mặc định ẩn
+  const [layers, setLayers]  = useState<Set<string>>(new Set(['personal']));
 
   const { assignments, registrations, openPosts, myPosts, myClaims, refreshing, refetch } =
     useScheduleData(weekStart.format('YYYY-MM-DD'));
@@ -473,7 +477,7 @@ export function ScheduleScreen() {
             <LegendDot color={brand.warning} label="Đi muộn" />
             <LegendDot color={brand.success} label="Hoàn thành" />
             <LegendDot color={brand.info} label="Chợ ca" outline />
-            <LegendDot color={brand.secondary} label="Ca chờ nhận" outline />
+            <LegendDot color={brand.secondary} label="Ca chờ duyệt" outline />
             <LegendDot color={brand.faint} label="Đã đăng ký" />
           </View>
         </SectionCard>
