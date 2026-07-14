@@ -6,12 +6,14 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { homeHref } from 'src/auth/roles';
 import { useFeatureFlag } from 'src/services/remote-config';
 import { prefs, PrefKeys } from 'src/services/storage';
+import { isProfileComplete } from 'src/services/profile-completion';
 import { Text, Spinner } from 'src/components/ui';
 import { softShadow } from 'src/theme';
 
 // Boot gate: decides the first route based on first-run + auth state.
 //   first run        → /(onboarding)
 //   not authenticated → /(auth)/login
+//   thiếu hồ sơ bắt buộc → /complete-profile
 //   authenticated     → homeHref(user): Admin → dashboard, còn lại → checkin
 export default function Index() {
   const { loading, authenticated, user } = useAuthContext();
@@ -40,5 +42,6 @@ export default function Index() {
 
   if (onboardingEnabled && !onboardingDone) return <Redirect href="/onboarding" />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
+  if (user && !isProfileComplete(user)) return <Redirect href={'/complete-profile' as any} />;
   return <Redirect href={homeHref(user) as any} />;
 }
