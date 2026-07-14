@@ -11,3 +11,5 @@ export { ListItem } from './ListItem';
 export { ToggleRow } from './ToggleRow';
 export { Placeholder } from './Placeholder';
 export { Sheet } from './Sheet';
+export { BankPickerSheet } from './BankPickerSheet';
+export { IdCardCameraModal } from './IdCardCameraModal';

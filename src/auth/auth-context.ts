@@ -14,6 +14,13 @@ export type AuthUser = {
   photoURL?: string;
   accessToken: string;
   refreshToken?: string;
+  // Dùng để check hồ sơ đã đủ thông tin chưa (xem src/services/profile-completion.ts)
+  phoneNumber?: string;
+  address?: string;
+  bankCode?: string;
+  bankNo?: string;
+  idCardFrontUrl?: string;
+  idCardBackUrl?: string;
 };
 
 export type AuthContextType = {

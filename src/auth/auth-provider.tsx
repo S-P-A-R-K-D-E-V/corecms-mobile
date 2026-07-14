@@ -57,7 +57,36 @@ function isValidToken(token: string): boolean {
   }
 }
 
-function buildUserFromResponse(res: IAuthResponse): AuthUser {
+/** Dựng AuthUser đầy đủ (kèm phone/address/bank/CCCD) từ response `GET /users/me`.
+ *  Dùng ở mọi nơi cần biết hồ sơ đã đủ thông tin chưa — response đăng nhập
+ *  (IAuthResponse) KHÔNG có các field này nên phải gọi thêm `users.me`. */
+function buildUserFromMe(data: any, accessToken: string, refreshToken?: string): AuthUser {
+  return {
+    id: data.id,
+    email: data.email,
+    displayName: data.fullName || `${data.firstName} ${data.lastName}`,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    role: data.role || data.roles?.[0] || 'User',
+    roles: data.roles || [],
+    permissions: data.permissions || [],
+    photoURL: data.profileImageUrl ? getStorageUrl(data.profileImageUrl) : undefined,
+    accessToken,
+    refreshToken,
+    phoneNumber: data.phoneNumber,
+    address: data.address,
+    bankCode: data.bankCode,
+    bankNo: data.bankNo,
+    idCardFrontUrl: data.idCardFrontUrl,
+    idCardBackUrl: data.idCardBackUrl,
+  };
+}
+
+/** Fallback tối thiểu khi `GET /users/me` lỗi ngay sau khi đăng nhập (mạng chập
+ *  chờn) — không để một request phụ làm hỏng cả luồng đăng nhập vốn đã thành
+ *  công. Thiếu field bank/CCCD ở fallback này chỉ tạm thời: `initialize()`/
+ *  `refreshUser()` sẽ nạp lại đầy đủ ở lần sau. */
+function buildThinUser(res: IAuthResponse): AuthUser {
   return {
     id: res.id,
     email: res.email,
@@ -71,6 +100,17 @@ function buildUserFromResponse(res: IAuthResponse): AuthUser {
     accessToken: res.token,
     refreshToken: res.refreshToken,
   };
+}
+
+/** Gọi `GET /users/me` để có AuthUser đầy đủ; nếu lỗi thì fallback về thin user
+ *  thay vì làm cả luồng đăng nhập thất bại. */
+async function loadUserAfterAuth(authRes: IAuthResponse, accessToken: string, refreshToken?: string): Promise<AuthUser> {
+  try {
+    const meRes = await axiosInstance.get(endpoints.users.me);
+    return buildUserFromMe(meRes.data, accessToken, refreshToken);
+  } catch {
+    return buildThinUser(authRes);
+  }
 }
 
 async function setSession(accessToken: string | null, refreshToken?: string | null) {
@@ -105,7 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { token, refreshToken, sessionToken } = res.data;
       await setSession(token, refreshToken);
       if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
-      dispatch({ type: Types.INITIAL, payload: { user: buildUserFromResponse(res.data) } });
+      const user = await loadUserAfterAuth(res.data, token, refreshToken);
+      dispatch({ type: Types.INITIAL, payload: { user } });
       return true;
     } catch {
       await SecureStore.deleteItemAsync(SESSION_KEY);
@@ -119,19 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (accessToken && isValidToken(accessToken)) {
         axiosInstance.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
         const meRes = await axiosInstance.get(endpoints.users.me);
-        const data = meRes.data;
-        const user: AuthUser = {
-          id: data.id,
-          email: data.email,
-          displayName: data.fullName || `${data.firstName} ${data.lastName}`,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          role: data.role || data.roles?.[0] || 'User',
-          roles: data.roles || [],
-          permissions: data.permissions || [],
-          photoURL: data.profileImageUrl ? getStorageUrl(data.profileImageUrl) : undefined,
-          accessToken,
-        };
+        const user = buildUserFromMe(meRes.data, accessToken);
         dispatch({ type: Types.INITIAL, payload: { user } });
         return;
       }
@@ -152,7 +181,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { token: accessToken, refreshToken, sessionToken: newSessionToken } = res.data;
     await setSession(accessToken, refreshToken);
     if (newSessionToken) await SecureStore.setItemAsync(SESSION_KEY, newSessionToken);
-    dispatch({ type: Types.LOGIN, payload: { user: buildUserFromResponse(res.data) } });
+    const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
+    dispatch({ type: Types.LOGIN, payload: { user } });
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -174,7 +204,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     await setSession(token, refreshToken);
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
-    dispatch({ type: Types.LOGIN, payload: { user: buildUserFromResponse(res.data) } });
+    const user = await loadUserAfterAuth(res.data, token, refreshToken);
+    dispatch({ type: Types.LOGIN, payload: { user } });
   }, []);
 
   const register = useCallback(
@@ -193,7 +224,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setSession(token, refreshToken);
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     setPendingVerification(null);
-    dispatch({ type: Types.LOGIN, payload: { user: buildUserFromResponse(res.data) } });
+    const user = await loadUserAfterAuth(res.data, token, refreshToken);
+    dispatch({ type: Types.LOGIN, payload: { user } });
   }, []);
 
   const resendOtp = useCallback(async (email: string) => {
@@ -204,20 +236,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       const meRes = await axiosInstance.get(endpoints.users.me);
-      const data = meRes.data;
       const accessToken = (await SecureStore.getItemAsync(STORAGE_KEY)) ?? '';
-      const user: AuthUser = {
-        id: data.id,
-        email: data.email,
-        displayName: data.fullName || `${data.firstName} ${data.lastName}`,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        role: data.role || data.roles?.[0] || 'User',
-        roles: data.roles || [],
-        permissions: data.permissions || [],
-        photoURL: data.profileImageUrl ? getStorageUrl(data.profileImageUrl) : undefined,
-        accessToken,
-      };
+      const user = buildUserFromMe(meRes.data, accessToken);
       dispatch({ type: Types.LOGIN, payload: { user } });
     } catch {}
   }, []);
