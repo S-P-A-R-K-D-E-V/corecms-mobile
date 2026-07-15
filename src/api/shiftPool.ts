@@ -28,6 +28,12 @@ export async function getMyClaims(): Promise<IShiftPoolPost[]> {
   return response.data;
 }
 
+/** [Admin/Manager] Bài đăng đang chờ duyệt (đã có người nhận, status WaitingApproval). */
+export async function getPendingShiftPoolPosts(): Promise<IShiftPoolPost[]> {
+  const response = await axios.get<IShiftPoolPost[]>(endpoints.shiftPool.pending);
+  return response.data;
+}
+
 export async function claimShiftPoolPost(
   id: string,
   data: IClaimShiftPoolPostDto = {}

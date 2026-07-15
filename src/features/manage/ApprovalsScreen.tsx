@@ -7,24 +7,28 @@ import { Card, Text, Badge, Button, Icon, Skeleton, SegmentedControl } from 'src
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
-import type { AttendanceRequestType, IAttendanceRequest, ILateCoverRequest, IShiftSwapRequest } from 'src/types/corecms-api';
+import { NEED_TYPE_LABEL, fmtMoney } from 'src/features/schedule/constants';
+import type { AttendanceRequestType, IAttendanceRequest, IShiftPoolPost, IShiftSwapRequest } from 'src/types/corecms-api';
 
 import {
   usePendingAttendanceRequests,
   usePendingSwapRequests,
-  usePendingLateCoverRequests,
+  usePendingShiftPoolPosts,
   useProcessAttendanceRequest,
   useReviewSwapRequest,
-  useReviewLateCoverRequest,
+  useReviewShiftPoolPost,
 } from './hooks';
 
 // ----------------------------------------------------------------------
-// Trung tâm duyệt yêu cầu (Manager/Admin): Chấm công / Đổi ca / Làm hộ.
+// Trung tâm duyệt yêu cầu (Manager/Admin): Chấm công / Đổi ca / Chợ ca.
+// Tab "Chợ ca" là ShiftPool (Swap/FullCover/PartialCover) — tính năng đổi ca
+// & làm hộ THẬT SỰ đang dùng trên web, thay cho LateCoverRequest cũ (đã ngừng
+// tạo request mới nên trước đây tab này luôn hiện rỗng dù có noti chờ duyệt).
 // Quy tắc ca đã bắt đầu do BE (ShiftMutationGuard) chặn — FE chỉ hiển thị
 // lỗi trả về, không tự nhân bản luật.
 // ----------------------------------------------------------------------
 
-type Tab = 'attendance' | 'swap' | 'cover';
+type Tab = 'attendance' | 'swap' | 'pool';
 
 const REQUEST_TYPE_LABEL: Record<AttendanceRequestType, string> = {
   MissedCheckIn: 'Quên giờ vào',
@@ -149,28 +153,39 @@ function SwapCard({ item }: { item: IShiftSwapRequest }) {
   );
 }
 
-function CoverCard({ item }: { item: ILateCoverRequest }) {
-  const mutation = useReviewLateCoverRequest();
+function PoolCard({ item }: { item: IShiftPoolPost }) {
+  const mutation = useReviewShiftPoolPost();
   const decide = useDecide();
   return (
     <Card className="p-4 gap-2">
       <View className="flex-row items-center gap-2">
         <Icon name="account-switch" size={18} tone="primary" />
-        <Text variant="subtitle" className="flex-1">{item.lateStaffName} → {item.coveringStaffName}</Text>
-        <Badge tone="info">{item.coveringHours}h</Badge>
+        <Text variant="subtitle" className="flex-1">{item.posterName} → {item.claimerName ?? '—'}</Text>
+        <Badge tone="info">{NEED_TYPE_LABEL[item.needType]}</Badge>
       </View>
       <Text variant="bodySmall" tone="muted">
-        Ca: {item.lateShiftName} · {dayjs(item.lateShiftDate).format('DD/MM')} · {item.coveringStartTime}–{item.coveringEndTime}
+        Ca: {item.shiftName} · {dayjs(item.shiftDate).format('DD/MM')} · {item.shiftStartTime}–{item.shiftEndTime}
       </Text>
-      <Text variant="bodySmall" tone="muted">
-        Phụ trội: {item.extraPayAmount.toLocaleString('vi-VN')}đ
-      </Text>
-      {item.reason ? <Text variant="bodySmall">Lý do: {item.reason}</Text> : null}
+      {item.needType === 'PartialCover' && item.partialStartTime ? (
+        <Text variant="bodySmall" tone="muted">
+          Khoảng làm hộ: {item.partialStartTime.slice(0, 5)}–{item.partialEndTime?.slice(0, 5)}
+        </Text>
+      ) : null}
+      {item.needType === 'Swap' && item.claimerOfferedShiftName ? (
+        <Text variant="bodySmall" tone="muted">
+          Đổi lại: {item.claimerOfferedShiftName}
+          {item.claimerOfferedShiftDate ? ` · ${dayjs(item.claimerOfferedShiftDate).format('DD/MM')}` : ''}
+        </Text>
+      ) : null}
+      {item.extraPayAmount ? (
+        <Text variant="bodySmall" tone="muted">Phụ trội: {fmtMoney(item.extraPayAmount)}</Text>
+      ) : null}
+      {item.note ? <Text variant="bodySmall">Ghi chú: {item.note}</Text> : null}
       <Text variant="caption" tone="faint">Gửi lúc {dayjs(item.createdAt).format('HH:mm DD/MM/YYYY')}</Text>
       <ReviewActions
         busy={mutation.isPending}
         onDecide={(status) =>
-          decide(`yêu cầu làm hộ ${item.lateStaffName} → ${item.coveringStaffName}`, status, () =>
+          decide(`yêu cầu ${NEED_TYPE_LABEL[item.needType].toLowerCase()} của ${item.posterName}`, status, () =>
             mutation.mutateAsync({ id: item.id, status })
           )
         }
@@ -200,14 +215,14 @@ export function ApprovalsScreen() {
 
   const att = usePendingAttendanceRequests();
   const swap = usePendingSwapRequests();
-  const cover = usePendingLateCoverRequests();
+  const pool = usePendingShiftPoolPosts();
 
-  const current = { attendance: att, swap, cover }[tab];
-  const refreshing = att.isFetching || swap.isFetching || cover.isFetching;
+  const current = { attendance: att, swap, pool }[tab];
+  const refreshing = att.isFetching || swap.isFetching || pool.isFetching;
   const onRefresh = () => {
     att.refetch();
     swap.refetch();
-    cover.refetch();
+    pool.refetch();
   };
 
   const label = (base: string, n?: number) => (n ? `${base} (${n})` : base);
@@ -220,7 +235,7 @@ export function ApprovalsScreen() {
         segments={[
           { key: 'attendance', label: label('Chấm công', att.data?.length) },
           { key: 'swap', label: label('Đổi ca', swap.data?.length) },
-          { key: 'cover', label: label('Làm hộ', cover.data?.length) },
+          { key: 'pool', label: label('Chợ ca', pool.data?.length) },
         ]}
         value={tab}
         onChange={(k) => setTab(k as Tab)}
@@ -237,7 +252,7 @@ export function ApprovalsScreen() {
       ) : tab === 'swap' ? (
         (swap.data ?? []).map((r) => <SwapCard key={r.id} item={r} />)
       ) : (
-        (cover.data ?? []).map((r) => <CoverCard key={r.id} item={r} />)
+        (pool.data ?? []).map((r) => <PoolCard key={r.id} item={r} />)
       )}
     </Screen>
   );
