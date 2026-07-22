@@ -50,6 +50,8 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   // ── Quản trị (Admin) ───────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', group: 'admin', roles: ADMIN_ROLES },
   { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', group: 'admin', roles: ADMIN_ROLES },
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', group: 'admin', roles: ADMIN_ROLES },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', group: 'admin', roles: ADMIN_ROLES },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', group: 'admin', roles: ADMIN_ROLES },
@@ -76,5 +78,5 @@ export type LauncherVariant = 'staff' | 'admin';
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
   staff: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
-  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'revenue-report', 'attendance-report', 'payroll-cycle', 'users'],
+  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'revenue-report', 'financial-overview', 'break-even-report', 'attendance-report', 'payroll-cycle', 'users'],
 };

@@ -1052,3 +1052,55 @@ export interface IPaymentMethodReport {
   totalAmount: number;
   percentage: number;
 }
+
+// --- Expense Report (chi phí vận hành) ---
+export interface IExpensePeriod {
+  period: string;
+  amount: number;
+}
+
+export interface IExpenseCategoryBreakdown {
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+}
+
+export interface IExpenseReport {
+  totalExpense: number;
+  periods: IExpensePeriod[];
+  byCategory: IExpenseCategoryBreakdown[];
+}
+
+// --- Break-even Analysis (điểm hòa vốn) ---
+export interface IOperatingCostLine {
+  label: string;
+  amount: number;
+  isEstimated: boolean;
+  source: 'recorded' | 'recurring' | 'labor' | 'labor-estimated' | 'variable-estimated';
+}
+
+export interface IOperatingCostBreakdown {
+  recordedExpenses: number;
+  projectedRecurring: number;
+  laborActual: number;
+  laborEstimated: number;
+  variableEstimated: number;
+  total: number;
+  hasEstimates: boolean;
+  fixedCost: number;
+  variableCost: number;
+  laborCost: number;
+  otherCost: number;
+  lines: IOperatingCostLine[];
+}
+
+export interface IBreakEvenAnalysis {
+  period: string;
+  targetDate: string;
+  fixedCosts: number;
+  cogsRatio: number;
+  breakEvenRevenue: number;
+  actualRevenue: number;
+  gap: number;
+  operatingCost: IOperatingCostBreakdown;
+}
