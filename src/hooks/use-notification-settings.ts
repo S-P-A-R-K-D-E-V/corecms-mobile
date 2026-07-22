@@ -21,6 +21,7 @@ export interface NotificationPreferences {
     Leave: boolean;
     System: boolean;
     Messages: boolean;
+    Cleaning: boolean;
   };
 }
 
@@ -36,6 +37,7 @@ const DEFAULT_PREFS: NotificationPreferences = {
     Leave: true,
     System: true,
     Messages: true,
+    Cleaning: true,
   },
 };
 

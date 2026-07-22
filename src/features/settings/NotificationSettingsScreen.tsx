@@ -13,6 +13,7 @@ const CATEGORIES: { key: CategoryKey; label: string; desc: string; icon: IconNam
   { key: 'Shift', label: 'Ca làm việc', desc: 'Đổi ca, làm hộ, nhắc ca', icon: 'calendar-clock', color: brand.info },
   { key: 'Attendance', label: 'Chấm công', desc: 'Check-in/out, điều chỉnh giờ', icon: 'fingerprint', color: brand.primary },
   { key: 'Payroll', label: 'Bảng lương', desc: 'Kỳ lương mới, thanh toán', icon: 'cash-multiple', color: brand.success },
+  { key: 'Cleaning', label: 'Vệ sinh', desc: 'Kết quả chấm điểm, phạt vệ sinh', icon: 'broom', color: brand.warning },
   { key: 'Leave', label: 'Nghỉ phép', desc: 'Yêu cầu nghỉ, duyệt nghỉ', icon: 'calendar-remove-outline', color: brand.warning },
   { key: 'System', label: 'Hệ thống', desc: 'Thông báo từ Admin, cập nhật', icon: 'cog-outline', color: brand.secondary },
 ];
