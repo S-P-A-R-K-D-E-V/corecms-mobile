@@ -46,6 +46,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', group: 'manage', roles: MANAGER_ROLES },
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', group: 'manage', roles: MANAGER_ROLES },
+  { key: 'cleaning-week', label: 'Theo dõi vệ sinh', icon: 'broom', href: '/manage/cleaning', group: 'manage', roles: MANAGER_ROLES },
 
   // ── Quản trị (Admin) ───────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', group: 'admin', roles: ADMIN_ROLES },
@@ -77,6 +78,6 @@ export type LauncherVariant = 'staff' | 'admin';
  * role tự ẩn, còn Manager/Admin-kiêm-ca thấy ngay không cần tùy chỉnh.
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
-  staff: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
-  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'revenue-report', 'financial-overview', 'break-even-report', 'attendance-report', 'payroll-cycle', 'users'],
+  staff: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
+  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'revenue-report', 'financial-overview', 'break-even-report', 'attendance-report', 'payroll-cycle', 'users'],
 };

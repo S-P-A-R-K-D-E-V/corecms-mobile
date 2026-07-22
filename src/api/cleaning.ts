@@ -1,5 +1,5 @@
 import axios, { endpoints } from './axios';
-import type { ICleaningTaskInstance, IMyCleaningChecklist } from 'src/types/corecms-api';
+import type { ICleaningTaskInstance, ICleaningWeekCell, IMyCleaningChecklist } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 
@@ -20,6 +20,13 @@ export async function completeCleaningTask(
   formData.append('photo', photo as any);
   const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.completeTask(id), formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+}
+
+export async function getCleaningWeekOverview(fromDate: string, toDate: string): Promise<ICleaningWeekCell[]> {
+  const response = await axios.get<ICleaningWeekCell[]>(endpoints.cleaning.weekOverview, {
+    params: { fromDate, toDate },
   });
   return response.data;
 }

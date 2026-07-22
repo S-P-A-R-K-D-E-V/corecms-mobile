@@ -1144,3 +1144,13 @@ export interface IMyCleaningChecklist {
   cleaningBlock: CleaningShiftBlock;
   tasks: ICleaningTaskInstance[];
 }
+
+export interface ICleaningWeekCell {
+  date: string; // "yyyy-MM-dd"
+  cleaningBlock: CleaningShiftBlock;
+  staffNames: string[];
+  pendingCount: number;
+  doneCount: number;
+  passedCount: number;
+  failedCount: number;
+}
