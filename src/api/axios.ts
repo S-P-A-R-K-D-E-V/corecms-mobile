@@ -216,6 +216,8 @@ export const endpoints = {
     dashboard: '/reports/dashboard',
     revenue: '/reports/revenue',
     paymentMethods: '/reports/payment-methods',
+    expenses: '/reports/expenses',
+    breakEven: '/reports/break-even',
   },
 };
 

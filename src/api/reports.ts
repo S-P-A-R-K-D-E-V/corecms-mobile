@@ -4,6 +4,8 @@ import type {
   IRevenueReport,
   IPaymentMethodReport,
   IAttendanceReport,
+  IExpenseReport,
+  IBreakEvenAnalysis,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -40,5 +42,22 @@ export async function getAttendanceReport(params: {
   toDate: string;
 }): Promise<IAttendanceReport[]> {
   const response = await axios.get<IAttendanceReport[]>(endpoints.attendance.report, { params });
+  return response.data;
+}
+
+export async function getExpenseReport(params: {
+  fromDate: string;
+  toDate: string;
+  groupBy?: string;
+}): Promise<IExpenseReport> {
+  const response = await axios.get<IExpenseReport>(endpoints.reports.expenses, { params });
+  return response.data;
+}
+
+export async function getBreakEvenAnalysis(params: {
+  period: 'day' | 'month' | 'year';
+  targetDate: string;
+}): Promise<IBreakEvenAnalysis> {
+  const response = await axios.get<IBreakEvenAnalysis>(endpoints.reports.breakEven, { params });
   return response.data;
 }

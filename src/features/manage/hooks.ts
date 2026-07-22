@@ -165,6 +165,7 @@ export function usePendingShiftPoolPosts() {
 }
 
 type ReviewInput = { id: string; status: 'Approved' | 'Rejected'; reviewNote?: string };
+type SwapReviewInput = { id: string; status: 'Approved' | 'Rejected' | 'Cancelled'; reviewNote?: string };
 
 export function useProcessAttendanceRequest() {
   const qc = useQueryClient();
@@ -180,7 +181,7 @@ export function useProcessAttendanceRequest() {
 export function useReviewSwapRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status, reviewNote }: ReviewInput) =>
+    mutationFn: ({ id, status, reviewNote }: SwapReviewInput) =>
       reviewShiftSwapRequest(id, { status, reviewNote }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['manage', 'swap-requests'] });

@@ -8,7 +8,9 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { NEED_TYPE_LABEL, fmtMoney } from 'src/features/schedule/constants';
-import type { AttendanceRequestType, IAttendanceRequest, IShiftPoolPost, IShiftSwapRequest } from 'src/types/corecms-api';
+import { useAuthContext } from 'src/auth/auth-context';
+import { isAdminUser } from 'src/auth/roles';
+import type { AttendanceRequestType, IAttendanceRequest,IShiftPoolPost, ILateCoverRequest, IShiftSwapRequest } from 'src/types/corecms-api';
 
 import {
   usePendingAttendanceRequests,
@@ -121,8 +123,33 @@ function AttendanceCard({ item }: { item: IAttendanceRequest }) {
 }
 
 function SwapCard({ item }: { item: IShiftSwapRequest }) {
+  const { user } = useAuthContext();
+  const isAdmin = isAdminUser(user);
   const mutation = useReviewSwapRequest();
   const decide = useDecide();
+
+  // Request mới tạo nằm ở WaitingTargetConfirmation cho tới khi NV được nhờ xác
+  // nhận — BE chưa cho Approve/Reject ở trạng thái này, chỉ Admin huỷ được sớm.
+  const waitingTarget = item.status === 'WaitingTargetConfirmation';
+
+  const cancelRequest = async () => {
+    const ok = await confirm({
+      title: 'Huỷ yêu cầu đổi ca',
+      message: `Huỷ yêu cầu đổi ca của ${item.requesterName}?`,
+      confirmText: 'Huỷ yêu cầu',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await mutation.mutateAsync({ id: item.id, status: 'Cancelled' });
+      haptics.success();
+      toast.success('Đã huỷ yêu cầu.');
+    } catch (err) {
+      haptics.error();
+      toast.error(extractApiError(err), 'Không huỷ được');
+    }
+  };
+
   return (
     <Card className="p-4 gap-2">
       <View className="flex-row items-center gap-2">
@@ -141,14 +168,24 @@ function SwapCard({ item }: { item: IShiftSwapRequest }) {
       ) : null}
       {item.reason ? <Text variant="bodySmall">Lý do: {item.reason}</Text> : null}
       <Text variant="caption" tone="faint">Gửi lúc {dayjs(item.createdAt).format('HH:mm DD/MM/YYYY')}</Text>
-      <ReviewActions
-        busy={mutation.isPending}
-        onDecide={(status) =>
-          decide(`yêu cầu đổi ca của ${item.requesterName}`, status, () =>
-            mutation.mutateAsync({ id: item.id, status })
-          )
-        }
-      />
+      {waitingTarget ? (
+        isAdmin ? (
+          <Button variant="soft" action="error" size="sm" loading={mutation.isPending} onPress={cancelRequest}>
+            Huỷ yêu cầu
+          </Button>
+        ) : (
+          <Text variant="caption" tone="muted">Đang chờ nhân viên được nhờ xác nhận.</Text>
+        )
+      ) : (
+        <ReviewActions
+          busy={mutation.isPending}
+          onDecide={(status) =>
+            decide(`yêu cầu đổi ca của ${item.requesterName}`, status, () =>
+              mutation.mutateAsync({ id: item.id, status })
+            )
+          }
+        />
+      )}
     </Card>
   );
 }
