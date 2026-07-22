@@ -68,6 +68,11 @@ export function usePushRegistration() {
         importance: Notifications.AndroidImportance.DEFAULT,
         lightColor: '#22C55E',
       });
+      Notifications.setNotificationChannelAsync('cleaning', {
+        name: 'Vệ sinh',
+        importance: Notifications.AndroidImportance.HIGH,
+        lightColor: '#F59E0B',
+      });
     }
 
     (async () => {

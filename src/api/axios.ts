@@ -219,6 +219,10 @@ export const endpoints = {
     expenses: '/reports/expenses',
     breakEven: '/reports/break-even',
   },
+  cleaning: {
+    myChecklist: '/cleaning/my-checklist',
+    completeTask: (id: string) => `/cleaning/tasks/${id}/complete`,
+  },
 };
 
 // ----------------------------------------------------------------------

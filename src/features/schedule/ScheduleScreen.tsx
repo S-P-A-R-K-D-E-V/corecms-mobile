@@ -424,7 +424,7 @@ export function ScheduleScreen() {
         
       </View>
       {/* Single register button for the whole week */}
-      <View style={{ marginTop: 4 }}>
+      <View className="flex-row gap-2" style={{ marginTop: 4 }}>
         <Button
           size="sm"
           icon="plus"
@@ -436,6 +436,9 @@ export function ScheduleScreen() {
           }
         >
           Đăng ký ca
+        </Button>
+        <Button size="sm" variant="outline" icon="broom" onPress={() => router.push('/cleaning' as any)}>
+          Checklist vệ sinh
         </Button>
       </View>
       {/* 7-day agenda */}

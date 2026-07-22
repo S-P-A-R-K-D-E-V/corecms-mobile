@@ -1104,3 +1104,43 @@ export interface IBreakEvenAnalysis {
   gap: number;
   operatingCost: IOperatingCostBreakdown;
 }
+
+// --- Cleaning Schedule ---
+export type CleaningShiftBlock = 'Morning' | 'Afternoon' | 'Evening';
+export type CleaningTaskStatus = 'Pending' | 'Done' | 'Passed' | 'Failed';
+
+export interface ICleaningPenalty {
+  id: string;
+  userId: string;
+  userName?: string | null;
+  amount: number;
+  reason?: string | null;
+  createdByUserId: string;
+  createdAt: string;
+  voidedAt?: string | null;
+}
+
+export interface ICleaningTaskInstance {
+  id: string;
+  templateId: string;
+  name: string;
+  area?: string | null;
+  date: string; // "yyyy-MM-dd"
+  cleaningBlock: CleaningShiftBlock;
+  status: CleaningTaskStatus;
+  completedByUserId?: string | null;
+  completedByUserName?: string | null;
+  completedAt?: string | null;
+  photoObjectKey?: string | null;
+  reviewedByUserId?: string | null;
+  reviewedAt?: string | null;
+  reviewNote?: string | null;
+  penalties: ICleaningPenalty[];
+}
+
+export interface IMyCleaningChecklist {
+  shiftAssignmentId: string;
+  shiftName: string;
+  cleaningBlock: CleaningShiftBlock;
+  tasks: ICleaningTaskInstance[];
+}
