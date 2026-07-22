@@ -14,7 +14,7 @@ import { getShiftRegistrations } from 'src/api/shiftRegistration';
 import { getAttendanceReport } from 'src/api/reports';
 import { adjustAttendanceTime, getAttendanceRequests, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
-import { getPendingLateCoverRequests, reviewLateCoverRequest } from 'src/api/lateCover';
+import { getPendingShiftPoolPosts, reviewShiftPoolPost } from 'src/api/shiftPool';
 import type {
   IAdjustAttendanceTimeRequest,
   IAutoAssignSlotDto,
@@ -153,10 +153,13 @@ export function usePendingSwapRequests() {
   });
 }
 
-export function usePendingLateCoverRequests() {
+/** Bài đăng ShiftPool (đổi ca/làm hộ cả ca/làm hộ 1 phần) đã có người nhận,
+ *  đang chờ Admin/Manager duyệt — đây là tính năng "Chợ ca" thật sự đang dùng
+ *  (thay cho LateCoverRequest cũ, feature đã ngừng tạo request mới). */
+export function usePendingShiftPoolPosts() {
   return useQuery({
-    queryKey: ['manage', 'late-cover', 'pending'],
-    queryFn: getPendingLateCoverRequests,
+    queryKey: ['manage', 'shift-pool', 'pending'],
+    queryFn: getPendingShiftPoolPosts,
     staleTime: MINUTE,
   });
 }
@@ -188,13 +191,15 @@ export function useReviewSwapRequest() {
   });
 }
 
-export function useReviewLateCoverRequest() {
+export function useReviewShiftPoolPost() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, status, reviewNote }: ReviewInput) =>
-      reviewLateCoverRequest(id, { status, reviewNote }),
+      reviewShiftPoolPost(id, { action: status === 'Approved' ? 'Approve' : 'RejectClaim', reviewNote }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['manage', 'late-cover'] });
+      qc.invalidateQueries({ queryKey: ['manage', 'shift-pool'] });
+      // Duyệt làm thay đổi phân công (StaffId đổi khi Swap/FullCover).
+      qc.invalidateQueries({ queryKey: ['manage', 'team-assignments'] });
     },
   });
 }
@@ -203,6 +208,6 @@ export function useReviewLateCoverRequest() {
 export function usePendingApprovalsCount() {
   const att = usePendingAttendanceRequests();
   const swap = usePendingSwapRequests();
-  const cover = usePendingLateCoverRequests();
-  return (att.data?.length ?? 0) + (swap.data?.length ?? 0) + (cover.data?.length ?? 0);
+  const pool = usePendingShiftPoolPosts();
+  return (att.data?.length ?? 0) + (swap.data?.length ?? 0) + (pool.data?.length ?? 0);
 }

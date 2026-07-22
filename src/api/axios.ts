@@ -196,6 +196,7 @@ export const endpoints = {
     open: '/shift-pool/open',
     myPosts: '/shift-pool/my-posts',
     myClaims: '/shift-pool/my-claims',
+    pending: '/shift-pool/pending',
     claim: (id: string) => `/shift-pool/${id}/claim`,
     cancel: (id: string) => `/shift-pool/${id}/cancel`,
     review: (id: string) => `/shift-pool/${id}/review`,
