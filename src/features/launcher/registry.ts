@@ -56,6 +56,8 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', group: 'admin', roles: ADMIN_ROLES },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', group: 'admin', roles: ADMIN_ROLES },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'cleaning-builder', label: 'Xây dựng checklist', icon: 'calendar-edit', href: '/manage/cleaning-builder', group: 'admin', roles: ADMIN_ROLES },
 ];
 
 const BY_KEY = new Map(FEATURE_REGISTRY.map((f) => [f.key, f]));
@@ -79,5 +81,5 @@ export type LauncherVariant = 'staff' | 'admin';
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
   staff: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
-  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'revenue-report', 'financial-overview', 'break-even-report', 'attendance-report', 'payroll-cycle', 'users'],
+  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'cleaning-builder', 'revenue-report', 'financial-overview', 'break-even-report', 'attendance-report', 'payroll-cycle', 'users'],
 };
