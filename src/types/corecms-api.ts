@@ -1131,7 +1131,7 @@ export interface ICleaningTaskInstance {
   completedByUserId?: string | null;
   completedByUserName?: string | null;
   completedAt?: string | null;
-  photoObjectKey?: string | null;
+  photoObjectKeys: string[];
   reviewedByUserId?: string | null;
   reviewedAt?: string | null;
   reviewNote?: string | null;

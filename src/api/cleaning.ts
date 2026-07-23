@@ -24,10 +24,10 @@ export type CleaningPhotoFile = { uri: string; name: string; type: string };
 
 export async function completeCleaningTask(
   id: string,
-  photo: CleaningPhotoFile
+  photos: CleaningPhotoFile[]
 ): Promise<ICleaningTaskInstance> {
   const formData = new FormData();
-  formData.append('photo', photo as any);
+  photos.forEach((photo) => formData.append('photos', photo as any));
   const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.completeTask(id), formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
