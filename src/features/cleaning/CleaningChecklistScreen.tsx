@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { Screen, AppHeader, SectionCard } from 'src/components/shared';
+import { Screen, AppHeader, SectionCard, Sheet } from 'src/components/shared';
 import { Text, Button, Badge, Icon, Pressable } from 'src/components/ui';
-import { cn } from 'src/components/ui/utils';
-import { showActionSheet, toast } from 'src/components/overlay';
+import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { getMyCleaningChecklist, completeCleaningTask, type CleaningPhotoFile } from 'src/api/cleaning';
 import type { ICleaningTaskInstance, CleaningTaskStatus } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
+
+const MAX_PHOTOS = 5;
 
 const BLOCK_LABEL: Record<string, string> = { Morning: 'Sáng', Afternoon: 'Chiều', Evening: 'Tối' };
 
@@ -30,10 +31,9 @@ const STATUS_LABEL: Record<CleaningTaskStatus, string> = {
   Failed: 'Không đạt',
 };
 
-function TaskRow({ task, onComplete, busy }: {
+function TaskRow({ task, onOpenPicker }: {
   task: ICleaningTaskInstance;
-  onComplete: (task: ICleaningTaskInstance) => void;
-  busy: boolean;
+  onOpenPicker: (task: ICleaningTaskInstance) => void;
 }) {
   const canComplete = task.status === 'Pending' || task.status === 'Done';
   const myPenalties = task.penalties.filter((p) => !p.voidedAt);
@@ -48,8 +48,10 @@ function TaskRow({ task, onComplete, busy }: {
         <Badge tone={STATUS_TONE[task.status]}>{STATUS_LABEL[task.status]}</Badge>
       </View>
 
-      {task.status === 'Done' && task.photoObjectKey ? (
-        <Text variant="caption" tone="primary">Đã gửi ảnh, đang chờ Quản lý chấm điểm.</Text>
+      {task.status === 'Done' && task.photoObjectKeys.length > 0 ? (
+        <Text variant="caption" tone="primary">
+          Đã gửi {task.photoObjectKeys.length} ảnh, đang chờ Quản lý chấm điểm.
+        </Text>
       ) : null}
 
       {task.status === 'Failed' && task.reviewNote ? (
@@ -71,10 +73,9 @@ function TaskRow({ task, onComplete, busy }: {
           size="sm"
           variant={task.status === 'Done' ? 'outline' : 'solid'}
           icon="camera-outline"
-          loading={busy}
-          onPress={() => onComplete(task)}
+          onPress={() => onOpenPicker(task)}
         >
-          {task.status === 'Done' ? 'Chụp lại ảnh' : 'Chụp ảnh & hoàn thành'}
+          {task.status === 'Done' ? 'Chụp lại ảnh' : `Chọn ảnh & hoàn thành (tối đa ${MAX_PHOTOS})`}
         </Button>
       ) : null}
     </View>
@@ -84,7 +85,9 @@ function TaskRow({ task, onComplete, busy }: {
 export function CleaningChecklistScreen() {
   const qc = useQueryClient();
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
-  const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
+  const [pickerTask, setPickerTask] = useState<ICleaningTaskInstance | null>(null);
+  const [pendingPhotos, setPendingPhotos] = useState<CleaningPhotoFile[]>([]);
+  const [submitting, setSubmitting] = useState(false);
 
   const { data, isFetching, refetch } = useQuery({
     queryKey: ['cleaning', 'my-checklist', date],
@@ -93,51 +96,78 @@ export function CleaningChecklistScreen() {
 
   const shifts = data ?? [];
 
-  async function pickPhotoAndComplete(task: ICleaningTaskInstance, source: 'camera' | 'library') {
-    const perm = source === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      toast.error(
-        source === 'camera' ? 'Vui lòng cấp quyền camera để chụp ảnh minh chứng.' : 'Vui lòng cấp quyền thư viện ảnh.',
-        'Cần cấp quyền'
-      );
+  function openPicker(task: ICleaningTaskInstance) {
+    setPickerTask(task);
+    setPendingPhotos([]);
+  }
+
+  function closePicker() {
+    setPickerTask(null);
+    setPendingPhotos([]);
+  }
+
+  function removePending(index: number) {
+    setPendingPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function addFromCamera() {
+    if (pendingPhotos.length >= MAX_PHOTOS) {
+      toast.warning(`Tối đa ${MAX_PHOTOS} ảnh`);
       return;
     }
-
-    const result = source === 'camera'
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7 })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    const perm = await ImagePicker.requestCameraPermissionsAsync();
+    if (!perm.granted) {
+      toast.error('Vui lòng cấp quyền camera để chụp ảnh minh chứng.', 'Cần cấp quyền');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
     if (result.canceled || result.assets.length === 0) return;
-
     const asset = result.assets[0];
-    const photo: CleaningPhotoFile = {
-      uri: asset.uri,
-      name: asset.fileName ?? `cleaning_${Date.now()}.jpg`,
-      type: asset.mimeType ?? 'image/jpeg',
-    };
+    setPendingPhotos((prev) => [
+      ...prev,
+      { uri: asset.uri, name: asset.fileName ?? `cleaning_${Date.now()}.jpg`, type: asset.mimeType ?? 'image/jpeg' },
+    ].slice(0, MAX_PHOTOS));
+  }
 
-    setBusyTaskId(task.id);
+  async function addFromLibrary() {
+    const remaining = MAX_PHOTOS - pendingPhotos.length;
+    if (remaining <= 0) {
+      toast.warning(`Tối đa ${MAX_PHOTOS} ảnh`);
+      return;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      toast.error('Vui lòng cấp quyền thư viện ảnh.', 'Cần cấp quyền');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+    });
+    if (result.canceled) return;
+    const newPhotos: CleaningPhotoFile[] = result.assets.map((a, i) => ({
+      uri: a.uri,
+      name: a.fileName ?? `cleaning_${Date.now()}_${i}.jpg`,
+      type: a.mimeType ?? 'image/jpeg',
+    }));
+    setPendingPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
+  }
+
+  async function handleSubmit() {
+    if (!pickerTask || pendingPhotos.length === 0) return;
+    setSubmitting(true);
     try {
-      await completeCleaningTask(task.id, photo);
+      await completeCleaningTask(pickerTask.id, pendingPhotos);
       toast.success('Đã ghi nhận hoàn thành, chờ Quản lý chấm điểm.');
+      closePicker();
       qc.invalidateQueries({ queryKey: ['cleaning', 'my-checklist'] });
     } catch (err: any) {
       toast.error(extractApiError(err));
     } finally {
-      setBusyTaskId(null);
+      setSubmitting(false);
     }
-  }
-
-  function handleComplete(task: ICleaningTaskInstance) {
-    showActionSheet({
-      title: 'Ảnh minh chứng',
-      message: 'Chụp ảnh hoặc chọn từ thư viện',
-      options: [
-        { label: 'Chụp ảnh', icon: 'camera-outline', onPress: () => pickPhotoAndComplete(task, 'camera') },
-        { label: 'Chọn từ thư viện', icon: 'image-multiple-outline', onPress: () => pickPhotoAndComplete(task, 'library') },
-      ],
-    });
   }
 
   return (
@@ -176,13 +206,61 @@ export function CleaningChecklistScreen() {
               {shift.tasks.map((task, i) => (
                 <View key={task.id}>
                   {i > 0 ? <View className="h-px bg-line/50 dark:bg-line-dark/50" /> : null}
-                  <TaskRow task={task} onComplete={handleComplete} busy={busyTaskId === task.id} />
+                  <TaskRow task={task} onOpenPicker={openPicker} />
                 </View>
               ))}
             </View>
           </SectionCard>
         ))
       )}
+
+      <Sheet
+        visible={!!pickerTask}
+        title={pickerTask ? `Ảnh minh chứng: ${pickerTask.name}` : ''}
+        onClose={closePicker}
+        footer={
+          <Button loading={submitting} disabled={pendingPhotos.length === 0} onPress={handleSubmit}>
+            Hoàn thành ({pendingPhotos.length} ảnh)
+          </Button>
+        }
+      >
+        <View className="gap-3">
+          {pendingPhotos.length > 0 ? (
+            <View className="flex-row flex-wrap gap-2">
+              {pendingPhotos.map((photo, index) => (
+                <View key={photo.uri + index} className="relative">
+                  <Image source={{ uri: photo.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
+                  <Pressable
+                    onPress={() => removePending(index)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-error items-center justify-center"
+                  >
+                    <Icon name="close" size={12} tone="inverse" />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text variant="bodySmall" tone="muted">Chưa chọn ảnh nào — chụp hoặc chọn từ thư viện bên dưới.</Text>
+          )}
+
+          {pendingPhotos.length < MAX_PHOTOS ? (
+            <View className="flex-row gap-2">
+              <View className="flex-1">
+                <Button variant="outline" icon="camera-outline" onPress={addFromCamera}>
+                  Chụp ảnh
+                </Button>
+              </View>
+              <View className="flex-1">
+                <Button variant="outline" icon="image-multiple-outline" onPress={addFromLibrary}>
+                  Thư viện
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <Text variant="caption" tone="faint">Đã đạt tối đa {MAX_PHOTOS} ảnh.</Text>
+          )}
+        </View>
+      </Sheet>
     </Screen>
   );
 }

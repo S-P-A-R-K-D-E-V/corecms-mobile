@@ -17,6 +17,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { useQuery } from '@tanstack/react-query';
 
 import { smartCheckIn, smartCheckOut, checkIn, checkinFace, getBranchLocations } from 'src/api/attendance';
+import { getMyCleaningChecklist } from 'src/api/cleaning';
 import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
@@ -75,6 +76,40 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
       </View>
       <Badge tone={badge.tone}>{badge.label}</Badge>
     </View>
+  );
+}
+
+// ── Cleaning checklist summary (thẻ tóm tắt + link, không nhúng cả checklist) ─
+function CleaningChecklistSummaryCard() {
+  const today = dayjs().format('YYYY-MM-DD');
+  const { data } = useQuery({
+    queryKey: ['cleaning', 'my-checklist', today],
+    queryFn: () => getMyCleaningChecklist(today),
+  });
+
+  const tasks = (data ?? []).flatMap((shift) => shift.tasks);
+  if (tasks.length === 0) return null;
+
+  const doneCount = tasks.filter((t) => t.status !== 'Pending').length;
+  const failedCount = tasks.filter((t) => t.status === 'Failed').length;
+
+  return (
+    <Pressable
+      onPress={() => router.push('/cleaning' as any)}
+      className="flex-row items-center gap-3 p-3.5 rounded-2xl bg-bg dark:bg-surface-dark"
+    >
+      <View className="w-10 h-10 rounded-full bg-primary/10 items-center justify-center">
+        <Icon name="broom" size={20} tone="primary" />
+      </View>
+      <View className="flex-1">
+        <Text className="font-semibold text-[14px]">Checklist vệ sinh ca này</Text>
+        <Text variant="caption" tone="muted">
+          {doneCount}/{tasks.length} đầu việc đã xong
+          {failedCount > 0 ? ` · ${failedCount} không đạt` : ''}
+        </Text>
+      </View>
+      <Icon name="chevron-right" size={20} tone="faint" />
+    </Pressable>
   );
 }
 
@@ -521,6 +556,9 @@ export function CheckinScreen() {
           ))
         )}
       </SectionCard>
+
+      {/* Checklist vệ sinh — thẻ tóm tắt, bấm vào mở màn checklist đầy đủ */}
+      <CleaningChecklistSummaryCard />
 
       {/* Stats tuần này — số ca được phân / vắng mặt / đi muộn */}
       {report ? (
