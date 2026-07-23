@@ -222,6 +222,13 @@ export const endpoints = {
   cleaning: {
     myChecklist: '/cleaning/my-checklist',
     completeTask: (id: string) => `/cleaning/tasks/${id}/complete`,
+    weekOverview: '/cleaning/week-overview',
+    taskDefinitions: '/cleaning/task-definitions',
+    taskDefinitionDetails: (id: string) => `/cleaning/task-definitions/${id}`,
+    templates: '/cleaning/templates',
+    templateDetails: (id: string) => `/cleaning/templates/${id}`,
+    templateWeek: '/cleaning/templates/week',
+    duplicateWeek: '/cleaning/templates/duplicate-week',
   },
 };
 

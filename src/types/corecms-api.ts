@@ -1144,3 +1144,60 @@ export interface IMyCleaningChecklist {
   cleaningBlock: CleaningShiftBlock;
   tasks: ICleaningTaskInstance[];
 }
+
+export interface ICleaningWeekCell {
+  date: string; // "yyyy-MM-dd"
+  cleaningBlock: CleaningShiftBlock;
+  staffNames: string[];
+  pendingCount: number;
+  doneCount: number;
+  passedCount: number;
+  failedCount: number;
+}
+
+// --- Cleaning Task Library + Checklist Builder (Admin) ---
+export interface ICleaningTaskDefinition {
+  id: string;
+  name: string;
+  area?: string | null;
+  isActive: boolean;
+}
+
+export interface ICreateCleaningTaskDefinitionRequest {
+  name: string;
+  area?: string;
+}
+
+export interface IUpdateCleaningTaskDefinitionRequest {
+  name: string;
+  area?: string;
+  isActive: boolean;
+}
+
+export interface ICleaningTaskTemplate {
+  id: string;
+  dayOfWeek: string; // "Monday" .. "Sunday"
+  cleaningBlock: CleaningShiftBlock;
+  name: string;
+  area?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate?: string | null;
+}
+
+export interface ICreateCleaningTaskTemplateRequest {
+  dayOfWeek: string;
+  cleaningBlock: string;
+  name: string;
+  area?: string;
+  sortOrder: number;
+  fromDate: string;
+  toDate?: string;
+}
+
+export interface ICleaningTemplateWeekCell {
+  date: string; // "yyyy-MM-dd"
+  cleaningBlock: CleaningShiftBlock;
+  templates: ICleaningTaskTemplate[];
+}
