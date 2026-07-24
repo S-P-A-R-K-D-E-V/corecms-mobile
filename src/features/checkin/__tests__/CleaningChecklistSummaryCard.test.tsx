@@ -53,14 +53,21 @@ describe('CleaningChecklistSummaryCard', () => {
     await waitFor(() => expect(toJSON()).toBeNull());
   });
 
-  it('renders a visible error indicator when the fetch fails', async () => {
+  it('renders nothing (silently hides) when the fetch fails, but logs to console', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockedGetMyCleaningChecklist.mockRejectedValue({ detail: 'Lỗi máy chủ' });
 
-    renderWithClient(<CleaningChecklistSummaryCard />);
+    const { toJSON } = renderWithClient(<CleaningChecklistSummaryCard />);
 
-    expect(await screen.findByTestId('cleaning-summary-error')).toBeTruthy();
-    expect(screen.getByText('Không tải được checklist vệ sinh')).toBeTruthy();
-    expect(screen.getByText('Lỗi máy chủ')).toBeTruthy();
+    await waitFor(() =>
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[CleaningChecklistSummaryCard] fetch failed:',
+        expect.anything()
+      )
+    );
+    expect(toJSON()).toBeNull();
+
+    consoleErrorSpy.mockRestore();
   });
 
   it('renders the done/total summary count on a successful response with tasks', async () => {

@@ -18,23 +18,12 @@ export function CleaningChecklistSummaryCard() {
   });
 
   if (isError) {
-    // Lỗi tải checklist là một bug thật (vd. backend không trả đúng ca) — phải
-    // hiện rõ ràng cho staff/QA thấy thay vì ẩn lặng lẽ như trường hợp "không có
-    // đầu việc nào" (empty state hợp lệ, ẩn card là đúng).
-    return (
-      <View
-        testID="cleaning-summary-error"
-        className="flex-row items-center gap-3 p-3.5 rounded-2xl bg-error-soft"
-      >
-        <View className="w-10 h-10 rounded-full bg-error/10 items-center justify-center">
-          <Icon name="alert-circle-outline" size={20} tone="error" />
-        </View>
-        <View className="flex-1">
-          <Text className="font-semibold text-[14px]" tone="error">Không tải được checklist vệ sinh</Text>
-          <Text variant="caption" tone="error">{extractApiError(error)}</Text>
-        </View>
-      </View>
-    );
+    // Card này chỉ là tóm tắt phụ trên màn điểm danh - ẩn lặng lẽ khi lỗi thay vì
+    // chèn banner lỗi (quyết định sản phẩm có chủ đích), nhưng vẫn log để không
+    // im lặng hoàn toàn khi debug qua device log. Lỗi thật vẫn hiện rõ ràng (banner +
+    // nút Thử lại) ở màn "checklist của tôi" đầy đủ (CleaningChecklistScreen).
+    console.error('[CleaningChecklistSummaryCard] fetch failed:', extractApiError(error));
+    return null;
   }
 
   const tasks = (data ?? []).flatMap((shift) => shift.tasks);
