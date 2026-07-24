@@ -82,10 +82,17 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
 // ── Cleaning checklist summary (thẻ tóm tắt + link, không nhúng cả checklist) ─
 function CleaningChecklistSummaryCard() {
   const today = dayjs().format('YYYY-MM-DD');
-  const { data } = useQuery({
+  const { data, isError, error } = useQuery({
     queryKey: ['cleaning', 'my-checklist', today],
     queryFn: () => getMyCleaningChecklist(today),
   });
+
+  if (isError) {
+    // Card này chỉ là tóm tắt phụ trên màn điểm danh - ẩn lặng lẽ khi lỗi thay vì
+    // chèn banner lỗi, nhưng vẫn log để không im lặng hoàn toàn khi debug qua device log.
+    console.error('[CleaningChecklistSummaryCard] fetch failed:', extractApiError(error));
+    return null;
+  }
 
   const tasks = (data ?? []).flatMap((shift) => shift.tasks);
   if (tasks.length === 0) return null;

@@ -89,7 +89,7 @@ export function CleaningChecklistScreen() {
   const [pendingPhotos, setPendingPhotos] = useState<CleaningPhotoFile[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  const { data, isFetching, refetch } = useQuery({
+  const { data, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['cleaning', 'my-checklist', date],
     queryFn: () => getMyCleaningChecklist(date),
   });
@@ -190,7 +190,14 @@ export function CleaningChecklistScreen() {
         </Pressable>
       </View>
 
-      {shifts.length === 0 ? (
+      {isError ? (
+        <View className="py-10 items-center gap-3">
+          <Text variant="bodySmall" tone="error">
+            Không tải được checklist vệ sinh: {extractApiError(error)}
+          </Text>
+          <Button size="sm" variant="outline" onPress={() => refetch()}>Thử lại</Button>
+        </View>
+      ) : shifts.length === 0 ? (
         <View className="py-10 items-center">
           <Text variant="bodySmall" tone="muted">Không có checklist vệ sinh cho ca nào trong ngày này.</Text>
         </View>
