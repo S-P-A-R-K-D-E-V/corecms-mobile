@@ -1184,6 +1184,8 @@ export interface ICleaningTaskTemplate {
   isActive: boolean;
   fromDate: string; // "yyyy-MM-dd"
   toDate?: string | null;
+  /** ShiftTemplate.Id các ca mà nhân viên đang làm thì thấy đầu việc này. */
+  shiftTemplateIds: string[];
 }
 
 export interface ICreateCleaningTaskTemplateRequest {
@@ -1194,6 +1196,21 @@ export interface ICreateCleaningTaskTemplateRequest {
   sortOrder: number;
   fromDate: string;
   toDate?: string;
+  /** Bắt buộc, ít nhất 1 - ShiftTemplate.Id các ca áp dụng đầu việc này. */
+  shiftTemplateIds: string[];
+}
+
+export interface IUpdateCleaningTaskTemplateRequest {
+  dayOfWeek: string;
+  cleaningBlock: string;
+  name: string;
+  area?: string;
+  sortOrder: number;
+  isActive: boolean;
+  fromDate: string;
+  toDate?: string;
+  /** Bắt buộc, ít nhất 1 - ShiftTemplate.Id các ca áp dụng đầu việc này. */
+  shiftTemplateIds: string[];
 }
 
 export interface ICleaningTemplateWeekCell {

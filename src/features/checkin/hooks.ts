@@ -47,7 +47,7 @@ export function useCheckinData() {
     refetch: () =>
       qc.invalidateQueries({
         predicate: (q) =>
-          ['attendance', 'schedule'].includes(q.queryKey[0] as string),
+          ['attendance', 'schedule', 'cleaning'].includes(q.queryKey[0] as string),
       }),
   };
 }
