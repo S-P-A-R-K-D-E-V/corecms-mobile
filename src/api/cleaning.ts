@@ -1,5 +1,6 @@
 import axios, { endpoints } from './axios';
 import type {
+  ICleaningPenalty,
   ICleaningTaskDefinition,
   ICleaningTaskInstance,
   ICleaningTaskTemplate,
@@ -8,6 +9,7 @@ import type {
   ICreateCleaningTaskDefinitionRequest,
   ICreateCleaningTaskTemplateRequest,
   IMyCleaningChecklist,
+  IShiftStaffForPenalty,
   IUpdateCleaningTaskDefinitionRequest,
 } from 'src/types/corecms-api';
 
@@ -33,6 +35,47 @@ export async function completeCleaningTask(
   });
   return response.data;
 }
+
+// ----------------------------------------------------------------------
+// Checklist / Review + Penalty (Manager, Admin) — logic khớp core-fe
+// src/sections/cleaning/cleaning-review-checklist.tsx
+
+export async function getCleaningChecklist(
+  date: string,
+  block: string
+): Promise<ICleaningTaskInstance[]> {
+  const response = await axios.get<ICleaningTaskInstance[]>(endpoints.cleaning.checklist, {
+    params: { date, block },
+  });
+  return response.data;
+}
+
+export async function reviewCleaningTask(
+  id: string,
+  data: { status: 'Passed' | 'Failed'; reviewNote?: string }
+): Promise<ICleaningTaskInstance> {
+  const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.reviewTask(id), data);
+  return response.data;
+}
+
+export async function getShiftStaffForPenalty(id: string): Promise<IShiftStaffForPenalty[]> {
+  const response = await axios.get<IShiftStaffForPenalty[]>(endpoints.cleaning.shiftStaff(id));
+  return response.data;
+}
+
+export async function createCleaningPenalty(
+  id: string,
+  data: { userId: string; amount: number; reason?: string }
+): Promise<ICleaningPenalty> {
+  const response = await axios.post<ICleaningPenalty>(endpoints.cleaning.createPenalty(id), data);
+  return response.data;
+}
+
+export async function voidCleaningPenalty(id: string): Promise<void> {
+  await axios.post(endpoints.cleaning.voidPenalty(id));
+}
+
+// ----------------------------------------------------------------------
 
 export async function getCleaningWeekOverview(fromDate: string, toDate: string): Promise<ICleaningWeekCell[]> {
   const response = await axios.get<ICleaningWeekCell[]>(endpoints.cleaning.weekOverview, {
