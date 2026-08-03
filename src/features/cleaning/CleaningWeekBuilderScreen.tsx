@@ -15,6 +15,7 @@ import {
   getCleaningTaskDefinitions,
   getCleaningTemplateWeek,
 } from 'src/api/cleaning';
+import { getAllShiftTemplates } from 'src/api/schedule';
 import type { CleaningShiftBlock, ICleaningTaskDefinition } from 'src/types/corecms-api';
 
 dayjs.extend(isoWeek);
@@ -32,6 +33,10 @@ export function CleaningWeekBuilderScreen() {
   const [weekStart, setWeekStart] = useState<Dayjs>(() => dayjs().startOf('isoWeek'));
   const [addTarget, setAddTarget] = useState<{ date: string; block: CleaningShiftBlock } | null>(null);
   const [duplicating, setDuplicating] = useState(false);
+  // Bước 2 của luồng thêm đầu việc: chọn (các) ca làm việc áp dụng — bắt buộc BE.
+  const [pendingDefinition, setPendingDefinition] = useState<ICleaningTaskDefinition | null>(null);
+  const [selectedShiftTemplateIds, setSelectedShiftTemplateIds] = useState<Set<string>>(new Set());
+  const [submittingTemplate, setSubmittingTemplate] = useState(false);
 
   const fromDate = weekStart.format('YYYY-MM-DD');
   const today = dayjs().format('YYYY-MM-DD');
@@ -42,6 +47,12 @@ export function CleaningWeekBuilderScreen() {
     queryFn: getCleaningTaskDefinitions,
   });
   const definitions = (defsData ?? []).filter((d: ICleaningTaskDefinition) => d.isActive);
+
+  const { data: shiftTemplatesData } = useQuery({
+    queryKey: ['shift-templates'],
+    queryFn: getAllShiftTemplates,
+  });
+  const shiftTemplates = (shiftTemplatesData ?? []).filter((s) => s.isActive);
 
   const { data: weekData, isFetching, refetch } = useQuery({
     queryKey: ['cleaning', 'template-week', fromDate],
@@ -60,21 +71,51 @@ export function CleaningWeekBuilderScreen() {
     qc.invalidateQueries({ queryKey: ['cleaning', 'template-week'] });
   }
 
-  async function handleAdd(definition: ICleaningTaskDefinition) {
-    if (!addTarget) return;
+  // Bước 1: chọn đầu việc từ thư viện → mở bước 2 chọn ca áp dụng (bắt buộc).
+  function pickDefinition(definition: ICleaningTaskDefinition) {
+    setPendingDefinition(definition);
+    setSelectedShiftTemplateIds(new Set());
+  }
+
+  function toggleShiftTemplate(id: string) {
+    setSelectedShiftTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function closeAddFlow() {
+    setAddTarget(null);
+    setPendingDefinition(null);
+    setSelectedShiftTemplateIds(new Set());
+  }
+
+  // Bước 2: xác nhận (các) ca áp dụng rồi mới tạo template — shiftTemplateIds
+  // là bắt buộc, ít nhất 1, theo hợp đồng API mới.
+  async function handleConfirmShiftTemplates() {
+    if (!addTarget || !pendingDefinition) return;
+    if (selectedShiftTemplateIds.size === 0) {
+      toast.info('Chọn ít nhất 1 ca làm việc áp dụng đầu việc này.', 'Chưa đủ dữ liệu');
+      return;
+    }
+    setSubmittingTemplate(true);
     try {
       await createCleaningTaskTemplate({
         dayOfWeek: DOTNET_DAY_NAMES[dayjs(addTarget.date).day()],
         cleaningBlock: addTarget.block,
-        name: definition.name,
-        area: definition.area || undefined,
+        name: pendingDefinition.name,
+        area: pendingDefinition.area || undefined,
         sortOrder: 0,
         fromDate,
+        shiftTemplateIds: [...selectedShiftTemplateIds],
       });
-      setAddTarget(null);
+      closeAddFlow();
       invalidate();
     } catch (err: any) {
       toast.error(extractApiError(err));
+    } finally {
+      setSubmittingTemplate(false);
     }
   }
 
@@ -155,6 +196,7 @@ export function CleaningWeekBuilderScreen() {
                         <Text className="font-semibold text-[13px]">{BLOCK_LABEL[block]}</Text>
                         {!past && (
                           <Pressable
+                            testID={`cleaning-add-${dateStr}-${block}`}
                             onPress={() => setAddTarget({ date: dateStr, block })}
                             className="w-7 h-7 items-center justify-center rounded-full bg-primary/10"
                           >
@@ -188,9 +230,9 @@ export function CleaningWeekBuilderScreen() {
       })}
 
       <Sheet
-        visible={!!addTarget}
+        visible={!!addTarget && !pendingDefinition}
         title="Chọn đầu việc từ thư viện"
-        onClose={() => setAddTarget(null)}
+        onClose={closeAddFlow}
       >
         <View className="gap-2">
           {definitions.length === 0 ? (
@@ -201,7 +243,8 @@ export function CleaningWeekBuilderScreen() {
             definitions.map((def) => (
               <Pressable
                 key={def.id}
-                onPress={() => handleAdd(def)}
+                testID={`cleaning-def-${def.id}`}
+                onPress={() => pickDefinition(def)}
                 className="p-3 rounded-xl bg-bg dark:bg-surface-dark"
               >
                 <Text className="font-semibold">{def.name}</Text>
@@ -209,6 +252,53 @@ export function CleaningWeekBuilderScreen() {
               </Pressable>
             ))
           )}
+        </View>
+      </Sheet>
+
+      {/* Bước 2: chọn (các) ca làm việc áp dụng đầu việc vừa chọn — bắt buộc chọn ≥1. */}
+      <Sheet
+        visible={!!pendingDefinition}
+        title={`Áp dụng cho ca — ${pendingDefinition?.name ?? ''}`}
+        onClose={closeAddFlow}
+        footer={
+          <Button
+            loading={submittingTemplate}
+            disabled={selectedShiftTemplateIds.size === 0}
+            onPress={handleConfirmShiftTemplates}
+          >
+            {`Xác nhận (${selectedShiftTemplateIds.size} ca)`}
+          </Button>
+        }
+      >
+        <View className="gap-1">
+          {shiftTemplates.length === 0 ? (
+            <Text variant="bodySmall" tone="muted">
+              Chưa có ca làm việc nào — vào phần quản lý ca để tạo trước.
+            </Text>
+          ) : (
+            shiftTemplates.map((st, i) => {
+              const on = selectedShiftTemplateIds.has(st.id);
+              return (
+                <View key={st.id}>
+                  {i > 0 ? <View className="h-px bg-line/50 dark:bg-line-dark/50" /> : null}
+                  <Pressable
+                    testID={`shift-template-${st.id}`}
+                    onPress={() => toggleShiftTemplate(st.id)}
+                    className="flex-row items-center gap-3 py-2.5"
+                  >
+                    <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} tone={on ? 'primary' : 'faint'} />
+                    <View className="flex-1">
+                      <Text className="font-semibold text-[14px]">{st.name}</Text>
+                      <Text variant="caption" tone="muted">{st.startTime} – {st.endTime}</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              );
+            })
+          )}
+          <Text variant="caption" tone="faint" className="mt-1">
+            Nhân viên đang làm (các) ca này sẽ thấy đầu việc trong checklist của họ.
+          </Text>
         </View>
       </Sheet>
     </Screen>

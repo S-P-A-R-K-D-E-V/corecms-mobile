@@ -203,8 +203,11 @@ export function CleaningChecklistScreen() {
         </View>
       ) : (
         shifts.map((shift) => (
+          // Backend giờ có thể trả >1 entry cho cùng 1 shiftAssignmentId (mỗi
+          // CleaningBlock liên kết với ca là 1 entry riêng) — dùng key ghép
+          // shiftAssignmentId + cleaningBlock để tránh trùng key React và mất entry.
           <SectionCard
-            key={shift.shiftAssignmentId}
+            key={`${shift.shiftAssignmentId}-${shift.cleaningBlock}`}
             title={`${shift.shiftName} · ${BLOCK_LABEL[shift.cleaningBlock] ?? shift.cleaningBlock}`}
             icon="broom"
             count={shift.tasks.length}
