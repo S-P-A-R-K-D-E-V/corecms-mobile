@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import isoWeek from 'dayjs/plugin/isoWeek';
@@ -26,23 +27,30 @@ function summarize(cell?: ICleaningWeekCell): string | null {
   return parts.length ? parts.join(' · ') : null;
 }
 
-function BlockRow({ block, cell }: { block: CleaningShiftBlock; cell?: ICleaningWeekCell }) {
+function BlockRow({ block, cell, onPress }: {
+  block: CleaningShiftBlock;
+  cell?: ICleaningWeekCell;
+  onPress: () => void;
+}) {
   const summary = summarize(cell);
   return (
-    <View className="py-2.5">
+    <Pressable onPress={onPress} className="py-2.5">
       <View className="flex-row items-center justify-between gap-2">
         <Text className="font-semibold text-[13px]">{BLOCK_LABEL[block]}</Text>
-        {cell?.failedCount ? (
-          <View className="px-2 py-0.5 rounded-full bg-error/10">
-            <Text variant="caption" tone="error" className="font-semibold">{cell.failedCount} không đạt</Text>
-          </View>
-        ) : null}
+        <View className="flex-row items-center gap-1.5">
+          {cell?.failedCount ? (
+            <View className="px-2 py-0.5 rounded-full bg-error/10">
+              <Text variant="caption" tone="error" className="font-semibold">{cell.failedCount} không đạt</Text>
+            </View>
+          ) : null}
+          <Icon name="chevron-right" size={16} tone="faint" />
+        </View>
       </View>
       <Text variant="caption" tone="muted" numberOfLines={1}>
         {cell && cell.staffNames.length > 0 ? cell.staffNames.join(', ') : 'Chưa có ai'}
       </Text>
       {summary ? <Text variant="caption" tone="faint">{summary}</Text> : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -93,7 +101,16 @@ export function CleaningWeekOverviewScreen() {
             {BLOCKS.map((block, bi) => (
               <View key={block}>
                 {bi > 0 ? <View className="h-px bg-line/50 dark:bg-line-dark/50" /> : null}
-                <BlockRow block={block} cell={cellFor(day, block)} />
+                <BlockRow
+                  block={block}
+                  cell={cellFor(day, block)}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/manage/cleaning-review' as any,
+                      params: { date: day.format('YYYY-MM-DD'), block },
+                    })
+                  }
+                />
               </View>
             ))}
           </View>

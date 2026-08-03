@@ -47,6 +47,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cleaning-week', label: 'Theo dõi vệ sinh', icon: 'broom', href: '/manage/cleaning', group: 'manage', roles: MANAGER_ROLES },
+  { key: 'cleaning-review', label: 'Đánh giá vệ sinh', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', group: 'manage', roles: MANAGER_ROLES },
 
   // ── Quản trị (Admin) ───────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', group: 'admin', roles: ADMIN_ROLES },

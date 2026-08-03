@@ -1145,6 +1145,13 @@ export interface IMyCleaningChecklist {
   tasks: ICleaningTaskInstance[];
 }
 
+/** Nhân viên trong ca — để chọn người áp phạt vệ sinh (khớp core-fe). */
+export interface IShiftStaffForPenalty {
+  userId: string;
+  fullName: string;
+  isPartialCover: boolean;
+}
+
 export interface ICleaningWeekCell {
   date: string; // "yyyy-MM-dd"
   cleaningBlock: CleaningShiftBlock;
