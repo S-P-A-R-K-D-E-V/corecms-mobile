@@ -32,5 +32,15 @@ allprojects {
   }
 }
 
+// Ép kotlinVersion khớp với kotlin=2.1.20 khai báo trong
+// node_modules/react-native/gradle/libs.versions.toml (KGP thật sự áp dụng cho build).
+// Nếu không ép, ExpoRootProjectPlugin tự tra qua Gradle version catalog và không tìm thấy
+// alias "kotlin" ở scope này nên fallback về default "2.0.21" — lệch với KGP 2.1.20 đang
+// chạy thật, khiến KSP (map theo kotlinVersion) nạp compiler API sai version và văng
+// NoSuchMethodError ở các module dùng KSP (vd. expo-updates:kspDebugKotlin).
+ext {
+  kotlinVersion = "2.1.20"
+}
+
 apply plugin: "expo-root-project"
 apply plugin: "com.facebook.react.rootproject"
