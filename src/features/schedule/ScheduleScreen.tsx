@@ -6,7 +6,7 @@ import isBetween from 'dayjs/plugin/isBetween';
 import isToday from 'dayjs/plugin/isToday';
 
 import { Screen, Sheet, SectionCard } from 'src/components/shared';
-import { Text, Button, Badge, Icon, Pressable, Divider } from 'src/components/ui';
+import { Text, Button, Badge, Icon, Pressable, Divider, TextField } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { toast } from 'src/components/overlay';
@@ -342,6 +342,9 @@ export function ScheduleScreen() {
   const [postTarget, setPostTarget] = useState<IMyScheduleItem | null>(null);
   const [needType, setNeedType]     = useState<PoolNeedType>('FullCover');
   const [partialSide, setPartialSide] = useState<PartialCoverSide>('LateArrive');
+  // MidShift: giờ ước tính CHỈ để hiển thị chợ ca — KHÔNG dùng tính lương.
+  const [estimatedStart, setEstimatedStart] = useState('');
+  const [estimatedEnd, setEstimatedEnd] = useState('');
   const [claimTarget, setClaimTarget] = useState<IShiftPoolPost | null>(null);
   const [offeredId, setOfferedId]   = useState('');
   const [managePost, setManagePost] = useState<IShiftPoolPost | null>(null);
@@ -374,6 +377,8 @@ export function ScheduleScreen() {
     setPostTarget(item);
     setNeedType(started ? 'PartialCover' : 'FullCover');
     setPartialSide('LateArrive');
+    setEstimatedStart('');
+    setEstimatedEnd('');
   }
 
   const toggleLayer = (key: string) =>
@@ -502,6 +507,14 @@ export function ScheduleScreen() {
                   shiftAssignmentId: postTarget.assignmentId,
                   needType,
                   partialSide: needType === 'PartialCover' ? partialSide : undefined,
+                  estimatedStartTime:
+                    needType === 'PartialCover' && partialSide === 'MidShift' && estimatedStart
+                      ? estimatedStart
+                      : undefined,
+                  estimatedEndTime:
+                    needType === 'PartialCover' && partialSide === 'MidShift' && estimatedEnd
+                      ? estimatedEnd
+                      : undefined,
                 }),
                 () => setPostTarget(null),
               )
@@ -538,17 +551,45 @@ export function ScheduleScreen() {
             {needType === 'PartialCover' ? (
               <View className="gap-2">
                 <Text variant="label" tone="muted">Phần cần làm hộ</Text>
-                {([['LateArrive', 'Đầu ca (tôi đến trễ)'], ['EarlyLeave', 'Cuối ca (tôi về sớm)']] as [PartialCoverSide, string][]).map(([side, label]) => (
+                {([
+                  ['LateArrive', 'Đầu ca (tôi đến trễ)', 'clock-start'],
+                  ['EarlyLeave', 'Cuối ca (tôi về sớm)', 'clock-end'],
+                  ['MidShift', 'Giữa ca (rời rồi quay lại)', 'sync'],
+                ] as [PartialCoverSide, string, string][]).map(([side, label, icon]) => (
                   <Pressable
                     key={side}
                     onPress={() => setPartialSide(side)}
                     className={cn('flex-row items-center gap-2 p-3 rounded-xl border', partialSide === side ? 'border-primary border-2 bg-primary/10' : 'border-line dark:border-line-dark')}
                   >
-                    <Icon name={side === 'LateArrive' ? 'clock-start' : 'clock-end'} size={20} tone={partialSide === side ? 'primary' : 'muted'} />
+                    <Icon name={icon as any} size={20} tone={partialSide === side ? 'primary' : 'muted'} />
                     <Text className={cn('flex-1', partialSide === side && 'text-primary font-semibold')}>{label}</Text>
                     {partialSide === side ? <Icon name="check-circle" size={18} tone="primary" /> : null}
                   </Pressable>
                 ))}
+                {partialSide === 'MidShift' ? (
+                  <>
+                    <Text variant="caption" tone="faint">
+                      Người nhận KHÔNG cần có ca liền kề — họ check-in/out trực tiếp trên ca của bạn.
+                      Giờ dưới đây chỉ để hiển thị chợ ca, KHÔNG dùng tính lương.
+                    </Text>
+                    <View className="flex-row gap-2">
+                      <TextField
+                        containerClassName="flex-1"
+                        label="Giờ rời (ước tính)"
+                        placeholder="HH:mm"
+                        value={estimatedStart}
+                        onChangeText={setEstimatedStart}
+                      />
+                      <TextField
+                        containerClassName="flex-1"
+                        label="Giờ quay lại (ước tính)"
+                        placeholder="HH:mm"
+                        value={estimatedEnd}
+                        onChangeText={setEstimatedEnd}
+                      />
+                    </View>
+                  </>
+                ) : null}
               </View>
             ) : null}
           </View>

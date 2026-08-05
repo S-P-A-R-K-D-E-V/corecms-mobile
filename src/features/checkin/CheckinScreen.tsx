@@ -150,6 +150,10 @@ export function CheckinScreen() {
   // Check-in ngoài giờ + fallback (đồng bộ hành vi core-fe): có ca phù hợp nhưng
   // vị trí không hợp lệ → đếm ngược 5s rồi cho phép check-in NGOÀI GIỜ.
   const [checkinMode, setCheckinMode] = useState<'smart' | 'overtime'>('smart');
+  // Modal chụp ảnh dùng chung cho cả check-in và check-out (backend đã bắt buộc ảnh
+  // checkout cho người làm hộ 1 phần — LateArrive/EarlyLeave/MidShift — mobile trước
+  // đây chỉ bắt ảnh lúc check-in nên chặn mất người hộ ca không có ảnh để gửi lên).
+  const [actionKind, setActionKind] = useState<'checkin' | 'checkout'>('checkin');
   const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
   const [gpsFallback, setGpsFallback] = useState(false);
   const needOvertimeFallback = canCheckIn && locationBad;
@@ -220,6 +224,7 @@ export function CheckinScreen() {
     }
     haptics.light();
     setCheckinMode(mode);
+    setActionKind('checkin');
     // Mở camera NGAY — không chờ GPS (trước đây await GPS khiến nút "không phản hồi"
     // và camera mở rất chậm). GPS chạy song song; modal tự hiện trạng thái "đang
     // kiểm tra GPS" và chỉ cho xác nhận khi đã có vị trí (hoặc fallback sau 5s).
@@ -276,7 +281,7 @@ export function CheckinScreen() {
     }
   }
 
-  async function handleCheckOut() {
+  async function openCheckOutCamera() {
     const ok = await confirm({
       title: t('common.confirm'),
       message: t('checkin.confirmCheckOut'),
@@ -284,15 +289,42 @@ export function CheckinScreen() {
       destructive: true,
     });
     if (!ok) return;
+
+    let granted = cameraPermission?.granted;
+    if (!granted) granted = (await requestCameraPermission()).granted;
+    if (!granted) {
+      toast.error(t('checkin.cameraPermMsg'), t('checkin.cameraPermTitle'));
+      return;
+    }
+    haptics.light();
+    setActionKind('checkout');
+    setModalOpen(true);
+    if (gpsStatus !== 'ready' && gpsStatus !== 'loading') fetchGps();
+  }
+
+  async function handleConfirmCheckOut(base64: string, captureTime: Date) {
     setSubmitting(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      let c: Coords | undefined;
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
+      // Ưu tiên toạ độ đã lấy sẵn cho modal (coords); GPS lỗi vẫn cho checkout
+      // (giữ đúng hành vi cũ — không chặn checkout vì GPS, chỉ chặn vì thiếu ảnh).
+      let c: Coords | undefined = coords ?? undefined;
+      if (!c) {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
+        }
       }
-      await smartCheckOut({ latitude: c?.latitude, longitude: c?.longitude, accuracy: c?.accuracy });
+      await smartCheckOut({ latitude: c?.latitude, longitude: c?.longitude, accuracy: c?.accuracy, faceVerified: true });
+      // Đẩy ảnh lên Telegram — tái dùng đúng luồng checkin-face như lúc check-in.
+      await checkinFace({
+        candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
+        imageBase64: `data:image/jpeg;base64,${base64}`,
+        lat: c?.latitude,
+        lng: c?.longitude,
+        time: captureTime.toISOString(),
+      });
+      setModalOpen(false);
       track(AnalyticsEvent.CheckOutSuccess);
       setSuccessMsg(t('checkin.checkOutSuccess'));
       await refetch();
@@ -377,7 +409,7 @@ export function CheckinScreen() {
               </Text>
               {/* White CTA — stays legible on the rose hero */}
               <Pressable
-                onPress={handleCheckOut}
+                onPress={openCheckOutCamera}
                 disabled={submitting}
                 className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                 style={softShadow}
@@ -573,10 +605,15 @@ export function CheckinScreen() {
         coords={coords}
         address={overlayAddress}
         gpsStatus={gpsStatus}
-        canSubmit={gpsStatus === 'ready' || gpsFallback}
+        // Check-out KHÔNG phụ thuộc GPS như check-in (không có khái niệm "ca phù hợp"
+        // để tính fallback) — giữ đúng hành vi cũ là checkout vẫn được dù GPS lỗi,
+        // chỉ chặn vì thiếu ảnh (yêu cầu mới), không chặn thêm vì vị trí.
+        canSubmit={actionKind === 'checkout' ? true : gpsStatus === 'ready' || gpsFallback}
         loading={submitting}
         onClose={() => setModalOpen(false)}
-        onConfirm={handleConfirmCheckIn}
+        onConfirm={actionKind === 'checkout' ? handleConfirmCheckOut : handleConfirmCheckIn}
+        title={actionKind === 'checkout' ? 'Chụp ảnh check-out' : undefined}
+        confirmLabel={actionKind === 'checkout' ? t('checkin.checkOutBtn') : undefined}
       />
 
       <SuccessOverlay visible={!!successMsg} message={successMsg ?? undefined} onDone={() => setSuccessMsg(null)} />
