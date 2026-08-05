@@ -1,10 +1,16 @@
-import type { PoolNeedType, PoolPostStatus } from 'src/types/corecms-api';
+import type { PoolNeedType, PoolPostStatus, PartialCoverSide } from 'src/types/corecms-api';
 import type { IconName } from 'src/components/ui';
 
 export const NEED_TYPE_LABEL: Record<PoolNeedType, string> = {
   Swap: 'Đổi ca',
   FullCover: 'Làm hộ cả ca',
   PartialCover: 'Làm hộ 1 phần',
+};
+
+export const PARTIAL_SIDE_LABEL: Record<PartialCoverSide, string> = {
+  LateArrive: 'Đầu ca',
+  EarlyLeave: 'Cuối ca',
+  MidShift: 'Giữa ca',
 };
 
 export const POOL_STATUS_LABEL: Record<PoolPostStatus, string> = {

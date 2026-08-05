@@ -714,7 +714,7 @@ export interface IConfirmShiftSwapTargetRequest {
 
 export type PoolNeedType = 'Swap' | 'FullCover' | 'PartialCover';
 export type PoolPostStatus = 'Open' | 'WaitingApproval' | 'Approved' | 'Cancelled';
-export type PartialCoverSide = 'LateArrive' | 'EarlyLeave';
+export type PartialCoverSide = 'LateArrive' | 'EarlyLeave' | 'MidShift';
 
 export interface IShiftPoolPost {
   id: string;
@@ -729,6 +729,8 @@ export interface IShiftPoolPost {
   partialSide?: PartialCoverSide;
   partialStartTime?: string;
   partialEndTime?: string;
+  estimatedStartTime?: string; // MidShift: giờ ước tính chỉ hiển thị, không dùng tính lương
+  estimatedEndTime?: string;
   note?: string;
   status: PoolPostStatus;
   claimerId?: string;
@@ -758,6 +760,8 @@ export interface ICreateShiftPoolPostDto {
   partialSide?: PartialCoverSide;   // bắt buộc khi PartialCover (thay cho set giờ)
   partialStartTime?: string;        // [deprecated]
   partialEndTime?: string;          // [deprecated]
+  estimatedStartTime?: string;      // MidShift: giờ ước tính chỉ hiển thị, không dùng tính lương
+  estimatedEndTime?: string;
   note?: string;
 }
 

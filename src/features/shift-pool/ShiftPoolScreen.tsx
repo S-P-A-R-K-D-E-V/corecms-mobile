@@ -12,7 +12,7 @@ import { getOpenPoolPosts, getMyPoolPosts, getMyClaims, claimShiftPoolPost, canc
 import { useAuthContext } from 'src/auth/auth-context';
 import { extractApiError } from 'src/services/error';
 import type { IShiftPoolPost } from 'src/types/corecms-api';
-import { NEED_TYPE_LABEL, POOL_STATUS_LABEL, POOL_STATUS_TONE, fmtMoney } from 'src/features/schedule/constants';
+import { NEED_TYPE_LABEL, PARTIAL_SIDE_LABEL, POOL_STATUS_LABEL, POOL_STATUS_TONE, fmtMoney } from 'src/features/schedule/constants';
 
 type Tab = 'open' | 'mine' | 'claims';
 
@@ -123,7 +123,11 @@ export function ShiftPoolScreen() {
             <Appear index={Math.min(index, 8)}>
             <Card className="p-4 gap-1.5">
               <View className="flex-row items-center justify-between">
-                <Text variant="subtitle">{NEED_TYPE_LABEL[item.needType]} · {item.shiftName}</Text>
+                <Text variant="subtitle">
+                  {NEED_TYPE_LABEL[item.needType]}
+                  {item.needType === 'PartialCover' && item.partialSide ? ` (${PARTIAL_SIDE_LABEL[item.partialSide]})` : ''}
+                  {' · '}{item.shiftName}
+                </Text>
                 <Badge tone={expired && item.status === 'Open' ? 'error' : POOL_STATUS_TONE[item.status]}>
                   {expired && item.status === 'Open' ? 'Quá hạn' : POOL_STATUS_LABEL[item.status]}
                 </Badge>
