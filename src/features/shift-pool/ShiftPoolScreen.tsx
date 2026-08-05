@@ -142,6 +142,11 @@ export function ShiftPoolScreen() {
               {tab === 'mine' && (item.status === 'Open' || item.status === 'WaitingApproval') ? (
                 <><Divider className="my-1" /><Button size="sm" variant="outline" loading={busy} onPress={() => onManage(item)}>{item.status === 'Open' ? 'Quản lý / Huỷ' : 'Duyệt người nhận'}</Button></>
               ) : null}
+              {/* Claim MidShift đã duyệt → màn check-in làm hộ riêng (không dùng smart
+                  check-in được vì người hộ không có ca của chính mình trong ngày). */}
+              {tab === 'claims' && item.status === 'Approved' && item.needType === 'PartialCover' && item.partialSide === 'MidShift' ? (
+                <><Divider className="my-1" /><Button size="sm" icon="camera-account" onPress={() => router.push({ pathname: '/shift-pool/midshift-checkin', params: { postId: item.id } } as any)}>Check-in làm hộ</Button></>
+              ) : null}
             </Card>
             </Appear>
             );

@@ -22,10 +22,17 @@ type Props = {
   onClose: () => void;
   /** Receives the stamped photo as base64 (no data: prefix) + capture time. */
   onConfirm: (base64: string, captureTime: Date) => void;
+  /** Tiêu đề khi đang ngắm/chụp — mặc định t('checkin.captureFace') (dùng cho check-in). */
+  title?: string;
+  /** Nhãn nút xác nhận sau khi đã chụp — mặc định t('checkin.confirmCheckIn'). */
+  confirmLabel?: string;
 };
 
 /** Full-screen face capture with a timestamp + GPS + address overlay burned in. */
-export function FaceCaptureModal({ visible, coords, address, gpsStatus, canSubmit, loading, onClose, onConfirm }: Props) {
+export function FaceCaptureModal({
+  visible, coords, address, gpsStatus, canSubmit, loading, onClose, onConfirm,
+  title, confirmLabel,
+}: Props) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const previewRef = useRef<ViewShotRef>(null);
@@ -93,7 +100,7 @@ export function FaceCaptureModal({ visible, coords, address, gpsStatus, canSubmi
               <Icon name="close" size={24} color="#FFFFFF" />
             </Pressable>
             <Text className="text-white font-bold flex-1 ml-1">
-              {capturedUri ? t('checkin.confirmPhoto') : t('checkin.captureFace')}
+              {capturedUri ? t('checkin.confirmPhoto') : (title ?? t('checkin.captureFace'))}
             </Text>
             {!capturedUri ? (
               <Pressable
@@ -152,7 +159,7 @@ export function FaceCaptureModal({ visible, coords, address, gpsStatus, canSubmi
                   <Text className="text-white/70 text-[12px] text-center">Đang chờ xác định vị trí để check-in…</Text>
                 ) : null}
                 <Button loading={loading} disabled={!canSubmit} onPress={handleConfirm} icon="check-circle">
-                  {t('checkin.confirmCheckIn')}
+                  {confirmLabel ?? t('checkin.confirmCheckIn')}
                 </Button>
               </>
             )}

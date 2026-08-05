@@ -286,8 +286,10 @@ export interface ICheckOutRequest {
   attendanceLogId: string;
   latitude?: number;
   longitude?: number;
+  accuracy?: number;
   ipAddress?: string;
   note?: string;
+  faceVerified?: boolean; // bắt buộc true khi checkout ca làm hộ (BE chặn nếu thiếu ảnh)
 }
 
 export interface ISmartCheckInRequest {
