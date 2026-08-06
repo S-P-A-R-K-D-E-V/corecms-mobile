@@ -222,6 +222,7 @@ export const endpoints = {
   cleaning: {
     myChecklist: '/cleaning/my-checklist',
     completeTask: (id: string) => `/cleaning/tasks/${id}/complete`,
+    presignPhotos: (id: string) => `/cleaning/tasks/${id}/photos/presign`,
     checklist: '/cleaning/checklist',
     reviewTask: (id: string) => `/cleaning/tasks/${id}/review`,
     shiftStaff: (id: string) => `/cleaning/tasks/${id}/shift-staff`,
