@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
@@ -15,8 +15,6 @@ import {
   createShiftPoolPost, claimShiftPoolPost, cancelShiftPoolPost, reviewShiftPoolPost,
 } from 'src/api/shiftPool';
 import { extractApiError } from 'src/services/error';
-import { rescheduleShiftReminders } from 'src/services/shift-reminders';
-import { useNotificationSettings } from 'src/hooks/use-notification-settings';
 import { t } from 'src/i18n';
 import type { IMyScheduleItem, IShiftRegistration, IShiftPoolPost, PoolNeedType, PartialCoverSide } from 'src/types/corecms-api';
 
@@ -290,13 +288,6 @@ export function ScheduleScreen() {
 
   const { assignments, registrations, openPosts, myPosts, myClaims, refreshing, refetch } =
     useScheduleData(weekStart.format('YYYY-MM-DD'));
-
-  // Nhắc trước 30p khi sắp đến ca — đặt lại local notification mỗi khi lịch đổi.
-  const { prefs } = useNotificationSettings();
-  const reminderOn = prefs.globalEnabled && prefs.categories.Shift && prefs.shiftReminderEnabled;
-  useEffect(() => {
-    rescheduleShiftReminders(assignments, reminderOn);
-  }, [assignments, reminderOn]);
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day')),
