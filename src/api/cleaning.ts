@@ -24,14 +24,42 @@ export async function getMyCleaningChecklist(date: string): Promise<IMyCleaningC
 
 export type CleaningPhotoFile = { uri: string; name: string; type: string };
 
+type CleaningPresignedFile = { objectKey: string; uploadUrl: string };
+
+// ----------------------------------------------------------------------
+// Upload ảnh/video minh chứng: xin presigned URL rồi PUT thẳng file lên R2 (không đi qua API)
+// — tránh giới hạn client_max_body_size của ingress khi ảnh gốc từ camera hoặc video khá nặng.
+// Chưa cần nén/giới hạn dung lượng ở bước này.
+
+async function presignCleaningPhotos(id: string, photos: CleaningPhotoFile[]): Promise<CleaningPresignedFile[]> {
+  const response = await axios.post<CleaningPresignedFile[]>(endpoints.cleaning.presignPhotos(id), {
+    files: photos.map((p) => ({ fileName: p.name, contentType: p.type })),
+  });
+  return response.data;
+}
+
+async function uploadToPresignedUrl(uploadUrl: string, photo: CleaningPhotoFile): Promise<void> {
+  const fileResponse = await fetch(photo.uri);
+  const blob = await fileResponse.blob();
+  const putResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': photo.type },
+    body: blob,
+  });
+  if (!putResponse.ok) {
+    throw new Error(`Tải lên thất bại (${putResponse.status})`);
+  }
+}
+
 export async function completeCleaningTask(
   id: string,
   photos: CleaningPhotoFile[]
 ): Promise<ICleaningTaskInstance> {
-  const formData = new FormData();
-  photos.forEach((photo) => formData.append('photos', photo as any));
-  const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.completeTask(id), formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const presigned = await presignCleaningPhotos(id, photos);
+  await Promise.all(presigned.map((p, i) => uploadToPresignedUrl(p.uploadUrl, photos[i])));
+
+  const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.completeTask(id), {
+    objectKeys: presigned.map((p) => p.objectKey),
   });
   return response.data;
 }

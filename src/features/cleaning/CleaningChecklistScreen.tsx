@@ -141,17 +141,18 @@ export function CleaningChecklistScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ['images', 'videos'],
       quality: 0.7,
       allowsMultipleSelection: true,
       selectionLimit: remaining,
     });
     if (result.canceled) return;
-    const newPhotos: CleaningPhotoFile[] = result.assets.map((a, i) => ({
-      uri: a.uri,
-      name: a.fileName ?? `cleaning_${Date.now()}_${i}.jpg`,
-      type: a.mimeType ?? 'image/jpeg',
-    }));
+    const newPhotos: CleaningPhotoFile[] = result.assets.map((a, i) => {
+      const isVideo = a.type === 'video';
+      const fallbackName = isVideo ? `cleaning_${Date.now()}_${i}.mp4` : `cleaning_${Date.now()}_${i}.jpg`;
+      const fallbackType = isVideo ? 'video/mp4' : 'image/jpeg';
+      return { uri: a.uri, name: a.fileName ?? fallbackName, type: a.mimeType ?? fallbackType };
+    });
     setPendingPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
   }
 
@@ -237,20 +238,32 @@ export function CleaningChecklistScreen() {
         <View className="gap-3">
           {pendingPhotos.length > 0 ? (
             <View className="flex-row flex-wrap gap-2">
-              {pendingPhotos.map((photo, index) => (
-                <View key={photo.uri + index} className="relative">
-                  <Image source={{ uri: photo.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
-                  <Pressable
-                    onPress={() => removePending(index)}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-error items-center justify-center"
-                  >
-                    <Icon name="close" size={12} tone="inverse" />
-                  </Pressable>
-                </View>
-              ))}
+              {pendingPhotos.map((photo, index) => {
+                const isVideo = photo.type.startsWith('video/');
+                return (
+                  <View key={photo.uri + index} className="relative">
+                    {isVideo ? (
+                      <View
+                        style={{ width: 72, height: 72, borderRadius: 8 }}
+                        className="items-center justify-center bg-bg dark:bg-surface-dark"
+                      >
+                        <Icon name="play-circle-outline" size={28} tone="muted" />
+                      </View>
+                    ) : (
+                      <Image source={{ uri: photo.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
+                    )}
+                    <Pressable
+                      onPress={() => removePending(index)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-error items-center justify-center"
+                    >
+                      <Icon name="close" size={12} tone="inverse" />
+                    </Pressable>
+                  </View>
+                );
+              })}
             </View>
           ) : (
-            <Text variant="bodySmall" tone="muted">Chưa chọn ảnh nào — chụp hoặc chọn từ thư viện bên dưới.</Text>
+            <Text variant="bodySmall" tone="muted">Chưa chọn ảnh/video nào — chụp ảnh hoặc chọn từ thư viện bên dưới.</Text>
           )}
 
           {pendingPhotos.length < MAX_PHOTOS ? (
@@ -262,12 +275,12 @@ export function CleaningChecklistScreen() {
               </View>
               <View className="flex-1">
                 <Button variant="outline" icon="image-multiple-outline" onPress={addFromLibrary}>
-                  Thư viện
+                  Thư viện (ảnh/video)
                 </Button>
               </View>
             </View>
           ) : (
-            <Text variant="caption" tone="faint">Đã đạt tối đa {MAX_PHOTOS} ảnh.</Text>
+            <Text variant="caption" tone="faint">Đã đạt tối đa {MAX_PHOTOS} file.</Text>
           )}
         </View>
       </Sheet>
