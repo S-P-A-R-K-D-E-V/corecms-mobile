@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 
@@ -11,6 +11,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 
 import { FaceEnrollmentCameraModal } from './FaceEnrollmentCameraModal';
+import { SelfVerifyModal } from './SelfVerifyModal';
 
 // ----------------------------------------------------------------------
 
@@ -22,7 +23,7 @@ const STEPS: { key: StepKey; label: string; hint: string }[] = [
   { key: 'right', label: 'Quay phải', hint: 'Xoay đầu sang phải một góc rõ rệt' },
   { key: 'up', label: 'Ngước lên', hint: 'Ngước cằm lên trên' },
   { key: 'down', label: 'Cúi xuống', hint: 'Cúi cằm xuống dưới' },
-  { key: 'blink', label: 'Chớp mắt', hint: 'Nhìn thẳng vào camera và chớp mắt ngay lúc chụp' },
+  { key: 'blink', label: 'Chớp mắt', hint: 'Nhìn thẳng vào camera và chớp mắt liên tục' },
 ];
 
 // Ngưỡng heuristic — yaw/pitch từ Core-be là ước lượng thô (xem docstring
@@ -32,6 +33,8 @@ const YAW_TURN_MIN = 0.15;
 const PITCH_STRAIGHT_MAX = 0.08;
 const PITCH_TILT_MIN = 0.12;
 const MIN_QUALITY = 0.35;
+
+const STEP_PASS_PAUSE_MS = 600;
 
 /** Validate kết quả enroll/quality theo đúng bước hiện tại. Trả về null nếu hợp lệ, hoặc
  *  thông báo lỗi để yêu cầu chụp lại.
@@ -44,7 +47,7 @@ const MIN_QUALITY = 0.35;
  */
 function validateStep(step: StepKey, q: IEnrollQualityResponse): string | null {
   if (q.qualityScore < MIN_QUALITY) {
-    return 'Ảnh chưa đủ rõ nét — vui lòng chụp lại ở nơi đủ sáng, giữ máy ổn định.';
+    return 'Ảnh chưa đủ rõ nét — vui lòng di chuyển tới nơi đủ sáng, giữ máy ổn định.';
   }
   switch (step) {
     case 'straight':
@@ -55,22 +58,22 @@ function validateStep(step: StepKey, q: IEnrollQualityResponse): string | null {
     case 'left':
     case 'right':
       if (Math.abs(q.yaw) < YAW_TURN_MIN) {
-        return 'Vui lòng xoay đầu rõ hơn nữa.';
+        return 'Xoay đầu rõ hơn nữa.';
       }
       return null;
     case 'up':
       if (q.pitch < PITCH_TILT_MIN) {
-        return 'Vui lòng ngước cằm lên cao hơn.';
+        return 'Ngước cằm lên cao hơn.';
       }
       return null;
     case 'down':
       if (q.pitch > -PITCH_TILT_MIN) {
-        return 'Vui lòng cúi cằm xuống thấp hơn.';
+        return 'Cúi cằm xuống thấp hơn.';
       }
       return null;
     case 'blink':
       if (!q.blinkDetected) {
-        return 'Chưa phát hiện chớp mắt — vui lòng nhìn thẳng và chớp mắt ngay lúc chụp.';
+        return 'Chưa phát hiện chớp mắt — nhìn thẳng và chớp mắt liên tục.';
       }
       return null;
     default:
@@ -78,17 +81,37 @@ function validateStep(step: StepKey, q: IEnrollQualityResponse): string | null {
   }
 }
 
+type Mode = 'status' | 'capture';
+
 export function FaceEnrollmentScreen() {
-  const { refreshUser } = useAuthContext();
+  const { user, refreshUser } = useAuthContext();
+  const isAdminOrManager =
+    user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
+
+  const [mode, setMode] = useState<Mode>(user?.hasFaceEmbedding ? 'status' : 'capture');
+  const manualCaptureRef = useRef(false);
+  useEffect(() => {
+    if (manualCaptureRef.current) return;
+    setMode(user?.hasFaceEmbedding ? 'status' : 'capture');
+  }, [user?.hasFaceEmbedding]);
+
+  const [verifyOpen, setVerifyOpen] = useState(false);
+
   const [stepIndex, setStepIndex] = useState(0);
   const [images, setImages] = useState<string[]>([]);
-  const [cameraVisible, setCameraVisible] = useState(true);
+  const imagesRef = useRef<string[]>([]);
+  const [stepPassed, setStepPassed] = useState(false);
+  const [hint, setHint] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [failedReason, setFailedReason] = useState<string | null>(null);
 
   const step = STEPS[stepIndex];
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
 
   async function handleSubmit(finalImages: string[]) {
     setSubmitting(true);
@@ -104,27 +127,33 @@ export function FaceEnrollmentScreen() {
     }
   }
 
-  async function handleCapture(base64: string) {
+  async function handleFrame(base64: string) {
+    if (validating || stepPassed) return;
     setValidating(true);
     try {
       const quality = await checkEnrollQuality(base64);
       const error = validateStep(step.key, quality);
       if (error) {
-        toast.error(error);
+        setHint(error);
         return;
       }
 
-      const next = [...images, base64];
+      setHint(null);
+      setStepPassed(true);
+      const next = [...imagesRef.current, base64];
+      imagesRef.current = next;
       setImages(next);
 
-      if (stepIndex + 1 >= STEPS.length) {
-        setCameraVisible(false);
-        await handleSubmit(next);
-      } else {
-        setStepIndex(stepIndex + 1);
-      }
+      setTimeout(() => {
+        setStepPassed(false);
+        if (stepIndex + 1 >= STEPS.length) {
+          handleSubmit(next);
+        } else {
+          setStepIndex((i) => i + 1);
+        }
+      }, STEP_PASS_PAUSE_MS);
     } catch (err) {
-      toast.error(extractApiError(err));
+      setHint(extractApiError(err));
     } finally {
       setValidating(false);
     }
@@ -133,22 +162,59 @@ export function FaceEnrollmentScreen() {
   function handleReset() {
     setStepIndex(0);
     setImages([]);
+    imagesRef.current = [];
     setFailedReason(null);
     setDone(false);
-    setCameraVisible(true);
+    setHint(null);
+    setStepPassed(false);
+  }
+
+  function startReenroll() {
+    manualCaptureRef.current = true;
+    handleReset();
+    setMode('capture');
   }
 
   async function handleCloseCamera() {
     if (images.length > 0) {
       const ok = await confirm({
         title: 'Huỷ đăng ký khuôn mặt?',
-        message: 'Các ảnh đã chụp sẽ không được lưu.',
+        message: 'Các ảnh đã lấy sẽ không được lưu.',
         confirmText: 'Huỷ bỏ',
         destructive: true,
       });
       if (!ok) return;
     }
     router.back();
+  }
+
+  if (mode === 'status') {
+    return (
+      <Screen tabBarInset={false} contentClassName="items-center justify-center">
+        <View className="items-center gap-4 px-6">
+          <Icon name="check-decagram" size={56} tone="success" />
+          <Text variant="title" className="text-center">Bạn đã đăng ký khuôn mặt</Text>
+          <Text tone="muted" className="text-center">
+            Có thể dùng khuôn mặt để chấm công tại quầy.
+          </Text>
+          <View className="w-full gap-3 mt-2">
+            <Button icon="face-recognition" onPress={() => setVerifyOpen(true)}>
+              Kiểm tra so khớp
+            </Button>
+            <Button variant="outline" action="neutral" icon="camera-retake" disabled={!isAdminOrManager} onPress={startReenroll}>
+              Đăng ký lại
+            </Button>
+            {!isAdminOrManager ? (
+              <Text tone="muted" className="text-center text-[12px]">
+                Cần Admin hoặc Quản lý thực hiện đăng ký lại — liên hệ quản lý nếu khuôn mặt thay đổi nhiều.
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <SelfVerifyModal visible={verifyOpen} onClose={() => setVerifyOpen(false)} />
+      </Screen>
+    );
   }
 
   if (done) {
@@ -181,20 +247,20 @@ export function FaceEnrollmentScreen() {
           <Icon name="face-recognition" size={56} tone="primary" />
           <Text variant="title" className="text-center">Đăng ký khuôn mặt</Text>
           <Text tone="muted" className="text-center">
-            Chụp {STEPS.length} góc mặt khác nhau để chấm công qua khuôn mặt chính xác hơn.
+            Giữ khuôn mặt trong khung, xoay theo hướng dẫn — tự động nhận diện {STEPS.length} góc, không cần bấm chụp.
           </Text>
         </View>
       )}
 
       <FaceEnrollmentCameraModal
-        visible={cameraVisible}
+        visible={!failedReason && !submitting}
         stepLabel={step.label}
-        stepHint={step.hint}
         stepIndex={stepIndex}
         totalSteps={STEPS.length}
-        validating={validating}
+        stepPassed={stepPassed}
+        hint={hint ?? step.hint}
         onClose={handleCloseCamera}
-        onCapture={handleCapture}
+        onFrame={handleFrame}
       />
     </Screen>
   );

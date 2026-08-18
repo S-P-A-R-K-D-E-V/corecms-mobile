@@ -182,6 +182,7 @@ export const endpoints = {
   faceTracking: {
     enrollQuality: '/face-tracking/enroll/quality',
     enrollBatch: '/face-tracking/enroll/batch',
+    verifySelf: '/face-tracking/verify-self',
   },
   shiftSwap: {
     create: '/shift-swap',

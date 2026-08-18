@@ -4,6 +4,8 @@ import type {
   IEnrollQualityResponse,
   IEnrollFaceBatchRequest,
   IFaceEmbeddingResponse,
+  IVerifySelfRequest,
+  IVerifySelfResponse,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -22,5 +24,14 @@ export async function submitFaceEnrollment(imagesBase64: string[]): Promise<IFac
   const response = await axios.post<IFaceEmbeddingResponse>(endpoints.faceTracking.enrollBatch, {
     imagesBase64,
   } satisfies IEnrollFaceBatchRequest);
+  return response.data;
+}
+
+/** Tự kiểm tra khuôn mặt hiện tại (video ngắn) có khớp với embedding đã đăng ký không —
+ *  không tạo attendance log, chỉ để nhân viên tự chẩn đoán trước khi ra quầy chấm công. */
+export async function verifySelfFace(videoBase64: string): Promise<IVerifySelfResponse> {
+  const response = await axios.post<IVerifySelfResponse>(endpoints.faceTracking.verifySelf, {
+    videoBase64,
+  } satisfies IVerifySelfRequest);
   return response.data;
 }

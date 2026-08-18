@@ -395,6 +395,19 @@ export interface IFaceEmbeddingResponse {
   updatedAt: string;
 }
 
+/** POST /face-tracking/verify-self — nhân viên tự kiểm tra khuôn mặt hiện tại (video ngắn)
+ *  có khớp với embedding đã đăng ký không, KHÔNG tạo attendance log. */
+export interface IVerifySelfRequest {
+  videoBase64: string;
+}
+
+export interface IVerifySelfResponse {
+  matched: boolean;
+  similarity: number;
+  liveness: boolean;
+  reason?: string | null;
+}
+
 /** Báo cáo chấm công 1 nhân viên trong khoảng — khớp BE AttendanceReportResult.
  *  Lưu ý: endpoint /attendance/my-report trả về MẢNG (1 phần tử cho 1 NV). */
 export interface IAttendanceReport {

@@ -69,7 +69,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "CiCi cần camera để xác thực khuôn mặt."
+          "cameraPermission": "CiCi cần camera để xác thực khuôn mặt.",
+          "microphonePermission": "CiCi cần micro để quay video xác thực khuôn mặt (không ghi âm)."
         }
       ],
       [
