@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { useAuthContext } from 'src/auth/auth-context';
 import { usesAdminShell } from 'src/auth/roles';
+import { useResponsive } from 'src/hooks/use-responsive';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
@@ -38,6 +39,9 @@ const ADMIN_TABS: TabDef[] = [
 ];
 
 const PILL_H = 72;
+// Cap + center the pill on tablet so it doesn't stretch full-bleed across a
+// landscape iPad.
+const TABLET_PILL_MAX_WIDTH = 560;
 
 function TabIcon({ xmlKey, size, color }: { xmlKey?: string; size: number; color: string }) {
   const xml = xmlKey ? SOLAR_ICONS[xmlKey] : undefined;
@@ -47,6 +51,7 @@ function TabIcon({ xmlKey, size, color }: { xmlKey?: string; size: number; color
 
 function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; tabs: TabDef[] }) {
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsive();
   const bottomPad = Math.max(insets.bottom, 8);
 
   // Ẩn tab bar trên MỌI màn chi tiết bên trong 1 tab (route khác 'index') —
@@ -63,7 +68,15 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
       pointerEvents="box-none"
       style={{ position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: 'transparent' }}
     >
-      <View style={{ marginHorizontal: 12, marginBottom: bottomPad }}>
+      <View
+        style={{
+          marginHorizontal: 12,
+          marginBottom: bottomPad,
+          ...(isTablet
+            ? { width: '100%' as const, maxWidth: TABLET_PILL_MAX_WIDTH, alignSelf: 'center' as const }
+            : null),
+        }}
+      >
         <LinearGradient
           colors={NAV_COLORS}
           start={{ x: 0, y: 0 }}

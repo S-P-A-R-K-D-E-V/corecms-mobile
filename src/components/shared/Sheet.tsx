@@ -7,6 +7,11 @@ import { Icon } from '../ui/icon';
 import { GlassView } from '../ui/glass';
 import { spring, duration } from 'src/theme/motion';
 import { blur } from 'src/theme';
+import { useResponsive } from 'src/hooks/use-responsive';
+
+// Cap width on tablet so a bottom sheet reads as a centered dialog instead
+// of a full-bleed strip across a 1024pt-wide screen.
+const TABLET_SHEET_MAX_WIDTH = 560;
 
 export type SheetProps = {
   visible: boolean;
@@ -19,8 +24,10 @@ export type SheetProps = {
 /** Apple-style bottom sheet: frosted glass surface, spring slide-up, dimmed
  *  backdrop fading to 0.35. */
 export function Sheet({ visible, title, onClose, children, footer }: SheetProps) {
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { isTablet } = useResponsive();
+  const sheetWidth = isTablet ? Math.min(TABLET_SHEET_MAX_WIDTH, width - 48) : width;
 
   // Đẩy sheet lên trên bàn phím để ô input đang nhập không bị che.
   // Sheet neo ở đáy trong Modal nên KeyboardAvoidingView không đáng tin —
@@ -61,7 +68,7 @@ export function Sheet({ visible, title, onClose, children, footer }: SheetProps)
         from={{ translateY: 700 }}
         animate={{ translateY: 0 }}
         transition={{ type: 'spring', ...spring.soft }}
-        style={{ position: 'absolute', left: 0, right: 0, bottom: sheetBottom }}
+        style={{ position: 'absolute', width: sheetWidth, alignSelf: 'center', bottom: sheetBottom }}
       >
         <GlassView intensity={blur.sheet} className="rounded-t-[28px] border-t border-glass-border dark:border-glass-border-dark">
           <View style={{ maxHeight: maxBodyHeight, paddingBottom: bodyPadBottom }}>

@@ -1,6 +1,6 @@
 {
   "name": "app-mobile",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
@@ -32,6 +32,7 @@
     "expo-location": "~19.0.8",
     "expo-notifications": "^0.32.17",
     "expo-router": "~6.0.24",
+    "expo-screen-orientation": "~9.0.9",
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
