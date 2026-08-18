@@ -64,6 +64,15 @@ export function ProfileScreen() {
           onPress={() => router.push('/account/edit')}
           showChevron
         />
+        <Divider className="ml-12" />
+        <ListItem
+          icon="face-recognition"
+          iconTone="secondary"
+          title="Đăng ký khuôn mặt"
+          subtitle="Chấm công qua khuôn mặt tại kiosk quầy lễ tân"
+          onPress={() => router.push('/face-enrollment')}
+          showChevron
+        />
       </SectionCard>
 
       {/* Tools */}
