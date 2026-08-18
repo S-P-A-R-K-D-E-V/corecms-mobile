@@ -67,9 +67,13 @@ export function ProfileScreen() {
         <Divider className="ml-12" />
         <ListItem
           icon="face-recognition"
-          iconTone="secondary"
+          iconTone={user?.hasFaceEmbedding ? 'success' : 'secondary'}
           title="Đăng ký khuôn mặt"
-          subtitle="Chấm công qua khuôn mặt tại kiosk quầy lễ tân"
+          subtitle={
+            user?.hasFaceEmbedding
+              ? 'Đã đăng ký — chạm để cập nhật lại'
+              : 'Chưa đăng ký — cần để chấm công tại kiosk quầy lễ tân'
+          }
           onPress={() => router.push('/face-enrollment')}
           showChevron
         />

@@ -7,6 +7,7 @@ import { Text, Button, Icon, SuccessOverlay } from 'src/components/ui';
 import { confirm, toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { checkEnrollQuality, submitFaceEnrollment } from 'src/api/faceEnrollment';
+import { useAuthContext } from 'src/auth/auth-context';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 
 import { FaceEnrollmentCameraModal } from './FaceEnrollmentCameraModal';
@@ -78,6 +79,7 @@ function validateStep(step: StepKey, q: IEnrollQualityResponse): string | null {
 }
 
 export function FaceEnrollmentScreen() {
+  const { refreshUser } = useAuthContext();
   const [stepIndex, setStepIndex] = useState(0);
   const [images, setImages] = useState<string[]>([]);
   const [cameraVisible, setCameraVisible] = useState(true);
@@ -94,6 +96,7 @@ export function FaceEnrollmentScreen() {
     try {
       await submitFaceEnrollment(finalImages);
       setDone(true);
+      refreshUser().catch(() => {});
     } catch (err) {
       setFailedReason(extractApiError(err));
     } finally {

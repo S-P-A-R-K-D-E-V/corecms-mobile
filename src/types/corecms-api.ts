@@ -72,6 +72,7 @@ export interface IUser {
   /** Trạng thái tài khoản (BE trả về; isActive suy từ status='Active'). */
   status?: UserStatus;
   createdAt: string;
+  hasFaceEmbedding: boolean;
 }
 
 export type UserStatus = 'Active' | 'Pending' | 'Banned' | 'Rejected';

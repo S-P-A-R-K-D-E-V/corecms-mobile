@@ -79,6 +79,7 @@ function buildUserFromMe(data: any, accessToken: string, refreshToken?: string):
     bankNo: data.bankNo,
     idCardFrontUrl: data.idCardFrontUrl,
     idCardBackUrl: data.idCardBackUrl,
+    hasFaceEmbedding: !!data.hasFaceEmbedding,
   };
 }
 

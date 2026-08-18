@@ -21,6 +21,7 @@ export type AuthUser = {
   bankNo?: string;
   idCardFrontUrl?: string;
   idCardBackUrl?: string;
+  hasFaceEmbedding?: boolean;
 };
 
 export type AuthContextType = {
