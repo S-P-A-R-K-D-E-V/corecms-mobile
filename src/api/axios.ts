@@ -179,6 +179,10 @@ export const endpoints = {
   checkinFace: {
     face: '/checkin/face',
   },
+  faceTracking: {
+    enrollQuality: '/face-tracking/enroll/quality',
+    enrollBatch: '/face-tracking/enroll/batch',
+  },
   shiftSwap: {
     create: '/shift-swap',
     myRequests: '/shift-swap/my-requests',

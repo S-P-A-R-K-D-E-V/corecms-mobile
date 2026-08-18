@@ -367,6 +367,33 @@ export interface ICheckinFaceResponse {
   notificationSent: boolean;
 }
 
+/** POST /face-tracking/enroll/quality — validate 1 ảnh trong luồng đăng ký khuôn mặt có hướng
+ *  dẫn tư thế, KHÔNG lưu gì. Xem KIOSK_CHECKIN_PLAN.md Prompt D, Core-be PR #206. */
+export interface IEnrollQualityRequest {
+  imageBase64: string;
+}
+
+export interface IEnrollQualityResponse {
+  yaw: number;
+  pitch: number;
+  earLeft: number;
+  earRight: number;
+  blinkDetected: boolean;
+  qualityScore: number;
+}
+
+/** POST /face-tracking/enroll/batch — gửi toàn bộ ảnh đã qua validate, BE tự trung bình
+ *  cộng + L2-normalize thành 1 embedding cuối (ghi đè embedding cũ nếu re-enroll). */
+export interface IEnrollFaceBatchRequest {
+  imagesBase64: string[];
+}
+
+export interface IFaceEmbeddingResponse {
+  staffId: string;
+  quality: number;
+  updatedAt: string;
+}
+
 /** Báo cáo chấm công 1 nhân viên trong khoảng — khớp BE AttendanceReportResult.
  *  Lưu ý: endpoint /attendance/my-report trả về MẢNG (1 phần tử cho 1 NV). */
 export interface IAttendanceReport {
