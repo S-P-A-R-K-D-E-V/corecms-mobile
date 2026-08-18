@@ -8,8 +8,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as ScreenOrientation from 'expo-screen-orientation';
 
 import { AuthProvider } from 'src/auth/auth-provider';
+import { useResponsive } from 'src/hooks/use-responsive';
 import { usePushRegistration } from 'src/hooks/use-push-registration';
 import { useHydrateLauncher } from 'src/features/launcher/store';
 import { queryClient } from 'src/services/query/client';
@@ -34,6 +36,23 @@ function PushRegistrationWrapper() {
 // Nạp cấu hình feature-grid (ghim tiện ích) từ AsyncStorage khi mở app.
 function LauncherHydrator() {
   useHydrateLauncher();
+  return null;
+}
+
+// Khoá xoay màn hình theo loại thiết bị: điện thoại luôn đứng (portrait),
+// tablet (iPad/Android tablet) được xoay tự do. Không dùng lock cứng ở
+// manifest/Info.plist vì cần cùng 1 ngưỡng (TABLET_BREAKPOINT) cho cả 2 nền
+// tảng — đồng thời tự xử lý được trường hợp iPad Split View/Slide Over đổi
+// kích thước cửa sổ qua lại ngưỡng tablet khi app đang chạy.
+function OrientationGuard() {
+  const { isTablet } = useResponsive();
+  useEffect(() => {
+    if (isTablet) {
+      ScreenOrientation.unlockAsync().catch(() => {});
+    } else {
+      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+    }
+  }, [isTablet]);
   return null;
 }
 
@@ -65,6 +84,7 @@ export default function RootLayout() {
           <QueryClientProvider client={queryClient}>
             <RemoteConfigProvider>
               <AuthProvider>
+                <OrientationGuard />
                 <PushRegistrationWrapper />
                 <LauncherHydrator />
                 <StatusBar style="auto" />

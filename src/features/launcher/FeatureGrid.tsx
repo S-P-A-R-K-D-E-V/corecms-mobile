@@ -7,6 +7,7 @@ import { Text, Icon, Pressable } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
+import { useResponsive } from 'src/hooks/use-responsive';
 
 import { availableFeatures, getFeature, type FeatureItem, type LauncherVariant } from './registry';
 import { useLauncherStore } from './store';
@@ -14,7 +15,16 @@ import { LauncherEditor } from './LauncherEditor';
 
 // ----------------------------------------------------------------------
 
-function FeatureTile({ item }: { item: FeatureItem }) {
+// Tile columns scale with available width: 4 on phone, 6 on tablet, 8 on
+// wide tablet landscape — keeps pinned tiles from staying phone-sized and
+// sparse on a large screen.
+function columnsFor(width: number) {
+  if (width >= 900) return 8;
+  if (width >= 600) return 6;
+  return 4;
+}
+
+function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) {
   // Tính năng đang phát triển: nút vẫn hiển thị nhưng DISABLED — không điều
   // hướng (tránh lỗi route chưa tồn tại), chỉ mờ đi + tag "Đang phát triển".
   const disabled = !!item.comingSoon;
@@ -28,7 +38,7 @@ function FeatureTile({ item }: { item: FeatureItem }) {
     <Pressable
       onPress={disabled ? undefined : onPress}
       disabled={disabled}
-      style={{ width: '25%' }}
+      style={{ width: `${100 / columns}%` }}
       className={cn('items-center gap-1.5 py-2', disabled && 'opacity-45')}
     >
       <View className="w-[52px] h-[52px] rounded-2xl bg-primary-soft items-center justify-center relative">
@@ -50,6 +60,8 @@ export function FeatureGrid({ variant }: { variant: LauncherVariant }) {
   const { user } = useAuthContext();
   const [editing, setEditing] = useState(false);
   const pinKeys = useLauncherStore((s) => s.pins[variant]);
+  const { width } = useResponsive();
+  const columns = columnsFor(width);
 
   // Chỉ hiện tiện ích user được phép (lọc role) và đang ghim, giữ đúng thứ tự ghim.
   const pinned = useMemo(() => {
@@ -84,7 +96,7 @@ export function FeatureGrid({ variant }: { variant: LauncherVariant }) {
         ) : (
           <View className="flex-row flex-wrap">
             {pinned.map((item) => (
-              <FeatureTile key={item.key} item={item} />
+              <FeatureTile key={item.key} item={item} columns={columns} />
             ))}
           </View>
         )}

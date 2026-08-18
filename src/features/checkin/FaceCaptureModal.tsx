@@ -94,7 +94,7 @@ export function FaceCaptureModal({
       <StatusBar barStyle="light-content" backgroundColor="#17131A" />
       <View className="flex-1 bg-black">
         {/* Top bar */}
-        <View style={{ paddingTop: insets.top }} className="bg-[#17131A]">
+        <View style={{ paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }} className="bg-[#17131A]">
           <View className="flex-row items-center px-2 py-1">
             <Pressable onPress={handleClose} className="w-11 h-11 items-center justify-center">
               <Icon name="close" size={24} color="#FFFFFF" />
@@ -144,7 +144,7 @@ export function FaceCaptureModal({
         </View>
 
         {/* Actions */}
-        <View className="bg-[#17131A]" style={{ paddingBottom: insets.bottom }}>
+        <View className="bg-[#17131A]" style={{ paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }}>
           <View className="p-5 gap-3">
             {!capturedUri ? (
               <Button action="neutral" className="bg-white" onPress={handleCapture} icon="camera">

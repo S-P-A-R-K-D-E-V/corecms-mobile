@@ -2,14 +2,14 @@
   "expo": {
     "name": "CiCi",
     "slug": "cms",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "runtimeVersion": "54.0.0",
     "updates": {
       "url": "https://u.expo.dev/dcddb7bc-4b64-4205-9fc1-60bb269e6273",
       "enabled": true,
       "checkAutomatically": "ON_LOAD"
     },
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "corecms",
     "newArchEnabled": true,
@@ -23,7 +23,7 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": false,
+      "supportsTablet": true,
       "bundleIdentifier": "com.corecms.mobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "CiCi cần vị trí để xác minh check-in của bạn.",
