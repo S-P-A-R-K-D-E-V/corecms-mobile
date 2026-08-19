@@ -35,7 +35,12 @@ const YAW_STRAIGHT_MAX = 0.08;
 const YAW_TURN_MIN = 0.15;
 const PITCH_STRAIGHT_MAX = 0.08;
 const PITCH_TILT_MIN = 0.12;
-const MIN_QUALITY = 0.35;
+// Phải khớp Settings.QUALITY_THRESHOLD của face-tracking-service (0.55) — đây là ngưỡng
+// SERVER thật sự dùng để quyết định có tính embedding hay không lúc enroll/batch (khác hẳn
+// enroll/quality, chỉ check phát hiện khuôn mặt chứ không gate theo ngưỡng này). Trước đây để
+// 0.35 (lỏng hơn) khiến ảnh qua được bước chụp nhưng bị 422 "Không phát hiện khuôn mặt đạt
+// chất lượng tối thiểu" ở bước submit cuối — luôn thất bại dù chụp đủ 5 bước.
+const MIN_QUALITY = 0.55;
 
 const STEP_PASS_PAUSE_MS = 600;
 
