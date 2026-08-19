@@ -16,9 +16,10 @@ type Props = {
   /** Thông báo lý do chưa đạt (từ lần lấy mẫu gần nhất) hoặc gợi ý mặc định của bước. */
   hint: string;
   onClose: () => void;
-  /** Gọi liên tục với mỗi frame lấy mẫu nền (base64, không kèm data: prefix) — cha tự
-   *  validate + quyết định giữ hay bỏ qua, KHÔNG cần người dùng bấm chụp. */
-  onFrame: (base64: string) => void;
+  /** Gọi liên tục với mỗi frame lấy mẫu nền — cha tự validate (base64) + quyết định giữ hay
+   *  bỏ qua, KHÔNG cần người dùng bấm chụp. `uri` (file cache local) dùng để upload thẳng lên
+   *  R2 lúc submit — tránh phải encode lại base64 -> Blob (không ổn định trên RN). */
+  onFrame: (photo: { base64: string; uri: string }) => void;
 };
 
 const POLL_INTERVAL_MS = 900;
@@ -52,7 +53,7 @@ export function FaceEnrollmentCameraModal({
       busyRef.current = true;
       try {
         const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true, skipProcessing: true });
-        if (photo?.base64) onFrame(photo.base64);
+        if (photo?.base64 && photo.uri) onFrame({ base64: photo.base64, uri: photo.uri });
       } catch {
         // Bỏ qua lỗi 1 lần chụp nền — thử lại ở nhịp kế tiếp.
       } finally {

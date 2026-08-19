@@ -383,10 +383,21 @@ export interface IEnrollQualityResponse {
   qualityScore: number;
 }
 
-/** POST /face-tracking/enroll/batch — gửi toàn bộ ảnh đã qua validate, BE tự trung bình
- *  cộng + L2-normalize thành 1 embedding cuối (ghi đè embedding cũ nếu re-enroll). */
+/** POST /face-tracking/enroll/presign — xin N presigned PUT URL để upload thẳng ảnh
+ *  enrollment lên R2 (tránh 413 khi gộp nhiều ảnh base64 gốc camera vào 1 request JSON). */
+export interface IEnrollPresignRequest {
+  count: number;
+}
+
+export interface IEnrollPresignedFileResponse {
+  objectKey: string;
+  uploadUrl: string;
+}
+
+/** POST /face-tracking/enroll/batch — gửi object key của ảnh đã PUT lên R2 (qua enroll/presign),
+ *  BE tự tải về, trung bình cộng + L2-normalize thành 1 embedding cuối (ghi đè nếu re-enroll). */
 export interface IEnrollFaceBatchRequest {
-  imagesBase64: string[];
+  objectKeys: string[];
 }
 
 export interface IFaceEmbeddingResponse {

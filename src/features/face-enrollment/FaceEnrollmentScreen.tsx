@@ -100,9 +100,10 @@ export function FaceEnrollmentScreen() {
 
   const [verifyOpen, setVerifyOpen] = useState(false);
 
+  type CapturedPhoto = { base64: string; uri: string };
   const [stepIndex, setStepIndex] = useState(0);
-  const [images, setImages] = useState<string[]>([]);
-  const imagesRef = useRef<string[]>([]);
+  const [images, setImages] = useState<CapturedPhoto[]>([]);
+  const imagesRef = useRef<CapturedPhoto[]>([]);
   const [stepPassed, setStepPassed] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [validating, setValidating] = useState(false);
@@ -116,11 +117,11 @@ export function FaceEnrollmentScreen() {
     imagesRef.current = images;
   }, [images]);
 
-  async function handleSubmit(finalImages: string[]) {
+  async function handleSubmit(finalImages: CapturedPhoto[]) {
     setSubmitting(true);
     setFailedReason(null);
     try {
-      await submitFaceEnrollment(finalImages);
+      await submitFaceEnrollment(finalImages.map((p) => ({ uri: p.uri })));
       setDone(true);
       refreshUser().catch(() => {});
     } catch (err) {
@@ -130,11 +131,11 @@ export function FaceEnrollmentScreen() {
     }
   }
 
-  async function handleFrame(base64: string) {
+  async function handleFrame(photo: CapturedPhoto) {
     if (validating || stepPassed) return;
     setValidating(true);
     try {
-      const quality = await checkEnrollQuality(base64);
+      const quality = await checkEnrollQuality(photo.base64);
       const error = validateStep(step.key, quality);
       if (error) {
         setHint(error);
@@ -143,7 +144,7 @@ export function FaceEnrollmentScreen() {
 
       setHint(null);
       setStepPassed(true);
-      const next = [...imagesRef.current, base64];
+      const next = [...imagesRef.current, photo];
       imagesRef.current = next;
       setImages(next);
 
