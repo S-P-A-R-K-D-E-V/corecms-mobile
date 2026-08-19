@@ -311,6 +311,27 @@ export interface ISmartCheckOutRequest {
   faceVerified?: boolean;
 }
 
+/** POST /attendance/smart-check-in-face — khác ISmartCheckInRequest: KHÔNG có faceVerified
+ *  (server tự verify video qua Face Tracking Service, không tin giá trị client tự báo). */
+export interface ISmartCheckInWithFaceRequest {
+  videoBase64: string;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  ipAddress?: string;
+  wifiName?: string;
+}
+
+/** POST /attendance/smart-check-out-face — đối xứng ISmartCheckInWithFaceRequest. */
+export interface ISmartCheckOutWithFaceRequest {
+  videoBase64: string;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  ipAddress?: string;
+  wifiName?: string;
+}
+
 /** Khớp BE AttendanceRequestType — KHÔNG có "LeaveRequest" (chưa có tính năng
  *  xin nghỉ phép ở BE). ShiftSwap có luồng riêng qua /shift-swap/*, không tạo
  *  qua endpoint này. */

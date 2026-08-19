@@ -24,6 +24,7 @@ import { t } from 'src/i18n';
 import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { useCheckinData } from './hooks';
 import { FaceCaptureModal } from './FaceCaptureModal';
+import { FaceCheckinModal } from './FaceCheckinModal';
 import { CleaningChecklistSummaryCard } from './CleaningChecklistSummaryCard';
 import {
   getCheckInWindow,
@@ -163,6 +164,7 @@ export function CheckinScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [faceCheckinOpen, setFaceCheckinOpen] = useState(false);
 
   async function fetchGps(): Promise<Coords | null> {
     setGpsStatus('loading');
@@ -420,6 +422,14 @@ export function CheckinScreen() {
                     trên nút trắng, mất chữ Checkout. */}
                 <Text tone="error" className="font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
               </Pressable>
+              <Pressable
+                onPress={() => setFaceCheckinOpen(true)}
+                disabled={submitting}
+                className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
+              >
+                <Icon name="face-recognition" size={16} color="#FFFFFF" />
+                <Text className="text-white font-semibold text-[13px]">Check-out bằng khuôn mặt (mới)</Text>
+              </Pressable>
             </>
           ) : (
             <>
@@ -440,39 +450,51 @@ export function CheckinScreen() {
               </Text>
 
               {canCheckIn ? (
-                locationOk ? (
-                  // Vị trí hợp lệ (trong khu vực) → check-in thường
-                  <Pressable
-                    onPress={() => openCheckInCamera('smart')}
-                    disabled={submitting}
-                    className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
-                    style={softShadow}
-                  >
-                    {submitting ? <Spinner color={brand.primary} /> : <Icon name="camera-account" size={20} color={brand.primary} />}
-                    <Text className="text-primary font-bold text-[16px]">{t('checkin.checkInBtn')}</Text>
-                  </Pressable>
-                ) : gpsFallback ? (
-                  // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
-                  <Pressable
-                    onPress={() => openCheckInCamera('overtime')}
-                    disabled={submitting}
-                    className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
-                    style={softShadow}
-                  >
-                    {submitting ? <Spinner color={brand.warning} /> : <Icon name="clock-plus-outline" size={20} color={brand.warning} />}
-                    <Text className="text-warning-text font-bold text-[16px]">Check-in ngoài giờ</Text>
-                  </Pressable>
-                ) : (
-                  // Đang xác định vị trí / đếm ngược trước khi mở check-in ngoài giờ
-                  <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
-                    <Spinner color="#FFFFFF" />
-                    <Text className="text-white/90 font-bold text-[14px]">
-                      {locationBad
-                        ? `${gpsStatus === 'error' ? 'Không có GPS' : 'Ngoài khu vực'} — chờ ${gpsCountdown ?? 5}s`
-                        : 'Đang kiểm tra vị trí…'}
-                    </Text>
-                  </View>
-                )
+                <>
+                  {locationOk ? (
+                    // Vị trí hợp lệ (trong khu vực) → check-in thường
+                    <Pressable
+                      onPress={() => openCheckInCamera('smart')}
+                      disabled={submitting}
+                      className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                      style={softShadow}
+                    >
+                      {submitting ? <Spinner color={brand.primary} /> : <Icon name="camera-account" size={20} color={brand.primary} />}
+                      <Text className="text-primary font-bold text-[16px]">{t('checkin.checkInBtn')}</Text>
+                    </Pressable>
+                  ) : gpsFallback ? (
+                    // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
+                    <Pressable
+                      onPress={() => openCheckInCamera('overtime')}
+                      disabled={submitting}
+                      className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                      style={softShadow}
+                    >
+                      {submitting ? <Spinner color={brand.warning} /> : <Icon name="clock-plus-outline" size={20} color={brand.warning} />}
+                      <Text className="text-warning-text font-bold text-[16px]">Check-in ngoài giờ</Text>
+                    </Pressable>
+                  ) : (
+                    // Đang xác định vị trí / đếm ngược trước khi mở check-in ngoài giờ
+                    <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
+                      <Spinner color="#FFFFFF" />
+                      <Text className="text-white/90 font-bold text-[14px]">
+                        {locationBad
+                          ? `${gpsStatus === 'error' ? 'Không có GPS' : 'Ngoài khu vực'} — chờ ${gpsCountdown ?? 5}s`
+                          : 'Đang kiểm tra vị trí…'}
+                      </Text>
+                    </View>
+                  )}
+                  {locationOk && (
+                    <Pressable
+                      onPress={() => setFaceCheckinOpen(true)}
+                      disabled={submitting}
+                      className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
+                    >
+                      <Icon name="face-recognition" size={16} color="#FFFFFF" />
+                      <Text className="text-white font-semibold text-[13px]">Check-in bằng khuôn mặt (mới)</Text>
+                    </Pressable>
+                  )}
+                </>
               ) : (
                 // Disabled state — translucent glass so it stays visible on rose
                 <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
@@ -617,6 +639,18 @@ export function CheckinScreen() {
       />
 
       <SuccessOverlay visible={!!successMsg} message={successMsg ?? undefined} onDone={() => setSuccessMsg(null)} />
+
+      <FaceCheckinModal
+        visible={faceCheckinOpen}
+        mode={isCheckedIn ? 'checkout' : 'checkin'}
+        coords={coords}
+        onClose={() => setFaceCheckinOpen(false)}
+        onSuccess={() => {
+          track(isCheckedIn ? AnalyticsEvent.CheckOutSuccess : AnalyticsEvent.CheckInSuccess);
+          setSuccessMsg(isCheckedIn ? t('checkin.checkOutSuccess') : t('checkin.checkInSuccess'));
+          refetch();
+        }}
+      />
     </Screen>
   );
 }

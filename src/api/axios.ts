@@ -103,6 +103,8 @@ export const endpoints = {
     checkOut: '/attendance/check-out',
     smartCheckIn: '/attendance/smart-check-in',
     smartCheckOut: '/attendance/smart-check-out',
+    smartCheckInFace: '/attendance/smart-check-in-face',
+    smartCheckOutFace: '/attendance/smart-check-out-face',
     logs: '/attendance/logs',
     myLogs: '/attendance/my-logs',
     requests: '/attendance/requests',
