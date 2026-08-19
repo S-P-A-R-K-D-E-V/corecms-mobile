@@ -6,6 +6,7 @@ import type {
   IBranchLocation,
   ICheckInRequest,
   ICheckOutRequest,
+  ICheckInWithFaceRequest,
   ICheckinFaceRequest,
   ICheckinFaceResponse,
   IAdjustAttendanceTimeRequest,
@@ -42,6 +43,11 @@ export async function smartCheckOutFace(data: ISmartCheckOutWithFaceRequest): Pr
 
 export async function checkIn(data: ICheckInRequest): Promise<IAttendanceLog> {
   const response = await axios.post<IAttendanceLog>(endpoints.attendance.checkIn, data);
+  return response.data;
+}
+
+export async function checkInFace(data: ICheckInWithFaceRequest): Promise<IAttendanceLog> {
+  const response = await axios.post<IAttendanceLog>(endpoints.attendance.checkInFace, data);
   return response.data;
 }
 

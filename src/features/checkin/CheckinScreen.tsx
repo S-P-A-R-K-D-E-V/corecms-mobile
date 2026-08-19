@@ -164,7 +164,9 @@ export function CheckinScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [faceCheckinOpen, setFaceCheckinOpen] = useState(false);
+  // null = đóng. 'overtime' THAY THẾ hẳn FaceCaptureModal cho action check-in ngoài giờ;
+  // 'checkin'/'checkout' vẫn chạy song song với luồng chụp ảnh cũ (xem FaceCheckinModal).
+  const [faceCheckinMode, setFaceCheckinMode] = useState<'checkin' | 'checkout' | 'overtime' | null>(null);
 
   async function fetchGps(): Promise<Coords | null> {
     setGpsStatus('loading');
@@ -240,7 +242,7 @@ export function CheckinScreen() {
       message: 'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
       confirmText: 'Check-in',
     });
-    if (ok) openCheckInCamera('overtime');
+    if (ok) setFaceCheckinMode('overtime');
   }
 
   async function handleConfirmCheckIn(base64: string, captureTime: Date) {
@@ -423,7 +425,7 @@ export function CheckinScreen() {
                 <Text tone="error" className="font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
               </Pressable>
               <Pressable
-                onPress={() => setFaceCheckinOpen(true)}
+                onPress={() => setFaceCheckinMode('checkout')}
                 disabled={submitting}
                 className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
               >
@@ -465,12 +467,12 @@ export function CheckinScreen() {
                   ) : gpsFallback ? (
                     // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
                     <Pressable
-                      onPress={() => openCheckInCamera('overtime')}
+                      onPress={() => setFaceCheckinMode('overtime')}
                       disabled={submitting}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
-                      {submitting ? <Spinner color={brand.warning} /> : <Icon name="clock-plus-outline" size={20} color={brand.warning} />}
+                      {submitting ? <Spinner color={brand.warning} /> : <Icon name="face-recognition" size={20} color={brand.warning} />}
                       <Text className="text-warning-text font-bold text-[16px]">Check-in ngoài giờ</Text>
                     </Pressable>
                   ) : (
@@ -486,7 +488,7 @@ export function CheckinScreen() {
                   )}
                   {locationOk && (
                     <Pressable
-                      onPress={() => setFaceCheckinOpen(true)}
+                      onPress={() => setFaceCheckinMode('checkin')}
                       disabled={submitting}
                       className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
                     >
@@ -641,13 +643,20 @@ export function CheckinScreen() {
       <SuccessOverlay visible={!!successMsg} message={successMsg ?? undefined} onDone={() => setSuccessMsg(null)} />
 
       <FaceCheckinModal
-        visible={faceCheckinOpen}
-        mode={isCheckedIn ? 'checkout' : 'checkin'}
+        visible={faceCheckinMode !== null}
+        mode={faceCheckinMode ?? 'checkin'}
         coords={coords}
-        onClose={() => setFaceCheckinOpen(false)}
+        onClose={() => setFaceCheckinMode(null)}
         onSuccess={() => {
-          track(isCheckedIn ? AnalyticsEvent.CheckOutSuccess : AnalyticsEvent.CheckInSuccess);
-          setSuccessMsg(isCheckedIn ? t('checkin.checkOutSuccess') : t('checkin.checkInSuccess'));
+          const isOut = faceCheckinMode === 'checkout';
+          track(isOut ? AnalyticsEvent.CheckOutSuccess : AnalyticsEvent.CheckInSuccess);
+          setSuccessMsg(
+            isOut
+              ? t('checkin.checkOutSuccess')
+              : faceCheckinMode === 'overtime'
+                ? 'Check-in ngoài giờ thành công!'
+                : t('checkin.checkInSuccess')
+          );
           refetch();
         }}
       />

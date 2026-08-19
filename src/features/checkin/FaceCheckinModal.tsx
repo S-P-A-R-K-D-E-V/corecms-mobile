@@ -6,7 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { Text, Button, Pressable, Icon, Spinner } from 'src/components/ui';
 import { extractApiError } from 'src/services/error';
-import { smartCheckInFace, smartCheckOutFace } from 'src/api/attendance';
+import { smartCheckInFace, smartCheckOutFace, checkInFace } from 'src/api/attendance';
 import type { Coords } from './utils';
 
 const RECORD_DURATION_SEC = 3;
@@ -15,19 +15,20 @@ type Phase = 'idle' | 'recording' | 'submitting' | 'success' | 'error';
 
 type Props = {
   visible: boolean;
-  mode: 'checkin' | 'checkout';
+  mode: 'checkin' | 'checkout' | 'overtime';
   coords: Coords | null;
   onClose: () => void;
   /** Gọi khi check-in/out thành công — cha tự refetch(). */
   onSuccess: () => void;
 };
 
-/** Check-in/check-out bằng khuôn mặt (mới) — chạy SONG SONG với luồng chụp ảnh cũ
- *  (FaceCaptureModal trong CheckinScreen.tsx), không thay thế. Khác biệt duy nhất: quay 1
- *  video ngắn thay vì chụp ảnh, BE tự verify qua face-tracking-service (POST
- *  /attendance/smart-check-in-face, -out-face) — verify là best-effort, KHÔNG chặn chấm công
- *  nếu fail/service lỗi, nên modal này không cần màn "thử lại nếu không khớp" như
- *  SelfVerifyModal — quay xong là submit thẳng. */
+/** Check-in/check-out bằng khuôn mặt (mới) — quay 1 video ngắn thay vì chụp ảnh, BE tự verify
+ *  qua face-tracking-service — verify là best-effort, KHÔNG chặn chấm công nếu fail/service
+ *  lỗi, nên modal này không cần màn "thử lại nếu không khớp" như SelfVerifyModal — quay xong
+ *  là submit thẳng.
+ *  mode='checkin'|'checkout': chạy SONG SONG với FaceCaptureModal (luồng chụp ảnh cũ).
+ *  mode='overtime': THAY THẾ hẳn FaceCaptureModal cho action "Check-in ngoài giờ" — không còn
+ *  đường chụp ảnh cho action này nữa. */
 export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
@@ -60,8 +61,10 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       };
       if (mode === 'checkin') {
         await smartCheckInFace(payload);
-      } else {
+      } else if (mode === 'checkout') {
         await smartCheckOutFace(payload);
+      } else {
+        await checkInFace({ ...payload, isOvertime: true });
       }
       setPhase('success');
       onSuccess();
@@ -78,7 +81,8 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
 
   if (!permission?.granted) return null;
 
-  const title = mode === 'checkin' ? 'Check-in bằng khuôn mặt' : 'Check-out bằng khuôn mặt';
+  const title =
+    mode === 'checkout' ? 'Check-out bằng khuôn mặt' : mode === 'overtime' ? 'Check-in ngoài giờ bằng khuôn mặt' : 'Check-in bằng khuôn mặt';
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
@@ -105,7 +109,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
                 <>
                   <Icon name="check-decagram" size={56} tone="success" />
                   <Text variant="title" className="text-white">
-                    {mode === 'checkin' ? 'Check-in thành công!' : 'Check-out thành công!'}
+                    {mode === 'checkout' ? 'Check-out thành công!' : 'Check-in thành công!'}
                   </Text>
                 </>
               )}
