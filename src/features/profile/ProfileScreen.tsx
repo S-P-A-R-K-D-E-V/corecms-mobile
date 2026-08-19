@@ -27,6 +27,8 @@ const TOOLS = [
 export function ProfileScreen() {
   const { user, logout } = useAuthContext();
   const role = ROLE[user?.role ?? ''] ?? { label: user?.role ?? 'Nhân viên', tone: 'neutral' as const };
+  const isAdminOrManager =
+    user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
 
   async function handleLogout() {
     const ok = await confirm({
@@ -77,6 +79,19 @@ export function ProfileScreen() {
           onPress={() => router.push('/face-enrollment')}
           showChevron
         />
+        {isAdminOrManager ? (
+          <>
+            <Divider className="ml-12" />
+            <ListItem
+              icon="qrcode-scan"
+              iconTone="secondary"
+              title="Ghép nối thiết bị Kiosk"
+              subtitle="Quét QR hoặc nhập mã từ màn hình kiosk quầy"
+              onPress={() => router.push('/kiosk-pairing')}
+              showChevron
+            />
+          </>
+        ) : null}
       </SectionCard>
 
       {/* Tools */}

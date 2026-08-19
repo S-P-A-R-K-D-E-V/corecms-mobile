@@ -454,6 +454,29 @@ export interface IVerifySelfResponse {
   reason?: string | null;
 }
 
+/** POST /kiosk-pairing/claim — Admin/Manager xác nhận mã 6 số hiển thị trên màn kiosk
+ *  (/kiosk-checkin trên web, app quét QR hoặc gõ tay) để tạo KioskDevice thật + phát key. */
+export interface IKioskClaimRequest {
+  code: string;
+  deviceName: string;
+  branchId: string;
+}
+
+export interface IKioskClaimResponse {
+  deviceId: string;
+  deviceName: string;
+}
+
+export interface IKioskDeviceItem {
+  id: string;
+  name: string;
+  branchId: string;
+  branchName: string;
+  isActive: boolean;
+  createdAt: string;
+  lastSeenAt: string | null;
+}
+
 /** Báo cáo chấm công 1 nhân viên trong khoảng — khớp BE AttendanceReportResult.
  *  Lưu ý: endpoint /attendance/my-report trả về MẢNG (1 phần tử cho 1 NV). */
 export interface IAttendanceReport {

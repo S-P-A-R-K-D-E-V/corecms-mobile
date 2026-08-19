@@ -119,6 +119,11 @@ export const endpoints = {
   branches: {
     list: '/branches',
   },
+  kiosk: {
+    pairingClaim: '/kiosk-pairing/claim',
+    devices: '/kiosk-devices',
+    deviceRevoke: (deviceId: string) => `/kiosk-devices/${deviceId}/revoke`,
+  },
   salary: {
     mySalary: '/salary/my-salary',
   },
