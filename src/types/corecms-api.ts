@@ -269,6 +269,9 @@ export interface IAttendanceLog {
   note?: string;
   faceVerified?: boolean;
   date: string;
+  /** % khớp khuôn mặt (0-100) — chỉ có giá trị ở response của check-in-face/smart-check-in-face/
+   *  smart-check-out-face (RequireFaceMatchAsync), dùng để đưa vào nội dung thông báo Telegram. */
+  faceMatchConfidence?: number;
 }
 
 export interface ICheckInRequest {
@@ -394,6 +397,9 @@ export interface ICheckinFaceRequest {
   lat?: number;
   lng?: number;
   time?: string;
+  /** % khớp khuôn mặt (0-100) — lấy từ IAttendanceLog.faceMatchConfidence, đưa vào nội dung
+   *  thông báo Telegram (xem NotificationService.SendCheckinNotificationAsync). */
+  matchConfidence?: number;
 }
 
 export interface ICheckinFaceResponse {

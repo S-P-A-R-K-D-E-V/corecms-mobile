@@ -88,12 +88,15 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
         longitude: coords?.longitude,
         accuracy: coords?.accuracy,
       };
+      // faceMatchConfidence (%) do RequireFaceMatchAsync tính ngay khi verify — đưa vào nội
+      // dung Telegram để biết đúng người với độ tin cậy bao nhiêu, không phải đoán mò.
+      let matchConfidence: number | undefined;
       if (mode === 'checkin') {
-        await smartCheckInFace(payload);
+        matchConfidence = (await smartCheckInFace(payload)).faceMatchConfidence;
       } else if (mode === 'checkout') {
-        await smartCheckOutFace(payload);
+        matchConfidence = (await smartCheckOutFace(payload))[0]?.faceMatchConfidence;
       } else {
-        await checkInFace({ ...payload, isOvertime: true });
+        matchConfidence = (await checkInFace({ ...payload, isOvertime: true })).faceMatchConfidence;
       }
       // Đẩy ảnh lên Telegram — không chặn kết quả check-in/out nếu lỗi (chỉ là thông báo phụ).
       checkinFace({
@@ -102,6 +105,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
         lat: coords?.latitude,
         lng: coords?.longitude,
         time: new Date().toISOString(),
+        matchConfidence,
       }).catch(() => {});
       setPhase('success');
       onSuccess();
