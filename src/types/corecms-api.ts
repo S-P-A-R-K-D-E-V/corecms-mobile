@@ -284,9 +284,10 @@ export interface ICheckInRequest {
 }
 
 /** POST /attendance/check-in-face — đối xứng ICheckInRequest: KHÔNG có faceVerified (server tự
- *  verify video qua Face Tracking Service). Dùng cho check-in ngoài giờ (isOvertime=true). */
+ *  verify ảnh qua VerifyCheckInFaceCommand — chặn cứng nếu không khớp/chưa đăng ký). Dùng cho
+ *  check-in ngoài giờ (isOvertime=true). */
 export interface ICheckInWithFaceRequest {
-  videoBase64: string;
+  imageBase64: string;
   shiftAssignmentId?: string;
   isOvertime?: boolean;
   latitude?: number;
@@ -325,9 +326,9 @@ export interface ISmartCheckOutRequest {
 }
 
 /** POST /attendance/smart-check-in-face — khác ISmartCheckInRequest: KHÔNG có faceVerified
- *  (server tự verify video qua Face Tracking Service, không tin giá trị client tự báo). */
+ *  (server tự verify ảnh qua VerifyCheckInFaceCommand, chặn cứng nếu không khớp/chưa đăng ký). */
 export interface ISmartCheckInWithFaceRequest {
-  videoBase64: string;
+  imageBase64: string;
   latitude?: number;
   longitude?: number;
   accuracy?: number;
@@ -337,7 +338,7 @@ export interface ISmartCheckInWithFaceRequest {
 
 /** POST /attendance/smart-check-out-face — đối xứng ISmartCheckInWithFaceRequest. */
 export interface ISmartCheckOutWithFaceRequest {
-  videoBase64: string;
+  imageBase64: string;
   latitude?: number;
   longitude?: number;
   accuracy?: number;

@@ -1,17 +1,46 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Modal, StyleSheet, StatusBar } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as FileSystem from 'expo-file-system/legacy';
 
 import { Text, Button, Pressable, Icon, Spinner } from 'src/components/ui';
 import { extractApiError } from 'src/services/error';
+import { checkEnrollQuality } from 'src/api/faceEnrollment';
 import { smartCheckInFace, smartCheckOutFace, checkInFace } from 'src/api/attendance';
+import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 import type { Coords } from './utils';
 
-const RECORD_DURATION_SEC = 3;
+// ----------------------------------------------------------------------
+// Check-in/check-out bằng khuôn mặt — camera mở tự động, KHÔNG có nút bấm quay: liên tục lấy
+// mẫu frame nền và validate qua face-tracking-service (đúng pattern tự-động-nhận-diện của
+// face-enrollment, bước "Nhìn thẳng") tới khi có 1 tấm đạt, tự chụp tấm đó rồi gửi thẳng sang
+// BE verify BẮT BUỘC (không phải video quay tay + verify best-effort như trước) — không khớp/
+// không đủ tin cậy thì BE tự chặn hẳn check-in/out.
+// mode='checkin'|'checkout': chạy SONG SONG với luồng chụp ảnh cũ (FaceCaptureModal).
+// mode='overtime': THAY THẾ hẳn luồng chụp ảnh cũ cho action "Check-in ngoài giờ".
 
-type Phase = 'idle' | 'recording' | 'submitting' | 'success' | 'error';
+const POLL_INTERVAL_MS = 900;
+const YAW_STRAIGHT_MAX = 0.08;
+const PITCH_STRAIGHT_MAX = 0.08;
+const MIN_QUALITY = 0.55; // khớp Settings.QUALITY_THRESHOLD face-tracking-service — xem FaceEnrollmentScreen.tsx
+
+function validateStraight(q: IEnrollQualityResponse): string | null {
+  if (q.qualityScore < MIN_QUALITY) {
+    return 'Ảnh chưa đủ rõ — di chuyển tới nơi đủ sáng, giữ máy ổn định.';
+  }
+  if (Math.abs(q.yaw) > YAW_STRAIGHT_MAX || Math.abs(q.pitch) > PITCH_STRAIGHT_MAX) {
+    return 'Vui lòng nhìn thẳng vào camera.';
+  }
+  return null;
+}
+
+function isNotEnrolledError(err: any): boolean {
+  const errorCode = err?.errors && typeof err.errors === 'object' ? Object.keys(err.errors)[0] : null;
+  return errorCode === 'FaceTracking.NoFaceEmbedding';
+}
+
+type Phase = 'opening' | 'scanning' | 'submitting' | 'success' | 'error';
 
 type Props = {
   visible: boolean;
@@ -22,39 +51,37 @@ type Props = {
   onSuccess: () => void;
 };
 
-/** Check-in/check-out bằng khuôn mặt (mới) — quay 1 video ngắn thay vì chụp ảnh, BE tự verify
- *  qua face-tracking-service — verify là best-effort, KHÔNG chặn chấm công nếu fail/service
- *  lỗi, nên modal này không cần màn "thử lại nếu không khớp" như SelfVerifyModal — quay xong
- *  là submit thẳng.
- *  mode='checkin'|'checkout': chạy SONG SONG với FaceCaptureModal (luồng chụp ảnh cũ).
- *  mode='overtime': THAY THẾ hẳn FaceCaptureModal cho action "Check-in ngoài giờ" — không còn
- *  đường chụp ảnh cho action này nữa. */
 export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
+  const busyRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
-  const [phase, setPhase] = useState<Phase>('idle');
+  const [phase, setPhase] = useState<Phase>('opening');
+  const [hint, setHint] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [notEnrolled, setNotEnrolled] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
-    setPhase('idle');
+    setPhase('opening');
+    setHint(null);
     setErrorMsg(null);
-    if (!permission?.granted) requestPermission();
+    setNotEnrolled(false);
+    if (!permission?.granted) {
+      requestPermission().then((res) => {
+        if (res.granted) setPhase('scanning');
+      });
+    } else {
+      setPhase('scanning');
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  async function handleRecord() {
-    if (!cameraRef.current) return;
-    setPhase('recording');
+  async function handleSubmit(imageBase64: string) {
+    setPhase('submitting');
     try {
-      const video = await cameraRef.current.recordAsync({ maxDuration: RECORD_DURATION_SEC });
-      if (!video?.uri) throw new Error('Không quay được video');
-
-      setPhase('submitting');
-      const base64 = await FileSystem.readAsStringAsync(video.uri, { encoding: 'base64' });
       const payload = {
-        videoBase64: base64,
+        imageBase64,
         latitude: coords?.latitude,
         longitude: coords?.longitude,
         accuracy: coords?.accuracy,
@@ -70,13 +97,45 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       onSuccess();
     } catch (err) {
       setErrorMsg(extractApiError(err));
+      setNotEnrolled(isNotEnrolledError(err));
       setPhase('error');
     }
   }
 
+  // ── Auto-detect: lấy mẫu frame nền, tự chụp khi đạt "nhìn thẳng" — KHÔNG cần bấm nút. ──
+  useEffect(() => {
+    if (phase !== 'scanning' || !permission?.granted) return undefined;
+
+    const interval = setInterval(async () => {
+      if (busyRef.current || !cameraRef.current) return;
+      busyRef.current = true;
+      try {
+        const photo = await cameraRef.current.takePictureAsync({ quality: 0.5, base64: true, skipProcessing: true });
+        if (!photo?.base64) return;
+
+        const quality = await checkEnrollQuality(photo.base64);
+        const error = validateStraight(quality);
+        if (error) {
+          setHint(error);
+          return;
+        }
+        setHint(null);
+        await handleSubmit(photo.base64);
+      } catch (err) {
+        setHint(extractApiError(err));
+      } finally {
+        busyRef.current = false;
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, permission?.granted]);
+
   function handleRetry() {
     setErrorMsg(null);
-    setPhase('idle');
+    setNotEnrolled(false);
+    setPhase('scanning');
   }
 
   if (!permission?.granted) return null;
@@ -116,36 +175,45 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
             </View>
           ) : (
             <>
-              <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" mode="video" mute />
+              <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="front" />
+              <View style={StyleSheet.absoluteFill} pointerEvents="none" className="items-center justify-center">
+                <View
+                  style={{ width: 220, height: 280, borderRadius: 140, borderWidth: 3, borderColor: 'rgba(255,255,255,0.8)' }}
+                />
+              </View>
               {phase === 'submitting' ? (
                 <View style={StyleSheet.absoluteFill} className="items-center justify-center bg-black/50 gap-2">
                   <Spinner color="#FFFFFF" />
-                  <Text className="text-white text-[13px]">Đang xử lý…</Text>
+                  <Text className="text-white text-[13px]">Đang xác thực…</Text>
                 </View>
               ) : null}
             </>
           )}
         </View>
 
-        <View className="bg-[#17131A] p-5 gap-3" style={{ paddingBottom: insets.bottom + 16 }}>
-          {phase === 'idle' ? (
-            <Button icon="record-circle-outline" onPress={handleRecord}>
-              Bắt đầu quay ({RECORD_DURATION_SEC} giây)
-            </Button>
+        <View className="bg-[#17131A]" style={{ paddingBottom: insets.bottom + 16 }}>
+          {phase === 'scanning' ? (
+            <View className="px-4 py-3 flex-row items-center gap-2">
+              <Spinner color="#FFFFFF" />
+              <Text className="text-white text-[13px] flex-1">{hint ?? 'Giữ khuôn mặt trong khung, nhìn thẳng vào camera…'}</Text>
+            </View>
           ) : null}
           {phase === 'error' ? (
-            <View className="flex-row gap-3">
-              <Button variant="outline" action="neutral" className="flex-1" onPress={handleRetry} icon="camera-retake">
-                Thử lại
-              </Button>
-              <Button className="flex-1" onPress={onClose}>Đóng</Button>
+            <View className="p-5 gap-3">
+              {notEnrolled ? (
+                <Button icon="face-recognition" onPress={() => { onClose(); router.push('/face-enrollment'); }}>
+                  Đăng ký khuôn mặt ngay
+                </Button>
+              ) : (
+                <Button icon="camera-retake" onPress={handleRetry}>Thử lại</Button>
+              )}
+              <Button variant="outline" action="neutral" onPress={onClose}>Đóng</Button>
             </View>
           ) : null}
           {phase === 'success' ? (
-            <Button onPress={onClose}>Đóng</Button>
-          ) : null}
-          {phase === 'recording' ? (
-            <Text className="text-white/70 text-center text-[12px]">Đang quay… giữ khuôn mặt trong khung</Text>
+            <View className="p-5">
+              <Button onPress={onClose}>Đóng</Button>
+            </View>
           ) : null}
         </View>
       </View>

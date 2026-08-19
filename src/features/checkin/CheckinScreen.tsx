@@ -158,6 +158,15 @@ export function CheckinScreen() {
   const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
   const [gpsFallback, setGpsFallback] = useState(false);
   const needOvertimeFallback = canCheckIn && locationBad;
+  const hasFaceEmbedding = !!user?.hasFaceEmbedding;
+
+  function pressFaceCheckin(mode: 'checkin' | 'checkout' | 'overtime') {
+    if (!hasFaceEmbedding) {
+      router.push('/face-enrollment' as any);
+      return;
+    }
+    setFaceCheckinMode(mode);
+  }
 
   // Camera
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -237,6 +246,10 @@ export function CheckinScreen() {
   }
 
   async function handleOvertimePress() {
+    if (!hasFaceEmbedding) {
+      router.push('/face-enrollment' as any);
+      return;
+    }
     const ok = await confirm({
       title: 'Check-in ngoài giờ',
       message: 'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
@@ -425,12 +438,14 @@ export function CheckinScreen() {
                 <Text tone="error" className="font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
               </Pressable>
               <Pressable
-                onPress={() => setFaceCheckinMode('checkout')}
+                onPress={() => pressFaceCheckin('checkout')}
                 disabled={submitting}
                 className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
               >
                 <Icon name="face-recognition" size={16} color="#FFFFFF" />
-                <Text className="text-white font-semibold text-[13px]">Check-out bằng khuôn mặt (mới)</Text>
+                <Text className="text-white font-semibold text-[13px]">
+                  {hasFaceEmbedding ? 'Check-out bằng khuôn mặt (mới)' : 'Đăng ký khuôn mặt để check-out'}
+                </Text>
               </Pressable>
             </>
           ) : (
@@ -467,13 +482,15 @@ export function CheckinScreen() {
                   ) : gpsFallback ? (
                     // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
                     <Pressable
-                      onPress={() => setFaceCheckinMode('overtime')}
+                      onPress={() => pressFaceCheckin('overtime')}
                       disabled={submitting}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
                       {submitting ? <Spinner color={brand.warning} /> : <Icon name="face-recognition" size={20} color={brand.warning} />}
-                      <Text className="text-warning-text font-bold text-[16px]">Check-in ngoài giờ</Text>
+                      <Text className="text-warning-text font-bold text-[16px]">
+                        {hasFaceEmbedding ? 'Check-in ngoài giờ' : 'Đăng ký khuôn mặt để check-in'}
+                      </Text>
                     </Pressable>
                   ) : (
                     // Đang xác định vị trí / đếm ngược trước khi mở check-in ngoài giờ
@@ -488,12 +505,14 @@ export function CheckinScreen() {
                   )}
                   {locationOk && (
                     <Pressable
-                      onPress={() => setFaceCheckinMode('checkin')}
+                      onPress={() => pressFaceCheckin('checkin')}
                       disabled={submitting}
                       className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
                     >
                       <Icon name="face-recognition" size={16} color="#FFFFFF" />
-                      <Text className="text-white font-semibold text-[13px]">Check-in bằng khuôn mặt (mới)</Text>
+                      <Text className="text-white font-semibold text-[13px]">
+                        {hasFaceEmbedding ? 'Check-in bằng khuôn mặt (mới)' : 'Đăng ký khuôn mặt để check-in'}
+                      </Text>
                     </Pressable>
                   )}
                 </>
@@ -509,7 +528,9 @@ export function CheckinScreen() {
               {!canCheckIn ? (
                 <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15">
                   <Icon name="clock-plus-outline" size={16} color="#FFFFFF" />
-                  <Text className="text-white font-semibold text-[13px]">Check-in ngoài giờ</Text>
+                  <Text className="text-white font-semibold text-[13px]">
+                    {hasFaceEmbedding ? 'Check-in ngoài giờ' : 'Đăng ký khuôn mặt để check-in'}
+                  </Text>
                 </Pressable>
               ) : null}
             </>
