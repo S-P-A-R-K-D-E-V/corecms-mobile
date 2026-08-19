@@ -7,7 +7,8 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Text, Button, Pressable, Icon, Spinner } from 'src/components/ui';
 import { extractApiError } from 'src/services/error';
 import { checkEnrollQuality } from 'src/api/faceEnrollment';
-import { smartCheckInFace, smartCheckOutFace, checkInFace } from 'src/api/attendance';
+import { smartCheckInFace, smartCheckOutFace, checkInFace, checkinFace } from 'src/api/attendance';
+import { useAuthContext } from 'src/auth/auth-context';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 import type { Coords } from './utils';
 
@@ -53,6 +54,7 @@ type Props = {
 
 export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
+  const { user } = useAuthContext();
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
   const [permission, requestPermission] = useCameraPermissions();
@@ -93,8 +95,19 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       } else {
         await checkInFace({ ...payload, isOvertime: true });
       }
+      // Đẩy ảnh lên Telegram — không chặn kết quả check-in/out nếu lỗi (chỉ là thông báo phụ).
+      checkinFace({
+        candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
+        imageBase64: `data:image/jpeg;base64,${imageBase64}`,
+        lat: coords?.latitude,
+        lng: coords?.longitude,
+        time: new Date().toISOString(),
+      }).catch(() => {});
       setPhase('success');
       onSuccess();
+      // Tự đóng modal sau khi cha đã hiện SuccessOverlay — tránh còn sót khung camera/nút
+      // "Đóng" thủ công khiến người dùng tưởng chưa xong dù check-in/out đã thành công.
+      setTimeout(onClose, 700);
     } catch (err) {
       setErrorMsg(extractApiError(err));
       setNotEnrolled(isNotEnrolledError(err));
