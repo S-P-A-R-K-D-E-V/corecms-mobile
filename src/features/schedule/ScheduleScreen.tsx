@@ -419,8 +419,10 @@ export function ScheduleScreen() {
 
         
       </View>
-      {/* Single register button for the whole week */}
-      <View className="flex-row gap-2" style={{ marginTop: 4 }}>
+      {/* Single register button for the whole week — stacked (không phải flex-row): cả 2
+          Button đều fullWidth mặc định, đặt cạnh nhau trên 1 hàng sẽ tràn màn hình vì mỗi
+          nút đều cố chiếm 100% bề rộng hàng. */}
+      <View className="gap-2" style={{ marginTop: 4 }}>
         <Button
           size="sm"
           icon="plus"

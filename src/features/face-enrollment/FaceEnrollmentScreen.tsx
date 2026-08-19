@@ -237,8 +237,8 @@ export function FaceEnrollmentScreen() {
           <Icon name="alert-circle-outline" size={56} tone="error" />
           <Text variant="title" className="text-center">Đăng ký thất bại</Text>
           <Text tone="muted" className="text-center">{failedReason}</Text>
-          <Button onPress={handleReset} icon="camera-retake">Thử lại từ đầu</Button>
-          <Button variant="outline" action="neutral" onPress={() => router.back()}>Để sau</Button>
+          <Button fullWidth={false} onPress={handleReset} icon="camera-retake">Thử lại từ đầu</Button>
+          <Button fullWidth={false} variant="outline" action="neutral" onPress={() => router.back()}>Để sau</Button>
         </View>
       ) : submitting ? (
         <View className="items-center gap-4 px-6">
