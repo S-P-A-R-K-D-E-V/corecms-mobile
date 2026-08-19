@@ -23,7 +23,10 @@ const STEPS: { key: StepKey; label: string; hint: string }[] = [
   { key: 'right', label: 'Quay phải', hint: 'Xoay đầu sang phải một góc rõ rệt' },
   { key: 'up', label: 'Ngước lên', hint: 'Ngước cằm lên trên' },
   { key: 'down', label: 'Cúi xuống', hint: 'Cúi cằm xuống dưới' },
-  { key: 'blink', label: 'Chớp mắt', hint: 'Nhìn thẳng vào camera và chớp mắt liên tục' },
+  // 'blink' tạm bỏ khỏi luồng — BLINK_EAR_THRESHOLD chưa được calibrate bằng ảnh mẫu thật
+  // (xem README face-tracking-service), single-frame EAR check hiện gần như không bao giờ
+  // bắt được đúng khoảnh khắc nhắm mắt qua polling 900ms. validateStep vẫn giữ case 'blink'
+  // để bật lại nhanh sau khi calibrate xong.
 ];
 
 // Ngưỡng heuristic — yaw/pitch từ Core-be là ước lượng thô (xem docstring
