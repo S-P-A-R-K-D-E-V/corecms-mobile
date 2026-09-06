@@ -530,7 +530,10 @@ export interface IPayrollRecord {
   presentShifts: number;
   totalHoursWorked: number;
   overtimeHours: number;
-  wrongShifts: number;
+  missingCheckOutShifts: number;
+  missingCheckInShifts: number;
+  /** Số log chấm công không khớp lịch phân ("Sai ca" đúng nghĩa) — chỉ Admin/Manager xem chi tiết qua /payroll/{id}/unscheduled-attendance. */
+  unscheduledAttendanceCount: number;
   totalLateMinutes: number;
   absentShifts: number;
   baseSalary: number;
@@ -559,7 +562,7 @@ export interface IPayrollShiftItem {
   workedHours: number;
   paidHours: number;
   lateMinutes: number;
-  /** 'Present' | 'Absent' | 'Wrong' (chuỗi từ BE). */
+  /** 'Present' | 'Absent' | 'MissingCheckOut' | 'MissingCheckIn' | 'Pending' (chuỗi từ BE). */
   status: string;
   isWaived: boolean;
   waiverId?: string;
@@ -578,7 +581,7 @@ export interface IPayrollShiftDetailResponse {
 }
 
 /** Loại vi phạm có thể bỏ qua lỗi (khớp BE ViolationType). */
-export type WaivableViolationType = 'Late' | 'EarlyLeave' | 'WrongShift' | 'Absent';
+export type WaivableViolationType = 'Late' | 'EarlyLeave' | 'MissingCheckOut' | 'MissingCheckIn' | 'Absent';
 
 /** POST /payroll/waive-penalty — bỏ qua lỗi vi phạm 1 ca của 1 nhân viên. */
 export interface IWaivePenaltyRequest {

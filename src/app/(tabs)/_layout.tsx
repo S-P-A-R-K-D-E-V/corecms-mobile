@@ -10,6 +10,7 @@ import { usesAdminShell } from 'src/auth/roles';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
+import { AssistantProvider } from 'src/components/assistant/assistant-provider';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
 import { spring } from 'src/theme/motion';
 
@@ -25,6 +26,7 @@ const STAFF_TABS: TabDef[] = [
   { name: 'payroll', off: 'tab-payroll-off', on: 'tab-payroll-on', label: 'Lương' },
   { name: 'checkin', on: 'tab-checkin-on', label: 'Điểm danh' }, // center
   { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
+  { name: 'assistant', off: 'tab-assistant-off', on: 'tab-assistant-on', label: 'Trợ lý' },
   { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
 
@@ -35,6 +37,7 @@ const ADMIN_TABS: TabDef[] = [
   { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', label: 'Dashboard' },
   { name: 'features', off: 'tab-apps-off', on: 'tab-apps-on', label: 'Tiện ích' },
   { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', label: 'Chat' },
+  { name: 'assistant', off: 'tab-assistant-off', on: 'tab-assistant-on', label: 'Trợ lý' },
   { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', label: 'Tôi' },
 ];
 
@@ -249,19 +252,22 @@ export default function TabsLayout() {
   return (
     <InternalAppGuard>
       <MessengerProvider>
-        <Tabs
-          screenOptions={{ headerShown: false }}
-          tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
-        >
-          <Tabs.Screen name="schedule" />
-          <Tabs.Screen name="payroll" />
-          <Tabs.Screen name="checkin" />
-          <Tabs.Screen name="chat" />
-          <Tabs.Screen name="profile" />
-          <Tabs.Screen name="admin" />
-          <Tabs.Screen name="features" />
-        </Tabs>
-        <InAppNotificationHost />
+        <AssistantProvider>
+          <Tabs
+            screenOptions={{ headerShown: false }}
+            tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
+          >
+            <Tabs.Screen name="schedule" />
+            <Tabs.Screen name="payroll" />
+            <Tabs.Screen name="checkin" />
+            <Tabs.Screen name="chat" />
+            <Tabs.Screen name="assistant" />
+            <Tabs.Screen name="profile" />
+            <Tabs.Screen name="admin" />
+            <Tabs.Screen name="features" />
+          </Tabs>
+          <InAppNotificationHost />
+        </AssistantProvider>
       </MessengerProvider>
     </InternalAppGuard>
   );
