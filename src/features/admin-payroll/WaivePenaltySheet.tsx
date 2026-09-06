@@ -28,7 +28,7 @@ const VIOLATION_LABEL: Record<WaivableViolationType, string> = {
 
 /** Loại vi phạm có thể bỏ qua cho 1 ca — null nếu ca không có lỗi để bỏ qua. */
 export function waivableViolation(s: IPayrollShiftItem): WaivableViolationType | null {
-  if (s.isWaived) return null;
+  if (s.waivers.length > 0) return null;
   if (s.status === 'Absent') return 'Absent';
   if (s.status === 'MissingCheckOut') return 'MissingCheckOut';
   if (s.status === 'MissingCheckIn') return 'MissingCheckIn';

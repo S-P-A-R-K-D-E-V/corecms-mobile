@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getMyPayroll, getPayrollShiftDetails } from 'src/api/payroll';
+import { getMyPayroll, getPayrollPenaltyDetails, getPayrollShiftDetails } from 'src/api/payroll';
 
 export function useMyPayroll() {
   return useQuery({ queryKey: ['payroll', 'mine'], queryFn: getMyPayroll });
@@ -10,6 +10,14 @@ export function usePayrollShiftDetails(id: string) {
     queryKey: ['payroll', 'shift-details', id],
     queryFn: () => getPayrollShiftDetails(id),
     enabled: !!id,
+  });
+}
+
+export function usePayrollPenaltyDetails(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['payroll', 'penalty-details', id],
+    queryFn: () => getPayrollPenaltyDetails(id),
+    enabled: !!id && enabled,
   });
 }
 
