@@ -43,7 +43,8 @@ function shiftStatus(s: IPayrollShiftItem): { label: string; tone: 'info' | 'war
   if (s.isWaived) return { label: 'Đã bỏ qua lỗi', tone: 'info' };
   if (s.status === 'Present' && s.lateMinutes > 0) return { label: `Đi muộn ${s.lateMinutes}p`, tone: 'warning' };
   if (s.status === 'Present') return { label: 'Có mặt', tone: 'success' };
-  if (s.status === 'Wrong') return { label: 'Sai ca', tone: 'error' };
+  if (s.status === 'MissingCheckOut') return { label: 'Quên checkout', tone: 'error' };
+  if (s.status === 'MissingCheckIn') return { label: 'Quên checkin', tone: 'error' };
   return { label: 'Vắng', tone: 'error' };
 }
 
@@ -130,7 +131,8 @@ export function PayrollDetailScreen() {
             <Metric value={rec.totalShifts} label="Tổng ca" tone="primary" />
             <Metric value={rec.presentShifts} label="Có mặt" tone="success" />
             <Metric value={rec.absentShifts} label="Vắng" tone="error" />
-            <Metric value={rec.wrongShifts} label="Sai ca" tone="warning" />
+            <Metric value={rec.missingCheckOutShifts} label="Quên checkout" tone="warning" />
+            <Metric value={rec.missingCheckInShifts} label="Quên checkin" tone="warning" />
             <Metric value={`${rec.totalLateMinutes}p`} label="Đi muộn" tone="warning" />
             <Metric value={`${rec.totalHoursWorked.toFixed(1)}h`} label="Giờ làm" tone="info" />
           </View>

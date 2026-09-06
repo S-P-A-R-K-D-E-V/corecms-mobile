@@ -172,6 +172,11 @@ export const endpoints = {
     detail: (id: string) => `/notifications/${id}`,
     pushToken: '/notifications/push-token',
   },
+  chatbot: {
+    sessions: '/chatbot/sessions',
+    messages: '/chatbot/messages',
+    sessionMessages: (sessionId: string) => `/chatbot/sessions/${sessionId}/messages`,
+  },
   messenger: {
     conversations: '/messenger/conversations',
     openPrivate: '/messenger/conversations/private',

@@ -13,14 +13,16 @@ import { useWaivePenalty } from './hooks';
 
 // ----------------------------------------------------------------------
 // Bỏ qua lỗi vi phạm 1 ca (Admin/Manager) — rule khớp core-fe: chỉ hiện cho ca
-// Vắng (Absent) / Sai ca (WrongShift) / Có mặt-đi-muộn (Late). Lý do tuỳ chọn.
+// Vắng (Absent) / Quên checkout (MissingCheckOut) / Quên checkin (MissingCheckIn) /
+// Có mặt-đi-muộn (Late). Lý do tuỳ chọn.
 // Sau khi bỏ qua phải "Tính lại lương" để thực sự trừ khoản phạt.
 // ----------------------------------------------------------------------
 
 const VIOLATION_LABEL: Record<WaivableViolationType, string> = {
   Late: 'Đi muộn',
   EarlyLeave: 'Về sớm',
-  WrongShift: 'Sai ca',
+  MissingCheckOut: 'Quên checkout',
+  MissingCheckIn: 'Quên checkin',
   Absent: 'Vắng',
 };
 
@@ -28,7 +30,8 @@ const VIOLATION_LABEL: Record<WaivableViolationType, string> = {
 export function waivableViolation(s: IPayrollShiftItem): WaivableViolationType | null {
   if (s.isWaived) return null;
   if (s.status === 'Absent') return 'Absent';
-  if (s.status === 'Wrong') return 'WrongShift';
+  if (s.status === 'MissingCheckOut') return 'MissingCheckOut';
+  if (s.status === 'MissingCheckIn') return 'MissingCheckIn';
   if (s.status === 'Present' && s.lateMinutes > 0) return 'Late';
   return null;
 }
