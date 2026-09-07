@@ -550,6 +550,50 @@ export interface IPayrollRecord {
   payment?: IPayrollPaymentSummary | null;
 }
 
+// 1 waiver đang áp dụng cho 1 ca — 1 ca có thể có nhiều waiver cùng lúc (vd. Late + EarlyLeave).
+export interface IShiftWaiverInfo {
+  waiverId: string;
+  violationType: string;
+  reason?: string;
+}
+
+// 1 dòng "Chi tiết khoản phạt" (GET /payroll/{id}/penalty-details) — chỉ gồm các dòng thuộc
+// nhóm phạt (Penalty/ManualPenalty/CleaningPenalty), tổng amount luôn khớp penaltyAmount.
+export interface IPayrollPenaltyDetailItem {
+  id: string;
+  itemType: 'Penalty' | 'ManualPenalty' | 'CleaningPenalty';
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+// 1 yêu cầu đổi ca liên quan tới 1 ca cụ thể — liệt kê nguyên trạng để đối chiếu, không suy
+// đoán ai là "chủ ca gốc" (StaffId của assignment đã đổi thật khi status=Approved).
+export interface IPayrollShiftSwapEvent {
+  id: string;
+  status: string;
+  requesterName: string;
+  targetName?: string;
+  currentShiftName: string;
+  targetShiftName?: string;
+  createdAt: string;
+  reviewedAt?: string;
+}
+
+// 1 bài đăng làm hộ/chợ ca liên quan tới 1 ca cụ thể — liệt kê nguyên trạng để đối chiếu.
+export interface IPayrollShiftCoverEvent {
+  id: string;
+  needType: 'Swap' | 'FullCover' | 'PartialCover';
+  status: string;
+  posterName: string;
+  claimerName?: string;
+  coveringHours?: number;
+  extraPayAmount?: number;
+  createdAt: string;
+  claimedAt?: string;
+}
+
 /** Chi tiết 1 ca trong bảng lương — khớp BE PayrollShiftItemResponse. */
 export interface IPayrollShiftItem {
   shiftAssignmentId: string;
@@ -559,15 +603,18 @@ export interface IPayrollShiftItem {
   shiftEndTime: string;
   checkInTime?: string;
   checkOutTime?: string;
-  workedHours: number;
   paidHours: number;
   lateMinutes: number;
+  earlyLeaveMinutes: number;
   /** 'Present' | 'Absent' | 'MissingCheckOut' | 'MissingCheckIn' | 'Pending' (chuỗi từ BE). */
   status: string;
-  isWaived: boolean;
-  waiverId?: string;
-  waiverReason?: string;
+  // Loại vi phạm THẬT SỰ áp dụng cho ca này (0-2 phần tử), khớp đúng logic tính lương thật.
+  applicableViolationTypes: string[];
+  waivers: IShiftWaiverInfo[];
   isHolidayShift: boolean;
+  // Đối chiếu đổi ca/làm hộ (mọi trạng thái) liên quan tới ca này.
+  swapEvents: IPayrollShiftSwapEvent[];
+  coverEvents: IPayrollShiftCoverEvent[];
 }
 
 export interface IPayrollShiftDetailResponse {

@@ -130,6 +130,7 @@ export const endpoints = {
   payroll: {
     myPayroll: '/payroll/my-payroll',
     shiftDetails: (id: string) => `/payroll/${id}/shift-details`,
+    penaltyDetails: (id: string) => `/payroll/${id}/penalty-details`,
     // Admin: tính lương
     calculate: '/payroll/calculate',
     generateBatch: '/payroll/generate-batch',

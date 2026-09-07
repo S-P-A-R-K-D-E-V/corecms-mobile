@@ -9,6 +9,7 @@ import type {
   IPayrollCalculationRequest,
   IPayrollCycleDetailResponse,
   IPayrollPaymentDetail,
+  IPayrollPenaltyDetailItem,
   IPayrollRecord,
   IPayrollShiftDetailResponse,
   IPreparePayrollPaymentResponse,
@@ -27,6 +28,15 @@ export async function getMyPayroll(): Promise<IPayrollRecord[]> {
 export async function getPayrollShiftDetails(payrollRecordId: string): Promise<IPayrollShiftDetailResponse> {
   const response = await axios.get<IPayrollShiftDetailResponse>(
     endpoints.payroll.shiftDetails(payrollRecordId)
+  );
+  return response.data;
+}
+
+/** Chi tiết các khoản phạt (đi muộn/về sớm/vắng/quên checkin-checkout/phạt vệ sinh/phạt thủ
+ *  công) đã cộng dồn vào penaltyAmount — tổng các dòng này luôn khớp penaltyAmount. */
+export async function getPayrollPenaltyDetails(payrollRecordId: string): Promise<IPayrollPenaltyDetailItem[]> {
+  const response = await axios.get<IPayrollPenaltyDetailItem[]>(
+    endpoints.payroll.penaltyDetails(payrollRecordId)
   );
   return response.data;
 }

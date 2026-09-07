@@ -1,13 +1,33 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, SectionCard, Loading, ErrorView } from 'src/components/shared';
-import { Text, Badge, Divider, BrandGradient, CountUp, Donut } from 'src/components/ui';
+import { Text, Badge, Divider, BrandGradient, CountUp, Donut, Icon, Pressable } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { softShadow, brand } from 'src/theme';
 import type { IPayrollShiftItem } from 'src/types/corecms-api';
 import { useMyPayroll, usePayrollShiftDetails, fmtMoney } from './hooks';
+import { PenaltyDetailSheet } from './PenaltyDetailSheet';
+
+// Nhãn hiển thị cho đối chiếu đổi ca/làm hộ — khớp đúng danh sách trên core-fe
+// (src/components/shift-cross-check-badge).
+const NEED_TYPE_LABEL: Record<string, string> = {
+  Swap: 'Đổi ca',
+  FullCover: 'Làm hộ cả ca',
+  PartialCover: 'Làm hộ 1 phần',
+};
+
+const EVENT_STATUS_LABEL: Record<string, string> = {
+  Approved: 'Đã duyệt',
+  Pending: 'Chờ duyệt',
+  WaitingApproval: 'Chờ duyệt',
+  WaitingTargetConfirmation: 'Chờ xác nhận',
+  Rejected: 'Từ chối',
+  Cancelled: 'Đã huỷ',
+  Open: 'Đang mở',
+};
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'default' | 'success' | 'error' }) {
   return (
@@ -40,8 +60,9 @@ function timePart(s?: string): string {
 
 // Nhãn trạng thái ca — khớp logic core-fe (my-payroll).
 function shiftStatus(s: IPayrollShiftItem): { label: string; tone: 'info' | 'warning' | 'success' | 'error' } {
-  if (s.isWaived) return { label: 'Đã bỏ qua lỗi', tone: 'info' };
+  if (s.waivers.length > 0) return { label: 'Đã bỏ qua lỗi', tone: 'info' };
   if (s.status === 'Present' && s.lateMinutes > 0) return { label: `Đi muộn ${s.lateMinutes}p`, tone: 'warning' };
+  if (s.status === 'Present' && s.earlyLeaveMinutes > 0) return { label: `Về sớm ${s.earlyLeaveMinutes}p`, tone: 'warning' };
   if (s.status === 'Present') return { label: 'Có mặt', tone: 'success' };
   if (s.status === 'MissingCheckOut') return { label: 'Quên checkout', tone: 'error' };
   if (s.status === 'MissingCheckIn') return { label: 'Quên checkin', tone: 'error' };
@@ -93,6 +114,26 @@ function ShiftAgenda({ shifts }: { shifts: IPayrollShiftItem[] }) {
                         Vào {timePart(s.checkInTime)} · Ra {timePart(s.checkOutTime)}
                       </Text>
                     ) : null}
+                    {s.waivers.length > 0 ? (
+                      <Text variant="caption" tone="primary">
+                        Lý do bỏ qua lỗi: {s.waivers.map((w) => w.reason || w.violationType).join('; ')}
+                      </Text>
+                    ) : null}
+                    {s.swapEvents.length + s.coverEvents.length > 0 ? (
+                      <View className="gap-0.5">
+                        {s.swapEvents.map((e) => (
+                          <Text key={e.id} variant="caption" tone="primary">
+                            🔄 Đổi ca ({EVENT_STATUS_LABEL[e.status] || e.status}): {e.requesterName} ⇄ {e.targetName || '—'}
+                          </Text>
+                        ))}
+                        {s.coverEvents.map((e) => (
+                          <Text key={e.id} variant="caption" tone="primary">
+                            🔁 {NEED_TYPE_LABEL[e.needType] || e.needType} ({EVENT_STATUS_LABEL[e.status] || e.status}):{' '}
+                            {e.posterName} → {e.claimerName || 'chưa có người nhận'}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
                 );
               })}
@@ -109,6 +150,7 @@ export function PayrollDetailScreen() {
   const { data: records } = useMyPayroll();
   const rec = records?.find((r) => r.id === id);
   const { data: details, isLoading, isError, refetch } = usePayrollShiftDetails(id!);
+  const [penaltyDetailOpen, setPenaltyDetailOpen] = useState(false);
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -181,7 +223,17 @@ export function PayrollDetailScreen() {
           <Divider />
           <Row label="Khấu trừ" value={`- ${fmtMoney(rec.deduction)}`} tone="error" />
           <Divider />
-          <Row label="Tiền phạt" value={`- ${fmtMoney(rec.penaltyAmount)}`} tone="error" />
+          <Pressable
+            className="flex-row items-center justify-between py-1.5"
+            disabled={rec.penaltyAmount <= 0}
+            onPress={() => setPenaltyDetailOpen(true)}
+          >
+            <View className="flex-row items-center gap-1">
+              <Text tone="muted">Tiền phạt</Text>
+              {rec.penaltyAmount > 0 ? <Icon name="chevron-right" size={16} tone="faint" /> : null}
+            </View>
+            <Text className="font-semibold" tone="error">- {fmtMoney(rec.penaltyAmount)}</Text>
+          </Pressable>
           <Divider />
           <View className="flex-row items-center justify-between pt-2">
             <Text className="font-bold">Tổng thực nhận</Text>
@@ -201,6 +253,14 @@ export function PayrollDetailScreen() {
           <ShiftAgenda shifts={details.shifts} />
         )}
       </SectionCard>
+
+      {rec ? (
+        <PenaltyDetailSheet
+          visible={penaltyDetailOpen}
+          payrollRecordId={rec.id}
+          onClose={() => setPenaltyDetailOpen(false)}
+        />
+      ) : null}
     </Screen>
   );
 }

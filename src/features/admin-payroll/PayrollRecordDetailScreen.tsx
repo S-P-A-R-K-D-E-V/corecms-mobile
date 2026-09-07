@@ -17,6 +17,7 @@ import { SalaryConfigSheet } from './SalaryConfigSheet';
 import { RecalcConfirmSheet } from './RecalcConfirmSheet';
 import { PaymentQRSheet } from './PaymentQRSheet';
 import { WaivePenaltySheet, waivableViolation } from './WaivePenaltySheet';
+import { PenaltyDetailSheet } from '../payroll/PenaltyDetailSheet';
 
 // ----------------------------------------------------------------------
 // Chi tiết bảng lương 1 nhân viên: cấu hình lương cá nhân + tính lại + chốt;
@@ -36,10 +37,29 @@ function activeConfig(list: ISalaryConfiguration[] | undefined): ISalaryConfigur
   return eligible[0] ?? list[0];
 }
 
+// Nhãn hiển thị cho đối chiếu đổi ca/làm hộ — khớp đúng danh sách trên core-fe
+// (src/components/shift-cross-check-badge).
+const NEED_TYPE_LABEL: Record<string, string> = {
+  Swap: 'Đổi ca',
+  FullCover: 'Làm hộ cả ca',
+  PartialCover: 'Làm hộ 1 phần',
+};
+
+const EVENT_STATUS_LABEL: Record<string, string> = {
+  Approved: 'Đã duyệt',
+  Pending: 'Chờ duyệt',
+  WaitingApproval: 'Chờ duyệt',
+  WaitingTargetConfirmation: 'Chờ xác nhận',
+  Rejected: 'Từ chối',
+  Cancelled: 'Đã huỷ',
+  Open: 'Đang mở',
+};
+
 const STATUS_META: Record<string, { tone: 'success' | 'error' | 'warning' | 'info'; label: string }> = {
   Present: { tone: 'success', label: 'Có mặt' },
   Absent: { tone: 'error', label: 'Vắng' },
-  Wrong: { tone: 'warning', label: 'Sai ca' },
+  MissingCheckOut: { tone: 'warning', label: 'Quên checkout' },
+  MissingCheckIn: { tone: 'warning', label: 'Quên checkin' },
 };
 
 function MoneyRow({ label, value, tone }: { label: string; value: string; tone?: 'success' | 'error' }) {
@@ -60,7 +80,7 @@ function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onR
   onWaive: (s: IPayrollShiftItem) => void;
   onRemoveWaive: (s: IPayrollShiftItem) => void;
 }) {
-  const meta = item.isWaived
+  const meta = item.waivers.length > 0
     ? { tone: 'info' as const, label: 'Đã bỏ qua lỗi' }
     : STATUS_META[item.status] ?? { tone: 'info' as const, label: item.status };
   const canWaive = !finalized && waivableViolation(item) != null;
@@ -98,16 +118,32 @@ function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onR
           <Text variant="caption" tone="muted">Ca {item.shiftStartTime}–{item.shiftEndTime}</Text>
           {item.paidHours > 0 ? <Text variant="caption" tone="muted">{item.paidHours.toFixed(1)}h tính lương</Text> : null}
           {item.lateMinutes > 0 ? <Text variant="caption" tone="warning">Muộn {item.lateMinutes}p</Text> : null}
+          {item.earlyLeaveMinutes > 0 ? <Text variant="caption" tone="warning">Về sớm {item.earlyLeaveMinutes}p</Text> : null}
           {item.isHolidayShift ? <Text variant="caption" tone="primary">Ngày lễ</Text> : null}
         </View>
+        {item.swapEvents.length + item.coverEvents.length > 0 ? (
+          <View className="gap-0.5">
+            {item.swapEvents.map((e) => (
+              <Text key={e.id} variant="caption" tone="primary">
+                🔄 Đổi ca ({EVENT_STATUS_LABEL[e.status] || e.status}): {e.requesterName} ⇄ {e.targetName || '—'}
+              </Text>
+            ))}
+            {item.coverEvents.map((e) => (
+              <Text key={e.id} variant="caption" tone="primary">
+                🔁 {NEED_TYPE_LABEL[e.needType] || e.needType} ({EVENT_STATUS_LABEL[e.status] || e.status}):{' '}
+                {e.posterName} → {e.claimerName || 'chưa có người nhận'}
+              </Text>
+            ))}
+          </View>
+        ) : null}
       </Pressable>
 
       {/* Bỏ qua lỗi — rule khớp core-fe */}
-      {item.isWaived ? (
+      {item.waivers.length > 0 ? (
         <View className="flex-row items-center gap-2">
           <Icon name="shield-check" size={14} tone="info" />
           <Text variant="caption" className="flex-1 text-info" numberOfLines={1}>
-            Đã bỏ qua lỗi{item.waiverReason ? ` · ${item.waiverReason}` : ''}
+            Đã bỏ qua lỗi · {item.waivers.map((w) => w.reason || w.violationType).join('; ')}
           </Text>
           {!finalized ? (
             <Pressable onPress={() => onRemoveWaive(item)} hitSlop={6}>
@@ -149,6 +185,7 @@ export function PayrollRecordDetailScreen() {
   const [configOpen, setConfigOpen] = useState(false);
   const [recalcOpen, setRecalcOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [penaltyDetailOpen, setPenaltyDetailOpen] = useState(false);
   // Trạng thái chốt: khởi tạo từ param, cập nhật sau khi thao tác.
   const [finalized, setFinalized] = useState(params.finalized === 'true');
 
@@ -178,7 +215,7 @@ export function PayrollRecordDetailScreen() {
   }
 
   async function handleRemoveWaive(shift: IPayrollShiftItem) {
-    if (!shift.waiverId) return;
+    if (shift.waivers.length === 0) return;
     const ok = await confirm({
       title: 'Huỷ bỏ qua lỗi',
       message: `Khôi phục lỗi "${shift.shiftName}" — khoản phạt sẽ tính lại khi "Tính lại lương".`,
@@ -187,7 +224,10 @@ export function PayrollRecordDetailScreen() {
     });
     if (!ok) return;
     try {
-      await removeWaiverM.mutateAsync(shift.waiverId);
+      // 1 ca có thể có nhiều waiver cùng lúc (vd. Late + EarlyLeave) — huỷ hết.
+      for (const w of shift.waivers) {
+        await removeWaiverM.mutateAsync(w.waiverId);
+      }
       haptics.success();
       toast.success('Đã huỷ bỏ qua lỗi.', 'Cập nhật');
     } catch (e) {
@@ -220,7 +260,17 @@ export function PayrollRecordDetailScreen() {
           <MoneyRow label="Lương cơ bản" value={fmtMoney(rec.baseSalary)} />
           {rec.overtimeSalary > 0 ? <MoneyRow label="Phụ cấp làm hộ / OT" value={fmtMoney(rec.overtimeSalary)} /> : null}
           {rec.bonus > 0 ? <MoneyRow label="Thưởng lễ" value={fmtMoney(rec.bonus)} tone="success" /> : null}
-          {rec.penaltyAmount > 0 ? <MoneyRow label="Tiền phạt" value={`- ${fmtMoney(rec.penaltyAmount)}`} tone="error" /> : null}
+          {rec.penaltyAmount > 0 ? (
+            <Pressable className="flex-row items-center justify-between py-1" onPress={() => setPenaltyDetailOpen(true)}>
+              <View className="flex-row items-center gap-1">
+                <Text variant="bodySmall" tone="muted">Tiền phạt</Text>
+                <Icon name="chevron-right" size={14} tone="faint" />
+              </View>
+              <Text variant="bodySmall" className="font-semibold" tone="error" style={{ fontVariant: ['tabular-nums'] }}>
+                - {fmtMoney(rec.penaltyAmount)}
+              </Text>
+            </Pressable>
+          ) : null}
         </Card>
       ) : null}
 
@@ -341,6 +391,14 @@ export function PayrollRecordDetailScreen() {
       ) : null}
 
       <PaymentQRSheet recordId={recordId} visible={payOpen} onClose={() => setPayOpen(false)} />
+
+      {recordId ? (
+        <PenaltyDetailSheet
+          visible={penaltyDetailOpen}
+          payrollRecordId={recordId}
+          onClose={() => setPenaltyDetailOpen(false)}
+        />
+      ) : null}
     </Screen>
   );
 }
