@@ -11,7 +11,6 @@ import { useResponsive } from 'src/hooks/use-responsive';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { AssistantProvider } from 'src/components/assistant/assistant-provider';
-import { toast } from 'src/components/overlay';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
 import { spring } from 'src/theme/motion';
 
@@ -108,14 +107,6 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
             const isCenter = tab.name === 'checkin';
 
             function onPress() {
-              // TODO(debug): xoá sau khi xác định xong vì sao tab "Trợ lý" không phản
-              // hồi trên build TestFlight — toast này chạy thuần JS (qua OverlayHost ở
-              // root layout), không phụ thuộc navigation, nên nếu tap mà KHÔNG thấy
-              // toast tức là sự kiện chạm chưa tới được tới đây (vấn đề native/hit-test),
-              // còn nếu THẤY toast mà vẫn không chuyển màn thì lỗi nằm ở route/navigate bên dưới.
-              if (tab.name === 'assistant') {
-                toast.info(`route=${route ? 'found' : 'MISSING'} isFocused=${isFocused}`, 'Debug: bấm Trợ lý');
-              }
               if (!route) return;
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!isFocused && !event.defaultPrevented) {
