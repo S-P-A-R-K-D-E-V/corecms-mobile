@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef } fr
 import * as signalR from '@microsoft/signalr';
 import * as SecureStore from 'expo-secure-store';
 
-import { HOST_API } from 'src/api/axios';
+import { getHostApi } from 'src/api/axios';
 import { useAuthContext } from 'src/auth/auth-context';
 
 // ----------------------------------------------------------------------
@@ -17,7 +17,8 @@ import { useAuthContext } from 'src/auth/auth-context';
 // subscribe trực tiếp vào provider này để nhận event theo thời gian thực.
 // ----------------------------------------------------------------------
 
-const HUB_URL = process.env.EXPO_PUBLIC_ASSISTANT_HUB_URL ?? `${HOST_API}/hubs/chat`;
+// Hàm, không phải hằng: bản app cửa hàng chỉ biết gốc API sau khi đọc mã cửa hàng.
+const hubUrl = () => process.env.EXPO_PUBLIC_ASSISTANT_HUB_URL ?? `${getHostApi()}/hubs/chat`;
 
 export type AssistantHubEvent =
   | { type: 'streamingStarted'; sessionId: string; messageId: string }
@@ -70,7 +71,7 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
       if (!token || !mounted) return;
 
       const conn = new signalR.HubConnectionBuilder()
-        .withUrl(HUB_URL, {
+        .withUrl(hubUrl(), {
           accessTokenFactory: () => token,
           transport: signalR.HttpTransportType.WebSockets,
           skipNegotiation: true,

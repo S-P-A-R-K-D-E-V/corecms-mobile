@@ -1,7 +1,7 @@
 import '../../global.css';
 import 'src/services/message-notifications'; // đăng ký handler thông báo OS (gồm lọc tin nhắn)
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import { track, AnalyticsEvent } from 'src/services/analytics';
 import { ThemeProvider } from 'src/theme/ThemeProvider';
 import { FontProvider } from 'src/theme/FontProvider';
 import { OverlayHost } from 'src/components/overlay';
+import { loadStoreCode } from 'src/services/store-config';
 
 // Keep the native splash up until the Minimal font is ready.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -63,18 +64,27 @@ export default function RootLayout() {
     PublicSans: require('../../assets/fonts/PublicSans.ttf'),
   });
 
+  // Bản app cửa hàng: đọc mã cửa hàng đã chọn TRƯỚC khi AuthProvider gọi API lần đầu (gốc API
+  // phụ thuộc cửa hàng). Bản CiCi trả về ngay.
+  const [storeLoaded, setStoreLoaded] = useState(false);
+  useEffect(() => {
+    loadStoreCode()
+      .catch(() => null)
+      .finally(() => setStoreLoaded(true));
+  }, []);
+
   useEffect(() => {
     track(AnalyticsEvent.AppOpen);
     void checkForUpdate();
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded || fontError) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded, fontError]);
+    if ((fontsLoaded || fontError) && storeLoaded) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, fontError, storeLoaded]);
 
   // Hold on the splash until the font resolves; fall through on error so a
   // font failure never bricks the app (degrades to the system font).
-  if (!fontsLoaded && !fontError) return null;
+  if ((!fontsLoaded && !fontError) || !storeLoaded) return null;
 
   return (
     <RootErrorBoundary>

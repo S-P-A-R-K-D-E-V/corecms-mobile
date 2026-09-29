@@ -23,6 +23,25 @@
     },
     "production": {
       "autoIncrement": true
+    },
+    "store-preview": {
+      "distribution": "internal",
+      "channel": "store-preview",
+      "env": {
+        "APP_VARIANT": "store",
+        "EXPO_PUBLIC_SAAS_ZONE": "devbyspark.com"
+      },
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "store-production": {
+      "autoIncrement": true,
+      "channel": "store-production",
+      "env": {
+        "APP_VARIANT": "store",
+        "EXPO_PUBLIC_SAAS_ZONE": "devbyspark.com"
+      }
     }
   },
   "submit": {

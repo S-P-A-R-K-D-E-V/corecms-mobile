@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef } fr
 import * as signalR from '@microsoft/signalr';
 import * as SecureStore from 'expo-secure-store';
 
-import { HOST_API } from 'src/api/axios';
+import { getHostApi } from 'src/api/axios';
 import { useAuthContext } from 'src/auth/auth-context';
 import { fetchConversations, fetchUsers } from 'src/api/messenger';
 import { useMessengerStore } from 'src/store/messenger-store';
@@ -14,7 +14,8 @@ import { useMessengerStore } from 'src/store/messenger-store';
 //   invoke:  JoinConversation | LeaveConversation | TypingAsync | ReadReceiptAsync
 // ----------------------------------------------------------------------
 
-const HUB_URL = process.env.EXPO_PUBLIC_SIGNALR_HUB_URL ?? `${HOST_API}/hubs/messenger`;
+// Hàm, không phải hằng: bản app cửa hàng chỉ biết gốc API sau khi đọc mã cửa hàng.
+const hubUrl = () => process.env.EXPO_PUBLIC_SIGNALR_HUB_URL ?? `${getHostApi()}/hubs/messenger`;
 
 type MessengerContextValue = {
   connection: signalR.HubConnection | null;
@@ -65,7 +66,7 @@ export function MessengerProvider({ children }: { children: React.ReactNode }) {
       if (!token || !mounted) return;
 
       const conn = new signalR.HubConnectionBuilder()
-        .withUrl(HUB_URL, {
+        .withUrl(hubUrl(), {
           accessTokenFactory: () => token,
           transport: signalR.HttpTransportType.WebSockets,
           skipNegotiation: true,

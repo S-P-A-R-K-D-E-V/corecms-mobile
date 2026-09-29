@@ -3,7 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import axiosInstance, { endpoints, getStorageUrl } from 'src/api/axios';
 import type { IAuthResponse, ILoginRequest, IRegisterRequest, IVerifyOtpRequest, IResendOtpRequest, IRestoreSessionRequest } from 'src/types/corecms-api';
-import { AuthContext, type AuthUser } from './auth-context';
+import { AuthContext, type AuthUser, type OAuthExtra } from './auth-context';
 import { unregisterCurrentPushToken } from 'src/hooks/use-push-registration';
 
 // ----------------------------------------------------------------------
@@ -186,6 +186,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: Types.LOGIN, payload: { user } });
   }, []);
 
+  const loginWithOAuth = useCallback(async (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => {
+    const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.oauthLogin, {
+      provider,
+      token,
+      nonce: extra?.nonce,
+      firstName: extra?.firstName ?? undefined,
+      lastName: extra?.lastName ?? undefined,
+      authorizationCode: extra?.authorizationCode ?? undefined,
+    });
+    const { token: accessToken, refreshToken, sessionToken } = res.data;
+    await setSession(accessToken, refreshToken);
+    if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
+    const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
+    dispatch({ type: Types.LOGIN, payload: { user } });
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const data: ILoginRequest = { email, password };
     let res: { data: IAuthResponse };
@@ -259,6 +275,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.user]);
 
+  // Server xoá dữ liệu cá nhân + vô hiệu mọi phiên; ở máy chỉ còn dọn token như đăng xuất.
+  const deleteAccount = useCallback(async () => {
+    await unregisterCurrentPushToken().catch(() => {});
+    await axiosInstance.delete(endpoints.auth.deleteAccount, { data: { confirm: true } });
+    await setSession(null, null);
+    await SecureStore.deleteItemAsync(SESSION_KEY);
+    setPendingVerification(null);
+    dispatch({ type: Types.LOGOUT });
+  }, []);
+
   const status = state.loading ? 'loading' : state.user ? 'authenticated' : 'unauthenticated';
 
   const value = useMemo(
@@ -270,13 +296,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       pendingVerification,
       login,
       loginWithSessionToken,
+      loginWithOAuth,
+      deleteAccount,
       register,
       logout,
       verifyOtp,
       resendOtp,
       refreshUser,
     }),
-    [state.user, status, pendingVerification, login, loginWithSessionToken, register, logout, verifyOtp, resendOtp, refreshUser]
+    [state.user, status, pendingVerification, login, loginWithSessionToken, loginWithOAuth, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -9,6 +9,7 @@ import { prefs, PrefKeys } from 'src/services/storage';
 import { isProfileComplete } from 'src/services/profile-completion';
 import { Text, Spinner } from 'src/components/ui';
 import { softShadow } from 'src/theme';
+import { APP_DISPLAY_NAME, getStoreCode, isMultiStore } from 'src/services/store-config';
 
 // Boot gate: decides the first route based on first-run + auth state.
 //   first run        → /(onboarding)
@@ -34,13 +35,15 @@ export default function Index() {
           style={{ width: 92, height: 92, borderRadius: 20, ...softShadow }}
           resizeMode="contain"
         />
-        <Text variant="headline" tone="muted" className="tracking-wide">CiCi Internal App</Text>
+        <Text variant="headline" tone="muted" className="tracking-wide">{APP_DISPLAY_NAME}</Text>
         <Spinner />
       </View>
     );
   }
 
   if (onboardingEnabled && !onboardingDone) return <Redirect href="/onboarding" />;
+  // Bản app cửa hàng: chưa chọn cửa hàng thì chưa có API để đăng nhập.
+  if (isMultiStore && !getStoreCode()) return <Redirect href={'/store-select' as any} />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
   if (user && !isProfileComplete(user)) return <Redirect href={'/complete-profile' as any} />;
   return <Redirect href={homeHref(user) as any} />;

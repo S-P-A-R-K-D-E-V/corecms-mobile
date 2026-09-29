@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 
 import { useAuthContext } from 'src/auth/auth-context';
-import { HOST_API } from 'src/api/axios';
+import { getHostApi } from 'src/api/axios';
 import type { INotification } from 'src/api/notifications';
 import type { NotificationPreferences } from './use-notification-settings';
 
@@ -34,7 +34,7 @@ export function useNotificationHub(options?: {
       const token = await SecureStore.getItemAsync('accessToken');
 
       const conn = new signalR.HubConnectionBuilder()
-        .withUrl(`${HOST_API}/hubs/notifications`, {
+        .withUrl(`${getHostApi()}/hubs/notifications`, {
           accessTokenFactory: () => token ?? '',
           transport: signalR.HttpTransportType.WebSockets,
           skipNegotiation: true,

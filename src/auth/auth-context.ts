@@ -24,6 +24,13 @@ export type AuthUser = {
   hasFaceEmbedding?: boolean;
 };
 
+export type OAuthExtra = {
+  nonce?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  authorizationCode?: string | null;
+};
+
 export type AuthContextType = {
   user: AuthUser | null;
   loading: boolean;
@@ -32,6 +39,10 @@ export type AuthContextType = {
   pendingVerification: { email: string } | null;
   login: (email: string, password: string) => Promise<void>;
   loginWithSessionToken: (sessionToken: string) => Promise<void>;
+  /** Đăng nhập bằng token nhà cung cấp (hiện dùng cho Sign in with Apple native trên iOS). */
+  loginWithOAuth: (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => Promise<void>;
+  /** Tự xoá tài khoản (App Store yêu cầu). */
+  deleteAccount: () => Promise<void>;
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;
   logout: () => Promise<void>;
   verifyOtp: (email: string, otpCode: string) => Promise<void>;

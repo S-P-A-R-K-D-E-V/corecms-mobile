@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -13,21 +13,51 @@ import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { extractApiError } from 'src/services/error';
+import { APP_DISPLAY_NAME, getHostApi, isMultiStore, setStoreCode, storeDomain } from 'src/services/store-config';
+import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const WEB_LOGIN_URL = 'https://cici21chualang.vn/auth/jwt/login';
+// Bản CiCi: trang đăng nhập web cố định như trước. Bản cửa hàng: trang đăng nhập của cửa hàng đã chọn.
+const webLoginUrl = () => (isMultiStore ? `${getHostApi()}/auth/jwt/login` : 'https://cici21chualang.vn/auth/jwt/login');
+const siteName = () => (isMultiStore ? storeDomain() ?? '' : 'cici21chualang.vn');
 
 export function LoginScreen() {
   const insets = useSafeAreaInsets();
-  const { loginWithSessionToken } = useAuthContext();
+  const { loginWithSessionToken, loginWithOAuth } = useAuthContext();
   const [loading, setLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+
+  async function handleAppleLogin() {
+    setAppleLoading(true);
+    try {
+      const result = await signInWithApple();
+      if (!result) return; // người dùng tự huỷ
+      await loginWithOAuth('apple', result.token, result.extra);
+      track(AnalyticsEvent.LoginSuccess);
+      router.replace('/');
+    } catch (err: any) {
+      toast.error(extractApiError(err), 'Đăng nhập Apple thất bại');
+    } finally {
+      setAppleLoading(false);
+    }
+  }
+
+  async function handleChangeStore() {
+    await setStoreCode(null);
+    router.replace('/store-select' as any);
+  }
 
   async function handleWebLogin() {
     setLoading(true);
     try {
       const redirectUri = Linking.createURL('auth/callback');
-      const loginUrl = `${WEB_LOGIN_URL}?mobile=true&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      const loginUrl = `${webLoginUrl()}?mobile=true&redirect_uri=${encodeURIComponent(redirectUri)}`;
       const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUri);
 
       if (result.type === 'success' && result.url) {
@@ -73,8 +103,10 @@ export function LoginScreen() {
             transition={{ type: 'timing', delay: 150 }}
             style={{ alignItems: 'center' }}
           >
-            <Text variant="title" className="text-2xl">CiCi Internal App</Text>
-            <Text tone="muted" className="text-center mt-1">Hệ thống quản lý nhân sự & chấm công</Text>
+            <Text variant="title" className="text-2xl">{APP_DISPLAY_NAME}</Text>
+            <Text tone="muted" className="text-center mt-1">
+              {isMultiStore ? siteName() : 'Hệ thống quản lý nhân sự & chấm công'}
+            </Text>
           </MotiView>
         </View>
 
@@ -83,11 +115,18 @@ export function LoginScreen() {
         <Card className="p-6 gap-2">
           <Text variant="subtitle">Đăng nhập</Text>
           <Text variant="bodySmall" tone="muted" className="leading-5 mb-4">
-            Sử dụng tài khoản cici21chualang.vn. Bạn có thể đăng nhập bằng Google hoặc Facebook ngay trên trang web.
+            {isMultiStore
+              ? 'Dùng tài khoản cửa hàng đã mời bạn. Có thể đăng nhập bằng email, Google hoặc Apple.'
+              : 'Sử dụng tài khoản cici21chualang.vn. Bạn có thể đăng nhập bằng Google hoặc Facebook ngay trên trang web.'}
           </Text>
           <Button size="lg" icon="web" loading={loading} onPress={handleWebLogin}>
-            Đăng nhập với cici21chualang.vn
+            {`Đăng nhập với ${siteName()}`}
           </Button>
+          {appleAvailable && (
+            <Button size="lg" variant="outline" action="neutral" icon="apple" loading={appleLoading} onPress={handleAppleLogin} className="mt-2">
+              Tiếp tục với Apple
+            </Button>
+          )}
 
           <View className="flex-row items-center justify-center gap-3 mt-4">
             <View className="flex-row items-center gap-1">
@@ -109,8 +148,14 @@ export function LoginScreen() {
         </MotiView>
 
         <Text variant="caption" tone="faint" className="text-center">
-          Phiên đăng nhập được bảo mật bởi{'\n'}cici21chualang.vn
+          Phiên đăng nhập được bảo mật bởi{'\n'}{siteName()}
         </Text>
+
+        {isMultiStore && (
+          <Button variant="ghost" action="neutral" size="sm" icon="swap-horizontal" onPress={handleChangeStore}>
+            Đổi cửa hàng
+          </Button>
+        )}
       </View>
     </View>
   );

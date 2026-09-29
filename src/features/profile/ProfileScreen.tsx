@@ -3,10 +3,11 @@ import { router } from 'expo-router';
 
 import { Screen, SectionCard, ListItem } from 'src/components/shared';
 import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
-import { confirm } from 'src/components/overlay';
+import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
+import { extractApiError } from 'src/services/error';
 
 const ROLE: Record<string, { label: string; tone: 'error' | 'secondary' | 'primary' | 'neutral' }> = {
   Admin: { label: 'Quản trị viên', tone: 'error' },
@@ -25,7 +26,7 @@ const TOOLS = [
 ];
 
 export function ProfileScreen() {
-  const { user, logout } = useAuthContext();
+  const { user, logout, deleteAccount } = useAuthContext();
   const role = ROLE[user?.role ?? ''] ?? { label: user?.role ?? 'Nhân viên', tone: 'neutral' as const };
   const isAdminOrManager =
     user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
@@ -40,6 +41,35 @@ export function ProfileScreen() {
     if (!ok) return;
     track(AnalyticsEvent.Logout);
     try { await logout(); } catch {}
+  }
+
+  // App Store yêu cầu xoá tài khoản ngay trong app. Hai bước xác nhận vì không hoàn tác được.
+  async function handleDeleteAccount() {
+    const first = await confirm({
+      title: 'Xoá tài khoản?',
+      message:
+        'Thông tin đăng nhập, số điện thoại, địa chỉ, tài khoản ngân hàng, ảnh CCCD, dữ liệu khuôn mặt và liên kết ' +
+        'Google/Apple sẽ bị xoá vĩnh viễn. Họ tên vẫn giữ trên bảng công, bảng lương đã phát sinh.',
+      confirmText: 'Tiếp tục',
+      destructive: true,
+    });
+    if (!first) return;
+
+    const second = await confirm({
+      title: 'Xác nhận lần cuối',
+      message: 'Không thể hoàn tác. Bạn chắc chắn muốn xoá tài khoản?',
+      confirmText: 'Xoá vĩnh viễn',
+      destructive: true,
+    });
+    if (!second) return;
+
+    try {
+      await deleteAccount();
+      toast.success('Tài khoản đã được xoá.');
+      router.replace('/');
+    } catch (err) {
+      toast.error(extractApiError(err), 'Không xoá được tài khoản');
+    }
   }
 
   return (
@@ -123,6 +153,9 @@ export function ProfileScreen() {
 
       <Button variant="outline" action="error" icon="logout" onPress={handleLogout} className="mt-1">
         {t('settings.logout')}
+      </Button>
+      <Button variant="ghost" action="error" size="sm" icon="account-remove-outline" onPress={handleDeleteAccount} className="mt-3">
+        Xoá tài khoản
       </Button>
       <View className="h-6" />
     </Screen>

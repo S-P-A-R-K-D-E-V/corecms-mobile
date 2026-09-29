@@ -4,12 +4,16 @@ import { router } from 'expo-router';
 
 // ----------------------------------------------------------------------
 
-export const HOST_API = process.env.EXPO_PUBLIC_HOST_API ?? 'http://localhost:2510';
+import { getHostApi } from 'src/services/store-config';
 
-const axiosInstance = axios.create({ baseURL: HOST_API });
+export { getHostApi };
+
+const axiosInstance = axios.create({ baseURL: getHostApi() });
 
 // Attach JWT token to every request
 axiosInstance.interceptors.request.use(async (config) => {
+  // Bản app cửa hàng: gốc API đổi theo cửa hàng người dùng chọn lúc chạy (store-config).
+  config.baseURL = getHostApi();
   const token = await SecureStore.getItemAsync('accessToken');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -59,6 +63,7 @@ export const endpoints = {
     resendOtp: '/auth/resend-otp',
     restoreSession: '/auth/restore-session',
     oauthLogin: '/auth/oauth-login',
+    deleteAccount: '/auth/account',
   },
   users: {
     list: '/users',
@@ -264,5 +269,5 @@ export const endpoints = {
 export function getStorageUrl(path?: string | null): string {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  return `${HOST_API}/media/${path}`;
+  return `${getHostApi()}/media/${path}`;
 }
