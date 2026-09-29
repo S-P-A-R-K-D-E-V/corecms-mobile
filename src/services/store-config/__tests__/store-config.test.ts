@@ -30,8 +30,8 @@ describe('normalizeStoreCode', () => {
   it.each([
     ['tiemtocabc', 'tiemtocabc'],
     ['  TiemTocABC ', 'tiemtocabc'],
-    ['tiemtocabc.devbyspark.com', 'tiemtocabc'],
-    ['https://tiemtocabc.devbyspark.com/dashboard', 'tiemtocabc'],
+    ['tiemtocabc.store.devbyspark.com', 'tiemtocabc'],
+    ['https://tiemtocabc.store.devbyspark.com/dashboard', 'tiemtocabc'],
     ['shop-2', 'shop-2'],
   ])('%s → %s', (input, expected) => {
     expect(normalizeStoreCode(input)).toBe(expected);
@@ -53,7 +53,7 @@ describe('getHostApi', () => {
   it('bản cửa hàng dùng tên miền của cửa hàng đã chọn', async () => {
     const config = loadWithVariant('store');
     await config.setStoreCode('shop1');
-    expect(config.getHostApi()).toBe('https://shop1.devbyspark.com');
+    expect(config.getHostApi()).toBe('https://shop1.store.devbyspark.com');
     expect(await config.loadStoreCode()).toBe('shop1');
   });
 

@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 // Một mã nguồn, hai bản build (app.config.ts, biến APP_VARIANT):
 //   cici  → app CiCi như trước: API cố định EXPO_PUBLIC_HOST_API (cici21chualang.vn).
 //   store → app trung tính cho cửa hàng SaaS: người dùng nhập mã cửa hàng, API là
-//           https://<mã>.devbyspark.com. Mỗi lúc app chỉ gắn với MỘT cửa hàng; đổi cửa hàng thì
+//           https://<mã>.store.devbyspark.com. Mỗi lúc app chỉ gắn với MỘT cửa hàng; đổi cửa hàng thì
 //           xoá toàn bộ token của cửa hàng cũ.
 // ----------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ export const appleSignInEnabled = !!extra.appleSignIn;
 /** Tên hiển thị trong app: bản CiCi giữ nguyên chữ cũ, bản cửa hàng dùng tên app trung tính. */
 export const APP_DISPLAY_NAME = isMultiStore ? (Constants.expoConfig?.name ?? 'Cửa hàng') : 'CiCi Internal App';
 
-export const SAAS_ZONE = process.env.EXPO_PUBLIC_SAAS_ZONE ?? 'devbyspark.com';
+export const SAAS_ZONE = process.env.EXPO_PUBLIC_SAAS_ZONE ?? 'store.devbyspark.com';
 const FIXED_HOST_API = process.env.EXPO_PUBLIC_HOST_API ?? 'http://localhost:2510';
 
 const STORE_CODE_KEY = 'storeCode';
@@ -61,7 +61,7 @@ export async function setStoreCode(code: string | null): Promise<void> {
   currentStoreCode = code;
 }
 
-/** "  TiemTocABC.devbyspark.com " → "tiemtocabc"; không hợp lệ → null. */
+/** "  TiemTocABC.store.devbyspark.com " → "tiemtocabc"; không hợp lệ → null. */
 export function normalizeStoreCode(input: string | null | undefined): string | null {
   if (!input) return null;
   let value = input.trim().toLowerCase();
