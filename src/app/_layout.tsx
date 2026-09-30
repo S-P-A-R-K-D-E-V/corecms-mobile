@@ -22,7 +22,8 @@ import { track, AnalyticsEvent } from 'src/services/analytics';
 import { ThemeProvider } from 'src/theme/ThemeProvider';
 import { FontProvider } from 'src/theme/FontProvider';
 import { OverlayHost } from 'src/components/overlay';
-import { loadStoreCode } from 'src/services/store-config';
+import { loadStore } from 'src/services/store-config';
+import { hydrateLocale, useLocaleStore } from 'src/i18n';
 
 // Keep the native splash up until the Minimal font is ready.
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -64,14 +65,14 @@ export default function RootLayout() {
     PublicSans: require('../../assets/fonts/PublicSans.ttf'),
   });
 
-  // Bản app cửa hàng: đọc mã cửa hàng đã chọn TRƯỚC khi AuthProvider gọi API lần đầu (gốc API
-  // phụ thuộc cửa hàng). Bản CiCi trả về ngay.
+  // Bản app cửa hàng: đọc cửa hàng đã chọn TRƯỚC khi AuthProvider gọi API lần đầu (gốc API phụ thuộc
+  // cửa hàng). Ngôn ngữ đã chọn cũng nạp trước màn đầu tiên. Bản CiCi trả về ngay.
   const [storeLoaded, setStoreLoaded] = useState(false);
   useEffect(() => {
-    loadStoreCode()
-      .catch(() => null)
-      .finally(() => setStoreLoaded(true));
+    Promise.all([loadStore().catch(() => null), hydrateLocale().catch(() => null)]).finally(() => setStoreLoaded(true));
   }, []);
+  // Đổi ngôn ngữ → dựng lại navigator để mọi màn đọc lại chữ (t() đọc ngôn ngữ lúc render).
+  const locale = useLocaleStore((s) => s.locale);
 
   useEffect(() => {
     track(AnalyticsEvent.AppOpen);
@@ -98,7 +99,7 @@ export default function RootLayout() {
                 <PushRegistrationWrapper />
                 <LauncherHydrator />
                 <StatusBar style="auto" />
-                <Stack screenOptions={{ headerShown: false }} />
+                <Stack key={locale} screenOptions={{ headerShown: false }} />
                 <OverlayHost />
               </AuthProvider>
             </RemoteConfigProvider>

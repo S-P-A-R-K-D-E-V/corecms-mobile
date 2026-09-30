@@ -50,11 +50,40 @@ describe('getHostApi', () => {
     expect(config.getHostApi()).not.toContain('shop1');
   });
 
-  it('bản cửa hàng dùng tên miền của cửa hàng đã chọn', async () => {
+  it('bản cửa hàng gọi API qua /api trên tên miền cửa hàng, web ở gốc', async () => {
     const config = loadWithVariant('store');
     await config.setStoreCode('shop1');
-    expect(config.getHostApi()).toBe('https://shop1.store.devbyspark.com');
+    expect(config.getHostApi()).toBe('https://shop1.store.devbyspark.com/api');
+    expect(config.getWebOrigin()).toBe('https://shop1.store.devbyspark.com');
     expect(await config.loadStoreCode()).toBe('shop1');
+  });
+
+  it('bản build cũ chỉ lưu mã cửa hàng vẫn đọc được', async () => {
+    const config = loadWithVariant('store');
+    await config.secure.deleteItemAsync('storeProfile');
+    await config.secure.setItemAsync('storeCode', 'oldshop');
+    const store = await config.loadStore();
+    expect(store?.host).toBe('oldshop.store.devbyspark.com');
+    expect(config.getHostApi()).toBe('https://oldshop.store.devbyspark.com/api');
+  });
+
+  it('cửa hàng chọn từ app-hub giữ tên miền và tiền tệ của cửa hàng', async () => {
+    const config = loadWithVariant('store');
+    await config.setStore({
+      code: 'cici68', host: 'CiCi21ChuaLang.vn', name: 'CiCi', logoUrl: null, primaryColor: null,
+      locale: 'vi', currency: 'VND', timezone: 'Asia/Ho_Chi_Minh',
+    });
+    expect(config.getHostApi()).toBe('https://cici21chualang.vn/api');
+    expect(config.getStore()?.currency).toBe('VND');
+  });
+
+  it('từ chối host không hợp lệ (không để lọt vào URL)', async () => {
+    const config = loadWithVariant('store');
+    await config.setStore({
+      code: 'x', host: 'evil.com/@attacker', name: null, logoUrl: null, primaryColor: null,
+      locale: null, currency: null, timezone: null,
+    });
+    expect(config.getStore()).toBeNull();
   });
 
   it('đổi cửa hàng xoá token của cửa hàng cũ', async () => {
@@ -63,12 +92,14 @@ describe('getHostApi', () => {
     await SecureStore.setItemAsync('accessToken', 'a');
     await SecureStore.setItemAsync('refreshToken', 'r');
     await SecureStore.setItemAsync('sessionToken', 's');
+    await SecureStore.setItemAsync('assistantSessionId', 'chat');
 
     await config.setStoreCode('shop2');
 
     expect(await SecureStore.getItemAsync('accessToken')).toBeNull();
     expect(await SecureStore.getItemAsync('refreshToken')).toBeNull();
     expect(await SecureStore.getItemAsync('sessionToken')).toBeNull();
+    expect(await SecureStore.getItemAsync('assistantSessionId')).toBeNull();
     expect(config.getStoreCode()).toBe('shop2');
   });
 });

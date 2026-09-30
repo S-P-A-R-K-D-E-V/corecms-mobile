@@ -9,7 +9,8 @@ import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { useResponsive } from 'src/hooks/use-responsive';
 
-import { availableFeatures, getFeature, type FeatureItem, type LauncherVariant } from './registry';
+import { availableFeatures, featureLabel, getFeature, type FeatureItem, type LauncherVariant } from './registry';
+import { t } from 'src/i18n';
 import { useLauncherStore } from './store';
 import { LauncherEditor } from './LauncherEditor';
 
@@ -46,11 +47,11 @@ function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) 
       </View>
       {disabled ? (
         <View className="rounded-full px-1.5 py-px bg-warning-soft -mt-0.5">
-          <Text className="text-[8px] text-warning-text font-bold">Đang phát triển</Text>
+          <Text className="text-[8px] text-warning-text font-bold">{t('launcher.comingSoon')}</Text>
         </View>
       ) : null}
       <Text variant="caption" numberOfLines={2} className="text-center text-[11px] leading-[13px]">
-        {item.label}
+        {featureLabel(item)}
       </Text>
     </Pressable>
   );
@@ -75,7 +76,7 @@ export function FeatureGrid({ variant }: { variant: LauncherVariant }) {
   return (
     <>
       <SectionCard
-        title="Tiện ích"
+        title={t('launcher.title')}
         icon="apps"
         right={
           <Pressable
@@ -84,14 +85,14 @@ export function FeatureGrid({ variant }: { variant: LauncherVariant }) {
             className="flex-row items-center gap-1 px-2 py-1 rounded-full bg-primary-soft"
           >
             <Icon name="tune-variant" size={14} tone="primary" />
-            <Text variant="caption" className="text-primary font-semibold">Tùy chỉnh</Text>
+            <Text variant="caption" className="text-primary font-semibold">{t('launcher.customize')}</Text>
           </Pressable>
         }
       >
         {pinned.length === 0 ? (
           <Pressable onPress={() => setEditing(true)} className="items-center py-4 gap-1">
             <Icon name="apps" size={28} tone="faint" />
-            <Text variant="bodySmall" tone="muted">Chưa ghim tiện ích nào — nhấn để thêm</Text>
+            <Text variant="bodySmall" tone="muted">{t('launcher.emptyPinned')}</Text>
           </Pressable>
         ) : (
           <View className="flex-row flex-wrap">

@@ -12,7 +12,8 @@ import { softShadow } from 'src/theme';
 import { APP_DISPLAY_NAME, getStoreCode, isMultiStore } from 'src/services/store-config';
 
 // Boot gate: decides the first route based on first-run + auth state.
-//   first run        → /(onboarding)
+//   first run        → /(onboarding)          (bản CiCi; bản cửa hàng dùng màn Chào mừng)
+//   bản cửa hàng chưa gắn cửa hàng → /welcome (Apple / email / mã cửa hàng)
 //   not authenticated → /(auth)/login
 //   thiếu hồ sơ bắt buộc → /complete-profile
 //   authenticated     → homeHref(user): Admin → dashboard, còn lại → checkin
@@ -41,9 +42,9 @@ export default function Index() {
     );
   }
 
-  if (onboardingEnabled && !onboardingDone) return <Redirect href="/onboarding" />;
-  // Bản app cửa hàng: chưa chọn cửa hàng thì chưa có API để đăng nhập.
-  if (isMultiStore && !getStoreCode()) return <Redirect href={'/store-select' as any} />;
+  if (onboardingEnabled && !onboardingDone && !isMultiStore) return <Redirect href="/onboarding" />;
+  // Bản app cửa hàng: chưa chọn cửa hàng thì chưa có API để đăng nhập — màn Chào mừng tự tìm cửa hàng.
+  if (isMultiStore && !getStoreCode() && !authenticated) return <Redirect href={'/welcome' as any} />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
   if (user && !isProfileComplete(user)) return <Redirect href={'/complete-profile' as any} />;
   return <Redirect href={homeHref(user) as any} />;

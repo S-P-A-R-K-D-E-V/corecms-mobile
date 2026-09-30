@@ -4,22 +4,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 
 import { Text, Button, Card, TextField } from 'src/components/ui';
+import { AppHeader } from 'src/components/shared';
 import { queryClient } from 'src/services/query/client';
-import { APP_DISPLAY_NAME, SAAS_ZONE, lookupStore, setStoreCode } from 'src/services/store-config';
+import { useT } from 'src/i18n';
+import { SAAS_ZONE, lookupStore, setStore } from 'src/services/store-config';
 
 // ----------------------------------------------------------------------
-// Bản app cửa hàng: người dùng nhập mã cửa hàng (phần trước .devbyspark.com). App kiểm tra cửa
-// hàng có thật rồi mới lưu; từ đó mọi API đi tới https://<mã>.devbyspark.com.
+// Bản app cửa hàng — lối phụ: người dùng biết mã cửa hàng (phần trước .store.devbyspark.com). App kiểm
+// tra cửa hàng có thật rồi mới lưu; từ đó API đi tới https://<mã>.store.devbyspark.com/api và đăng nhập
+// trên trang web của cửa hàng (hoặc Apple trên tên miền cửa hàng).
 // ----------------------------------------------------------------------
 
-const REASON_TEXT = {
-  invalid: 'Mã cửa hàng gồm 3–32 chữ thường, số hoặc dấu gạch ngang.',
-  not_found: 'Không tìm thấy cửa hàng với mã này.',
-  suspended: 'Cửa hàng này đang tạm khoá. Vui lòng liên hệ chủ cửa hàng.',
-  network: 'Không kết nối được. Kiểm tra mạng và thử lại.',
+const REASON_KEY = {
+  invalid: 'storeSelect.invalid',
+  not_found: 'storeSelect.notFound',
+  suspended: 'storeSelect.suspended',
+  network: 'common.network',
 } as const;
 
 export function StoreSelectScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | undefined>();
@@ -31,10 +35,10 @@ export function StoreSelectScreen() {
     try {
       const result = await lookupStore(code);
       if (!result.ok) {
-        setError(REASON_TEXT[result.reason]);
+        setError(t(REASON_KEY[result.reason]));
         return;
       }
-      await setStoreCode(result.code);
+      await setStore(result.profile);
       queryClient.clear();
       router.replace('/(auth)/login');
     } finally {
@@ -50,16 +54,20 @@ export function StoreSelectScreen() {
     >
       <View pointerEvents="none" className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-primary/15" />
 
-      <View className="flex-1 justify-center px-7 gap-8">
-        <View className="items-center gap-1">
-          <Text variant="title" className="text-2xl">{APP_DISPLAY_NAME}</Text>
-          <Text tone="muted" className="text-center">Nhập mã cửa hàng để bắt đầu</Text>
+      <View className="px-4 pt-2">
+        <AppHeader title="" back onBack={() => (router.canGoBack() ? router.back() : router.replace('/welcome' as any))} />
+      </View>
+
+      <View className="flex-1 justify-center px-6 gap-6">
+        <View className="gap-1.5">
+          <Text variant="title">{t('storeSelect.title')}</Text>
+          <Text tone="muted">{t('storeSelect.subtitle')}</Text>
         </View>
 
-        <Card className="p-6 gap-4">
+        <Card className="p-5 gap-4">
           <TextField
-            label="Mã cửa hàng"
-            placeholder="vd: tiemtocabc"
+            label={t('storeSelect.label')}
+            placeholder={t('storeSelect.placeholder')}
             value={code}
             onChangeText={(v) => {
               setCode(v);
@@ -71,14 +79,13 @@ export function StoreSelectScreen() {
             returnKeyType="go"
             onSubmitEditing={handleContinue}
             error={error}
-            icon="store-outline"
+            icon="storefront-outline"
           />
-          <Text variant="caption" tone="faint">
-            Mã là phần đầu địa chỉ web của cửa hàng, ví dụ tiemtocabc trong tiemtocabc.{SAAS_ZONE}. Hỏi quản lý cửa
-            hàng nếu bạn chưa có.
+          <Text variant="caption" tone="faint" className="leading-4">
+            {t('storeSelect.help', { zone: SAAS_ZONE })}
           </Text>
           <Button size="lg" loading={loading} disabled={!code.trim()} onPress={handleContinue}>
-            Tiếp tục
+            {t('common.continue')}
           </Button>
         </Card>
       </View>

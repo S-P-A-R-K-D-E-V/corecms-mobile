@@ -1,6 +1,7 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
 import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES } from 'src/auth/roles';
+import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Danh mục tiện ích cho feature-grid (kiểu lưới tiện ích MB Bank). Thêm tính
@@ -22,11 +23,22 @@ export type FeatureItem = {
   comingSoon?: boolean;
 };
 
-export const GROUP_LABELS: Record<LauncherGroup, string> = {
-  personal: 'Cá nhân',
-  manage: 'Quản lý',
-  admin: 'Quản trị',
+const GROUP_KEYS: Record<LauncherGroup, string> = {
+  personal: 'launcher.groupPersonal',
+  manage: 'launcher.groupManage',
+  admin: 'launcher.groupAdmin',
 };
+
+/** Tên nhóm theo ngôn ngữ đang dùng. */
+export function groupLabel(group: LauncherGroup): string {
+  return t(GROUP_KEYS[group]);
+}
+
+/** Tên tiện ích theo ngôn ngữ đang dùng (khoá features.<key>; thiếu thì dùng `label` tiếng Việt). */
+export function featureLabel(item: FeatureItem): string {
+  const translated = t(`features.${item.key}`);
+  return translated === `features.${item.key}` ? item.label : translated;
+}
 
 export const FEATURE_REGISTRY: FeatureItem[] = [
   // ── Cá nhân (mọi nhân viên) ────────────────────────────────────────

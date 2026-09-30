@@ -14,7 +14,8 @@ import { cn } from 'src/components/ui/utils';
 
 type Slide = { Illustration: React.FC<IllustrationProps>; title: string; desc: string };
 
-const slides: Slide[] = [
+// Dựng lúc render (không phải lúc import) để chữ theo ngôn ngữ đang chọn.
+const buildSlides = (): Slide[] => [
   { Illustration: CheckOutIllustration, title: t('onboarding.slide0Title'), desc: t('onboarding.slide0Desc') },
   { Illustration: CheckInIllustration, title: t('onboarding.slide1Title'), desc: t('onboarding.slide1Desc') },
   { Illustration: CheckOutIllustration, title: t('onboarding.slide2Title'), desc: t('onboarding.slide2Desc') },
@@ -22,6 +23,7 @@ const slides: Slide[] = [
 ];
 
 export function OnboardingScreen() {
+  const slides = buildSlides();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);

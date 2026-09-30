@@ -1,4 +1,5 @@
 import type { AuthUser } from './auth-context';
+import { isMultiStore } from 'src/services/store-config';
 
 // ----------------------------------------------------------------------
 // Phân quyền cho app nội bộ (internal staff app).
@@ -85,4 +86,18 @@ export function usesAdminShell(user: AuthUser | null | undefined): boolean {
  */
 export function homeHref(user: AuthUser | null | undefined): string {
   return usesAdminShell(user) ? '/(tabs)/admin' : '/(tabs)/checkin';
+}
+
+/**
+ * Có thấy tab Trợ lý AI không. Bản CiCi: mọi người (trợ lý nhân viên tự tra lương/lịch). Bản cửa hàng:
+ * chủ/quản lý — trợ lý cửa hàng (core-be StoreAssistant) chưa có chế độ cho nhân viên.
+ */
+export function canUseAssistant(user: AuthUser | null | undefined): boolean {
+  return !isMultiStore || isManagerUser(user);
+}
+
+/** Cửa hàng đã bật trợ lý AI chưa (GET /users/me → enabledFeatures). Không có danh sách = chưa biết. */
+export function assistantEnabled(user: AuthUser | null | undefined): boolean {
+  if (!isMultiStore) return true;
+  return user?.enabledFeatures ? user.enabledFeatures.includes('ai.assistant') : true;
 }

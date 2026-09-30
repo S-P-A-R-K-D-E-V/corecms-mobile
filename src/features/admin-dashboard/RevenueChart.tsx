@@ -7,6 +7,7 @@ import { Text } from 'src/components/ui';
 import { brand } from 'src/theme';
 import type { IRevenuePeriod } from 'src/types/corecms-api';
 import { fmtCompact } from './hooks';
+import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Biểu đồ cột doanh thu theo ngày. Vẽ bằng react-native-svg (không thêm
@@ -76,7 +77,7 @@ export function RevenueChart({ periods }: { periods: IRevenuePeriod[] }) {
       <View className="flex-row items-center justify-end gap-1">
         <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: brand.primary }} />
         <Text variant="caption" tone="muted">
-          Cao nhất: {fmtCompact(max)}
+          {t('payment.peak', { v: fmtCompact(max) })}
         </Text>
       </View>
     </View>

@@ -10,12 +10,14 @@ import { useAuthContext } from 'src/auth/auth-context';
 import {
   availableFeatures,
   getFeature,
-  GROUP_LABELS,
+  groupLabel,
+  featureLabel,
   type FeatureItem,
   type LauncherGroup,
   type LauncherVariant,
 } from './registry';
 import { useLauncherStore } from './store';
+import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Màn tùy chỉnh "menu ưu tiên": ghim/bỏ ghim tiện ích và sắp thứ tự (lên/xuống).
@@ -35,9 +37,9 @@ function Row({
         <Icon name={item.icon} size={18} tone="primary" />
       </View>
       <View className="flex-1">
-        <Text variant="bodySmall" className="font-medium">{item.label}</Text>
+        <Text variant="bodySmall" className="font-medium">{featureLabel(item)}</Text>
         <Text variant="caption" tone="muted" className="text-[10px]">
-          {GROUP_LABELS[item.group]}{item.comingSoon ? ' · Đang phát triển' : ''}
+          {groupLabel(item.group)}{item.comingSoon ? ` · ${t('launcher.comingSoon')}` : ''}
         </Text>
       </View>
       {children}
@@ -115,9 +117,9 @@ export function LauncherEditor({
       }
     >
       {/* Đang hiển thị — kéo thứ tự bằng nút lên/xuống */}
-      <Text variant="label" tone="muted" className="mb-1">ĐANG HIỂN THỊ ({pinned.length})</Text>
+      <Text variant="label" tone="muted" className="mb-1">{t('launcher.showing', { n: pinned.length })}</Text>
       {pinned.length === 0 ? (
-        <Text variant="bodySmall" tone="muted" className="py-2">Chưa ghim tiện ích nào.</Text>
+        <Text variant="bodySmall" tone="muted" className="py-2">{t('launcher.emptyPinnedShort')}</Text>
       ) : (
         pinned.map((item, idx) => (
           <Row key={item.key} item={item}>
@@ -141,7 +143,7 @@ export function LauncherEditor({
         unpinnedByGroup[g].length > 0 ? (
           <View key={g} className="mt-3">
             <Divider className="mb-2" />
-            <Text variant="label" tone="muted" className="mb-1">{GROUP_LABELS[g].toUpperCase()}</Text>
+            <Text variant="label" tone="muted" className="mb-1">{groupLabel(g).toUpperCase()}</Text>
             {unpinnedByGroup[g].map((item) => (
               <Row key={item.key} item={item}>
                 <Pressable onPress={() => pin(item.key)} hitSlop={6} className="w-8 h-8 items-center justify-center rounded-lg bg-primary-soft">

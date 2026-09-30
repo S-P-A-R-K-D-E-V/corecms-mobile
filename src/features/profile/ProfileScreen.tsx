@@ -1,35 +1,78 @@
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Screen, SectionCard, ListItem } from 'src/components/shared';
 import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
+import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
-import { t } from 'src/i18n';
+import { useT } from 'src/i18n';
 import { extractApiError } from 'src/services/error';
+import axiosInstance, { endpoints } from 'src/api/axios';
+import { getStore, isMultiStore, setStore } from 'src/services/store-config';
+import { isAppleSignInAvailable, signInWithApple } from 'src/features/auth/apple-sign-in';
 
-const ROLE: Record<string, { label: string; tone: 'error' | 'secondary' | 'primary' | 'neutral' }> = {
-  Admin: { label: 'Quản trị viên', tone: 'error' },
-  Manager: { label: 'Quản lý', tone: 'secondary' },
-  Staff: { label: 'Nhân viên', tone: 'primary' },
-  User: { label: 'Người dùng', tone: 'neutral' },
+const ROLE: Record<string, { key: string; tone: 'error' | 'secondary' | 'primary' | 'neutral' }> = {
+  Admin: { key: 'profile.roleAdmin', tone: 'error' },
+  Manager: { key: 'profile.roleManager', tone: 'secondary' },
+  Staff: { key: 'profile.roleStaff', tone: 'primary' },
+  User: { key: 'profile.roleUser', tone: 'neutral' },
 };
 
 const TOOLS = [
-  { icon: 'cash-register' as const, iconTone: 'success' as const, title: 'Kiểm tiền quầy', subtitle: 'Đối soát tiền mặt cuối ca (cần GPS)', route: '/shift-cash' },
-  { icon: 'bell-outline' as const, iconTone: 'error' as const, title: 'Thông báo', subtitle: 'Xem tất cả thông báo', route: '/notifications' },
-  { icon: 'clipboard-text-outline' as const, iconTone: 'info' as const, title: 'Yêu cầu chấm công', subtitle: 'Nghỉ phép, điều chỉnh giờ', route: '/attendance', disabled: true },
-  { icon: 'calendar-sync-outline' as const, iconTone: 'secondary' as const, title: 'Đăng ký ca làm', subtitle: 'Xem lịch và đăng ký ca', route: '/(tabs)/schedule' },
-  { icon: 'swap-horizontal' as const, iconTone: 'warning' as const, title: 'Đổi ca', subtitle: 'Đổi ca với đồng nghiệp', route: '/shift-swap' },
-  { icon: 'account-group-outline' as const, iconTone: 'info' as const, title: 'Làm hộ ca', subtitle: 'Đăng / nhận làm hộ ca', route: '/shift-pool' },
+  { icon: 'cash-register' as const, iconTone: 'success' as const, titleKey: 'profile.toolCash', subtitleKey: 'profile.toolCashDesc', route: '/shift-cash' },
+  { icon: 'bell-outline' as const, iconTone: 'error' as const, titleKey: 'profile.toolNotifications', subtitleKey: 'profile.toolNotificationsDesc', route: '/notifications' },
+  { icon: 'calendar-sync-outline' as const, iconTone: 'secondary' as const, titleKey: 'profile.toolSchedule', subtitleKey: 'profile.toolScheduleDesc', route: '/(tabs)/schedule' },
+  { icon: 'swap-horizontal' as const, iconTone: 'warning' as const, titleKey: 'profile.toolSwap', subtitleKey: 'profile.toolSwapDesc', route: '/shift-swap' },
+  { icon: 'account-group-outline' as const, iconTone: 'info' as const, titleKey: 'profile.toolPool', subtitleKey: 'profile.toolPoolDesc', route: '/shift-pool' },
 ];
 
+type OAuthConnection = { provider: string; connectedAt: string };
+
+/** Liên kết Sign in with Apple cho tài khoản đang đăng nhập (bản cửa hàng, iOS). */
+function useAppleLink(enabled: boolean) {
+  const qc = useQueryClient();
+  const connections = useQuery({
+    queryKey: ['auth', 'oauth-connections'],
+    queryFn: async () => (await axiosInstance.get<OAuthConnection[]>(endpoints.auth.oauthConnections)).data,
+    enabled,
+  });
+  const linked = !!connections.data?.some((c) => c.provider?.toLowerCase() === 'apple');
+
+  async function link() {
+    const apple = await signInWithApple();
+    if (!apple) return false;
+    await axiosInstance.post(endpoints.auth.oauthConnect, {
+      provider: 'apple',
+      token: apple.token,
+      nonce: apple.extra.nonce,
+      authorizationCode: apple.extra.authorizationCode,
+    });
+    await qc.invalidateQueries({ queryKey: ['auth', 'oauth-connections'] });
+    return true;
+  }
+
+  return { linked, loading: connections.isLoading, link };
+}
+
 export function ProfileScreen() {
+  const t = useT();
   const { user, logout, deleteAccount } = useAuthContext();
-  const role = ROLE[user?.role ?? ''] ?? { label: user?.role ?? 'Nhân viên', tone: 'neutral' as const };
+  const role = ROLE[user?.role ?? ''];
   const isAdminOrManager =
     user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
+  const store = isMultiStore ? getStore() : null;
+  const storeName = store?.name ?? store?.code ?? '';
+
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [linking, setLinking] = useState(false);
+  useEffect(() => {
+    if (isMultiStore) isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+  const apple = useAppleLink(isMultiStore && appleAvailable);
 
   async function handleLogout() {
     const ok = await confirm({
@@ -43,32 +86,53 @@ export function ProfileScreen() {
     try { await logout(); } catch {}
   }
 
+  async function handleSwitchStore() {
+    const ok = await confirm({
+      title: t('profile.switchStore'),
+      message: t('profile.switchStoreConfirm', { store: storeName }),
+      confirmText: t('profile.switchStore'),
+    });
+    if (!ok) return;
+    try { await logout(); } catch {}
+    await setStore(null);
+    router.replace('/welcome' as any);
+  }
+
+  async function handleLinkApple() {
+    setLinking(true);
+    try {
+      if (await apple.link()) toast.success(t('profile.appleLinkedToast'));
+    } catch (err) {
+      toast.error(extractApiError(err), t('welcome.appleFailed'));
+    } finally {
+      setLinking(false);
+    }
+  }
+
   // App Store yêu cầu xoá tài khoản ngay trong app. Hai bước xác nhận vì không hoàn tác được.
   async function handleDeleteAccount() {
     const first = await confirm({
-      title: 'Xoá tài khoản?',
-      message:
-        'Thông tin đăng nhập, số điện thoại, địa chỉ, tài khoản ngân hàng, ảnh CCCD, dữ liệu khuôn mặt và liên kết ' +
-        'Google/Apple sẽ bị xoá vĩnh viễn. Họ tên vẫn giữ trên bảng công, bảng lương đã phát sinh.',
-      confirmText: 'Tiếp tục',
+      title: t('profile.deleteTitle'),
+      message: t('profile.deleteMessage'),
+      confirmText: t('common.continue'),
       destructive: true,
     });
     if (!first) return;
 
     const second = await confirm({
-      title: 'Xác nhận lần cuối',
-      message: 'Không thể hoàn tác. Bạn chắc chắn muốn xoá tài khoản?',
-      confirmText: 'Xoá vĩnh viễn',
+      title: t('profile.deleteFinalTitle'),
+      message: t('profile.deleteFinalMessage'),
+      confirmText: t('profile.deleteForever'),
       destructive: true,
     });
     if (!second) return;
 
     try {
       await deleteAccount();
-      toast.success('Tài khoản đã được xoá.');
+      toast.success(t('profile.deleted'));
       router.replace('/');
     } catch (err) {
-      toast.error(extractApiError(err), 'Không xoá được tài khoản');
+      toast.error(extractApiError(err), t('profile.deleteFailed'));
     }
   }
 
@@ -82,9 +146,30 @@ export function ProfileScreen() {
         <Text variant="title" className="text-xl">{user?.firstName} {user?.lastName}</Text>
         <Text tone="muted" className="mt-0.5">{user?.email}</Text>
         <View className="mt-2.5">
-          <Badge tone={role.tone}>{role.label}</Badge>
+          <Badge tone={role?.tone ?? 'neutral'}>{role ? t(role.key) : user?.role ?? t('profile.roleStaff')}</Badge>
         </View>
       </View>
+
+      {/* Cửa hàng đang gắn (bản cửa hàng) */}
+      {store ? (
+        <SectionCard title={t('profile.store')} bodyClassName="pt-0">
+          <View className="flex-row items-center gap-3 py-2">
+            <StoreAvatar name={storeName} logoUrl={store.logoUrl} color={store.primaryColor} size={44} />
+            <View className="flex-1">
+              <Text variant="headline" numberOfLines={1}>{storeName}</Text>
+              <Text variant="caption" tone="faint" numberOfLines={1}>{store.host}</Text>
+            </View>
+          </View>
+          <Divider className="ml-12" />
+          <ListItem
+            icon="swap-horizontal"
+            iconTone="secondary"
+            title={t('profile.switchStore')}
+            onPress={handleSwitchStore}
+            showChevron
+          />
+        </SectionCard>
+      ) : null}
 
       {/* Account */}
       <SectionCard title={t('settings.account')} bodyClassName="pt-0">
@@ -92,7 +177,7 @@ export function ProfileScreen() {
           icon="account-edit-outline"
           iconTone="primary"
           title={t('profile.editProfile')}
-          subtitle="Họ tên, ảnh đại diện, CCCD, ngân hàng..."
+          subtitle={t('profile.editProfileDesc')}
           onPress={() => router.push('/account/edit')}
           showChevron
         />
@@ -100,23 +185,32 @@ export function ProfileScreen() {
         <ListItem
           icon="face-recognition"
           iconTone={user?.hasFaceEmbedding ? 'success' : 'secondary'}
-          title="Đăng ký khuôn mặt"
-          subtitle={
-            user?.hasFaceEmbedding
-              ? 'Đã đăng ký — chạm để cập nhật lại'
-              : 'Chưa đăng ký — cần để chấm công tại kiosk quầy lễ tân'
-          }
+          title={t('profile.faceEnrollment')}
+          subtitle={user?.hasFaceEmbedding ? t('profile.faceEnrolled') : t('profile.faceNotEnrolled')}
           onPress={() => router.push('/face-enrollment')}
           showChevron
         />
+        {isMultiStore && appleAvailable ? (
+          <>
+            <Divider className="ml-12" />
+            <ListItem
+              icon="apple"
+              iconTone={apple.linked ? 'success' : 'muted'}
+              title={apple.linked ? t('profile.appleLinked') : t('profile.appleLink')}
+              subtitle={apple.linked ? undefined : t('profile.appleLinkDesc')}
+              onPress={apple.linked || linking || apple.loading ? undefined : handleLinkApple}
+              showChevron={!apple.linked}
+            />
+          </>
+        ) : null}
         {isAdminOrManager ? (
           <>
             <Divider className="ml-12" />
             <ListItem
               icon="qrcode-scan"
               iconTone="secondary"
-              title="Ghép nối thiết bị Kiosk"
-              subtitle="Quét QR hoặc nhập mã từ màn hình kiosk quầy"
+              title={t('profile.kioskPairing')}
+              subtitle={t('profile.kioskPairingDesc')}
               onPress={() => router.push('/kiosk-pairing')}
               showChevron
             />
@@ -125,27 +219,29 @@ export function ProfileScreen() {
       </SectionCard>
 
       {/* Tools */}
-      <SectionCard title="Công cụ nhân viên" bodyClassName="pt-0">
+      <SectionCard title={t('profile.tools')} bodyClassName="pt-0">
         {TOOLS.map((tool, i) => (
-          <View key={tool.title}>
+          <View key={tool.route}>
             {i > 0 ? <Divider className="ml-12" /> : null}
             <ListItem
-              {...tool}
+              icon={tool.icon}
+              iconTone={tool.iconTone}
+              title={t(tool.titleKey)}
+              subtitle={t(tool.subtitleKey)}
               onPress={() => router.push(tool.route as any)}
               showChevron
-              disabled={tool.disabled}
             />
           </View>
         ))}
       </SectionCard>
 
       {/* App */}
-      <SectionCard title="Ứng dụng" bodyClassName="pt-0">
+      <SectionCard title={t('profile.app')} bodyClassName="pt-0">
         <ListItem
           icon="cog-outline"
           iconTone="muted"
           title={t('settings.title')}
-          subtitle="Giao diện, thông báo, pháp lý"
+          subtitle={t('profile.settingsDesc')}
           onPress={() => router.push('/settings')}
           showChevron
         />
@@ -155,7 +251,7 @@ export function ProfileScreen() {
         {t('settings.logout')}
       </Button>
       <Button variant="ghost" action="error" size="sm" icon="account-remove-outline" onPress={handleDeleteAccount} className="mt-3">
-        Xoá tài khoản
+        {t('profile.deleteAccount')}
       </Button>
       <View className="h-6" />
     </Screen>

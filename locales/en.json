@@ -1,0 +1,8 @@
+{
+  "NSLocationWhenInUseUsageDescription": "Your location is used to confirm you are at the store when you check in or count the cash drawer.",
+  "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is used to confirm you are at the store when you check in.",
+  "NSCameraUsageDescription": "The camera is used to verify your face at check-in and to scan kiosk QR codes.",
+  "NSMicrophoneUsageDescription": "The microphone is only needed by the camera for face verification videos. No audio is kept.",
+  "NSPhotoLibraryUsageDescription": "Photo access lets you pick a profile picture or attach photos in chat.",
+  "NSFaceIDUsageDescription": "Face ID lets you sign in faster."
+}

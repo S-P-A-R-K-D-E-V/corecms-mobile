@@ -5,7 +5,6 @@ import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import dayjs from 'dayjs';
-import 'dayjs/locale/vi';
 
 import { Screen, SectionCard, StatCard, EmptyState } from 'src/components/shared';
 import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, SuccessOverlay, Spinner, type IconName } from 'src/components/ui';
@@ -42,7 +41,6 @@ import {
 } from './utils';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
 
-dayjs.locale('vi');
 
 // ── Shift row ────────────────────────────────────────────────────────────────
 function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) {

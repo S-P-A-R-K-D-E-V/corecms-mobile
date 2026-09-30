@@ -1,5 +1,7 @@
 import { createContext, useContext } from 'react';
 
+import type { DiscoveredStore } from 'src/api/app-hub';
+
 // ----------------------------------------------------------------------
 
 export type AuthUser = {
@@ -22,6 +24,8 @@ export type AuthUser = {
   idCardFrontUrl?: string;
   idCardBackUrl?: string;
   hasFaceEmbedding?: boolean;
+  /** Tính năng cửa hàng đang bật (GET /users/me → enabledFeatures), vd "ai.assistant". */
+  enabledFeatures?: string[];
 };
 
 export type OAuthExtra = {
@@ -41,6 +45,11 @@ export type AuthContextType = {
   loginWithSessionToken: (sessionToken: string) => Promise<void>;
   /** Đăng nhập bằng token nhà cung cấp (hiện dùng cho Sign in with Apple native trên iOS). */
   loginWithOAuth: (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => Promise<void>;
+  /**
+   * Bản cửa hàng: vào một cửa hàng đã tìm được qua app-hub/discover — gắn cửa hàng đó (xoá token cũ)
+   * rồi đổi mã dùng một lần lấy phiên trên tên miền cửa hàng.
+   */
+  loginWithDiscoveredStore: (store: DiscoveredStore, state: string) => Promise<void>;
   /** Tự xoá tài khoản (App Store yêu cầu). */
   deleteAccount: () => Promise<void>;
   register: (email: string, password: string, firstName: string, lastName: string) => Promise<void>;

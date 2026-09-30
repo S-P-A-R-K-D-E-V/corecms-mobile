@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Keyboard } from 'react-native';
+import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Keyboard, ScrollView } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
@@ -10,6 +10,10 @@ import { Text, Pressable, Icon, Spinner } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { haptics } from 'src/services/haptics';
+import { useT } from 'src/i18n';
+import { useAuthContext } from 'src/auth/auth-context';
+import { assistantEnabled, isManagerUser } from 'src/auth/roles';
+import { getStore, isMultiStore } from 'src/services/store-config';
 import {
   startOrResumeSession,
   fetchSessionMessages,
@@ -17,15 +21,18 @@ import {
   type AssistantMessage,
 } from 'src/api/assistant';
 import { useAssistantCtx, type AssistantHubEvent } from 'src/components/assistant/assistant-provider';
+import { RichText } from './RichText';
 
 // ----------------------------------------------------------------------
-// Tab "Trợ lý" — AI Chat tự-tra-cứu (lương, lý do phạt, lịch làm, đăng ký ca,
-// đổi ca/làm hộ), KHÁC HOÀN TOÀN tab "Chat" nhắn tin nội bộ. BE tự giới hạn
-// phạm vi dữ liệu về đúng người đang hỏi theo JWT — không cần truyền staffId,
-// không thể tra cứu người khác (xem StaffPreamble phía BE).
+// Tab "Trợ lý" — AI Chat, KHÁC HOÀN TOÀN tab "Chat" nhắn tin nội bộ. BE tự chọn trợ lý theo người hỏi:
+//   - CiCi: nhân viên tự tra lương/lịch của riêng mình; admin tra số liệu cửa hàng (AI Gateway).
+//   - Cửa hàng SaaS: chủ/quản lý tra số liệu của chính cửa hàng (core-be StoreAssistant, chỉ đọc).
+// Trả lời stream qua SignalR (assistant-provider), lịch sử lấy qua REST.
 // ----------------------------------------------------------------------
 
 const SESSION_STORAGE_KEY = 'assistantSessionId';
+// Khớp PILL_H + lề của thanh tab nổi (src/app/(tabs)/_layout.tsx) — ô nhập phải nằm TRÊN thanh tab.
+const TAB_BAR_CLEARANCE = 72 + 8;
 
 type ScreenMessage = AssistantMessage & { streaming?: boolean; statusLabel?: string };
 
@@ -54,11 +61,15 @@ function Bubble({ msg }: { msg: ScreenMessage }) {
     <View className={cn('flex-row my-0.5', isMine ? 'justify-end' : 'justify-start')}>
       <View
         className={cn(
-          'max-w-[82%] px-3.5 py-2.5 rounded-2xl',
+          'max-w-[86%] px-3.5 py-2.5 rounded-2xl',
           isMine ? 'bg-primary' : 'bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark'
         )}
       >
-        <Text className={isMine ? 'text-white' : ''}>{msg.content || (msg.streaming ? '…' : '')}</Text>
+        {isMine ? (
+          <Text className="text-white">{msg.content}</Text>
+        ) : (
+          <RichText text={msg.content || (msg.streaming ? '…' : '')} />
+        )}
         <Text className={cn('text-[10px] text-right mt-1', isMine ? 'text-white/65' : 'text-faint')}>
           {dayjs(msg.createdAt).format('HH:mm')}
         </Text>
@@ -67,17 +78,39 @@ function Bubble({ msg }: { msg: ScreenMessage }) {
   );
 }
 
+function Suggestions({ items, onPick }: { items: string[]; onPick: (q: string) => void }) {
+  return (
+    <View className="flex-row flex-wrap gap-2 justify-center">
+      {items.map((q) => (
+        <Pressable
+          key={q}
+          onPress={() => onPick(q)}
+          className="px-3.5 py-2 rounded-full bg-primary-soft border border-primary/20"
+        >
+          <Text variant="bodySmall" tone="primary" className="font-semibold">{q}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 export function AssistantScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
+  const { user } = useAuthContext();
   const { joinSession, leaveSession, subscribe } = useAssistantCtx();
+
+  const ownerMode = isManagerUser(user);
+  const enabled = assistantEnabled(user);
+  const storeName = getStore()?.name ?? getStore()?.code ?? '';
 
   const [messages, setMessages] = useState<ScreenMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [kbUp, setKbUp] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const sessionIdRef = useRef<string | null>(null);
-  const flatRef = useRef<FlatList<ScreenMessage>>(null);
 
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -105,30 +138,43 @@ export function AssistantScreen() {
     });
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-    let currentSessionId: string | null = null;
-
-    (async () => {
+  const openSession = useCallback(
+    async (fresh: boolean) => {
+      setLoading(true);
       try {
-        const storedSessionId = (await SecureStore.getItemAsync(SESSION_STORAGE_KEY)) || undefined;
+        if (fresh) await SecureStore.deleteItemAsync(SESSION_STORAGE_KEY);
+        const storedSessionId = fresh ? undefined : (await SecureStore.getItemAsync(SESSION_STORAGE_KEY)) || undefined;
         const session = await startOrResumeSession(storedSessionId);
-        if (!mounted) return;
-        currentSessionId = session.sessionId;
+        if (sessionIdRef.current && sessionIdRef.current !== session.sessionId) leaveSession(sessionIdRef.current);
         sessionIdRef.current = session.sessionId;
+        setSessionId(session.sessionId);
         await SecureStore.setItemAsync(SESSION_STORAGE_KEY, session.sessionId);
         await joinSession(session.sessionId);
-        const history = await fetchSessionMessages(session.sessionId, 50);
-        if (mounted) setMessages(history);
+        setMessages(fresh ? [] : await fetchSessionMessages(session.sessionId, 50));
       } catch {
         /* để trống, người dùng vẫn gõ được — sẽ tạo phiên mới khi gửi thất bại lần đầu */
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
       }
-    })();
+    },
+    [joinSession, leaveSession]
+  );
 
-    const unsubscribe = subscribe((ev: AssistantHubEvent) => {
-      if (!currentSessionId || ev.sessionId !== currentSessionId) return;
+  useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return undefined;
+    }
+    void openSession(false);
+    return () => {
+      if (sessionIdRef.current) leaveSession(sessionIdRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
+
+  useEffect(() => {
+    return subscribe((ev: AssistantHubEvent) => {
+      if (!sessionIdRef.current || ev.sessionId !== sessionIdRef.current) return;
       switch (ev.type) {
         case 'streamingStarted':
           upsertStreamingMessage(ev.messageId, { streaming: true, content: '' });
@@ -143,33 +189,22 @@ export function AssistantScreen() {
           });
           break;
         case 'status':
-          upsertStreamingMessage(ev.messageId, { statusLabel: ev.label || ev.name || ev.phase });
+          upsertStreamingMessage(ev.messageId, { statusLabel: ev.phase === 'end' ? undefined : ev.label || ev.name || undefined });
           break;
         case 'completed':
           upsertStreamingMessage(ev.messageId, { content: ev.content, streaming: false, statusLabel: undefined });
           break;
         case 'error':
-          upsertStreamingMessage(ev.messageId, {
-            content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
-            streaming: false,
-            statusLabel: undefined,
-          });
+          upsertStreamingMessage(ev.messageId, { content: t('assistant.error'), streaming: false, statusLabel: undefined });
           break;
       }
     });
+  }, [subscribe, upsertStreamingMessage, t]);
 
-    return () => {
-      mounted = false;
-      unsubscribe();
-      if (currentSessionId) leaveSession(currentSessionId);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleSend() {
-    const content = text.trim();
-    const sessionId = sessionIdRef.current;
-    if (!content || sending || !sessionId) return;
+  async function send(raw: string) {
+    const content = raw.trim();
+    const current = sessionIdRef.current;
+    if (!content || sending || !current) return;
     haptics.light();
     setSending(true);
     setText('');
@@ -181,7 +216,7 @@ export function AssistantScreen() {
     };
     setMessages((prev) => [...prev, userMsg]);
     try {
-      const result = await sendAssistantMessage(sessionId, content);
+      const result = await sendAssistantMessage(current, content);
       if (result.fromCache && result.cachedAnswer) {
         upsertStreamingMessage(result.assistantMessageId, {
           content: result.cachedAnswer,
@@ -206,52 +241,98 @@ export function AssistantScreen() {
 
   const streamingLabel = messages.find((m) => m.streaming)?.statusLabel;
   const isAssistantTyping = messages.some((m) => m.streaming && !m.content);
+  const suggestions = ownerMode
+    ? [t('assistant.ownerQ1'), t('assistant.ownerQ2'), t('assistant.ownerQ3'), t('assistant.ownerQ4')]
+    : [t('assistant.staffQ1'), t('assistant.staffQ2'), t('assistant.staffQ3')];
+  const subtitle = ownerMode && storeName
+    ? t('assistant.storeSubtitle', { store: storeName })
+    : ownerMode && !isMultiStore
+      ? t('assistant.emptyDesc')
+      : t('assistant.staffSubtitle');
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-2 pb-2 flex-row items-center gap-2 border-b border-line dark:border-line-dark">
         <View className="w-9 h-9 items-center justify-center rounded-full bg-primary-soft">
-          <Icon name="robot-outline" size={20} tone="primary" />
+          <Icon name="robot-happy-outline" size={20} tone="primary" />
         </View>
         <View className="flex-1">
-          <Text variant="subtitle">Trợ lý CiCi</Text>
-          <Text variant="caption" tone="muted">Tra lương, lịch làm, đổi ca — chỉ của riêng bạn</Text>
+          <Text variant="subtitle">{t('assistant.title')}</Text>
+          <Text variant="caption" tone="muted" numberOfLines={1}>{subtitle}</Text>
         </View>
+        {enabled && messages.length > 0 ? (
+          <Pressable
+            onPress={() => openSession(true)}
+            accessibilityLabel={t('assistant.newChat')}
+            className="w-10 h-10 items-center justify-center rounded-full"
+          >
+            <Icon name="square-edit-outline" size={22} tone="muted" />
+          </Pressable>
+        ) : null}
       </View>
 
-      <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
-        {loading ? (
-          <Loading />
-        ) : (
-          <FlatList
-            ref={flatRef}
-            data={[...messages].reverse()}
-            keyExtractor={(m) => m.id}
-            inverted
-            contentContainerClassName="px-3 py-2"
-            ListHeaderComponent={isAssistantTyping ? <TypingBubble label={streamingLabel} /> : null}
-            renderItem={({ item }) => <Bubble msg={item} />}
-          />
-        )}
-
-        <View
-          className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark"
-          style={{ paddingBottom: kbUp ? 8 : Math.max(insets.bottom, 8) }}
-        >
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Hỏi về lương, lịch làm, đổi ca…"
-            placeholderTextColor={brand.faint}
-            multiline
-            maxLength={1000}
-            className="flex-1 rounded-3xl px-4 py-2.5 text-[15px] text-ink dark:text-ink-dark bg-bg dark:bg-bg-dark max-h-32"
-          />
-          <Pressable onPress={handleSend} disabled={!text.trim() || sending} className="w-11 h-11 items-center justify-center rounded-full">
-            {sending ? <Spinner /> : <Icon name="send" size={24} tone={text.trim() ? 'primary' : 'faint'} />}
-          </Pressable>
+      {!enabled ? (
+        <View className="flex-1 items-center justify-center px-8 gap-3" style={{ paddingBottom: TAB_BAR_CLEARANCE }}>
+          <View className="w-16 h-16 rounded-2xl items-center justify-center bg-primary-soft">
+            <Icon name="robot-off-outline" size={32} tone="primary" />
+          </View>
+          <Text variant="title2" className="text-center">{t('assistant.notEnabledTitle')}</Text>
+          <Text tone="muted" className="text-center leading-6">{t('assistant.notEnabledDesc')}</Text>
         </View>
-      </KeyboardAvoidingView>
+      ) : (
+        <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+          {loading ? (
+            <Loading />
+          ) : messages.length === 0 ? (
+            <ScrollView contentContainerClassName="flex-grow items-center justify-center px-6 gap-4 py-8" keyboardShouldPersistTaps="handled">
+              <View className="w-16 h-16 rounded-2xl items-center justify-center bg-primary-soft">
+                <Icon name="creation" size={30} tone="primary" />
+              </View>
+              <Text variant="title2" className="text-center">
+                {ownerMode ? t('assistant.emptyTitle') : t('assistant.staffEmptyTitle')}
+              </Text>
+              <Text tone="muted" className="text-center leading-6">
+                {ownerMode ? t('assistant.emptyDesc') : t('assistant.staffEmptyDesc')}
+              </Text>
+              <Suggestions items={suggestions} onPick={send} />
+            </ScrollView>
+          ) : (
+            <FlatList
+              data={[...messages].reverse()}
+              keyExtractor={(m) => m.id}
+              inverted
+              contentContainerClassName="px-3 py-2"
+              ListHeaderComponent={isAssistantTyping ? <TypingBubble label={streamingLabel ?? t('assistant.thinking')} /> : null}
+              renderItem={({ item }) => <Bubble msg={item} />}
+              keyboardShouldPersistTaps="handled"
+            />
+          )}
+
+          <View
+            className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark"
+            style={{ paddingBottom: kbUp ? 8 : Math.max(insets.bottom, 8) + TAB_BAR_CLEARANCE }}
+          >
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder={ownerMode ? t('assistant.placeholder') : t('assistant.staffPlaceholder')}
+              placeholderTextColor={brand.faint}
+              multiline
+              maxLength={1000}
+              editable={!!sessionId}
+              className="flex-1 rounded-3xl px-4 py-2.5 text-[15px] text-ink dark:text-ink-dark bg-bg dark:bg-bg-dark max-h-32"
+            />
+            <Pressable
+              onPress={() => send(text)}
+              disabled={!text.trim() || sending}
+              accessibilityLabel="Send"
+              className="w-11 h-11 items-center justify-center rounded-full"
+            >
+              {sending ? <Spinner /> : <Icon name="send" size={24} tone={text.trim() ? 'primary' : 'faint'} />}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </View>
   );
 }

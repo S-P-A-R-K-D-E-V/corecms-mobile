@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import dayjs from 'dayjs';
-import 'dayjs/locale/vi';
 
 import { Screen, AppHeader, EmptyState, ErrorView, SectionCard } from 'src/components/shared';
 import { Card, Text, Badge, Button, Icon, Pressable, Skeleton, Divider, Avatar, Chip } from 'src/components/ui';
@@ -20,7 +19,6 @@ import { buildAutoAssignProposal, slotKeyOf, type ProposalSlot } from './autoAss
 import { SlotDesignationSheet } from './SlotDesignationSheet';
 import { isScheduleOnDate } from './utils';
 
-dayjs.locale('vi');
 
 // ----------------------------------------------------------------------
 // Xếp ca tự động (Manager/Admin) — luồng khớp core-fe:

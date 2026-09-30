@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import dayjs from 'dayjs';
-import 'dayjs/locale/vi';
 
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
 import { Card, Text, Badge, Button, Icon, Pressable, Skeleton, Divider } from 'src/components/ui';
@@ -17,7 +16,6 @@ import { useSwapShiftAssignments, useTeamAssignments } from './hooks';
 import { DayStrip } from './DayStrip';
 import { canMutateAssignment, mutationLockReason } from './utils';
 
-dayjs.locale('vi');
 
 // ----------------------------------------------------------------------
 // Đổi ca hộ (Manager/Admin): chọn 2 phân công (có thể khác ngày — chuyển

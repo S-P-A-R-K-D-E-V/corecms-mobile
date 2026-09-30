@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
+import { formatCompact, formatMoney } from 'src/i18n/format';
 import {
   getDashboardSummary,
   getRevenueReport,
@@ -60,14 +61,12 @@ export function useTodayAttendance() {
 
 // ----------------------------------------------------------------------
 
-/** Rút gọn số tiền lớn: 1.2Tr / 950K / 500. */
+/** Rút gọn số tiền lớn: 1.2Tr / 950K / 500 (theo ngôn ngữ — xem src/i18n/format). */
 export function fmtCompact(v?: number): string {
-  const n = v ?? 0;
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}Tr`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}K`;
-  return `${n}`;
+  return formatCompact(v);
 }
 
+/** Số tiền theo đơn vị tiền tệ của cửa hàng. */
 export function fmtMoney(v?: number): string {
-  return v != null ? `${v.toLocaleString('vi-VN')}đ` : '0đ';
+  return formatMoney(v);
 }

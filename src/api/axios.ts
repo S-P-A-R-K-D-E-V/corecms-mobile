@@ -63,6 +63,9 @@ export const endpoints = {
     resendOtp: '/auth/resend-otp',
     restoreSession: '/auth/restore-session',
     oauthLogin: '/auth/oauth-login',
+    ssoExchange: '/auth/sso/exchange',
+    oauthConnect: '/auth/oauth-connect',
+    oauthConnections: '/auth/oauth-connections',
     deleteAccount: '/auth/account',
   },
   users: {

@@ -9,16 +9,25 @@ import { useThemePreference } from 'src/theme/ThemeProvider';
 import { useAuthContext } from 'src/auth/auth-context';
 import { usesAdminShell } from 'src/auth/roles';
 import { LauncherEditor } from 'src/features/launcher/LauncherEditor';
-import { t } from 'src/i18n';
+import { useLocaleStore, useT } from 'src/i18n';
+import { APP_DISPLAY_NAME } from 'src/services/store-config';
 
-const themeLabel: Record<string, string> = {
-  light: 'Sáng',
-  dark: 'Tối',
-  system: 'Theo hệ thống',
+const themeLabelKey: Record<string, string> = {
+  light: 'settings.themeLight',
+  dark: 'settings.themeDark',
+  system: 'settings.themeSystem',
+};
+
+const languageLabelKey: Record<string, string> = {
+  system: 'language.system',
+  vi: 'language.vi',
+  en: 'language.en',
 };
 
 export function SettingsScreen() {
+  const t = useT();
   const { preference } = useThemePreference();
+  const languagePreference = useLocaleStore((s) => s.preference);
   const { user } = useAuthContext();
   const [editingLauncher, setEditingLauncher] = useState(false);
   const launcherVariant = usesAdminShell(user) ? 'admin' : 'staff';
@@ -28,12 +37,12 @@ export function SettingsScreen() {
     <Screen scroll tabBarInset={false}>
       <AppHeader title={t('settings.title')} back />
 
-      <SectionCard title="Màn hình chính" bodyClassName="pt-0">
+      <SectionCard title={t('settings.homeScreen')} bodyClassName="pt-0">
         <ListItem
           icon="apps"
           iconTone="primary"
-          title="Tùy chỉnh tiện ích"
-          subtitle="Chọn & sắp thứ tự lối tắt trên trang chủ"
+          title={t('settings.customizeTools')}
+          subtitle={t('settings.customizeToolsDesc')}
           onPress={() => setEditingLauncher(true)}
           showChevron
         />
@@ -44,7 +53,7 @@ export function SettingsScreen() {
           icon="palette-outline"
           iconTone="secondary"
           title={t('settings.theme')}
-          subtitle={themeLabel[preference]}
+          subtitle={t(themeLabelKey[preference] ?? 'settings.themeSystem')}
           onPress={() => router.push('/settings/appearance')}
           showChevron
         />
@@ -52,9 +61,18 @@ export function SettingsScreen() {
         <ListItem
           icon="format-size"
           iconTone="primary"
-          title="Phông chữ & cỡ chữ"
-          subtitle="Kiểu chữ, cỡ chữ"
+          title={t('settings.font')}
+          subtitle={t('settings.fontDesc')}
           onPress={() => router.push('/settings/font' as any)}
+          showChevron
+        />
+        <Divider className="ml-12" />
+        <ListItem
+          icon="translate"
+          iconTone="info"
+          title={t('settings.language')}
+          subtitle={t(languageLabelKey[languagePreference] ?? 'language.system')}
+          onPress={() => router.push('/settings/language' as any)}
           showChevron
         />
       </SectionCard>
@@ -64,7 +82,7 @@ export function SettingsScreen() {
           icon="bell-cog-outline"
           iconTone="error"
           title={t('settings.notifications')}
-          subtitle="Loại thông báo, rung, âm thanh"
+          subtitle={t('settings.notificationsDesc')}
           onPress={() => router.push('/settings/notifications')}
           showChevron
         />
@@ -79,7 +97,7 @@ export function SettingsScreen() {
       </SectionCard>
 
       <View className="items-center py-4">
-        <Text variant="caption" tone="faint">CoreCMS Mobile · {t('settings.version')} {version}</Text>
+        <Text variant="caption" tone="faint">{APP_DISPLAY_NAME} · {t('settings.version')} {version}</Text>
       </View>
 
       <LauncherEditor

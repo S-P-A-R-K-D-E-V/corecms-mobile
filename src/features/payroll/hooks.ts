@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { getMyPayroll, getPayrollPenaltyDetails, getPayrollShiftDetails } from 'src/api/payroll';
+import { formatMoney } from 'src/i18n/format';
 
 export function useMyPayroll() {
   return useQuery({ queryKey: ['payroll', 'mine'], queryFn: getMyPayroll });
@@ -22,5 +23,5 @@ export function usePayrollPenaltyDetails(id: string, enabled: boolean) {
 }
 
 export function fmtMoney(v?: number): string {
-  return v != null ? `${v.toLocaleString('vi-VN')}đ` : '0đ';
+  return formatMoney(v);
 }

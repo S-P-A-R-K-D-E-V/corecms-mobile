@@ -9,7 +9,8 @@ import { haptics } from 'src/services/haptics';
 import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 
-import { availableFeatures, GROUP_LABELS, type FeatureItem, type LauncherGroup } from './registry';
+import { availableFeatures, featureLabel, groupLabel, type FeatureItem, type LauncherGroup } from './registry';
+import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Danh sách TOÀN BỘ tiện ích user được phép, phân theo loại (Cá nhân / Quản
@@ -27,7 +28,7 @@ function FeatureRow({ item }: { item: FeatureItem }) {
   return (
     <Pressable
       onPress={() => {
-        if (disabled) { toast.info('Tính năng đang được phát triển.', 'Sắp có'); return; }
+        if (disabled) { toast.info(t('launcher.comingSoonToast'), t('launcher.comingSoonTitle')); return; }
         haptics.light();
         router.push(item.href as any);
       }}
@@ -36,10 +37,10 @@ function FeatureRow({ item }: { item: FeatureItem }) {
       <View className="w-10 h-10 rounded-xl bg-primary-soft items-center justify-center">
         <Icon name={item.icon} size={20} tone="primary" />
       </View>
-      <Text variant="bodySmall" className="flex-1 font-medium">{item.label}</Text>
+      <Text variant="bodySmall" className="flex-1 font-medium">{featureLabel(item)}</Text>
       {disabled ? (
         <View className="rounded-full px-2 py-0.5 bg-warning-soft">
-          <Text className="text-[9px] text-warning-text font-bold">Đang phát triển</Text>
+          <Text className="text-[9px] text-warning-text font-bold">{t('launcher.comingSoon')}</Text>
         </View>
       ) : (
         <Icon name="chevron-right" size={18} tone="faint" />
@@ -61,12 +62,12 @@ export function AllFeaturesScreen() {
 
   return (
     <Screen scroll>
-      <AppHeader title="Tiện ích" subtitle="Tất cả tính năng theo nhóm" />
+      <AppHeader title={t('launcher.title')} subtitle={t('launcher.allSubtitle')} />
       {groups.map(({ group, items }) => (
         <Card key={group} className="p-4">
           <View className="flex-row items-center gap-2 mb-1">
             <Icon name={GROUP_ICON[group] as any} size={18} tone="primary" />
-            <Text variant="subtitle" className="flex-1">{GROUP_LABELS[group]}</Text>
+            <Text variant="subtitle" className="flex-1">{groupLabel(group)}</Text>
             <Text variant="caption" tone="muted">{items.length}</Text>
           </View>
           {items.map((item) => (

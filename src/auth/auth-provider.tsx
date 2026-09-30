@@ -5,6 +5,9 @@ import axiosInstance, { endpoints, getStorageUrl } from 'src/api/axios';
 import type { IAuthResponse, ILoginRequest, IRegisterRequest, IVerifyOtpRequest, IResendOtpRequest, IRestoreSessionRequest } from 'src/types/corecms-api';
 import { AuthContext, type AuthUser, type OAuthExtra } from './auth-context';
 import { unregisterCurrentPushToken } from 'src/hooks/use-push-registration';
+import { storeProfileOf, type DiscoveredStore } from 'src/api/app-hub';
+import { setStore } from 'src/services/store-config';
+import { queryClient } from 'src/services/query/client';
 
 // ----------------------------------------------------------------------
 
@@ -80,6 +83,7 @@ function buildUserFromMe(data: any, accessToken: string, refreshToken?: string):
     idCardFrontUrl: data.idCardFrontUrl,
     idCardBackUrl: data.idCardBackUrl,
     hasFaceEmbedding: !!data.hasFaceEmbedding,
+    enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : undefined,
   };
 }
 
@@ -182,6 +186,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { token: accessToken, refreshToken, sessionToken: newSessionToken } = res.data;
     await setSession(accessToken, refreshToken);
     if (newSessionToken) await SecureStore.setItemAsync(SESSION_KEY, newSessionToken);
+    const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
+    dispatch({ type: Types.LOGIN, payload: { user } });
+  }, []);
+
+  const loginWithDiscoveredStore = useCallback(async (store: DiscoveredStore, state: string) => {
+    // Gắn cửa hàng trước (xoá token của cửa hàng cũ): từ đây axios gọi https://<cửa hàng>/api.
+    await setStore(storeProfileOf(store));
+    queryClient.clear();
+    const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.ssoExchange, { code: store.ssoCode, state });
+    const { token: accessToken, refreshToken, sessionToken } = res.data;
+    await setSession(accessToken, refreshToken);
+    if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
     dispatch({ type: Types.LOGIN, payload: { user } });
   }, []);
@@ -297,6 +313,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       loginWithSessionToken,
       loginWithOAuth,
+      loginWithDiscoveredStore,
       deleteAccount,
       register,
       logout,
@@ -304,7 +321,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resendOtp,
       refreshUser,
     }),
-    [state.user, status, pendingVerification, login, loginWithSessionToken, loginWithOAuth, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
+    [state.user, status, pendingVerification, login, loginWithSessionToken, loginWithOAuth, loginWithDiscoveredStore, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

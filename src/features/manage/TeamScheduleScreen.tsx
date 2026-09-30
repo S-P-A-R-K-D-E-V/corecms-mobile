@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import dayjs from 'dayjs';
-import 'dayjs/locale/vi';
 
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
 import { Card, Text, Badge, Icon, Pressable, Skeleton, Divider, Avatar } from 'src/components/ui';
@@ -14,7 +13,6 @@ import { DayStrip } from './DayStrip';
 import { AdjustAttendanceSheet } from './AdjustAttendanceSheet';
 import { deriveStatus, type AssignmentStatus } from './utils';
 
-dayjs.locale('vi');
 
 // ----------------------------------------------------------------------
 // Lịch đội ngũ (Manager/Admin): xem ca của MỌI nhân viên theo tuần — chọn

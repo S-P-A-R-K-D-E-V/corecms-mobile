@@ -1,5 +1,6 @@
 import type { PoolNeedType, PoolPostStatus, PartialCoverSide } from 'src/types/corecms-api';
 import type { IconName } from 'src/components/ui';
+import { formatMoney } from 'src/i18n/format';
 
 export const NEED_TYPE_LABEL: Record<PoolNeedType, string> = {
   Swap: 'Đổi ca',
@@ -36,5 +37,5 @@ export const NEED_OPTIONS: { value: PoolNeedType; label: string; desc: string; i
 export const DAYS_SHORT = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
 export function fmtMoney(v?: number) {
-  return v != null ? `${v.toLocaleString('vi-VN')}đ` : '';
+  return v != null ? formatMoney(v) : '';
 }

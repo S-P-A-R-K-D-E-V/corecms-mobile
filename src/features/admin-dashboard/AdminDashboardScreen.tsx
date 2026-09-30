@@ -172,13 +172,12 @@ function AttendanceToday() {
   );
 }
 
-const PAYMENT_LABELS: Record<string, string> = {
-  Cash: 'Tiền mặt',
-  Card: 'Thẻ',
-  Bank: 'Chuyển khoản',
-  Transfer: 'Chuyển khoản',
-  QR: 'QR',
-};
+/** Tên phương thức thanh toán theo ngôn ngữ (payment.<Method>); lạ thì giữ nguyên tên BE trả về. */
+function paymentLabel(method: string): string {
+  const key = `payment.${method}`;
+  const label = t(key);
+  return label === key ? method : label;
+}
 
 function PaymentMix({ days }: { days: number }) {
   const { data, isLoading } = usePaymentMix(days);
@@ -193,7 +192,7 @@ function PaymentMix({ days }: { days: number }) {
         {data.map((row: IPaymentMethodReport) => (
           <View key={row.method} className="gap-1">
             <View className="flex-row justify-between">
-              <Text variant="bodySmall">{PAYMENT_LABELS[row.method] ?? row.method}</Text>
+              <Text variant="bodySmall">{paymentLabel(row.method)}</Text>
               <Text variant="bodySmall" tone="muted">
                 {fmtMoney(row.totalAmount)} · {row.percentage.toFixed(0)}%
               </Text>
