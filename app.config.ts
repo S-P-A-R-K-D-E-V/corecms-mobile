@@ -19,6 +19,8 @@ const STORE_APP_NAME = process.env.STORE_APP_NAME ?? 'Spark Store';
 const STORE_BUNDLE_ID = process.env.STORE_BUNDLE_ID ?? 'com.devbyspark.store';
 const STORE_APP_SCHEME = process.env.STORE_APP_SCHEME ?? 'sparkstore';
 const STORE_APP_VERSION = process.env.STORE_APP_VERSION ?? '1.0.0';
+/** Ảnh thương hiệu của bản cửa hàng — thay file trong assets/store/ khi có bộ nhận diện chính thức. */
+const STORE_ASSETS = './assets/store';
 
 type Plugin = NonNullable<ExpoConfig['plugins']>[number];
 
@@ -29,6 +31,7 @@ const STORE_PLUGIN_TEXT: Record<string, Record<string, string>> = {
     cameraPermission: en.NSCameraUsageDescription,
     microphonePermission: en.NSMicrophoneUsageDescription,
   },
+  'expo-notifications': { icon: `${STORE_ASSETS}/notification-icon.png` },
 };
 
 function storePlugins(plugins: ExpoConfig['plugins'] = []): Plugin[] {
@@ -49,6 +52,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: STORE_APP_NAME,
     scheme: STORE_APP_SCHEME,
     version: STORE_APP_VERSION,
+    icon: `${STORE_ASSETS}/icon.png`,
+    splash: { ...base.splash, image: `${STORE_ASSETS}/splash.png`, backgroundColor: '#FFFFFF' },
     locales: {
       en: './locales/en.json',
       vi: './locales/vi.json',
@@ -67,6 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     android: {
       ...base.android,
       package: STORE_BUNDLE_ID,
+      adaptiveIcon: { foregroundImage: `${STORE_ASSETS}/adaptive-icon.png`, backgroundColor: '#B45877' },
     },
     plugins: [...storePlugins(base.plugins), 'expo-apple-authentication'],
     extra: {

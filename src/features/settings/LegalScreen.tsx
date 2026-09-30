@@ -3,13 +3,16 @@ import { View } from 'react-native';
 
 import { Screen, AppHeader } from 'src/components/shared';
 import { Card, Text } from 'src/components/ui';
-import { t } from 'src/i18n';
+import { t, useLocaleStore } from 'src/i18n';
+import { isMultiStore } from 'src/services/store-config';
+import { storeLegal } from './legal-store';
 
 type Doc = 'privacy' | 'terms' | 'licenses';
 
 type Section = { heading?: string; body: string };
 
-const CONTENT: Record<Doc, { title: string; updatedAt: string; sections: Section[] }> = {
+// Nội dung của bản CiCi (tiếng Việt). Bản cửa hàng dùng legal-store.ts (trung tính, Anh/Việt).
+const ciciContent = (): Record<Doc, { title: string; updatedAt: string; sections: Section[] }> => ({
   privacy: {
     title: t('settings.privacy'),
     updatedAt: '24/06/2026',
@@ -138,18 +141,21 @@ const CONTENT: Record<Doc, { title: string; updatedAt: string; sections: Section
       },
     ],
   },
-};
+});
 
 export function LegalScreen() {
   const { doc } = useLocalSearchParams<{ doc?: Doc }>();
-  const content = CONTENT[(doc ?? 'privacy') as Doc] ?? CONTENT.privacy;
+  const locale = useLocaleStore((s) => s.locale);
+  const key = (doc ?? 'privacy') as Doc;
+  const cici = isMultiStore ? null : ciciContent();
+  const content = cici ? cici[key] ?? cici.privacy : storeLegal(locale, key);
 
   return (
     <Screen scroll tabBarInset={false}>
       <AppHeader title={content.title} back />
       <Card className="p-5 gap-4">
         <Text variant="caption" tone="muted">
-          Cập nhật lần cuối: {content.updatedAt}
+          {locale === 'vi' || !isMultiStore ? 'Cập nhật lần cuối' : 'Last updated'}: {content.updatedAt}
         </Text>
         {content.sections.map((section, index) => (
           <View key={section.heading ?? index} className="gap-1">

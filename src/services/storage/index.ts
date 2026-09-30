@@ -21,6 +21,7 @@ export const PrefKeys = {
   fontFamily: 'pref.fontFamily', // 'system' | 'publicSans'
   fontScale: 'pref.fontScale',   // 'small' | 'medium' | 'large' | 'xlarge'
   launcherPins: 'pref.launcherPins', // JSON: { staff: string[], admin: string[] }
+  aiConsent: 'pref.aiConsent', // phiên bản nội dung đồng ý gửi dữ liệu cho AI đã chấp nhận
 } as const;
 
 export const secure = {

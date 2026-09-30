@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Keyboard, ScrollView } from 'react-native';
+import { router } from 'expo-router';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
 
 import { Loading } from 'src/components/shared';
-import { Text, Pressable, Icon, Spinner } from 'src/components/ui';
+import { Text, Pressable, Icon, Spinner, Button } from 'src/components/ui';
+import { prefs, PrefKeys } from 'src/services/storage';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { haptics } from 'src/services/haptics';
@@ -31,6 +33,9 @@ import { RichText } from './RichText';
 // ----------------------------------------------------------------------
 
 const SESSION_STORAGE_KEY = 'assistantSessionId';
+// App Store 5.1.2(i): xin phép rõ ràng trước khi gửi dữ liệu cá nhân cho AI bên thứ ba. Đổi nội dung
+// đồng ý (assistant.consentBody) theo cách làm người dùng phải đồng ý lại → tăng phiên bản.
+const AI_CONSENT_VERSION = 'v1';
 // Khớp PILL_H + lề của thanh tab nổi (src/app/(tabs)/_layout.tsx) — ô nhập phải nằm TRÊN thanh tab.
 const TAB_BAR_CLEARANCE = 72 + 8;
 
@@ -101,7 +106,12 @@ export function AssistantScreen() {
   const { joinSession, leaveSession, subscribe } = useAssistantCtx();
 
   const ownerMode = isManagerUser(user);
-  const enabled = assistantEnabled(user);
+  const featureOn = assistantEnabled(user);
+  const [consent, setConsent] = useState<boolean | null>(null);
+  useEffect(() => {
+    prefs.get(PrefKeys.aiConsent).then((v) => setConsent(v === AI_CONSENT_VERSION)).catch(() => setConsent(false));
+  }, []);
+  const enabled = featureOn && consent === true;
   const storeName = getStore()?.name ?? getStore()?.code ?? '';
 
   const [messages, setMessages] = useState<ScreenMessage[]>([]);
@@ -271,7 +281,28 @@ export function AssistantScreen() {
         ) : null}
       </View>
 
-      {!enabled ? (
+      {featureOn && consent === false ? (
+        <ScrollView contentContainerClassName="flex-grow justify-center px-7 gap-4 py-8" contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE + 16 }}>
+          <View className="w-16 h-16 rounded-2xl items-center justify-center bg-primary-soft self-center">
+            <Icon name="shield-lock-outline" size={30} tone="primary" />
+          </View>
+          <Text variant="title2" className="text-center">{t('assistant.consentTitle')}</Text>
+          <Text tone="muted" className="text-center leading-6">{t('assistant.consentBody')}</Text>
+          <Button
+            size="lg"
+            onPress={async () => {
+              await prefs.set(PrefKeys.aiConsent, AI_CONSENT_VERSION).catch(() => {});
+              setConsent(true);
+            }}
+          >
+            {t('assistant.consentAgree')}
+          </Button>
+          <Button variant="ghost" action="neutral" size="sm" onPress={() => router.push('/legal?doc=privacy' as any)}>
+            {t('assistant.consentPolicy')}
+          </Button>
+        </ScrollView>
+      ) : !enabled ? (
+        consent === null && featureOn ? <Loading /> : (
         <View className="flex-1 items-center justify-center px-8 gap-3" style={{ paddingBottom: TAB_BAR_CLEARANCE }}>
           <View className="w-16 h-16 rounded-2xl items-center justify-center bg-primary-soft">
             <Icon name="robot-off-outline" size={32} tone="primary" />
@@ -279,6 +310,7 @@ export function AssistantScreen() {
           <Text variant="title2" className="text-center">{t('assistant.notEnabledTitle')}</Text>
           <Text tone="muted" className="text-center leading-6">{t('assistant.notEnabledDesc')}</Text>
         </View>
+        )
       ) : (
         <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
           {loading ? (

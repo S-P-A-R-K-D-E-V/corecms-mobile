@@ -32,7 +32,7 @@ export default function Index() {
       <View className="flex-1 items-center justify-center bg-bg dark:bg-bg-dark gap-5">
         {/* Dùng chính app icon để đồng bộ 100% với logo trên màn hình chính. */}
         <Image
-          source={require('../../assets/icon.png')}
+          source={isMultiStore ? require('../../assets/store/icon.png') : require('../../assets/icon.png')}
           style={{ width: 92, height: 92, borderRadius: 20, ...softShadow }}
           resizeMode="contain"
         />

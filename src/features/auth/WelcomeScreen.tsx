@@ -111,7 +111,7 @@ export function WelcomeScreen() {
           style={{ alignItems: 'center' }}
         >
           <Image
-            source={require('../../../assets/icon.png')}
+            source={require('../../../assets/store/icon.png')}
             style={{ width: 84, height: 84, borderRadius: 20, ...softShadow }}
             resizeMode="contain"
           />

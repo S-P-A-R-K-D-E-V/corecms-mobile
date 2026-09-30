@@ -29,7 +29,8 @@
       "channel": "store-preview",
       "env": {
         "APP_VARIANT": "store",
-        "EXPO_PUBLIC_SAAS_ZONE": "store.devbyspark.com"
+        "EXPO_PUBLIC_SAAS_ZONE": "store.devbyspark.com",
+        "EXPO_PUBLIC_AUTH_HUB_API": "https://auth.devbyspark.com/api"
       },
       "android": {
         "buildType": "apk"
@@ -40,7 +41,8 @@
       "channel": "store-production",
       "env": {
         "APP_VARIANT": "store",
-        "EXPO_PUBLIC_SAAS_ZONE": "store.devbyspark.com"
+        "EXPO_PUBLIC_SAAS_ZONE": "store.devbyspark.com",
+        "EXPO_PUBLIC_AUTH_HUB_API": "https://auth.devbyspark.com/api"
       }
     }
   },
