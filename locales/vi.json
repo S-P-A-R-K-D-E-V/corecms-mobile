@@ -1,8 +1,10 @@
 {
-  "NSLocationWhenInUseUsageDescription": "Ứng dụng dùng vị trí để xác nhận bạn đang ở cửa hàng khi chấm công hoặc kiểm tiền quầy.",
-  "NSLocationAlwaysAndWhenInUseUsageDescription": "Ứng dụng dùng vị trí để xác nhận bạn đang ở cửa hàng khi chấm công.",
-  "NSCameraUsageDescription": "Ứng dụng dùng camera để xác thực khuôn mặt khi chấm công và quét mã QR của kiosk.",
-  "NSMicrophoneUsageDescription": "Micro chỉ cần cho camera khi quay video xác thực khuôn mặt. Không lưu âm thanh.",
-  "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập ảnh để bạn chọn ảnh đại diện hoặc gửi ảnh trong chat.",
-  "NSFaceIDUsageDescription": "Face ID giúp bạn đăng nhập nhanh hơn."
+  "ios": {
+    "NSLocationWhenInUseUsageDescription": "Ứng dụng dùng vị trí để xác nhận bạn đang ở cửa hàng khi chấm công hoặc kiểm tiền quầy.",
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "Ứng dụng dùng vị trí để xác nhận bạn đang ở cửa hàng khi chấm công.",
+    "NSCameraUsageDescription": "Ứng dụng dùng camera để xác thực khuôn mặt khi chấm công và quét mã QR của kiosk.",
+    "NSMicrophoneUsageDescription": "Micro chỉ cần cho camera khi quay video xác thực khuôn mặt. Không lưu âm thanh.",
+    "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập ảnh để bạn chọn ảnh đại diện hoặc gửi ảnh trong chat.",
+    "NSFaceIDUsageDescription": "Face ID giúp bạn đăng nhập nhanh hơn."
+  }
 }

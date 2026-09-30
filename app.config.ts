@@ -1,6 +1,9 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-import en from './locales/en.json';
+import enLocale from './locales/en.json';
+
+// Chuỗi xin quyền iOS (khoá NS…) nằm trong nhánh "ios" — Android không nhận (lint coi là ExtraTranslation).
+const en = enLocale.ios;
 
 // ----------------------------------------------------------------------
 // Hai bản build từ cùng mã nguồn (app.json là cấu hình gốc = bản CiCi):
