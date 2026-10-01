@@ -14,7 +14,7 @@ import { t } from 'src/i18n';
 import type { IPurchaseOrder } from 'src/types/erp';
 
 import { InfoRow, money } from 'src/features/erp/shared';
-import { PoStatusBadge } from './shared';
+import { PoStatusBadge, isReceiving } from './shared';
 
 // ----------------------------------------------------------------------
 // Chi tiết phiếu nhập: phiếu tạm → "Xác nhận đặt hàng"; đã đặt / nhận một phần → "Nhận hàng" (nhập số
@@ -132,7 +132,7 @@ export function PurchaseOrderDetailScreen() {
     );
   }
 
-  const canReceive = po.status === 'Confirmed' || po.status === 'PartiallyReceived';
+  const canReceive = isReceiving(po.status);
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -147,7 +147,8 @@ export function PurchaseOrderDetailScreen() {
               <View className="flex-1">
                 <Text variant="bodySmall" className="font-semibold">{i.productName}</Text>
                 <Text variant="caption" tone="muted">
-                  {i.productCode}  ·  {i.quantity} × {money(i.unitPrice)}  ·  {t('erp.receivedOf', { received: i.receivedQuantity, ordered: i.quantity })}
+                  {i.productCode}  ·  {i.quantity} × {money(i.unitPrice)}
+                  {isReceiving(po.status) ? `  ·  ${t('erp.receivedOf', { received: i.receivedQuantity, ordered: i.quantity })}` : ''}
                 </Text>
               </View>
               <Text variant="bodySmall" className="font-bold">{money(i.totalPrice)}</Text>

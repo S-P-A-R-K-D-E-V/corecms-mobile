@@ -47,7 +47,7 @@ function ProductPickRow({ item, inCart, onPress }: { item: IProductListItem; inC
         {inCart ? (
           <Text tone="inverse" className="font-bold text-[13px]">{inCart}</Text>
         ) : (
-          <Icon name={item.hasVariants ? 'chevron-down' : 'plus'} size={20} tone="primary" />
+          <Icon name={item.hasVariants && (item.childProducts ?? []).filter((c) => c.isActive).length > 1 ? 'chevron-down' : 'plus'} size={20} tone="primary" />
         )}
       </View>
     </Pressable>
@@ -173,7 +173,13 @@ export function PosScreen() {
   }, [sheet]);
 
   function addProduct(p: IProductListItem) {
-    if (p.hasVariants && (p.childProducts ?? []).length > 0) {
+    const variants = (p.childProducts ?? []).filter((c) => c.isActive);
+    if (p.hasVariants && variants.length === 1) {
+      // KiotViet CiCi: hầu hết hàng có đúng 1 biến thể → thêm thẳng, khỏi mở bảng chọn.
+      addVariant(p, variants[0]);
+      return;
+    }
+    if (p.hasVariants && variants.length > 1) {
       setVariantOf(p);
       return;
     }
@@ -246,7 +252,7 @@ export function PosScreen() {
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-2 gap-3">
-        <AppHeader back={!usesAdminShell(user)} title={t('tabs.pos')} subtitle={sellerName} />
+        <AppHeader back={!usesAdminShell(user)} title={t('tabs.pos')} subtitle={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || undefined} />
         {warehouses.length > 1 ? (
           <View className="flex-row flex-wrap gap-2 -mt-1">
             {warehouses.map((w) => (
@@ -322,7 +328,7 @@ export function PosScreen() {
         footer={
           sheet === 'pay' ? (
             <View className="flex-row gap-2">
-              <View style={{ width: 110 }}>
+              <View style={{ width: 132 }}>
                 <Button variant="soft" icon="chevron-left" onPress={() => setSheet('cart')}>{t('erp.cart')}</Button>
               </View>
               <View className="flex-1">

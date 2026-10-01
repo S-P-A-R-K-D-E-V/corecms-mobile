@@ -13,7 +13,7 @@ import { t } from 'src/i18n';
 import type { IPurchaseOrder } from 'src/types/erp';
 
 import { ListFooter, money } from 'src/features/erp/shared';
-import { PoStatusBadge, PO_FILTERS } from './shared';
+import { PoStatusBadge, PO_FILTERS, isReceiving } from './shared';
 
 // ----------------------------------------------------------------------
 // Nhập hàng (chủ / quản lý): phiếu nhập theo trạng thái, tạo phiếu mới, xác nhận và nhận hàng vào kho —
@@ -34,7 +34,7 @@ function PoRow({ po }: { po: IPurchaseOrder }) {
       </View>
       <View className="flex-row items-center gap-2">
         <Text variant="caption" tone="muted" className="flex-1" numberOfLines={1}>
-          {po.supplierName || '—'}  ·  {t('erp.receivedOf', { received, ordered })}
+          {po.supplierName || '—'}  ·  {isReceiving(po.status) ? t('erp.receivedOf', { received, ordered }) : t('erp.cartItems', { n: ordered })}
         </Text>
         <PoStatusBadge status={po.status} />
       </View>

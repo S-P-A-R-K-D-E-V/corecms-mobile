@@ -54,7 +54,10 @@ export function ProductDetailScreen() {
     haptics.light();
     add(line);
     toast.success(t('erp.added', { name: line.name }));
-    router.navigate('/(tabs)/pos' as any);
+    // Đóng màn chi tiết (stack) trước rồi mới đổi tab: làm cùng lúc trên Android để lại lớp chuyển cảnh
+    // trắng che màn Bán hàng.
+    if (router.canGoBack()) router.back();
+    setTimeout(() => router.navigate('/(tabs)/pos' as any), 350);
   }
 
   if (isLoading) {

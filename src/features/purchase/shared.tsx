@@ -16,6 +16,9 @@ export function PoStatusBadge({ status }: { status: string }) {
   return <Badge tone={s.tone}>{s.key ? t(s.key) : status}</Badge>;
 }
 
+/** Phiếu còn chờ nhận hàng — mới có ý nghĩa "đã nhận x/y" (phiếu đồng bộ từ KiotViet không ghi số đã nhận). */
+export const isReceiving = (status: string) => status === 'Confirmed' || status === 'PartiallyReceived';
+
 /** Bộ lọc: số = giá trị enum core-be. */
 export const PO_FILTERS: { key: string; status?: number; label: string }[] = [
   { key: 'all', label: 'erp.poAll' },
