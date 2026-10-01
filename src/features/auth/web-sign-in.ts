@@ -25,7 +25,7 @@ const PKCE_KEY = 'apphub.pkce';
 /** Trang web giữ mã 2 phút; chừa thời gian người dùng đăng nhập trên trình duyệt. */
 const MAX_AGE_MS = 15 * 60_000;
 
-const AUTH_WEB_ORIGIN = AUTH_HUB_API.replace(/\/api\/?$/, '');
+export const AUTH_WEB_ORIGIN = AUTH_HUB_API.replace(/\/api\/?$/, '');
 
 type SavedPkce = { state: string; verifier: string; provider: WebProvider; at: number };
 

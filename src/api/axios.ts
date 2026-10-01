@@ -66,6 +66,10 @@ export const endpoints = {
     ssoExchange: '/auth/sso/exchange',
     oauthConnect: '/auth/oauth-connect',
     oauthConnections: '/auth/oauth-connections',
+    // Gỡ theo id liên kết (một tài khoản gắn được nhiều Google/Apple).
+    oauthDisconnect: (id: string) => `/auth/oauth-connections/${id}`,
+    // Vé liên kết Google/Apple qua trang auth (xem features/auth/web-link.ts).
+    oauthLinkStart: '/auth/oauth-link/start',
     deleteAccount: '/auth/account',
   },
   users: {

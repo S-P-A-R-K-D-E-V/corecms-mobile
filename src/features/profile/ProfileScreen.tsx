@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { router } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { Screen, SectionCard, ListItem } from 'src/components/shared';
 import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
@@ -9,11 +8,12 @@ import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
-import { useT } from 'src/i18n';
+import { useLocaleStore, useT } from 'src/i18n';
 import { extractApiError } from 'src/services/error';
-import axiosInstance, { endpoints } from 'src/api/axios';
 import { getStore, isMultiStore, setStore } from 'src/services/store-config';
-import { isAppleSignInAvailable, signInWithApple } from 'src/features/auth/apple-sign-in';
+import { isAppleSignInAvailable } from 'src/features/auth/apple-sign-in';
+import { startWebLink } from 'src/features/auth/web-link';
+import { announceLinkResult, providerLabel, useLinkedAccounts, type OAuthConnection } from './use-linked-accounts';
 
 const ROLE: Record<string, { key: string; tone: 'error' | 'secondary' | 'primary' | 'neutral' }> = {
   Admin: { key: 'profile.roleAdmin', tone: 'error' },
@@ -30,33 +30,11 @@ const TOOLS = [
   { icon: 'account-group-outline' as const, iconTone: 'info' as const, titleKey: 'profile.toolPool', subtitleKey: 'profile.toolPoolDesc', route: '/shift-pool' },
 ];
 
-type OAuthConnection = { provider: string; connectedAt: string };
-
-/** Liên kết Sign in with Apple cho tài khoản đang đăng nhập (bản cửa hàng, iOS). */
-function useAppleLink(enabled: boolean) {
-  const qc = useQueryClient();
-  const connections = useQuery({
-    queryKey: ['auth', 'oauth-connections'],
-    queryFn: async () => (await axiosInstance.get<OAuthConnection[]>(endpoints.auth.oauthConnections)).data,
-    enabled,
-  });
-  const linked = !!connections.data?.some((c) => c.provider?.toLowerCase() === 'apple');
-
-  async function link() {
-    const apple = await signInWithApple();
-    if (!apple) return false;
-    await axiosInstance.post(endpoints.auth.oauthConnect, {
-      provider: 'apple',
-      token: apple.token,
-      nonce: apple.extra.nonce,
-      authorizationCode: apple.extra.authorizationCode,
-    });
-    await qc.invalidateQueries({ queryKey: ['auth', 'oauth-connections'] });
-    return true;
-  }
-
-  return { linked, loading: connections.isLoading, link };
-}
+const PROVIDER_ICON: Record<string, 'google' | 'apple' | 'facebook'> = {
+  google: 'google',
+  apple: 'apple',
+  facebook: 'facebook',
+};
 
 export function ProfileScreen() {
   const t = useT();
@@ -67,12 +45,14 @@ export function ProfileScreen() {
   const store = isMultiStore ? getStore() : null;
   const storeName = store?.name ?? store?.code ?? '';
 
+  const locale = useLocaleStore((s) => s.locale);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [linking, setLinking] = useState(false);
   useEffect(() => {
     if (isMultiStore) isAppleSignInAvailable().then(setAppleAvailable);
   }, []);
-  const apple = useAppleLink(isMultiStore && appleAvailable);
+  // Bản cửa hàng: một email đăng nhập + nhiều Google/Apple đã liên kết để đăng nhập nhanh.
+  const linked = useLinkedAccounts(isMultiStore);
 
   async function handleLogout() {
     const ok = await confirm({
@@ -98,14 +78,50 @@ export function ProfileScreen() {
     router.replace('/welcome' as any);
   }
 
+  async function handleLinkGoogle() {
+    setLinking(true);
+    try {
+      const result = await startWebLink('google', locale);
+      // Android: kết quả đi theo deep link → màn auth/linked báo và làm mới.
+      if (result && Platform.OS !== 'android') {
+        announceLinkResult(result);
+        await linked.refresh();
+      }
+    } catch (err) {
+      toast.error(extractApiError(err), t('profile.linkFailed'));
+    } finally {
+      setLinking(false);
+    }
+  }
+
   async function handleLinkApple() {
     setLinking(true);
     try {
-      if (await apple.link()) toast.success(t('profile.appleLinkedToast'));
+      if (await linked.linkAppleNative()) toast.success(t('profile.linkedToast', { provider: 'Apple' }));
     } catch (err) {
-      toast.error(extractApiError(err), t('welcome.appleFailed'));
+      toast.error(extractApiError(err), t('profile.linkFailed'));
     } finally {
       setLinking(false);
+    }
+  }
+
+  async function handleUnlink(connection: OAuthConnection) {
+    const account = connection.email
+      ? `${providerLabel(connection.provider)} (${connection.email})`
+      : providerLabel(connection.provider);
+    const ok = await confirm({
+      title: t('profile.unlinkTitle'),
+      message: t('profile.unlinkMessage', { account }),
+      confirmText: t('profile.unlink'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await linked.unlink(connection.id);
+      toast.success(t('profile.unlinkedToast'));
+    } catch (err: any) {
+      // 409 khi gỡ = cách đăng nhập cuối của tài khoản không có mật khẩu.
+      toast.error(err?.status === 409 ? t('profile.lastSignInMethod') : extractApiError(err));
     }
   }
 
@@ -190,19 +206,6 @@ export function ProfileScreen() {
           onPress={() => router.push('/face-enrollment')}
           showChevron
         />
-        {isMultiStore && appleAvailable ? (
-          <>
-            <Divider className="ml-12" />
-            <ListItem
-              icon="apple"
-              iconTone={apple.linked ? 'success' : 'muted'}
-              title={apple.linked ? t('profile.appleLinked') : t('profile.appleLink')}
-              subtitle={apple.linked ? undefined : t('profile.appleLinkDesc')}
-              onPress={apple.linked || linking || apple.loading ? undefined : handleLinkApple}
-              showChevron={!apple.linked}
-            />
-          </>
-        ) : null}
         {isAdminOrManager ? (
           <>
             <Divider className="ml-12" />
@@ -217,6 +220,48 @@ export function ProfileScreen() {
           </>
         ) : null}
       </SectionCard>
+
+      {/* Tài khoản liên kết (bản cửa hàng) */}
+      {isMultiStore ? (
+        <SectionCard title={t('profile.linkedAccounts')} bodyClassName="pt-0">
+          <Text variant="caption" tone="muted" className="pb-2 leading-4">
+            {t('profile.linkedAccountsDesc', { email: user?.email ?? '' })}
+          </Text>
+          {linked.connections.map((c) => (
+            <View key={c.id}>
+              <ListItem
+                icon={PROVIDER_ICON[c.provider.toLowerCase()] ?? 'link-variant'}
+                iconTone="success"
+                title={providerLabel(c.provider)}
+                subtitle={c.email ?? undefined}
+                onPress={() => handleUnlink(c)}
+                right={<Text variant="caption" tone="error" className="font-semibold">{t('profile.unlink')}</Text>}
+              />
+              <Divider className="ml-12" />
+            </View>
+          ))}
+          <ListItem
+            icon="google"
+            iconTone="primary"
+            title={t('profile.linkGoogle')}
+            onPress={linking ? undefined : handleLinkGoogle}
+            showChevron
+          />
+          {appleAvailable && Platform.OS === 'ios' ? (
+            <>
+              <Divider className="ml-12" />
+              <ListItem
+                icon="apple"
+                iconTone="muted"
+                title={t('profile.linkApple')}
+                subtitle={t('profile.appleLinkDesc')}
+                onPress={linking ? undefined : handleLinkApple}
+                showChevron
+              />
+            </>
+          ) : null}
+        </SectionCard>
+      ) : null}
 
       {/* Tools */}
       <SectionCard title={t('profile.tools')} bodyClassName="pt-0">
