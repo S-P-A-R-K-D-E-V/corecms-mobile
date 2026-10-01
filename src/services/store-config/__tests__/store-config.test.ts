@@ -103,3 +103,54 @@ describe('getHostApi', () => {
     expect(config.getStoreCode()).toBe('shop2');
   });
 });
+
+describe('lookupStore', () => {
+  const { lookupStore } = loadWithVariant('store');
+  const fetchMock = jest.fn();
+
+  beforeEach(() => {
+    fetchMock.mockReset();
+    (global as any).fetch = fetchMock;
+  });
+
+  const json = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body });
+
+  it('mã cửa hàng → đọc thương hiệu trên chính tên miền cửa hàng', async () => {
+    fetchMock.mockResolvedValue(json(200, { storeName: 'Tiệm ABC' }));
+    const result = await lookupStore('TiemABC');
+    expect(fetchMock.mock.calls[0][0]).toBe('https://tiemabc.store.devbyspark.com/api/public/storefront/branding');
+    expect(result).toMatchObject({ ok: true, profile: { code: 'tiemabc', host: 'tiemabc.store.devbyspark.com', name: 'Tiệm ABC' } });
+  });
+
+  it('tên miền riêng / link → hỏi app-hub, dùng tên miền vùng SaaS nó trả về', async () => {
+    fetchMock.mockResolvedValue(
+      json(200, { code: 'tiemabc', name: 'Tiệm ABC', host: 'tiemabc.store.devbyspark.com', currency: 'VND' })
+    );
+    const result = await lookupStore(' https://shop.abc.vn/auth/jwt/login ');
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'https://auth.devbyspark.com/api/app-hub/resolve?q=https%3A%2F%2Fshop.abc.vn%2Fauth%2Fjwt%2Flogin'
+    );
+    expect(result).toMatchObject({ ok: true, profile: { code: 'tiemabc', host: 'tiemabc.store.devbyspark.com' } });
+  });
+
+  it.each([
+    [404, 'not_found'],
+    [409, 'suspended'],
+    [429, 'rate_limited'],
+    [502, 'network'],
+  ])('app-hub %i → %s', async (status, reason) => {
+    fetchMock.mockResolvedValue(json(status, {}));
+    expect(await lookupStore('shop.abc.vn')).toEqual({ ok: false, reason });
+  });
+
+  it('host lạ trong phản hồi bị bỏ (host đi thẳng vào URL gọi API)', async () => {
+    fetchMock.mockResolvedValue(json(200, { code: 'x', host: 'evil.com/path?' }));
+    expect(await lookupStore('shop.abc.vn')).toEqual({ ok: false, reason: 'network' });
+  });
+
+  it('không phải mã cũng không phải địa chỉ → invalid, không gọi mạng', async () => {
+    expect(await lookupStore('ab')).toEqual({ ok: false, reason: 'invalid' });
+    expect(await lookupStore('shop abc')).toEqual({ ok: false, reason: 'invalid' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

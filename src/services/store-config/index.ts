@@ -178,12 +178,21 @@ export function normalizeStoreCode(input: string | null | undefined): string | n
 
 export type StoreLookup =
   | { ok: true; profile: StoreProfile }
-  | { ok: false; reason: 'invalid' | 'not_found' | 'suspended' | 'network' };
+  | { ok: false; reason: 'invalid' | 'not_found' | 'suspended' | 'rate_limited' | 'network' };
 
-/** Kiểm tra cửa hàng có thật (thương hiệu công khai của cửa hàng qua /api). */
+/** Có dáng tên miền / link (có dấu chấm, không khoảng trắng) — tra qua app-hub thay vì coi là mã. */
+const LOOKS_LIKE_ADDRESS = /^(?:[a-z][a-z0-9+.-]*:\/\/)?[^\s/?#]+\.[^\s/?#]+/i;
+
+/**
+ * Kiểm tra cửa hàng có thật. Mã (hoặc <mã>.<vùng SaaS>): đọc thương hiệu công khai trên chính tên miền
+ * cửa hàng. Tên miền khác (tên miền riêng, vùng cũ devbyspark.com, dán nguyên link): hỏi
+ * auth hub /app-hub/resolve — trả mã + tên miền vùng SaaS của cửa hàng (nơi có /api).
+ */
 export async function lookupStore(input: string): Promise<StoreLookup> {
   const code = normalizeStoreCode(input);
-  if (!code) return { ok: false, reason: 'invalid' };
+  if (!code) {
+    return LOOKS_LIKE_ADDRESS.test(input.trim()) ? resolveViaHub(input.trim()) : { ok: false, reason: 'invalid' };
+  }
 
   const profile = profileFromCode(code);
   try {
@@ -209,4 +218,28 @@ export async function lookupStore(input: string): Promise<StoreLookup> {
   } catch {
     return { ok: false, reason: 'network' };
   }
+}
+
+async function resolveViaHub(address: string): Promise<StoreLookup> {
+  let res: Response;
+  try {
+    res = await fetch(`${AUTH_HUB_API}/app-hub/resolve?q=${encodeURIComponent(address)}`, {
+      headers: { Accept: 'application/json' },
+    });
+  } catch {
+    return { ok: false, reason: 'network' };
+  }
+  if (res.status === 404) return { ok: false, reason: 'not_found' };
+  if (res.status === 409) return { ok: false, reason: 'suspended' };
+  if (res.status === 429) return { ok: false, reason: 'rate_limited' };
+  if (!res.ok) return { ok: false, reason: 'network' };
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {
+    return { ok: false, reason: 'network' };
+  }
+  const profile = sanitize(data);
+  return profile ? { ok: true, profile } : { ok: false, reason: 'network' };
 }
