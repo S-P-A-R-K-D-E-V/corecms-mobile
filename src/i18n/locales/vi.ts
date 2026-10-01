@@ -132,6 +132,7 @@ export const vi = {
     loginTitle: 'Đăng nhập',
     loginSubtitle: 'Chào mừng trở lại CoreCMS',
     loginStoreDesc: 'Dùng tài khoản {store} đã mời bạn — email, Google hoặc Apple.',
+    loginStoreDescNoApple: 'Dùng tài khoản {store} đã mời bạn — email hoặc Google.',
     loginCiCiSubtitle: 'Hệ thống quản lý nhân sự & chấm công',
     loginCiCiDesc: 'Sử dụng tài khoản cici21chualang.vn. Bạn có thể đăng nhập bằng Google hoặc Facebook ngay trên trang web.',
     loginWeb: 'Đăng nhập trên web',

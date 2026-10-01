@@ -132,6 +132,7 @@ export const en: Dict = {
     loginTitle: 'Sign in',
     loginSubtitle: 'Welcome back',
     loginStoreDesc: 'Use the {store} account you were invited with — email, Google or Apple.',
+    loginStoreDescNoApple: 'Use the {store} account you were invited with — email or Google.',
     loginCiCiSubtitle: 'Workforce & attendance management',
     loginCiCiDesc: 'Use your cici21chualang.vn account. You can sign in with Google or Facebook on the website.',
     loginWeb: 'Sign in on the web',

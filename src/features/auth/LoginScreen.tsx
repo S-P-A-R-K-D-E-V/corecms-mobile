@@ -128,7 +128,9 @@ export function LoginScreen() {
           <Card className="p-6 gap-2">
             <Text variant="subtitle">{t('auth.loginTitle')}</Text>
             <Text variant="bodySmall" tone="muted" className="leading-5 mb-4">
-              {isMultiStore ? t('auth.loginStoreDesc', { store: storeName }) : t('auth.loginCiCiDesc')}
+              {isMultiStore
+                ? t(Platform.OS === 'ios' ? 'auth.loginStoreDesc' : 'auth.loginStoreDescNoApple', { store: storeName })
+                : t('auth.loginCiCiDesc')}
             </Text>
             {appleAvailable && Platform.OS === 'ios' ? (
               <View style={{ opacity: appleLoading ? 0.6 : 1 }} pointerEvents={appleLoading ? 'none' : 'auto'} className="mb-2">
@@ -166,17 +168,25 @@ export function LoginScreen() {
                 <Icon name="google" size={14} color="#DB4437" />
                 <Text variant="caption" tone="faint">Google</Text>
               </View>
-              <View className="w-1 h-1 rounded-full bg-line" />
+              {/* Bản cửa hàng không hiện Apple trên Android (chủ quyết định 2026-10-01). */}
               {isMultiStore ? (
-                <View className="flex-row items-center gap-1">
-                  <Icon name="apple" size={14} tone="faint" />
-                  <Text variant="caption" tone="faint">Apple</Text>
-                </View>
+                Platform.OS === 'ios' ? (
+                  <>
+                    <View className="w-1 h-1 rounded-full bg-line" />
+                    <View className="flex-row items-center gap-1">
+                      <Icon name="apple" size={14} tone="faint" />
+                      <Text variant="caption" tone="faint">Apple</Text>
+                    </View>
+                  </>
+                ) : null
               ) : (
-                <View className="flex-row items-center gap-1">
-                  <Icon name="facebook" size={14} color="#1877F2" />
-                  <Text variant="caption" tone="faint">Facebook</Text>
-                </View>
+                <>
+                  <View className="w-1 h-1 rounded-full bg-line" />
+                  <View className="flex-row items-center gap-1">
+                    <Icon name="facebook" size={14} color="#1877F2" />
+                    <Text variant="caption" tone="faint">Facebook</Text>
+                  </View>
+                </>
               )}
             </View>
           </Card>
