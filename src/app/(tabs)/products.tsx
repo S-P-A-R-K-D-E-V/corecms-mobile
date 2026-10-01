@@ -1,5 +1,5 @@
-import { ErpPlaceholderScreen } from 'src/features/erp/ErpPlaceholderScreen';
+import { ProductsScreen } from 'src/features/products/ProductsScreen';
 
 export default function Products() {
-  return <ErpPlaceholderScreen kind="products" />;
+  return <ProductsScreen />;
 }

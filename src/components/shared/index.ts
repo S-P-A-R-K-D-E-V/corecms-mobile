@@ -13,3 +13,4 @@ export { Placeholder } from './Placeholder';
 export { Sheet } from './Sheet';
 export { BankPickerSheet } from './BankPickerSheet';
 export { IdCardCameraModal } from './IdCardCameraModal';
+export { BarcodeScannerModal } from './BarcodeScannerModal';

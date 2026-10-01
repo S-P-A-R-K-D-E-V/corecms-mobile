@@ -8,6 +8,7 @@ import { GlassView } from '../ui/glass';
 import { spring, duration } from 'src/theme/motion';
 import { blur } from 'src/theme';
 import { useResponsive } from 'src/hooks/use-responsive';
+import { BrandScope } from 'src/theme/BrandScope';
 
 // Cap width on tablet so a bottom sheet reads as a centered dialog instead
 // of a full-bleed strip across a 1024pt-wide screen.
@@ -54,6 +55,7 @@ export function Sheet({ visible, title, onClose, children, footer }: SheetProps)
 
   return (
     <Modal visible={visible} transparent onRequestClose={onClose} statusBarTranslucent animationType="none">
+      <BrandScope>
       {/* Backdrop */}
       <MotiView
         from={{ opacity: 0 }}
@@ -90,6 +92,7 @@ export function Sheet({ visible, title, onClose, children, footer }: SheetProps)
           </View>
         </GlassView>
       </MotiView>
+      </BrandScope>
     </Modal>
   );
 }

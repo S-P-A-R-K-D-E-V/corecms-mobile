@@ -1,5 +1,5 @@
-import { ErpPlaceholderScreen } from 'src/features/erp/ErpPlaceholderScreen';
+import { PosScreen } from 'src/features/pos/PosScreen';
 
 export default function Pos() {
-  return <ErpPlaceholderScreen kind="pos" />;
+  return <PosScreen />;
 }

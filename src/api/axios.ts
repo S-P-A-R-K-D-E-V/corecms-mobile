@@ -270,6 +270,27 @@ export const endpoints = {
     templateWeek: '/cleaning/templates/week',
     duplicateWeek: '/cleaning/templates/duplicate-week',
   },
+  // ── ERP trên app: hàng hoá, hoá đơn, nhập hàng, bán hàng ──
+  products: {
+    list: '/products',
+    details: (id: string) => `/products/${id}`,
+    children: (id: string) => `/products/${id}/children`,
+  },
+  salesOrders: {
+    list: '/sales-orders',
+    details: (id: string) => `/sales-orders/${id}`,
+    create: '/sales-orders',
+  },
+  purchaseOrders: {
+    list: '/purchase-orders',
+    details: (id: string) => `/purchase-orders/${id}`,
+    create: '/purchase-orders',
+    confirm: (id: string) => `/purchase-orders/${id}/confirm`,
+    receive: (id: string) => `/purchase-orders/${id}/receive`,
+  },
+  warehouses: { list: '/warehouses' },
+  suppliers: { list: '/suppliers' },
+  bankAccounts: { list: '/bank-accounts' },
 };
 
 // ----------------------------------------------------------------------

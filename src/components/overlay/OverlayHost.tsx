@@ -2,6 +2,7 @@
 // root (above the navigator). Renders stacked toasts, the confirm dialog, and
 // the action sheet — all themed with the DS tokens.
 import { Modal, Pressable, View } from 'react-native';
+import { BrandScope } from 'src/theme/BrandScope';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AnimatePresence, MotiView } from 'moti';
 
@@ -80,6 +81,7 @@ function ConfirmDialog() {
 
   return (
     <Modal visible={dialog.visible} transparent animationType="none" onRequestClose={() => close(false)}>
+      <BrandScope>
       <MotiView
         from={{ opacity: 0 }}
         animate={{ opacity: dialog.visible ? 0.4 : 0 }}
@@ -125,6 +127,7 @@ function ConfirmDialog() {
           </Pressable>
         </MotiView>
       </Pressable>
+      </BrandScope>
     </Modal>
   );
 }
@@ -141,6 +144,7 @@ function ActionSheetHost() {
 
   return (
     <Modal visible={sheet.visible} transparent animationType="none" onRequestClose={close}>
+      <BrandScope>
       <MotiView
         from={{ opacity: 0 }}
         animate={{ opacity: sheet.visible ? 0.4 : 0 }}
@@ -192,6 +196,7 @@ function ActionSheetHost() {
           </View>
         </View>
       </MotiView>
+      </BrandScope>
     </Modal>
   );
 }

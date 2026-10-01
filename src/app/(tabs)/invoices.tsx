@@ -1,5 +1,12 @@
-import { ErpPlaceholderScreen } from 'src/features/erp/ErpPlaceholderScreen';
+import { RoleGuard } from 'src/auth/role-guard';
+import { MANAGER_ROLES } from 'src/auth/roles';
+import { InvoicesScreen } from 'src/features/invoices/InvoicesScreen';
 
+// Hoá đơn cả cửa hàng: chủ / quản lý.
 export default function Invoices() {
-  return <ErpPlaceholderScreen kind="invoices" />;
+  return (
+    <RoleGuard roles={MANAGER_ROLES}>
+      <InvoicesScreen />
+    </RoleGuard>
+  );
 }
