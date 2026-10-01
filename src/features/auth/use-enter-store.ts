@@ -26,7 +26,9 @@ export function discoverErrorMessage(err: unknown): string {
     case 'network':
       return t('common.network');
     case 'invalid_token':
-      return t('welcome.appleFailed');
+      return t('welcome.signInFailed');
+    case 'expired_code':
+      return t('welcome.webExpired');
     default:
       return err.message && err.message !== 'unknown' ? err.message : t('common.error');
   }
@@ -34,14 +36,15 @@ export function discoverErrorMessage(err: unknown): string {
 
 /**
  * Vào một cửa hàng đã tìm được: đổi mã SSO (làm mới nếu quá hạn) lấy phiên, rồi về boot gate.
- * Sau discover chỉ có 1 cửa hàng thì gọi luôn, không qua màn chọn.
+ * Sau discover chỉ có 1 cửa hàng thì gọi luôn, không qua màn chọn. Trả về false nếu không vào được
+ * (đã báo lỗi; mã quá hạn thì đã quay về Welcome).
  */
 export function useEnterStore() {
   const { loginWithDiscoveredStore } = useAuthContext();
   const [entering, setEntering] = useState<string | null>(null);
 
   const enter = useCallback(
-    async (code: string) => {
+    async (code: string): Promise<boolean> => {
       setEntering(code);
       try {
         const ticket = await freshTicket(code);
@@ -49,14 +52,16 @@ export function useEnterStore() {
           toast.error(t('storePicker.expired'));
           useDiscovery.getState().clear();
           router.replace('/welcome' as any);
-          return;
+          return false;
         }
         await loginWithDiscoveredStore(ticket.store, ticket.state);
         useDiscovery.getState().clear();
         track(AnalyticsEvent.LoginSuccess);
         router.replace('/');
+        return true;
       } catch (err) {
         toast.error(discoverErrorMessage(err), t('auth.loginFailed'));
+        return false;
       } finally {
         setEntering(null);
       }

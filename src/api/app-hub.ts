@@ -49,6 +49,7 @@ export type DiscoverErrorCode =
   | 'banned'
   | 'invalid_token'
   | 'rate_limited'
+  | 'expired_code'
   | 'network'
   | 'unknown';
 
@@ -73,16 +74,29 @@ function mapError(status: number, body: any): DiscoverError {
   if (has('User.AccountNotActive')) return new DiscoverError('not_active');
   if (has('User.AccountBanned')) return new DiscoverError('banned');
   if (has('Auth.InvalidOAuthToken') || has('Auth.UnsupportedProvider')) return new DiscoverError('invalid_token');
+  if (has('Auth.InvalidSsoCode')) return new DiscoverError('expired_code');
   return new DiscoverError('unknown', body?.title ?? body?.message);
 }
 
-export async function discoverStores(state: string, request: DiscoverRequest): Promise<DiscoverResult> {
+export function discoverStores(state: string, request: DiscoverRequest): Promise<DiscoverResult> {
+  return postAppHub('discover', { state, ...request });
+}
+
+/**
+ * Google/Apple qua web (auth.devbyspark.com/sso/start?app=1): trang web trả mã dùng một lần về deep
+ * link của app; đổi mã kèm state + PKCE verifier lấy cùng kết quả như discover.
+ */
+export function redeemAppHubCode(code: string, state: string, codeVerifier: string): Promise<DiscoverResult> {
+  return postAppHub('redeem', { code, state, codeVerifier });
+}
+
+async function postAppHub(path: 'discover' | 'redeem', payload: object): Promise<DiscoverResult> {
   let res: Response;
   try {
-    res = await fetch(`${AUTH_HUB_API}/app-hub/discover`, {
+    res = await fetch(`${AUTH_HUB_API}/app-hub/${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ state, ...request }),
+      body: JSON.stringify(payload),
     });
   } catch {
     throw new DiscoverError('network');

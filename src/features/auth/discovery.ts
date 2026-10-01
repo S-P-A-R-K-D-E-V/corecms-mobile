@@ -13,9 +13,13 @@ const TICKET_TTL_MS = 50_000;
 /** Không giữ thông tin đăng nhập lâu hơn thế này. */
 const REQUEST_TTL_MS = 5 * 60_000;
 
-type Pending = {
+export type SignInMethod = 'apple' | 'google' | 'email';
+
+export type Pending = {
   state: string;
-  request: DiscoverRequest;
+  /** null = đăng nhập qua web (mã dùng một lần) — không chạy lại được, quá hạn thì đăng nhập lại. */
+  request: DiscoverRequest | null;
+  via: SignInMethod;
   result: DiscoverResult;
   at: number;
   firstAt: number;
@@ -35,7 +39,16 @@ export async function runDiscovery(request: DiscoverRequest): Promise<Pending> {
   const state = newSsoState();
   const result = await discoverStores(state, request);
   const now = Date.now();
-  const pending: Pending = { state, request, result, at: now, firstAt: now };
+  const via: SignInMethod = 'provider' in request ? request.provider : 'email';
+  const pending: Pending = { state, request, via, result, at: now, firstAt: now };
+  useDiscovery.setState({ pending });
+  return pending;
+}
+
+/** Kết quả đã có sẵn (đổi mã từ đăng nhập web) → chờ người dùng chọn cửa hàng như discover. */
+export function setDiscovered(state: string, via: SignInMethod, result: DiscoverResult): Pending {
+  const now = Date.now();
+  const pending: Pending = { state, request: null, via, result, at: now, firstAt: now };
   useDiscovery.setState({ pending });
   return pending;
 }
@@ -53,7 +66,7 @@ export async function freshTicket(code: string): Promise<{ store: DiscoveredStor
     return store ? { store, state: pending.state } : null;
   }
 
-  if (Date.now() - pending.firstAt > REQUEST_TTL_MS) return null;
+  if (!pending.request || Date.now() - pending.firstAt > REQUEST_TTL_MS) return null;
 
   const request: DiscoverRequest =
     'provider' in pending.request ? { ...pending.request, authorizationCode: undefined } : pending.request;

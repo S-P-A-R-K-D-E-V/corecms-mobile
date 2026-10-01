@@ -11,16 +11,20 @@ import { toast } from 'src/components/overlay';
 import { useLocaleStore, useT, type Locale } from 'src/i18n';
 import { spring } from 'src/theme/motion';
 import { softShadow } from 'src/theme';
-import { APP_DISPLAY_NAME } from 'src/services/store-config';
+import { APP_DISPLAY_NAME, appleSignInEnabled } from 'src/services/store-config';
 import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
 import { runDiscovery } from './discovery';
+import { GoogleButton } from './GoogleButton';
 import { discoverErrorMessage, useEnterStore } from './use-enter-store';
+import { startWebSignIn, type WebProvider } from './web-sign-in';
 
 // ----------------------------------------------------------------------
-// Màn đầu tiên của bản cửa hàng (toàn cầu). Đăng nhập Apple là lối chính: một lần đăng nhập → app tự
-// tìm các cửa hàng của người dùng (app-hub/discover) → 1 cửa hàng thì vào thẳng, nhiều thì chọn.
-// Không có Apple (Android) hoặc tài khoản mật khẩu: "Tiếp tục với email". Biết mã cửa hàng: nhập mã
-// rồi đăng nhập trên trang web của cửa hàng như trước.
+// Màn đầu tiên của bản cửa hàng (toàn cầu). Một lần đăng nhập → app tự tìm các cửa hàng của người
+// dùng (app-hub/discover) → 1 cửa hàng thì vào thẳng, nhiều thì chọn.
+// - iOS: Sign in with Apple native (lối chính), Google qua web.
+// - Android: Google và Apple đều qua web (auth.devbyspark.com — xem web-sign-in.ts).
+// - Tài khoản mật khẩu: "Tiếp tục với email". Biết mã cửa hàng: nhập mã rồi đăng nhập trên trang web
+//   của cửa hàng như trước.
 // ----------------------------------------------------------------------
 
 const POINTS: { icon: IconName; key: string }[] = [
@@ -59,6 +63,7 @@ export function WelcomeScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
+  const locale = useLocaleStore((s) => s.locale);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const { enter, entering } = useEnterStore();
@@ -92,7 +97,22 @@ export function WelcomeScreen() {
     }
   }
 
+  async function handleWeb(provider: WebProvider) {
+    setBusy(true);
+    try {
+      const back = await startWebSignIn(provider, locale);
+      // Android: kết quả đi theo deep link, expo-router tự mở màn auth/hub — không đẩy thêm lần nữa.
+      if (back && Platform.OS !== 'android') router.push({ pathname: '/auth/hub', params: back } as any);
+    } catch (err) {
+      toast.error(discoverErrorMessage(err), t(provider === 'google' ? 'welcome.googleFailed' : 'welcome.appleFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const working = busy || !!entering;
+  const nativeApple = appleAvailable && Platform.OS === 'ios';
+  const webApple = Platform.OS === 'android' && appleSignInEnabled;
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: Math.max(insets.bottom, 16) }}>
@@ -142,7 +162,7 @@ export function WelcomeScreen() {
         transition={{ type: 'timing', delay: 250 }}
         style={{ paddingHorizontal: 28, gap: 10 }}
       >
-        {appleAvailable && Platform.OS === 'ios' ? (
+        {nativeApple ? (
           <View style={{ opacity: working ? 0.6 : 1 }} pointerEvents={working ? 'none' : 'auto'}>
             <AppleAuthentication.AppleAuthenticationButton
               buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
@@ -158,10 +178,18 @@ export function WelcomeScreen() {
           </View>
         ) : null}
 
+        <GoogleButton label={t('welcome.continueGoogle')} disabled={working} onPress={() => handleWeb('google')} />
+
+        {webApple ? (
+          <Button size="lg" variant="solid" action="neutral" icon="apple" disabled={working} onPress={() => handleWeb('apple')}>
+            {t('welcome.continueApple')}
+          </Button>
+        ) : null}
+
         <Button
           size="lg"
-          variant={appleAvailable ? 'outline' : 'solid'}
-          action={appleAvailable ? 'neutral' : 'primary'}
+          variant="outline"
+          action="neutral"
           icon="email-outline"
           disabled={working}
           onPress={() => router.push('/email-sign-in' as any)}

@@ -29,9 +29,9 @@ export function StorePickerScreen() {
 
   if (!pending) return <Redirect href={'/welcome' as any} />;
 
-  const { result, request } = pending;
+  const { result } = pending;
   const email = result.email ?? '';
-  const viaApple = 'provider' in request && request.provider === 'apple';
+  const viaApple = pending.via === 'apple';
 
   function startOver() {
     clear();
