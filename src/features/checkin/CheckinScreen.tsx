@@ -20,7 +20,6 @@ import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
 
-import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { useCheckinData } from './hooks';
 import { FaceCaptureModal } from './FaceCaptureModal';
 import { FaceCheckinModal } from './FaceCheckinModal';
@@ -610,9 +609,6 @@ export function CheckinScreen() {
           <StatCard tone="warning" value={report.lateCount} label={t('checkin.statLate')} />
         </View>
       ) : null}
-
-      {/* Feature-grid tiện ích — tùy chỉnh được (thay lưới cứng cũ) */}
-      <FeatureGrid variant="staff" />
 
       {/* Today's history */}
       <SectionCard title={t('checkin.todayHistory')} icon="history" count={logs.length} collapsible defaultExpanded={false}>

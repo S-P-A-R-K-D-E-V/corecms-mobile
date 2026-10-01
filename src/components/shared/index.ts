@@ -1,5 +1,5 @@
 export { Screen } from './Screen';
-export { AppHeader } from './AppHeader';
+export { AppHeader, goBackOrHome } from './AppHeader';
 export type { HeaderAction } from './AppHeader';
 export { EmptyState } from './EmptyState';
 export { ErrorView } from './ErrorView';

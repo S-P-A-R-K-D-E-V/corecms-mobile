@@ -156,7 +156,7 @@ export function ChatListScreen() {
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-2">
-        <AppHeader title="Tin nhắn" actions={[{ icon: 'square-edit-outline', onPress: () => setSheetOpen(true) }]} />
+        <AppHeader back title="Tin nhắn" actions={[{ icon: 'square-edit-outline', onPress: () => setSheetOpen(true) }]} />
         <TextField icon="magnify" placeholder="Tìm cuộc trò chuyện..." value={search} onChangeText={setSearch} containerClassName="mb-2" />
       </View>
       {loading ? (

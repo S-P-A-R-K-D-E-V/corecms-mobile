@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
+import { useColorScheme } from 'nativewind';
 import { router } from 'expo-router';
 
 import { SectionCard } from 'src/components/shared';
@@ -8,8 +9,9 @@ import { cn } from 'src/components/ui/utils';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { useResponsive } from 'src/hooks/use-responsive';
+import { brand } from 'src/theme';
 
-import { availableFeatures, featureLabel, getFeature, type FeatureItem, type FeatureTone, type LauncherVariant } from './registry';
+import { featureLabel, visiblePins, type FeatureItem, type FeatureTone, type LauncherVariant } from './registry';
 import { t } from 'src/i18n';
 import { useLauncherStore } from './store';
 import { LauncherEditor } from './LauncherEditor';
@@ -25,13 +27,9 @@ const TONE_BG: Record<FeatureTone, string> = {
 
 // ----------------------------------------------------------------------
 
-// Tile columns scale with available width: 4 on phone, 6 on tablet, 8 on
-// wide tablet landscape — keeps pinned tiles from staying phone-sized and
-// sparse on a large screen.
+// Tối đa 8 ô: 4 cột (2 hàng) trên điện thoại, 8 cột (1 hàng) trên tablet.
 function columnsFor(width: number) {
-  if (width >= 900) return 8;
-  if (width >= 600) return 6;
-  return 4;
+  return width >= 600 ? 8 : 4;
 }
 
 function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) {
@@ -67,36 +65,52 @@ function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) 
   );
 }
 
-export function FeatureGrid({ variant }: { variant: LauncherVariant }) {
+/** "Dùng nhanh" (trang chủ) / ghim ở Tiện ích: tối đa 8 tiện ích ghim, nút Tùy chỉnh mở màn sắp xếp. */
+export function FeatureGrid({
+  variant,
+  title,
+  onSeeAll,
+  solid,
+}: {
+  variant: LauncherVariant;
+  title?: string;
+  onSeeAll?: () => void;
+  /** Nền đặc (không kính mờ) — khi thẻ đè lên khối màu đầu trang chủ. */
+  solid?: boolean;
+}) {
+  const { colorScheme } = useColorScheme();
   const { user } = useAuthContext();
   const [editing, setEditing] = useState(false);
   const pinKeys = useLauncherStore((s) => s.pins[variant]);
   const { width } = useResponsive();
   const columns = columnsFor(width);
 
-  // Chỉ hiện tiện ích user được phép (lọc role) và đang ghim, giữ đúng thứ tự ghim.
-  const pinned = useMemo(() => {
-    const allowed = new Set(availableFeatures(user).map((f) => f.key));
-    return pinKeys
-      .filter((k) => allowed.has(k))
-      .map((k) => getFeature(k))
-      .filter((f): f is FeatureItem => !!f);
-  }, [pinKeys, user]);
+  // Chỉ hiện tiện ích user được phép (lọc role) và đang ghim, giữ đúng thứ tự ghim, tối đa 8.
+  const pinned = useMemo(() => visiblePins(pinKeys, user), [pinKeys, user]);
 
   return (
     <>
       <SectionCard
-        title={t('launcher.title')}
+        style={solid ? { backgroundColor: colorScheme === 'dark' ? brand.surfaceDark : brand.surface } : undefined}
+        title={title ?? t('launcher.title')}
         icon="apps"
         right={
-          <Pressable
-            onPress={() => setEditing(true)}
-            hitSlop={8}
-            className="flex-row items-center gap-1 px-2 py-1 rounded-full bg-primary-soft"
-          >
-            <Icon name="tune-variant" size={14} tone="primary" />
-            <Text variant="caption" className="text-primary font-semibold">{t('launcher.customize')}</Text>
-          </Pressable>
+          <View className="flex-row items-center gap-1.5">
+            <Pressable
+              onPress={() => setEditing(true)}
+              hitSlop={8}
+              className="flex-row items-center gap-1 px-2 py-1 rounded-full bg-primary-soft"
+            >
+              <Icon name="tune-variant" size={14} tone="primary" />
+              <Text variant="caption" tone="primary" className="font-semibold">{t('launcher.customize')}</Text>
+            </Pressable>
+            {onSeeAll ? (
+              <Pressable onPress={onSeeAll} hitSlop={8} className="flex-row items-center px-1 py-1">
+                <Text variant="caption" tone="muted" className="font-semibold">{t('home.seeAll')}</Text>
+                <Icon name="chevron-right" size={16} tone="muted" />
+              </Pressable>
+            ) : null}
+          </View>
         }
       >
         {pinned.length === 0 ? (

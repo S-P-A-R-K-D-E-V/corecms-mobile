@@ -5,6 +5,7 @@ import { Sheet } from 'src/components/shared';
 import { Button, Text, Icon, Pressable, Divider } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { haptics } from 'src/services/haptics';
+import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 
 import {
@@ -15,6 +16,7 @@ import {
   type FeatureItem,
   type LauncherGroup,
   type LauncherVariant,
+  MAX_PINS,
 } from './registry';
 import { useLauncherStore } from './store';
 import { t } from 'src/i18n';
@@ -64,21 +66,26 @@ export function LauncherEditor({
   const available = useMemo(() => availableFeatures(user), [user]);
   const allowedKeys = useMemo(() => new Set(available.map((f) => f.key)), [available]);
 
-  // Ghim hợp lệ (giữ thứ tự) + nhóm "có thể thêm" theo group.
+  // Ghim hợp lệ (giữ thứ tự, tối đa MAX_PINS) + nhóm "có thể thêm" theo group.
+  const cleanPins = () => pinKeys.filter((k) => allowedKeys.has(k)).slice(0, MAX_PINS);
   const pinned = useMemo(
-    () => pinKeys.filter((k) => allowedKeys.has(k)).map((k) => getFeature(k)!).filter(Boolean),
+    () => pinKeys.filter((k) => allowedKeys.has(k)).slice(0, MAX_PINS).map((k) => getFeature(k)!).filter(Boolean),
     [pinKeys, allowedKeys]
   );
+  const full = pinned.length >= MAX_PINS;
   const unpinnedByGroup = useMemo(() => {
-    const pinnedSet = new Set(pinKeys);
-    const groups: Record<LauncherGroup, FeatureItem[]> = { personal: [], manage: [], admin: [] };
+    const pinnedSet = new Set(pinned.map((f) => f.key));
+    const groups: Record<LauncherGroup, FeatureItem[]> = { sales: [], personal: [], manage: [], admin: [] };
     for (const f of available) if (!pinnedSet.has(f.key)) groups[f.group].push(f);
     return groups;
-  }, [available, pinKeys]);
-
-  const cleanPins = () => pinKeys.filter((k) => allowedKeys.has(k));
+  }, [available, pinned]);
 
   function pin(key: string) {
+    if (full) {
+      haptics.warning();
+      toast.info(t('launcher.pinLimit', { max: MAX_PINS }));
+      return;
+    }
     haptics.light();
     setPins(variant, [...cleanPins(), key]);
   }
@@ -96,7 +103,7 @@ export function LauncherEditor({
     setPins(variant, keys);
   }
 
-  const groupOrder: LauncherGroup[] = ['personal', 'manage', 'admin'];
+  const groupOrder: LauncherGroup[] = ['sales', 'personal', 'manage', 'admin'];
 
   return (
     <Sheet
@@ -117,7 +124,10 @@ export function LauncherEditor({
       }
     >
       {/* Đang hiển thị — kéo thứ tự bằng nút lên/xuống */}
-      <Text variant="label" tone="muted" className="mb-1">{t('launcher.showing', { n: pinned.length })}</Text>
+      <View className="flex-row items-center justify-between mb-1">
+        <Text variant="label" tone="muted">{t('launcher.pinned', { n: pinned.length, max: MAX_PINS }).toUpperCase()}</Text>
+        <Text variant="caption" tone={full ? 'warning' : 'faint'}>{t('launcher.quickSubtitle', { max: MAX_PINS })}</Text>
+      </View>
       {pinned.length === 0 ? (
         <Text variant="bodySmall" tone="muted" className="py-2">{t('launcher.emptyPinnedShort')}</Text>
       ) : (
@@ -146,7 +156,7 @@ export function LauncherEditor({
             <Text variant="label" tone="muted" className="mb-1">{groupLabel(g).toUpperCase()}</Text>
             {unpinnedByGroup[g].map((item) => (
               <Row key={item.key} item={item}>
-                <Pressable onPress={() => pin(item.key)} hitSlop={6} className="w-8 h-8 items-center justify-center rounded-lg bg-primary-soft">
+                <Pressable onPress={() => pin(item.key)} hitSlop={6} className={cn('w-8 h-8 items-center justify-center rounded-lg bg-primary-soft', full && 'opacity-35')}>
                   <Icon name="plus" size={18} tone="primary" />
                 </Pressable>
               </Row>

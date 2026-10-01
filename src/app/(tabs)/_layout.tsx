@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from 'nativewind';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { useAuthContext } from 'src/auth/auth-context';
-import { usesAdminShell, canUseAssistant } from 'src/auth/roles';
+import { usesAdminShell } from 'src/auth/roles';
 import { useT } from 'src/i18n';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
@@ -25,27 +25,28 @@ const SURFACE = { light: 'rgba(255,255,255,0.97)', dark: 'rgba(33,43,54,0.97)' }
 const BORDER = { light: 'rgba(145,158,171,0.20)', dark: 'rgba(255,255,255,0.08)' };
 
 // Solar icons (bold-duotone when active, linear when idle) keyed into the registry.
-type TabDef = { name: string; off?: string; on: string; labelKey: string };
+type TabDef = { name: string; off?: string; on: string; labelKey: string; center?: boolean };
 
-// Menu nhân viên (Staff/Manager): checkin là nút center nổi bật.
+// Thanh tab kiểu MB Bank: Trang chủ | 2 tab việc chính | nút giữa nổi bật | Tiện ích. Tin nhắn, Trợ lý AI,
+// Thông báo lên đầu trang chủ; avatar mở Tài khoản. Mọi route vẫn đăng ký trong navigator — chỉ NÚT trên
+// thanh đổi theo vai trò; mở màn không thuộc menu (chat, trợ lý, tài khoản…) vẫn chạy, có nút quay lại.
+
+// Nhân viên / Quản lý / Admin kiêm ca: nút giữa = chấm công.
 const STAFF_TABS: TabDef[] = [
+  { name: 'home', off: 'tab-home-off', on: 'tab-home-on', labelKey: 'tabs.home' },
   { name: 'schedule', off: 'tab-schedule-off', on: 'tab-schedule-on', labelKey: 'tabs.schedule' },
+  { name: 'checkin', on: 'tab-checkin-on', labelKey: 'tabs.checkin', center: true },
   { name: 'payroll', off: 'tab-payroll-off', on: 'tab-payroll-on', labelKey: 'tabs.payroll' },
-  { name: 'checkin', on: 'tab-checkin-on', labelKey: 'tabs.checkin' }, // center
-  { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', labelKey: 'tabs.chat' },
-  { name: 'assistant', off: 'tab-assistant-off', on: 'tab-assistant-on', labelKey: 'tabs.assistant' },
-  { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', labelKey: 'tabs.profile' },
+  { name: 'features', off: 'tab-apps-off', on: 'tab-apps-on', labelKey: 'tabs.features' },
 ];
 
-// Menu riêng cho Quản trị viên: Dashboard | Tiện ích | Chat | Trợ lý | Tôi (không có nút center).
-// Mọi route vẫn được đăng ký trong navigator — chỉ NÚT trên tab bar đổi theo
-// role; deep-link vào màn không thuộc menu vẫn hoạt động (Admin full quyền).
-const ADMIN_TABS: TabDef[] = [
-  { name: 'admin', off: 'tab-admin-off', on: 'tab-admin-on', labelKey: 'tabs.dashboard' },
+// Chủ cửa hàng (Admin thuần): nút giữa = bán hàng.
+const OWNER_TABS: TabDef[] = [
+  { name: 'home', off: 'tab-home-off', on: 'tab-home-on', labelKey: 'tabs.home' },
+  { name: 'products', off: 'tab-products-off', on: 'tab-products-on', labelKey: 'tabs.products' },
+  { name: 'pos', on: 'tab-pos-on', labelKey: 'tabs.pos', center: true },
+  { name: 'invoices', off: 'tab-invoices-off', on: 'tab-invoices-on', labelKey: 'tabs.invoices' },
   { name: 'features', off: 'tab-apps-off', on: 'tab-apps-on', labelKey: 'tabs.features' },
-  { name: 'chat', off: 'tab-chat-off', on: 'tab-chat-on', labelKey: 'tabs.chat' },
-  { name: 'assistant', off: 'tab-assistant-off', on: 'tab-assistant-on', labelKey: 'tabs.assistant' },
-  { name: 'profile', off: 'tab-profile-off', on: 'tab-profile-on', labelKey: 'tabs.profile' },
 ];
 
 const PILL_H = 72;
@@ -129,7 +130,9 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
             // screen nhưng menu chỉ hiển thị 1 tập con tuỳ role (Staff vs Admin).
             const route = state.routes.find((r: any) => r.name === tab.name);
             const isFocused = focusedTab?.name === tab.name;
-            const isCenter = tab.name === 'checkin';
+            const isCenter = !!tab.center;
+            // Tia quét + vòng radar chỉ hợp với chấm công khuôn mặt.
+            const scanFx = isFocused && tab.name === 'checkin';
 
             function onPress() {
               if (!route) return;
@@ -148,8 +151,8 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                   style={{ width: 66, alignItems: 'center', justifyContent: 'center', gap: 5 }}
                 >
                   <MotiView
-                    animate={{ scale: isFocused ? [1, 1.08, 1] : 1 }}
-                    transition={{ type: 'timing', duration: 1800, loop: isFocused }}
+                    animate={{ scale: scanFx ? [1, 1.08, 1] : 1 }}
+                    transition={{ type: 'timing', duration: 1800, loop: scanFx }}
                     style={{
                       width: 54,
                       height: 54,
@@ -169,7 +172,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                     >
                       <TabIcon xmlKey={tab.on} size={28} color="white" />
                       {/* tia scan */}
-                      {isFocused && (
+                      {scanFx && (
                         <MotiView
                           from={{ translateY: -25, opacity: 0.2 }}
                           animate={{ translateY: 25, opacity: 1 }}
@@ -188,7 +191,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                       )}
                     </LinearGradient>
                     {/* vòng radar */}
-                    {isFocused && (
+                    {scanFx && (
                       <MotiView
                         from={{ scale: 1, opacity: 0.5 }}
                         animate={{ scale: 1.6, opacity: 0 }}
@@ -269,14 +272,11 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
 export default function TabsLayout() {
   const { user } = useAuthContext();
   // Shell điều hướng CỐ ĐỊNH theo nhóm (không đẻ tab theo từng quyền):
-  //   Admin thuần                     → Dashboard | Chat | Tôi (3 tab)
-  //   Staff / Manager / Admin-kiêm-ca → 5 tab nhân viên
-  // Tính năng quản lý/quản trị được đưa vào feature-grid ở màn home, không
-  // thêm tab. Navigator đăng ký đủ screen; tab bar tra route theo tên.
-  // Bản cửa hàng: trợ lý AI hiện chỉ dành cho chủ/quản lý (core-be StoreAssistant) — ẩn tab với
-  // nhân viên thay vì cho vào rồi báo "không dành cho bạn".
-  const shell = usesAdminShell(user) ? ADMIN_TABS : STAFF_TABS;
-  const tabs = canUseAssistant(user) ? shell : shell.filter((tab) => tab.name !== 'assistant');
+  //   Admin thuần                     → chủ cửa hàng: Trang chủ | Hàng hoá | [Bán hàng] | Hoá đơn | Tiện ích
+  //   Staff / Manager / Admin-kiêm-ca → nhân viên:    Trang chủ | Lịch làm | [Chấm công] | Lương | Tiện ích
+  // Tính năng còn lại nằm ở Tiện ích (ghim tối đa 8 ra "Dùng nhanh" trang chủ). Navigator đăng ký đủ
+  // screen; tab bar tra route theo tên.
+  const tabs = usesAdminShell(user) ? OWNER_TABS : STAFF_TABS;
 
   // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
   return (
@@ -285,8 +285,14 @@ export default function TabsLayout() {
         <AssistantProvider>
           <Tabs
             screenOptions={{ headerShown: false }}
+            // Quay lại theo lịch sử tab: mở Tin nhắn từ trang chủ rồi bấm quay lại → về trang chủ.
+            backBehavior="history"
             tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
           >
+            <Tabs.Screen name="home" />
+            <Tabs.Screen name="products" />
+            <Tabs.Screen name="pos" />
+            <Tabs.Screen name="invoices" />
             <Tabs.Screen name="schedule" />
             <Tabs.Screen name="payroll" />
             <Tabs.Screen name="checkin" />

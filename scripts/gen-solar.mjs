@@ -140,6 +140,14 @@ const MAP = {
   'tab-chat-on': 'chat-round-bold-duotone',
   'tab-profile-off': 'user-circle-linear',
   'tab-profile-on': 'user-circle-bold-duotone',
+  // App cửa hàng: trang chủ kiểu MB + tab Hàng hoá / Bán hàng / Hoá đơn.
+  'tab-home-off': 'home-2-linear',
+  'tab-home-on': 'home-2-bold-duotone',
+  'tab-products-off': 'box-linear',
+  'tab-products-on': 'box-bold-duotone',
+  'tab-pos-on': 'cart-large-2-bold-duotone',
+  'tab-invoices-off': 'bill-list-linear',
+  'tab-invoices-on': 'bill-list-bold-duotone',
 };
 
 const uniqueSolar = [...new Set(Object.values(MAP))];

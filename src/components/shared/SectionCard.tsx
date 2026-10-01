@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { View, type ViewStyle } from 'react-native';
 import { Card } from '../ui/card';
 import { Text } from '../ui/text';
 import { Pressable } from '../ui/pressable';
@@ -16,6 +16,7 @@ export type SectionCardProps = {
   children: React.ReactNode;
   className?: string;
   bodyClassName?: string;
+  style?: ViewStyle;
 };
 
 /** Card with a titled header; optionally collapsible. Replaces the ad-hoc
@@ -30,6 +31,7 @@ export function SectionCard({
   children,
   className,
   bodyClassName,
+  style,
 }: SectionCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const open = collapsible ? expanded : true;
@@ -54,7 +56,7 @@ export function SectionCard({
   );
 
   return (
-    <Card className={cn('overflow-hidden', className)}>
+    <Card className={cn('overflow-hidden', className)} style={style}>
       {collapsible ? <Pressable onPress={() => setExpanded((v) => !v)}>{Header}</Pressable> : Header}
       {open ? <View className={cn('px-4 pb-4', bodyClassName)}>{children}</View> : null}
     </Card>

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 
 import { prefs, PrefKeys } from 'src/services/storage';
-import { DEFAULT_PINS, type LauncherVariant } from './registry';
+import { DEFAULT_PINS, MAX_PINS, type LauncherVariant } from './registry';
 
 // ----------------------------------------------------------------------
 // State ghim tiện ích của feature-grid, đồng bộ giữa grid ↔ màn tùy chỉnh ↔
@@ -11,6 +11,10 @@ import { DEFAULT_PINS, type LauncherVariant } from './registry';
 // ----------------------------------------------------------------------
 
 type Pins = Record<LauncherVariant, string[]>;
+
+// v2: trang chủ kiểu MB (tối đa 8 ghim, thêm nhóm Bán hàng) — bộ ghim cũ (11–12 mục, chưa có Bán hàng)
+// không còn hợp, nạp lại mặc định một lần.
+const PINS_VERSION = 2;
 
 type LauncherState = {
   pins: Pins;
@@ -21,7 +25,7 @@ type LauncherState = {
 };
 
 function persist(pins: Pins) {
-  prefs.set(PrefKeys.launcherPins, JSON.stringify(pins)).catch(() => {});
+  prefs.set(PrefKeys.launcherPins, JSON.stringify({ v: PINS_VERSION, ...pins })).catch(() => {});
 }
 
 export const useLauncherStore = create<LauncherState>((set, get) => ({
@@ -33,7 +37,11 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
     try {
       const raw = await prefs.get(PrefKeys.launcherPins);
       if (raw) {
-        const parsed = JSON.parse(raw) as Partial<Pins>;
+        const parsed = JSON.parse(raw) as Partial<Pins> & { v?: number };
+        if (parsed.v !== PINS_VERSION) {
+          set({ hydrated: true });
+          return;
+        }
         set({
           pins: {
             staff: parsed.staff ?? DEFAULT_PINS.staff,
@@ -50,7 +58,8 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
   },
 
   setPins(variant, keys) {
-    const pins = { ...get().pins, [variant]: keys };
+    // Màn tùy chỉnh truyền danh sách đã lọc theo quyền — cắt ở đây là chốt chặn cuối cho giới hạn 8.
+    const pins = { ...get().pins, [variant]: [...new Set(keys)].slice(0, MAX_PINS) };
     set({ pins });
     persist(pins);
   },

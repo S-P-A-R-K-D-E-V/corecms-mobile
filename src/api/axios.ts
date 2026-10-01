@@ -124,6 +124,7 @@ export const endpoints = {
     myRequests: '/attendance/my-requests',
     processRequest: (id: string) => `/attendance/requests/${id}/process`,
     myReport: '/attendance/my-report',
+    todayBoard: '/attendance/today-board',
     report: '/attendance/report',
     manualAdjustment: '/attendance/manual-adjustment',
     adjustTime: '/attendance/adjust-time',
@@ -141,6 +142,7 @@ export const endpoints = {
   },
   payroll: {
     myPayroll: '/payroll/my-payroll',
+    myCurrentEstimate: '/payroll/my-current-estimate',
     shiftDetails: (id: string) => `/payroll/${id}/shift-details`,
     penaltyDetails: (id: string) => `/payroll/${id}/penalty-details`,
     // Admin: tính lương

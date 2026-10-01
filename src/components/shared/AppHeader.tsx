@@ -14,6 +14,12 @@ export type AppHeaderProps = {
   actions?: HeaderAction[];
 };
 
+/** Quay lại; không còn lịch sử (vd mở thẳng từ thông báo) thì về trang chủ. */
+export function goBackOrHome() {
+  if (router.canGoBack()) router.back();
+  else router.replace('/');
+}
+
 /** Lightweight in-screen header (use when not relying on the native Stack header). */
 export function AppHeader({ title, subtitle, back, onBack, actions }: AppHeaderProps) {
   return (
@@ -21,7 +27,7 @@ export function AppHeader({ title, subtitle, back, onBack, actions }: AppHeaderP
       <View className="flex-row items-center gap-2 flex-1">
         {back ? (
           <Pressable
-            onPress={onBack ?? (() => router.back())}
+            onPress={onBack ?? goBackOrHome}
             className="w-10 h-10 -ml-2 items-center justify-center rounded-full"
           >
             <Icon name="chevron-left" size={26} tone="default" />

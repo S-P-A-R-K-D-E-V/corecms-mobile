@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
 
-import { Loading } from 'src/components/shared';
+import { Loading, goBackOrHome } from 'src/components/shared';
 import { Text, Pressable, Icon, Spinner, Button } from 'src/components/ui';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { cn } from 'src/components/ui/utils';
@@ -264,6 +264,9 @@ export function AssistantScreen() {
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-2 pb-2 flex-row items-center gap-2 border-b border-line dark:border-line-dark">
+        <Pressable onPress={goBackOrHome} accessibilityLabel={t('common.back')} className="w-9 h-10 -ml-2 items-center justify-center">
+          <Icon name="chevron-left" size={26} tone="default" />
+        </Pressable>
         <View className="w-9 h-9 items-center justify-center rounded-full bg-primary-soft">
           <Icon name="robot-happy-outline" size={20} tone="primary" />
         </View>

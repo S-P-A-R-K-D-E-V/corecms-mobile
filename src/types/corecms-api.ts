@@ -1184,6 +1184,11 @@ export interface IRecentOrder {
   status: string;
   paymentStatus: string;
   createdAt: string;
+  /** Nhân viên bán (KiotViet SoldByName). */
+  soldByName?: string | null;
+  itemCount?: number;
+  /** "Cà phê sữa đá ×2, Bạc xỉu +1" — core-be mới; bản cũ không có. */
+  itemsSummary?: string | null;
 }
 
 /** Tổng quan bảng điều khiển — nguồn cho dashboard Quản trị. */
@@ -1197,6 +1202,51 @@ export interface IDashboardSummary {
   lowStockCount: number;
   topSellingProducts: ITopSellingProduct[];
   recentOrders: IRecentOrder[];
+  /** Doanh thu cùng kỳ tháng trước (ngày 1 → cùng ngày) — core-be mới; bản cũ không có. */
+  lastMonthSamePeriodRevenue?: number;
+}
+
+// ── Trang chủ app ──────────────────────────────────────────────────────
+
+export type TodayBoardStatus = 'working' | 'done' | 'not_in' | 'absent' | 'upcoming';
+
+export interface ITodayBoardItem {
+  assignmentId: string;
+  staffId: string;
+  staffName: string;
+  avatarUrl?: string | null;
+  shiftName: string;
+  startTime: string; // "HH:mm"
+  endTime: string;
+  status: TodayBoardStatus;
+  lateMinutes: number;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+}
+
+export interface ITodayBoard {
+  date: string;
+  counts: { working: number; done: number; notIn: number; absent: number; upcoming: number; late: number };
+  items: ITodayBoardItem[];
+}
+
+/** GET /payroll/my-current-estimate — lương tạm tính kỳ đang chạy, tính tới hôm nay. */
+export interface ICurrentPayrollEstimate {
+  configured: boolean;
+  cycleName?: string | null;
+  fromDate: string;
+  toDate: string;
+  asOf: string;
+  estimatedSalary: number;
+  baseSalary: number;
+  overtimeSalary: number;
+  bonus: number;
+  penaltyAmount: number;
+  deduction: number;
+  workedShifts: number;
+  assignedShifts: number;
+  hoursWorked: number;
+  lateMinutes: number;
 }
 
 export interface IRevenuePeriod {

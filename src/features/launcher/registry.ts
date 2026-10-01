@@ -1,6 +1,6 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
-import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES } from 'src/auth/roles';
+import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES, canUseAssistant, assistantEnabled } from 'src/auth/roles';
 import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
@@ -9,7 +9,10 @@ import { t } from 'src/i18n';
 // đánh dấu `comingSoon` để hiển thị "Sắp có" thay vì điều hướng.
 // ----------------------------------------------------------------------
 
-export type LauncherGroup = 'personal' | 'manage' | 'admin';
+export type LauncherGroup = 'sales' | 'personal' | 'manage' | 'admin';
+
+/** Số tiện ích ghim tối đa ở "Dùng nhanh" trang chủ (2 hàng × 4, như MB Bank). */
+export const MAX_PINS = 8;
 
 /** Màu ô icon theo mảng việc (như icon nhiều màu của Minimal bản web) — không tô hết bằng màu chính. */
 export type FeatureTone = 'primary' | 'info' | 'success' | 'warning' | 'secondary';
@@ -26,9 +29,12 @@ export type FeatureItem = {
   roles?: readonly string[];
   /** Route chưa triển khai — hiển thị mờ + nhãn "Sắp có". */
   comingSoon?: boolean;
+  /** Điều kiện hiển thị ngoài vai trò (vd trợ lý AI tuỳ cửa hàng bật). */
+  visible?: (user: AuthUser | null | undefined) => boolean;
 };
 
 const GROUP_KEYS: Record<LauncherGroup, string> = {
+  sales: 'launcher.groupSales',
   personal: 'launcher.groupPersonal',
   manage: 'launcher.groupManage',
   admin: 'launcher.groupAdmin',
@@ -46,6 +52,12 @@ export function featureLabel(item: FeatureItem): string {
 }
 
 export const FEATURE_REGISTRY: FeatureItem[] = [
+  // ── Bán hàng (ERP trên app — KiotViet vẫn là hệ thống chính, đơn app đồng bộ sang) ──
+  // Nhân viên bán được; Hoá đơn (cả cửa hàng) cho quản lý trở lên.
+  { key: 'pos', label: 'Bán hàng', icon: 'cart-outline', href: '/(tabs)/pos', tone: 'primary', group: 'sales' },
+  { key: 'products', label: 'Hàng hoá', icon: 'package-variant-closed', href: '/(tabs)/products', tone: 'info', group: 'sales' },
+  { key: 'invoices', label: 'Hoá đơn', icon: 'receipt', href: '/(tabs)/invoices', tone: 'success', group: 'sales', roles: MANAGER_ROLES },
+
   // ── Cá nhân (mọi nhân viên) ────────────────────────────────────────
   { key: 'checkin', label: 'Điểm danh', icon: 'fingerprint', href: '/(tabs)/checkin', tone: 'primary', group: 'personal' },
   { key: 'schedule', label: 'Lịch làm', icon: 'calendar-month', href: '/(tabs)/schedule', tone: 'info', group: 'personal' },
@@ -57,6 +69,11 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   // Bảng công đang làm lại — tạm đánh dấu "Sắp có" để không điều hướng vào màn dở dang.
   { key: 'attendance', label: 'Bảng công', icon: 'clipboard-text-clock', href: '/attendance', tone: 'primary', group: 'personal', comingSoon: true },
   { key: 'notifications', label: 'Thông báo', icon: 'bell-outline', href: '/notifications', tone: 'warning', group: 'personal' },
+  { key: 'chat', label: 'Tin nhắn', icon: 'chat-outline', href: '/(tabs)/chat', tone: 'info', group: 'personal' },
+  {
+    key: 'assistant', label: 'Trợ lý AI', icon: 'robot-happy-outline', href: '/(tabs)/assistant', tone: 'secondary', group: 'personal',
+    visible: (u) => canUseAssistant(u) && assistantEnabled(u),
+  },
 
   // ── Quản lý (Manager/Admin) ────────────────────────────────────────
   { key: 'team-schedule', label: 'Lịch đội ngũ', icon: 'calendar-account', href: '/manage/schedule', tone: 'info', group: 'manage', roles: MANAGER_ROLES },
@@ -86,18 +103,29 @@ export function getFeature(key: string): FeatureItem | undefined {
 
 /** Các tiện ích user ĐƯỢC PHÉP thấy (lọc theo vai trò). */
 export function availableFeatures(user: AuthUser | null | undefined): FeatureItem[] {
-  return FEATURE_REGISTRY.filter((f) => hasAnyRole(user, f.roles));
+  return FEATURE_REGISTRY.filter((f) => hasAnyRole(user, f.roles) && (f.visible?.(user) ?? true));
 }
 
-// Biến thể lưới theo shell điều hướng. 'staff' = màn Điểm danh, 'admin' = Dashboard.
+/** Ghim đang hiện: chỉ mục user được thấy, giữ thứ tự ghim, tối đa MAX_PINS. */
+export function visiblePins(keys: string[], user: AuthUser | null | undefined): FeatureItem[] {
+  const allowed = new Set(availableFeatures(user).map((f) => f.key));
+  return keys
+    .filter((k) => allowed.has(k))
+    .map((k) => getFeature(k))
+    .filter((f): f is FeatureItem => !!f)
+    .slice(0, MAX_PINS);
+}
+
+// Biến thể lưới theo shell điều hướng (cùng là "Dùng nhanh" ở trang chủ): 'staff' = shell nhân viên,
+// 'admin' = shell chủ cửa hàng.
 export type LauncherVariant = 'staff' | 'admin';
 
 /**
- * Ghim mặc định khi user chưa tùy chỉnh — chọn theo shell để hữu ích ngay.
- * Key nhóm quản lý vẫn nằm trong default của shell staff: Staff thuần bị lọc
- * role tự ẩn, còn Manager/Admin-kiêm-ca thấy ngay không cần tùy chỉnh.
+ * Ghim mặc định khi user chưa tùy chỉnh — chọn theo shell để hữu ích ngay. Danh sách dài hơn MAX_PINS
+ * có chủ đích: mục user không được thấy (lọc role) tự rơi ra, phần còn lại lấy 8 mục đầu — Staff thuần
+ * thấy bán hàng + ca, Manager/Admin-kiêm-ca thấy thêm việc quản lý.
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
-  staff: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'shift-cash', 'shift-register', 'shift-swap', 'shift-pool', 'attendance', 'notifications'],
-  admin: ['team-schedule', 'approvals', 'assign-shift', 'cover-shift', 'cleaning-week', 'cleaning-builder', 'revenue-report', 'financial-overview', 'break-even-report', 'attendance-report', 'payroll-cycle', 'users'],
+  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'shift-cash', 'shift-pool', 'notifications', 'assign-shift', 'cleaning-week'],
+  admin: ['invoices', 'revenue-report', 'break-even-report', 'team-schedule', 'approvals', 'payroll-cycle', 'attendance-report', 'users'],
 };

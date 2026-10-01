@@ -74,18 +74,17 @@ export function isPureAdmin(user: AuthUser | null | undefined): boolean {
   return isAdminUser(user) && !hasAnyRole(user, SHIFT_FLOOR_ROLES);
 }
 
-/** True nếu dùng shell Dashboard (3 tab). Chỉ đúng với Admin thuần. */
+/** True nếu dùng shell chủ cửa hàng (Hàng hoá / Bán hàng / Hoá đơn). Chỉ đúng với Admin thuần. */
 export function usesAdminShell(user: AuthUser | null | undefined): boolean {
   return isPureAdmin(user);
 }
 
 /**
- * Màn hình "nhà" sau đăng nhập, theo shell điều hướng:
- *   Admin thuần                       → Dashboard quản trị (3 tab)
- *   Staff / Manager / Admin-kiêm-ca   → Điểm danh (shell 5 tab)
+ * Màn hình "nhà" sau đăng nhập: trang chủ kiểu MB Bank cho mọi shell — nội dung đổi theo vai trò
+ * (chủ cửa hàng: doanh thu; nhân viên: lương tạm tính, ca hôm nay).
  */
-export function homeHref(user: AuthUser | null | undefined): string {
-  return usesAdminShell(user) ? '/(tabs)/admin' : '/(tabs)/checkin';
+export function homeHref(_user?: AuthUser | null): string {
+  return '/(tabs)/home';
 }
 
 /**

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Platform, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Screen, SectionCard, ListItem } from 'src/components/shared';
+import { Screen, SectionCard, ListItem, AppHeader } from 'src/components/shared';
 import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
 import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
@@ -154,6 +154,7 @@ export function ProfileScreen() {
 
   return (
     <Screen scroll>
+      <AppHeader back title={t('home.profile')} />
       {/* Header */}
       <View className="items-center rounded-3xl bg-surface dark:bg-surface-dark p-7 border border-line/60 dark:border-line-dark">
         <View className="p-1 rounded-full border-[3px] border-primary/30 mb-3">
