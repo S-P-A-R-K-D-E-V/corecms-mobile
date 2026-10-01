@@ -379,6 +379,7 @@ export const vi = {
     breakEvenNotSet: 'Chưa có chi phí cố định để tính điểm hoà vốn.',
     breakEvenTarget: 'Mốc {amount}',
     teamToday: 'Nhân sự hôm nay',
+    shiftsToday: 'Ca hôm nay',
     teamEmpty: 'Hôm nay chưa phân ca cho ai.',
     teamMore: 'và {n} người khác',
     statusWorking: 'Đang làm',

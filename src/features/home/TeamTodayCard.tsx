@@ -14,7 +14,8 @@ import { useTodayBoard } from './hooks';
 
 // ----------------------------------------------------------------------
 // "Nhân sự hôm nay" (chủ / quản lý): ai đang làm, ai chưa vào ca, ai sắp tới… theo giờ hiện tại.
-// core-be chưa có /attendance/today-board → lùi về 3 số có mặt / muộn / vắng của báo cáo công hôm nay.
+// core-be chưa có /attendance/today-board → lùi về báo cáo công hôm nay: có mặt / đi muộn / số ca (không
+// hiện "vắng": báo cáo cũ tính cả ca chưa tới giờ là vắng — 2h sáng ra "6 vắng").
 // ----------------------------------------------------------------------
 
 const MAX_ROWS = 6;
@@ -57,7 +58,7 @@ function Fallback() {
     return {
       present: rows.reduce((s, r) => s + (r.presentShifts ?? 0), 0),
       late: rows.reduce((s, r) => s + (r.lateCount ?? 0), 0),
-      absent: rows.reduce((s, r) => s + (r.absentShifts ?? 0), 0),
+      shifts: rows.reduce((s, r) => s + (r.totalShifts ?? 0), 0),
     };
   }, [data]);
   if (isLoading) return <Skeleton width="100%" height={78} radius={12} />;
@@ -65,7 +66,7 @@ function Fallback() {
     <View className="flex-row gap-3">
       <StatCard value={stats.present} label={t('admin.present')} tone="success" />
       <StatCard value={stats.late} label={t('admin.late')} tone="warning" />
-      <StatCard value={stats.absent} label={t('admin.absent')} tone="error" />
+      <StatCard value={stats.shifts} label={t('home.shiftsToday')} tone="info" />
     </View>
   );
 }

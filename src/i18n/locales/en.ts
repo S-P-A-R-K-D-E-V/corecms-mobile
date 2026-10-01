@@ -379,6 +379,7 @@ export const en: Dict = {
     breakEvenNotSet: 'Add fixed costs to see the break-even point.',
     breakEvenTarget: 'Target {amount}',
     teamToday: 'Team today',
+    shiftsToday: 'Shifts today',
     teamEmpty: 'No shifts assigned today.',
     teamMore: 'and {n} more',
     statusWorking: 'Working',
