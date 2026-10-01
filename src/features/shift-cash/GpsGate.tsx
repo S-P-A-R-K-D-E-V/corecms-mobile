@@ -60,7 +60,7 @@ export function ShiftCashGpsGate({ children }: { children: React.ReactNode }) {
       <AppHeader title="Kiểm tiền quầy" back />
       <View className="flex-1 items-center justify-center px-6 gap-5">
         <BrandGradient className="rounded-full" variant="brand" style={{ backgroundColor: 'transparent' }}>
-          <Animated.View style={{ transform: [{ scale: pulse }] }} className="w-28 h-28 items-center justify-center">
+          <Animated.View style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pulse }] }}>
             <Icon name={icon} size={52} color="#FFFFFF" />
           </Animated.View>
         </BrandGradient>

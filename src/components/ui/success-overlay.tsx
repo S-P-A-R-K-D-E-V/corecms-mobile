@@ -56,8 +56,11 @@ export function SuccessOverlay({ visible, message, onDone, duration = 1600 }: Su
             from={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', ...spring.bounce }}
-            className="w-28 h-28 rounded-full bg-white items-center justify-center"
-            style={softShadow}
+            // MotiView không nhận className (NativeWind) — kích thước/màu qua style.
+            style={[
+              { width: 112, height: 112, borderRadius: 56, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+              softShadow,
+            ]}
           >
             <MotiView from={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', ...spring.bounce, delay: 140 }}>
               <Icon name="check-bold" size={56} tone="primary" />

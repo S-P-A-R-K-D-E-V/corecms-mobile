@@ -4,7 +4,7 @@ import { MotiView } from 'moti';
 import { Text } from './text';
 import { cn } from './utils';
 import { spring } from 'src/theme/motion';
-import { softShadow } from 'src/theme';
+import { brand, softShadow } from 'src/theme';
 import { haptics } from 'src/services/haptics';
 
 export type Segment = { key: string; label: string };
@@ -34,8 +34,9 @@ export function SegmentedControl({ segments, value, onChange, className }: Segme
         <MotiView
           animate={{ translateX: idx * segW + 4 }}
           transition={{ type: 'spring', ...spring.soft }}
-          style={[{ position: 'absolute', top: 4, bottom: 4, left: 0, width: segW - 8, borderRadius: 13 }, softShadow]}
-          className="bg-primary"
+          // MotiView không nhận className (NativeWind chỉ áp cho component RN gốc) → màu nền qua style,
+          // nếu không chỉ báo trong suốt và nhãn trắng của ô đang chọn biến mất.
+          style={[{ position: 'absolute', top: 4, bottom: 4, left: 0, width: segW - 8, borderRadius: 13, backgroundColor: brand.primary }, softShadow]}
         />
       ) : null}
       {segments.map((s) => {

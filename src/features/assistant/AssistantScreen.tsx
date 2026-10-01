@@ -51,7 +51,8 @@ function TypingBubble({ label }: { label?: string }) {
             from={{ opacity: 0.3, translateY: 0 }}
             animate={{ opacity: 1, translateY: -3 }}
             transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 420, delay: i * 140 }}
-            className="w-1.5 h-1.5 rounded-full bg-muted"
+            // MotiView không nhận className (NativeWind) — kích thước/màu qua style.
+            style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: brand.muted }}
           />
         ))}
         {label ? <Text variant="caption" tone="muted">{label}</Text> : null}

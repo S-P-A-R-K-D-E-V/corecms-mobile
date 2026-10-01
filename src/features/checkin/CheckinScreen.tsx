@@ -409,7 +409,8 @@ export function CheckinScreen() {
                   from={{ scale: 0.7, opacity: 0.6 }}
                   animate={{ scale: 1.25, opacity: 1 }}
                   transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 800 }}
-                  className="w-2.5 h-2.5 rounded-full bg-white"
+                  // MotiView không nhận className (NativeWind) — kích thước/màu qua style.
+                  style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#FFFFFF' }}
                 />
                 <Text className="text-white font-bold tracking-wider text-[12px]">{t('checkin.working')}</Text>
               </View>
