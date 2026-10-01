@@ -262,7 +262,7 @@ function MomSection({ overview }: { overview: IFinancialOverview }) {
   );
 }
 
-const COST_COLORS = [brand.primary, brand.info, brand.warning, brand.muted];
+const costColors = () => [brand.primary, brand.info, brand.warning, brand.muted];
 
 function CostStructure({ overview }: { overview: IFinancialOverview }) {
   const oc = overview.breakEven.operatingCost;
@@ -288,14 +288,14 @@ function CostStructure({ overview }: { overview: IFinancialOverview }) {
           <Donut
             size={110}
             stroke={18}
-            segments={segments.map((s, i) => ({ value: s.value, color: COST_COLORS[i % COST_COLORS.length] }))}
+            segments={segments.map((s, i) => ({ value: s.value, color: costColors()[i % 4] }))}
           >
             <Text className="text-xs font-bold">{fmtCompact(total)}</Text>
           </Donut>
           <View className="flex-1 gap-2">
             {segments.map((s, i) => (
               <View key={s.label} className="flex-row items-center gap-2">
-                <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: COST_COLORS[i % COST_COLORS.length] }} />
+                <View className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: costColors()[i % 4] }} />
                 <Text variant="bodySmall" className="flex-1" tone="muted">{s.label}</Text>
                 <Text variant="bodySmall" className="font-semibold">{fmtCompact(s.value)}</Text>
               </View>

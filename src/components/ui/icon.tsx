@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
 import { useColorScheme } from 'nativewind';
+import { getPrimaryPalette } from 'src/theme/brand-color';
 import { brand, grey } from 'src/theme';
 import { SOLAR_ICONS } from './solar-registry';
 
@@ -13,7 +14,9 @@ const toneColorLight: Record<Tone, string> = {
   default: brand.ink,
   muted: brand.muted,
   faint: brand.faint,
-  primary: brand.primary,
+  get primary() {
+    return brand.primary; // màu cửa hàng đang mở — đọc lúc render
+  },
   secondary: brand.secondary,
   error: brand.error,
   success: brand.success,
@@ -24,6 +27,9 @@ const toneColorLight: Record<Tone, string> = {
 
 const toneColorDark: Record<Tone, string> = {
   ...toneColorLight,
+  get primary() {
+    return getPrimaryPalette().dark; // sắc sáng hơn cho nền tối
+  },
   default: brand.inkDark,   // trắng
   muted: grey[500],         // text.secondary của Minimal dark
   faint: grey[600],

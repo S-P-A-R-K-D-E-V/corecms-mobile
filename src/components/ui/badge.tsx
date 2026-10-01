@@ -10,7 +10,7 @@ type Variant = 'soft' | 'filled';
 // Minimal "Label": soft = alpha(main, 0.16) fill + tinted text (default);
 // filled = solid main + contrast text.
 const SOFT: Record<Tone, { box: string; text: string; icon: string }> = {
-  primary:   { box: 'bg-primary-soft',   text: 'text-primary',      icon: brand.primary },
+  primary:   { box: 'bg-primary-soft',   text: 'text-primary',      get icon() { return brand.primary; } },
   success:   { box: 'bg-success-soft',   text: 'text-success',      icon: brand.success },
   warning:   { box: 'bg-warning-soft',   text: 'text-warning-text', icon: colors.warning.text },
   error:     { box: 'bg-error-soft',     text: 'text-error',        icon: brand.error },

@@ -17,29 +17,34 @@ const grey = {
   900: '#161C24',
 };
 
+/** Màu primary qua biến CSS — `<alpha-value>` để bg-primary/15… vẫn chạy. */
+const pv = (suffix) => `rgb(var(--color-primary${suffix}) / <alpha-value>)`;
+
 /** Brand + Minimal semantic palette. `*-soft` = alpha(main, 0.16) (Minimal's
  *  soft fill — readable on both light & dark surfaces). */
 const colors = {
   grey,
 
-  // ── Brand accent (CiCi rose) — kept as the Minimal `primary` slot ──
+  // ── Brand accent — Minimal `primary` slot. Giá trị là biến CSS (--color-primary*, kênh "r g b") do
+  // src/theme/brand-color.ts đặt theo cửa hàng đang mở (mặc định hồng CiCi — xem global.css). Mã hex
+  // cho code (icon, gradient) đọc brand.primary, KHÔNG đọc colors.primary ở đây.
   primary: {
-    DEFAULT: '#C84D71',
-    50: '#FBEAF0',
-    100: '#F6D2DF',
-    200: '#EBA9BE',
-    400: '#D86A88',
-    600: '#C84D71',
-    700: '#AC3C5D',
-    900: '#7E2A43',
-    dark: '#E97AA0', // lighter rose for dark-mode contrast
+    DEFAULT: pv(''),
+    50: pv('-50'),
+    100: pv('-100'),
+    200: pv('-200'),
+    400: pv('-400'),
+    600: pv(''),
+    700: pv('-700'),
+    900: pv('-900'),
+    dark: pv('-dark'), // sáng hơn — chữ/biểu tượng trên nền tối
     // Minimal-shaped aliases
-    lighter: '#F6D2DF',
-    light: '#E892AD',
-    main: '#C84D71',
-    darker: '#7E2A43',
-    soft: 'rgba(200,77,113,0.16)',
-    'soft-dark': 'rgba(200,77,113,0.22)',
+    lighter: pv('-lighter'),
+    light: pv('-light'),
+    main: pv(''),
+    darker: pv('-darker'),
+    soft: 'rgb(var(--color-primary) / 0.16)',
+    'soft-dark': 'rgb(var(--color-primary) / 0.22)',
   },
 
   // ── Minimal semantic system colors ──

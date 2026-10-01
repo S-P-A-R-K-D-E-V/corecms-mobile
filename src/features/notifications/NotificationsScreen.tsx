@@ -19,7 +19,7 @@ dayjs.extend(isYesterday);
 
 const TYPE_ICON: Record<string, { icon: IconName; color: string }> = {
   Payroll: { icon: 'cash-multiple', color: brand.success },
-  Attendance: { icon: 'fingerprint', color: brand.primary },
+  Attendance: { icon: 'fingerprint', get color() { return brand.primary; } },
   Shift: { icon: 'calendar-clock', color: brand.info },
   Leave: { icon: 'calendar-remove-outline', color: brand.warning },
   System: { icon: 'cog-outline', color: brand.secondary },

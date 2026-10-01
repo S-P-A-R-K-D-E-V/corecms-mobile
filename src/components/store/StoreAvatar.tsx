@@ -1,3 +1,4 @@
+import { brand } from 'src/theme';
 import { Image, View } from 'react-native';
 
 import { Text } from 'src/components/ui';
@@ -33,7 +34,7 @@ export function StoreAvatar({
     .join('');
   return (
     <View
-      style={{ width: size, height: size, borderRadius: radius, backgroundColor: color || '#C84D71' }}
+      style={{ width: size, height: size, borderRadius: radius, backgroundColor: color || brand.primary }}
       className="items-center justify-center"
     >
       <Text className="text-white font-bold" style={{ fontSize: Math.round(size * 0.38) }}>

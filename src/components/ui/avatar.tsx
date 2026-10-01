@@ -32,7 +32,7 @@ export function Avatar({ name, uri, size = 48, online, className }: AvatarProps)
   return (
     <View style={{ width: size, height: size }} className={className}>
       <View
-        className="rounded-full overflow-hidden bg-primary-50 dark:bg-[rgba(200,77,113,0.18)] items-center justify-center"
+        className="rounded-full overflow-hidden bg-primary-50 dark:bg-primary/20 items-center justify-center"
         style={{ width: size, height: size }}
       >
         {show ? (

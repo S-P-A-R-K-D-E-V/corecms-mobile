@@ -1,3 +1,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Màu primary mặc định (hồng CiCi, kênh "r g b") — app đè theo cửa hàng qua vars() ở _layout gốc. */
+:root {
+  --color-primary: 200 77 113;
+  --color-primary-50: 251 234 240;
+  --color-primary-100: 246 210 223;
+  --color-primary-200: 235 169 190;
+  --color-primary-400: 216 106 136;
+  --color-primary-700: 172 60 93;
+  --color-primary-900: 126 42 67;
+  --color-primary-lighter: 246 210 223;
+  --color-primary-light: 232 146 173;
+  --color-primary-darker: 126 42 67;
+  --color-primary-dark: 233 122 160;
+}

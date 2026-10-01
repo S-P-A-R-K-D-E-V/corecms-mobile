@@ -1,7 +1,9 @@
 import '../../global.css';
 import 'src/services/message-notifications'; // đăng ký handler thông báo OS (gồm lọc tin nhắn)
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { View } from 'react-native';
+import { vars } from 'nativewind';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -20,6 +22,7 @@ import { RootErrorBoundary } from 'src/services/error/ErrorBoundary';
 import { checkForUpdate } from 'src/services/app-update';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { ThemeProvider } from 'src/theme/ThemeProvider';
+import { paletteVars, useBrandColor } from 'src/theme/brand-color';
 import { FontProvider } from 'src/theme/FontProvider';
 import { OverlayHost } from 'src/components/overlay';
 import { loadStore } from 'src/services/store-config';
@@ -73,6 +76,10 @@ export default function RootLayout() {
   }, []);
   // Đổi ngôn ngữ → dựng lại navigator để mọi màn đọc lại chữ (t() đọc ngôn ngữ lúc render).
   const locale = useLocaleStore((s) => s.locale);
+  // Màu chính theo cửa hàng: biến CSS cho class primary; đổi cửa hàng (chỉ lúc đăng nhập/đổi cửa hàng)
+  // → dựng lại navigator để code đọc brand.primary lúc render lấy màu mới.
+  const palette = useBrandColor((s) => s.palette);
+  const brandVars = useMemo(() => vars(paletteVars(palette)), [palette]);
 
   useEffect(() => {
     track(AnalyticsEvent.AppOpen);
@@ -90,6 +97,7 @@ export default function RootLayout() {
   return (
     <RootErrorBoundary>
       <SafeAreaProvider>
+        <View style={[{ flex: 1 }, brandVars]}>
         <ThemeProvider>
           <FontProvider>
           <QueryClientProvider client={queryClient}>
@@ -99,13 +107,14 @@ export default function RootLayout() {
                 <PushRegistrationWrapper />
                 <LauncherHydrator />
                 <StatusBar style="auto" />
-                <Stack key={locale} screenOptions={{ headerShown: false }} />
+                <Stack key={`${locale}-${palette.main}`} screenOptions={{ headerShown: false }} />
                 <OverlayHost />
               </AuthProvider>
             </RemoteConfigProvider>
           </QueryClientProvider>
           </FontProvider>
         </ThemeProvider>
+        </View>
       </SafeAreaProvider>
     </RootErrorBoundary>
   );

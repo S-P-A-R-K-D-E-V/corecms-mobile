@@ -31,7 +31,7 @@ const OUTLINE: Record<ChipColor, string> = {
   info: 'border-info/50', success: 'border-success/50', warning: 'border-warning/50', error: 'border-error/50',
 };
 const ICON_HEX: Record<ChipColor, string> = {
-  default: brand.ink, primary: brand.primary, secondary: brand.secondary,
+  default: brand.ink, get primary() { return brand.primary; }, secondary: brand.secondary,
   info: brand.info, success: brand.success, warning: colors.warning.text, error: brand.error,
 };
 

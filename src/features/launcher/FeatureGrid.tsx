@@ -9,10 +9,19 @@ import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { useResponsive } from 'src/hooks/use-responsive';
 
-import { availableFeatures, featureLabel, getFeature, type FeatureItem, type LauncherVariant } from './registry';
+import { availableFeatures, featureLabel, getFeature, type FeatureItem, type FeatureTone, type LauncherVariant } from './registry';
 import { t } from 'src/i18n';
 import { useLauncherStore } from './store';
 import { LauncherEditor } from './LauncherEditor';
+
+// Nền ô icon theo tone (class tĩnh để tailwind sinh được).
+const TONE_BG: Record<FeatureTone, string> = {
+  primary: 'bg-primary-soft',
+  info: 'bg-info-soft',
+  success: 'bg-success-soft',
+  warning: 'bg-warning-soft',
+  secondary: 'bg-secondary-soft',
+};
 
 // ----------------------------------------------------------------------
 
@@ -29,6 +38,7 @@ function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) 
   // Tính năng đang phát triển: nút vẫn hiển thị nhưng DISABLED — không điều
   // hướng (tránh lỗi route chưa tồn tại), chỉ mờ đi + tag "Đang phát triển".
   const disabled = !!item.comingSoon;
+  const tone = item.tone ?? 'primary';
 
   function onPress() {
     haptics.light();
@@ -42,8 +52,8 @@ function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) 
       style={{ width: `${100 / columns}%` }}
       className={cn('items-center gap-1.5 py-2', disabled && 'opacity-45')}
     >
-      <View className="w-[52px] h-[52px] rounded-2xl bg-primary-soft items-center justify-center relative">
-        <Icon name={item.icon} size={26} tone={disabled ? 'faint' : 'primary'} />
+      <View className={cn('w-[52px] h-[52px] rounded-2xl items-center justify-center relative', TONE_BG[tone])}>
+        <Icon name={item.icon} size={26} tone={disabled ? 'faint' : tone} />
       </View>
       {disabled ? (
         <View className="rounded-full px-1.5 py-px bg-warning-soft -mt-0.5">

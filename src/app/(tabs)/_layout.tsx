@@ -5,6 +5,7 @@ import { MotiView, MotiText, AnimatePresence } from 'moti';
 import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColorScheme } from 'nativewind';
 import { InternalAppGuard } from 'src/auth/internal-app-guard';
 import { useAuthContext } from 'src/auth/auth-context';
 import { usesAdminShell, canUseAssistant } from 'src/auth/roles';
@@ -15,9 +16,13 @@ import { InAppNotificationHost } from 'src/components/messenger/InAppNotificatio
 import { AssistantProvider } from 'src/components/assistant/assistant-provider';
 import { SOLAR_ICONS } from 'src/components/ui/solar-registry';
 import { spring } from 'src/theme/motion';
+import { grey } from 'src/theme';
+import { useBrandColor, withAlpha } from 'src/theme/brand-color';
 
-// Rose gradient — matches check-in hero card palette
-const NAV_COLORS: [string, string, string] = ['#D86A88', '#C84D71', '#A83C5D'];
+// Thanh tab kiểu Minimal (như nav của bản web): nền trung tính (trắng / xám đậm), mục đang chọn tô nhạt
+// theo màu cửa hàng + icon/nhãn màu cửa hàng; chỉ nút chấm công ở giữa (thao tác chính) dùng khối màu.
+const SURFACE = { light: 'rgba(255,255,255,0.97)', dark: 'rgba(33,43,54,0.97)' }; // grey[800]
+const BORDER = { light: 'rgba(145,158,171,0.20)', dark: 'rgba(255,255,255,0.08)' };
 
 // Solar icons (bold-duotone when active, linear when idle) keyed into the registry.
 type TabDef = { name: string; off?: string; on: string; labelKey: string };
@@ -59,6 +64,11 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
   const insets = useSafeAreaInsets();
   const { isTablet } = useResponsive();
   const bottomPad = Math.max(insets.bottom, 8);
+  const { colorScheme } = useColorScheme();
+  const dark = colorScheme === 'dark';
+  const palette = useBrandColor((st) => st.palette);
+  const activeColor = dark ? palette.dark : palette.main;
+  const idleColor = dark ? grey[500] : grey[600];
 
   // Android (adjustResize): thanh tab nổi bị đẩy lên trên bàn phím và che ô nhập (Trợ lý, Chat…) — ẩn
   // khi bàn phím mở. iOS bàn phím phủ lên thanh tab nên không cần.
@@ -97,23 +107,21 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
             : null),
         }}
       >
-        <LinearGradient
-          colors={NAV_COLORS}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
+        <View
           style={{
             flexDirection: 'row',
             height: PILL_H,
             borderRadius: 24,
             paddingHorizontal: 6,
             alignItems: 'center',
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.22)',
-            shadowColor: '#C84D71',
-            shadowOpacity: 0.5,
-            shadowRadius: 18,
-            shadowOffset: { width: 0, height: 6 },
-            elevation: 18,
+            backgroundColor: dark ? SURFACE.dark : SURFACE.light,
+            borderWidth: 1,
+            borderColor: dark ? BORDER.dark : BORDER.light,
+            shadowColor: dark ? '#000000' : grey[500],
+            shadowOpacity: dark ? 0.4 : 0.24,
+            shadowRadius: 24,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 12,
           }}
         >
           {tabs.map((tab) => {
@@ -149,14 +157,14 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                       overflow: 'hidden',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      shadowColor: '#C84D71',
-                      shadowOpacity: 0.6,
+                      shadowColor: palette.main,
+                      shadowOpacity: 0.35,
                       shadowRadius: 12,
-                      elevation: 12,
+                      elevation: 8,
                     }}
                   >
                     <LinearGradient
-                      colors={['#FFE5EC', '#F48FB1', '#C84D71']}
+                      colors={[palette[400], palette.main, palette[700]]}
                       style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
                     >
                       <TabIcon xmlKey={tab.on} size={28} color="white" />
@@ -191,12 +199,14 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                           height: 54,
                           borderRadius: 18,
                           borderWidth: 2,
-                          borderColor: '#F8BBD0',
+                          borderColor: palette[200],
                         }}
                       />
                     )}
                   </MotiView>
-                  <Text style={{ color: 'white', fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}>{t(tab.labelKey)}</Text>
+                  <Text style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}>
+                    {t(tab.labelKey)}
+                  </Text>
                 </Pressable>
               );
             }
@@ -212,7 +222,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                 <Pressable onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                   <MotiView
                     animate={{
-                      backgroundColor: isFocused ? 'rgba(255,255,255,0.24)' : 'rgba(255,255,255,0)',
+                      backgroundColor: isFocused ? withAlpha(palette.main, dark ? 0.22 : 0.12) : withAlpha(palette.main, 0),
                       paddingHorizontal: isFocused ? 14 : 0,
                     }}
                     transition={{ type: 'spring', ...spring.soft }}
@@ -228,7 +238,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                     <TabIcon
                       xmlKey={isFocused ? tab.on : tab.off}
                       size={24}
-                      color={isFocused ? 'white' : 'rgba(255,255,255,0.62)'}
+                      color={isFocused ? activeColor : idleColor}
                     />
                     <AnimatePresence>
                       {isFocused ? (
@@ -239,7 +249,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                           exit={{ opacity: 0, translateX: -6 }}
                           transition={{ type: 'timing', duration: 200 }}
                           numberOfLines={1}
-                          style={{ color: 'white', fontSize: 13, fontWeight: '700', letterSpacing: 0.1 }}
+                          style={{ color: activeColor, fontSize: 13, fontWeight: '700', letterSpacing: 0.1 }}
                         >
                           {t(tab.labelKey)}
                         </MotiText>
@@ -250,7 +260,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
               </MotiView>
             );
           })}
-        </LinearGradient>
+        </View>
       </View>
     </View>
   );

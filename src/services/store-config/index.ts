@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
 import { setStoreCurrency } from 'src/i18n/format';
+import { applyBrandColor } from 'src/theme/brand-color';
 
 // ----------------------------------------------------------------------
 // Một mã nguồn, hai bản build (app.config.ts, biến APP_VARIANT):
@@ -77,6 +78,8 @@ export function storeDomain(): string | null {
 
 function applyFormat(profile: StoreProfile | null) {
   setStoreCurrency(isMultiStore ? profile?.currency : 'VND');
+  // Màu chính theo cửa hàng (TenantBranding.PrimaryColor); CiCi / chưa chọn cửa hàng: hồng CiCi.
+  applyBrandColor(isMultiStore ? profile?.primaryColor : null);
 }
 
 /** Đọc cửa hàng đã lưu — phải xong TRƯỚC khi AuthProvider gọi API lần đầu. */

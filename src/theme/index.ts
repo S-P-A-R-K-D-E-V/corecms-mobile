@@ -2,6 +2,7 @@
 // Use this in code that needs raw hex values (StatusBar, navigation tab colors,
 // icon `color` props) — everything else should use NativeWind className strings.
 import tokens from './tokens';
+import { getPrimaryPalette } from './brand-color';
 
 export const { colors, grey, radius, spacing, shadow, blur } = tokens as {
   colors: Record<string, any>;
@@ -21,6 +22,15 @@ export const softShadow = {
   elevation: 6,
 };
 
+/** Bóng nhẹ cho thẻ nhỏ đặt cạnh nhau (ô số liệu…) — softShadow quá đậm khi lặp nhiều ô trên Android. */
+export const tileShadow = {
+  shadowColor: shadow.color,
+  shadowOpacity: 0.12,
+  shadowRadius: 12,
+  shadowOffset: { width: 0, height: 4 },
+  elevation: 2,
+};
+
 /** Minimal colored elevation — `0 8px 16px alpha(color, 0.24)`. Use for the
  *  primary CTA / hero surfaces (pass a brand or semantic hex). */
 export function coloredShadow(hex: string) {
@@ -33,10 +43,18 @@ export function coloredShadow(hex: string) {
   };
 }
 
-/** Flattened brand hex values for imperative use. */
+/** Flattened brand hex values for imperative use. `primary*` đọc màu của cửa hàng đang mở lúc gọi —
+ *  đừng chép giá trị ra hằng số cấp module (sẽ kẹt màu cũ). */
 export const brand = {
-  primary: colors.primary.DEFAULT as string,
-  primaryDark: colors.primary[700] as string,
+  get primary(): string {
+    return getPrimaryPalette().main;
+  },
+  get primaryDark(): string {
+    return getPrimaryPalette()[700];
+  },
+  get primaryLight(): string {
+    return getPrimaryPalette()[400];
+  },
   navy: colors.navy.DEFAULT as string,
   secondary: colors.secondary.DEFAULT as string,
   error: colors.error.DEFAULT as string,

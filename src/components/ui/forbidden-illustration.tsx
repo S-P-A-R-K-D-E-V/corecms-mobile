@@ -1,7 +1,8 @@
 import Svg, { Defs, LinearGradient, Stop, Circle, Path, G } from 'react-native-svg';
+import { getPrimaryPalette } from 'src/theme/brand-color';
 
 // ----------------------------------------------------------------------
-// Minh hoạ 403 — khiên + ổ khoá, tông hồng brand. Thay cho ForbiddenIllustration
+// Minh hoạ 403 — khiên + ổ khoá, theo màu chính của cửa hàng. Thay cho ForbiddenIllustration
 // (MUI) bên core-fe, dựng lại bằng react-native-svg cho app-mobile.
 // ----------------------------------------------------------------------
 
@@ -10,23 +11,24 @@ export type ForbiddenIllustrationProps = {
 };
 
 export function ForbiddenIllustration({ size = 200 }: ForbiddenIllustrationProps) {
+  const p = getPrimaryPalette(); // màu cửa hàng đang mở
   return (
     <Svg width={size} height={size} viewBox="0 0 240 240" fill="none">
       <Defs>
         <LinearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor="#F8BBD0" />
-          <Stop offset="0.55" stopColor="#D86A88" />
-          <Stop offset="1" stopColor="#A83C5D" />
+          <Stop offset="0" stopColor={p[200]} />
+          <Stop offset="0.55" stopColor={p[400]} />
+          <Stop offset="1" stopColor={p[700]} />
         </LinearGradient>
         <LinearGradient id="lockGrad" x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#FFFFFF" />
-          <Stop offset="1" stopColor="#FFE5EC" />
+          <Stop offset="1" stopColor={p[50]} />
         </LinearGradient>
       </Defs>
 
       {/* Soft halo */}
-      <Circle cx="120" cy="120" r="104" fill="#C84D71" opacity={0.08} />
-      <Circle cx="120" cy="120" r="78" fill="#C84D71" opacity={0.06} />
+      <Circle cx="120" cy="120" r="104" fill={p.main} opacity={0.08} />
+      <Circle cx="120" cy="120" r="78" fill={p.main} opacity={0.06} />
 
       {/* Shield */}
       <Path
@@ -56,8 +58,8 @@ export function ForbiddenIllustration({ size = 200 }: ForbiddenIllustrationProps
           fill="url(#lockGrad)"
         />
         {/* Keyhole */}
-        <Circle cx="120" cy="132" r="7" fill="#A83C5D" />
-        <Path d="M117 137 H123 L125 150 H115 Z" fill="#A83C5D" />
+        <Circle cx="120" cy="132" r="7" fill={p[700]} />
+        <Path d="M117 137 H123 L125 150 H115 Z" fill={p[700]} />
       </G>
     </Svg>
   );

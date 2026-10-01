@@ -1,16 +1,34 @@
 import { View } from 'react-native';
 import { Text } from '../ui/text';
 import { cn } from '../ui/utils';
+import { brand, colors, tileShadow } from 'src/theme';
 
 type Tone = 'primary' | 'success' | 'warning' | 'error' | 'info';
 
-const toneMap: Record<Tone, { box: string; num: string }> = {
-  primary: { box: 'bg-primary-soft', num: 'text-primary' },
-  success: { box: 'bg-success-soft', num: 'text-success' },
-  warning: { box: 'bg-warning-soft', num: 'text-warning-text' },
-  error: { box: 'bg-error-soft', num: 'text-error' },
-  info: { box: 'bg-info-soft', num: 'text-info' },
+const BAR: Record<Tone, string> = {
+  primary: 'bg-primary',
+  success: 'bg-success',
+  warning: 'bg-warning',
+  error: 'bg-error',
+  info: 'bg-info',
 };
+
+/** Màu số qua style: Text luôn kèm class màu của tone mặc định (text-ink), class màu thứ hai thắng hay
+ *  thua tuỳ thứ tự CSS — số "vắng"/"sản phẩm" từng ra màu đen. primary đọc lúc render (màu cửa hàng). */
+function numberColor(tone: Tone): string {
+  switch (tone) {
+    case 'primary':
+      return brand.primary;
+    case 'success':
+      return brand.success;
+    case 'warning':
+      return colors.warning.text as string;
+    case 'error':
+      return brand.error;
+    default:
+      return brand.info;
+  }
+}
 
 export type StatCardProps = {
   value: React.ReactNode;
@@ -19,18 +37,29 @@ export type StatCardProps = {
   className?: string;
 };
 
-/** Compact metric tile (e.g. ngày công / vắng / trễ). */
+/**
+ * Ô số liệu nhỏ (ngày công / vắng / trễ…) kiểu "widget summary" của Minimal (bản web): thẻ trắng, vạch
+ * màu nhỏ + con số theo tone, nhãn xám — thay cho ô nền màu đậm nhạt trước đây.
+ */
 export function StatCard({ value, label, tone = 'primary', className }: StatCardProps) {
-  const t = toneMap[tone];
   return (
-    <View className={cn('flex-1 items-center rounded-2xl pt-5 pb-4 gap-1', t.box, className)}>
-      <Text className={cn('text-[26px] leading-[32px] font-bold', t.num)}>{value}</Text>
+    <View
+      className={cn(
+        'flex-1 rounded-2xl bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark px-3 pt-3 pb-3.5',
+        className
+      )}
+      style={tileShadow}
+    >
+      <View className={cn('w-5 h-1 rounded-full', BAR[tone])} />
       <Text
-        variant="label"
-        tone="muted"
-        className="text-[9px] text-center"
-        numberOfLines={2}
+        className="mt-2 text-[24px] leading-[30px] font-bold"
+        style={{ color: numberColor(tone) }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
       >
+        {value}
+      </Text>
+      <Text variant="label" tone="muted" className="text-[10px] mt-0.5" numberOfLines={2}>
         {label}
       </Text>
     </View>

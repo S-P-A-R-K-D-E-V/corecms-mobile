@@ -8,7 +8,7 @@ import { softShadow, brand } from 'src/theme';
 import { haptics } from 'src/services/haptics';
 
 const CONFETTI = Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2);
-const CONFETTI_COLORS = [brand.primary, brand.secondary, brand.success, brand.warning];
+const confettiColors = () => [brand.primary, brand.secondary, brand.success, brand.warning];
 
 export type SuccessOverlayProps = {
   visible: boolean;
@@ -48,7 +48,7 @@ export function SuccessOverlay({ visible, message, onDone, duration = 1600 }: Su
                 width: 10,
                 height: 10,
                 borderRadius: 3,
-                backgroundColor: CONFETTI_COLORS[i % CONFETTI_COLORS.length],
+                backgroundColor: confettiColors()[i % 4],
               }}
             />
           ))}
