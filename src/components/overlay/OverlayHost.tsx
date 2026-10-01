@@ -14,6 +14,7 @@ import { cn } from 'src/components/ui/utils';
 import { spring, duration } from 'src/theme/motion';
 import { blur, brand } from 'src/theme';
 import { haptics } from 'src/services/haptics';
+import { t } from 'src/i18n';
 
 import { useOverlayStore, type ToastType } from './overlay-store';
 
@@ -184,7 +185,7 @@ function ActionSheetHost() {
             <GlassView intensity={blur.sheet} className="rounded-[20px] border border-glass-border dark:border-glass-border-dark overflow-hidden">
               <PressableScale onPress={close}>
                 <View className="items-center py-4">
-                  <Text variant="subtitle" tone="muted">Huỷ</Text>
+                  <Text variant="subtitle" tone="muted">{t('common.cancel')}</Text>
                 </View>
               </PressableScale>
             </GlassView>

@@ -4,6 +4,7 @@
 // A single <OverlayHost/> mounted at the root renders everything.
 import { create } from 'zustand';
 import type { IconName } from 'src/components/ui/icon';
+import { t } from 'src/i18n';
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 export type ToastItem = { id: string; type: ToastType; message: string; title?: string };
@@ -88,8 +89,8 @@ export function confirm(opts: ConfirmOptions): Promise<boolean> {
       visible: true,
       title: opts.title,
       message: opts.message,
-      confirmText: opts.confirmText ?? 'Đồng ý',
-      cancelText: opts.cancelText ?? 'Huỷ',
+      confirmText: opts.confirmText ?? t('common.confirm'),
+      cancelText: opts.cancelText ?? t('common.cancel'),
       destructive: opts.destructive,
       resolve,
     });
