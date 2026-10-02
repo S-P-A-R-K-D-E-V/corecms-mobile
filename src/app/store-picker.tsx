@@ -1,5 +1,10 @@
 import { StorePickerScreen } from 'src/features/auth/StorePickerScreen';
+import { PlatformBrandScope } from 'src/theme/BrandScope';
 
 export default function StorePicker() {
-  return <StorePickerScreen />;
+  return (
+    <PlatformBrandScope>
+      <StorePickerScreen />
+    </PlatformBrandScope>
+  );
 }

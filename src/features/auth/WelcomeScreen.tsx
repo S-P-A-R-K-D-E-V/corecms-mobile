@@ -13,6 +13,7 @@ import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { useLocaleStore, useT, type Locale } from 'src/i18n';
 import { spring } from 'src/theme/motion';
 import { softShadow } from 'src/theme';
+import { usePlatformPrimary } from 'src/theme/BrandScope';
 import { getStore } from 'src/services/store-config';
 import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
 import { runDiscovery } from './discovery';
@@ -89,6 +90,7 @@ function LanguageToggle() {
 }
 
 export function WelcomeScreen() {
+  const platformPrimary = usePlatformPrimary();
   const t = useT();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
@@ -183,7 +185,7 @@ export function WelcomeScreen() {
           {FEATURES.map((f) => (
             <View key={f.key} className="flex-row items-center gap-3">
               <View className="w-10 h-10 rounded-xl items-center justify-center bg-primary-soft">
-                <Icon name={f.icon} size={20} tone="primary" />
+                <Icon name={f.icon} size={20} color={platformPrimary} />
               </View>
               <View className="flex-1">
                 <Text variant="callout" tone="primary" className="font-semibold">{t(`${f.key}Title`)}</Text>
@@ -234,7 +236,7 @@ export function WelcomeScreen() {
         </Button>
 
         <View className="h-5 items-center justify-center">
-          {working ? <Spinner /> : (
+          {working ? <Spinner color={platformPrimary} /> : (
             <Pressable onPress={() => router.push('/legal?doc=terms' as any)}>
               <Text variant="caption" tone="faint" className="text-center">{t('welcome.legal')}</Text>
             </Pressable>

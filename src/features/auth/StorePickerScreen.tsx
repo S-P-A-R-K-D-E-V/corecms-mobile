@@ -6,6 +6,7 @@ import { Text, Button, Card, Icon, PressableScale, Spinner, Badge } from 'src/co
 import { AppHeader } from 'src/components/shared';
 import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { useT } from 'src/i18n';
+import { usePlatformPrimary } from 'src/theme/BrandScope';
 import { getStoreCode, lastStoreFirst } from 'src/services/store-config';
 import { useDiscovery } from './discovery';
 import { useEnterStore } from './use-enter-store';
@@ -23,6 +24,7 @@ const ROLE_KEY: Record<string, string> = {
 };
 
 export function StorePickerScreen() {
+  const platformPrimary = usePlatformPrimary();
   const t = useT();
   const insets = useSafeAreaInsets();
   const pending = useDiscovery((s) => s.pending);
@@ -99,7 +101,7 @@ export function StorePickerScreen() {
                     ) : null}
                   </View>
                 </View>
-                {busy ? <Spinner /> : <Icon name="chevron-right" size={22} tone="faint" />}
+                {busy ? <Spinner color={platformPrimary} /> : <Icon name="chevron-right" size={22} tone="faint" />}
               </Card>
             </PressableScale>
           );
