@@ -173,6 +173,53 @@ export interface ICreateSaleRequest {
   payments: ICreateSalePayment[];
 }
 
+// ── Chỉnh tồn kho (chủ cửa hàng) ────────────────────────────────────────
+
+/** Set = đặt đúng số đếm được; Delta = cộng/trừ một lượng. */
+export type StockAdjustmentMode = 'Set' | 'Delta';
+
+/** Kiểm kê / Hư hỏng / Nhập thiếu / Khác. */
+export type StockAdjustmentReason = 'Count' | 'Damaged' | 'Missing' | 'Other';
+
+/**
+ * Pending/Pushing: đang chờ đẩy sang KiotViet · Synced: KiotViet đã nhận · Failed: đẩy lỗi (thử lại được)
+ * · Local: cửa hàng không nối KiotViet — tồn đã đổi ngay trong core.
+ */
+export type StockAdjustmentStatus = 'Pending' | 'Pushing' | 'Synced' | 'Failed' | 'Local';
+
+/** POST /products/{id}/stock-adjustments — id là hàng thường hoặc 1 biến thể (không phải hàng gộp biến thể). */
+export interface ICreateStockAdjustmentRequest {
+  /** Id chi nhánh KiotViet (inventories[].branchId). */
+  branchId: number;
+  mode: StockAdjustmentMode;
+  /** Set: số đếm được (≥ 0). Delta: lượng cộng (+) / trừ (−), khác 0. */
+  quantity: number;
+  reason: StockAdjustmentReason;
+  note?: string;
+  /** uuid cho mỗi lần gửi — gửi lại cùng nội dung (mạng chập chờn) dùng lại id để BE không tạo 2 lần. */
+  clientRequestId: string;
+}
+
+export interface IStockAdjustment {
+  id: string;
+  branchId: number;
+  branchName?: string | null;
+  mode: StockAdjustmentMode;
+  quantity: number;
+  reason: StockAdjustmentReason | string;
+  note?: string | null;
+  /** Tồn trong core lúc tạo phiếu. */
+  localOnHandBefore?: number | null;
+  /** Tồn đích (Delta: tính trên tồn KiotViet lúc đẩy). */
+  targetOnHand?: number | null;
+  /** Tồn KiotViet trả về sau khi nhận. */
+  kvOnHandAfter?: number | null;
+  status: StockAdjustmentStatus | string;
+  error?: string | null;
+  createdAt: string;
+  createdByName?: string | null;
+}
+
 // ── Nhập hàng ───────────────────────────────────────────────────────────
 
 /** Draft, Confirmed, PartiallyReceived, Completed, Cancelled, Returned ("Đã trả" — đơn KiotViet). */

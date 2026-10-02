@@ -3,6 +3,7 @@ import type {
   IBankAccount,
   ICreatePurchaseOrderRequest,
   ICreateSaleRequest,
+  ICreateStockAdjustmentRequest,
   IPaged,
   IPagedPurchaseOrders,
   IPagedSalesOrders,
@@ -11,8 +12,10 @@ import type {
   IProductListItem,
   IPurchaseOrder,
   ISalesOrder,
+  IStockAdjustment,
   ISupplier,
   IWarehouse,
+  StockAdjustmentStatus,
 } from 'src/types/erp';
 
 // ----------------------------------------------------------------------
@@ -34,6 +37,32 @@ export async function getProduct(id: string): Promise<IProductDetail> {
 export async function getProductChildren(id: string): Promise<IProductChild[]> {
   const res = await axios.get<IProductChild[]>(endpoints.products.children(id));
   return res.data;
+}
+
+// ── Chỉnh tồn kho ───────────────────────────────────────────────────────
+
+/**
+ * Sửa tồn 1 hàng tại 1 chi nhánh (chỉ chủ cửa hàng). Cửa hàng nối KiotViet: BE xếp hàng đẩy sang KiotViet
+ * (202, Pending) — tồn trên app chỉ đổi khi KiotViet nhận; chưa bật đẩy tồn thì 409 StockAdjustment.PushDisabled.
+ * Cửa hàng không nối KiotViet: đổi ngay (Local).
+ */
+export async function createStockAdjustment(
+  productId: string,
+  data: ICreateStockAdjustmentRequest
+): Promise<{ id: string; status: StockAdjustmentStatus }> {
+  const res = await axios.post<{ id: string; status: StockAdjustmentStatus }>(endpoints.products.stockAdjustments(productId), data);
+  return res.data;
+}
+
+/** Các lần chỉnh tồn của 1 hàng (chủ cửa hàng + quản lý). */
+export async function getStockAdjustments(productId: string): Promise<IStockAdjustment[]> {
+  const res = await axios.get<IStockAdjustment[]>(endpoints.products.stockAdjustments(productId));
+  return res.data ?? [];
+}
+
+/** Đẩy lại lần chỉnh tồn bị lỗi sang KiotViet (chỉ chủ cửa hàng). */
+export async function retryStockAdjustment(id: string): Promise<void> {
+  await axios.post(endpoints.kiotViet.retryStockAdjustment(id));
 }
 
 export async function getWarehouses(): Promise<IWarehouse[]> {

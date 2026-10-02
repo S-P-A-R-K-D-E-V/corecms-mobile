@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -6,20 +7,63 @@ import { Text, Icon, Pressable, Divider, Skeleton, Button } from 'src/components
 import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isManagerUser } from 'src/auth/roles';
+import { isAdminUser, isManagerUser } from 'src/auth/roles';
 import { t } from 'src/i18n';
-import type { IProductChild } from 'src/types/erp';
+import type { IProductChild, IProductInventory } from 'src/types/erp';
 
 import { InfoRow, ProductThumb, StockBadge, avgCost, childStock, fmtQty, money, stockOf } from 'src/features/erp/shared';
 import { useCart, lineFromProduct, lineFromVariant } from 'src/features/pos/cart-store';
 import { useProduct } from './hooks';
+import { StockAdjustSheet, adjustableInventories, type StockTarget } from './StockAdjustSheet';
+import { StockAdjustmentHistory } from './StockAdjustmentHistory';
 
 // ----------------------------------------------------------------------
 // Chi tiết hàng: giá bán, tồn theo chi nhánh, biến thể; giá vốn chỉ chủ/quản lý thấy. "Bán món này"
 // thêm vào giỏ rồi mở Bán hàng.
+// Chủ cửa hàng: "Sửa tồn" từng chi nhánh (hàng thường) / từng biến thể — chỉ hàng hoá thường (combo, dịch vụ
+// không có tồn); hàng gộp biến thể sửa ở dòng biến thể. Chủ + quản lý xem lịch sử chỉnh tồn.
 // ----------------------------------------------------------------------
 
-function VariantRow({ child, onSell, seeCost }: { child: IProductChild; onSell: () => void; seeCost: boolean }) {
+/** Nút bút chì nhỏ cạnh dòng tồn. */
+function EditStockButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityLabel={t('erp.stockAdj.edit')}
+      className="w-9 h-9 rounded-xl bg-ink/5 dark:bg-white/10 items-center justify-center"
+    >
+      <Icon name="pencil-outline" size={18} tone="primary" />
+    </Pressable>
+  );
+}
+
+/** Dòng tồn 1 chi nhánh (+ "Sửa tồn" cho chủ cửa hàng). */
+function BranchStockRow({ inv, onEdit }: { inv: IProductInventory; onEdit?: () => void }) {
+  return (
+    <View className="flex-row items-center gap-2">
+      <View className="flex-1">
+        <InfoRow
+          label={inv.branchName || '—'}
+          value={`${fmtQty(inv.onHand ?? 0)}${inv.reserved ? `  (${t('erp.reserved', { n: fmtQty(inv.reserved) })})` : ''}`}
+        />
+      </View>
+      {onEdit ? <EditStockButton onPress={onEdit} /> : null}
+    </View>
+  );
+}
+
+function VariantRow({
+  child,
+  onSell,
+  seeCost,
+  onEditStock,
+}: {
+  child: IProductChild;
+  onSell: () => void;
+  seeCost: boolean;
+  onEditStock?: () => void;
+}) {
   const stock = childStock(child);
   const cost = seeCost ? avgCost(child.inventories) : null;
   const attrs = (child.attributes ?? []).map((a) => a.attributeValue).join(' · ');
@@ -36,6 +80,7 @@ function VariantRow({ child, onSell, seeCost }: { child: IProductChild; onSell: 
         <Text variant="bodySmall" className="font-bold">{money(child.basePrice)}</Text>
         <StockBadge alignEnd stock={stock} />
       </View>
+      {onEditStock ? <EditStockButton onPress={onEditStock} /> : null}
       <Pressable onPress={onSell} accessibilityLabel={t('erp.sellThis')} className="w-9 h-9 rounded-xl bg-primary-soft items-center justify-center">
         <Icon name="cart-plus" size={18} tone="primary" />
       </Pressable>
@@ -43,12 +88,22 @@ function VariantRow({ child, onSell, seeCost }: { child: IProductChild; onSell: 
   );
 }
 
+/** Tên biến thể: "Áo thun · Đỏ · M" (prefix rỗng → chỉ thuộc tính). */
+function variantName(prefix: string, c: IProductChild): string {
+  const attrs = (c.attributes ?? []).map((a) => a.attributeValue).join(' · ');
+  if (!attrs) return c.name;
+  return prefix ? `${prefix} · ${attrs}` : attrs;
+}
+
 export function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuthContext();
   const { data: p, isLoading, isError, refetch } = useProduct(id);
   const add = useCart((s) => s.add);
-  const seeCost = isManagerUser(user);
+  const isManager = isManagerUser(user);
+  const seeCost = isManager;
+  const isAdmin = isAdminUser(user);
+  const [adjust, setAdjust] = useState<{ target: StockTarget; branchId?: number } | null>(null);
 
   function sell(line: Parameters<typeof add>[0]) {
     haptics.light();
@@ -82,6 +137,13 @@ export function ProductDetailScreen() {
   const cost = avgCost(p.inventories);
   const cover = p.images?.[0]?.imageUrl;
   const children = (p.childProducts ?? []).filter((c) => c.isActive);
+  // Chỉ hàng hoá thường có tồn để sửa; lịch sử chỉnh tồn: chủ + quản lý.
+  const stocked = p.productType === 2;
+  const canAdjust = isAdmin && stocked;
+  const editChild = (c: IProductChild) =>
+    canAdjust && adjustableInventories(c.inventories).length > 0
+      ? () => setAdjust({ target: { productId: c.id, name: variantName(p.name, c), inventories: c.inventories ?? [] } })
+      : undefined;
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -118,7 +180,7 @@ export function ProductDetailScreen() {
           {children.map((c, i) => (
             <View key={c.id}>
               {i > 0 ? <Divider /> : null}
-              <VariantRow child={c} seeCost={seeCost} onSell={() => sell(lineFromVariant(p, c))} />
+              <VariantRow child={c} seeCost={seeCost} onSell={() => sell(lineFromVariant(p, c))} onEditStock={editChild(c)} />
             </View>
           ))}
         </SectionCard>
@@ -127,13 +189,26 @@ export function ProductDetailScreen() {
       {(p.inventories ?? []).length > 0 ? (
         <SectionCard title={t('erp.stockByBranch')} icon="warehouse" bodyClassName="pt-0">
           {(p.inventories ?? []).map((inv) => (
-            <InfoRow
+            <BranchStockRow
               key={inv.id}
-              label={inv.branchName || '—'}
-              value={`${fmtQty(inv.onHand ?? 0)}${inv.reserved ? `  (${t('erp.reserved', { n: fmtQty(inv.reserved) })})` : ''}`}
+              inv={inv}
+              onEdit={
+                canAdjust && !p.hasVariants && typeof inv.branchId === 'number'
+                  ? () => setAdjust({ target: { productId: p.id, name: p.name, inventories: p.inventories ?? [] }, branchId: inv.branchId! })
+                  : undefined
+              }
             />
           ))}
         </SectionCard>
+      ) : null}
+
+      {isManager && stocked ? (
+        <StockAdjustmentHistory
+          key={p.id}
+          targets={p.hasVariants ? children.map((c) => ({ productId: c.id, label: variantName('', c) })) : [{ productId: p.id }]}
+          canRetry={isAdmin}
+          lazy={p.hasVariants}
+        />
       ) : null}
 
       {p.description ? (
@@ -145,6 +220,8 @@ export function ProductDetailScreen() {
       {!p.hasVariants && p.allowsSale ? (
         <Button icon="cart-plus" onPress={() => sell(lineFromProduct(p))}>{t('erp.sellThis')}</Button>
       ) : null}
+
+      {canAdjust ? <StockAdjustSheet target={adjust?.target ?? null} initialBranchId={adjust?.branchId} onClose={() => setAdjust(null)} /> : null}
     </Screen>
   );
 }

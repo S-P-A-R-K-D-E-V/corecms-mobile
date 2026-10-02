@@ -322,6 +322,7 @@ export const endpoints = {
   },
   kiotViet: {
     dailySummary: '/kiotviet/daily-summary',
+    retryStockAdjustment: (id: string) => `/kiotviet/push/stock-adjustments/${id}/retry`,
   },
   reports: {
     dashboard: '/reports/dashboard',
@@ -352,6 +353,7 @@ export const endpoints = {
     list: '/products',
     details: (id: string) => `/products/${id}`,
     children: (id: string) => `/products/${id}/children`,
+    stockAdjustments: (id: string) => `/products/${id}/stock-adjustments`,
   },
   salesOrders: {
     list: '/sales-orders',
