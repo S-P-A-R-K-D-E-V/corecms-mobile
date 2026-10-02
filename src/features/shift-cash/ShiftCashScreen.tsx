@@ -20,7 +20,7 @@ import {
 } from 'src/api/shiftCash';
 
 import { useShiftCash } from './hooks';
-import { useShiftCashGps } from './GpsGate';
+import { useShiftCashAccess } from './AccessGate';
 import { TransactionSheet, type TxDraft } from './TransactionSheet';
 import { DENOMINATIONS, formatCurrency, computeTotalCash, vnToday } from './utils';
 import type { IShiftCashTransaction, IShiftCashFinalization } from 'src/types/corecms-api';
@@ -131,15 +131,23 @@ export function ShiftCashScreen() {
   const { user } = useAuthContext();
   const isAdmin = getUserRoles(user).includes('Admin');
 
-  // Toạ độ đã xác minh ở cổng GPS — gửi kèm mọi thao tác ghi để lưu vào audit (BE).
-  const geo = useShiftCashGps();
+  // Toạ độ đã xác minh ở cổng — gửi kèm MỌI lệnh (header X-Geo-* cho BE gác cổng + body để lưu audit).
+  // todayOnly: không phải Admin thì chỉ ngày hôm nay (BE cũng chặn ngày khác bằng 403).
+  const { geo, todayOnly, handleDenied } = useShiftCashAccess();
   const geoStamp = geo ?? {};
 
-  const [date, setDate] = useState(vnToday());
+  const [pickedDate, setDate] = useState(vnToday());
+  // Ghim hôm nay theo giờ VN (để màn mở qua nửa đêm cũng chuyển sang ngày mới).
+  const date = todayOnly ? vnToday() : pickedDate;
   const isToday = date === vnToday();
   const canEdit = isToday || isAdmin;
 
-  const { summary, kiot, loading, kiotLoading, kiotError, refreshing, refetch } = useShiftCash(date);
+  const { summary, kiot, loading, kiotLoading, kiotError, refreshing, refetch, denied } = useShiftCash(date, geo);
+
+  // BE từ chối (hết ca / ra ngoài cửa hàng / ngày cũ) → về cổng hiện lý do.
+  useEffect(() => {
+    if (denied) handleDenied(denied);
+  }, [denied, handleDenied]);
 
   // ── Denomination editing ──────────────────────────────────────────────────
   const [denomQ, setDenomQ] = useState<Record<number, number>>({});
@@ -170,15 +178,17 @@ export function ShiftCashScreen() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   function shiftDay(delta: number) {
+    if (todayOnly) return;
     setDenomEditing(false);
     setDate((d) => dayjs(d).add(delta, 'day').format('YYYY-MM-DD'));
   }
 
   async function handleOpenCounter() {
     try {
-      await openCounter(date, geo ?? undefined);
+      await openCounter(date, geo);
       await refetch();
     } catch (err) {
+      if (handleDenied(err)) return;
       toast.error(extractApiError(err), 'Mở quầy thất bại');
     }
   }
@@ -188,15 +198,16 @@ export function ShiftCashScreen() {
     try {
       const items = DENOMINATIONS.map((d) => ({ denomination: d, quantity: denomQ[d] || 0 }));
       if (finalize) {
-        await finalizeShiftCash({ date, items, ...geoStamp });
+        await finalizeShiftCash({ date, items, ...geoStamp }, geo);
       } else {
-        await updateDenominationBatch({ date, items, ...geoStamp });
+        await updateDenominationBatch({ date, items, ...geoStamp }, geo);
       }
       setDenomEditing(false);
       await refetch();
       haptics.success();
       toast.success(finalize ? 'Kết quả kiểm đếm đã được chốt.' : 'Đã lưu số lượng mệnh giá.', finalize ? 'Đã chốt tiền' : 'Đã lưu');
     } catch (err) {
+      if (handleDenied(err)) return;
       haptics.error();
       toast.error(extractApiError(err), finalize ? 'Chốt tiền thất bại' : 'Lưu thất bại');
     } finally {
@@ -217,13 +228,14 @@ export function ShiftCashScreen() {
     setTxSaving(true);
     try {
       if (tx.mode === 'add') {
-        await addShiftCashTransaction({ date, type: draft.type, amount: draft.amount, note: draft.note, ...geoStamp });
+        await addShiftCashTransaction({ date, type: draft.type, amount: draft.amount, note: draft.note, ...geoStamp }, geo);
       } else if (tx.editing) {
-        await updateShiftCashTransaction(tx.editing.id, { amount: draft.amount, note: draft.note, ...geoStamp });
+        await updateShiftCashTransaction(tx.editing.id, { amount: draft.amount, note: draft.note, ...geoStamp }, geo);
       }
       setTx((s) => ({ ...s, visible: false, editing: null }));
       await refetch();
     } catch (err) {
+      if (handleDenied(err)) return;
       toast.error(extractApiError(err), 'Lưu thất bại');
     } finally {
       setTxSaving(false);
@@ -239,9 +251,10 @@ export function ShiftCashScreen() {
     });
     if (!ok) return;
     try {
-      await deleteShiftCashTransaction(t.id);
+      await deleteShiftCashTransaction(t.id, geo);
       await refetch();
     } catch (err) {
+      if (handleDenied(err)) return;
       toast.error(extractApiError(err), 'Xoá thất bại');
     }
   }
@@ -256,40 +269,39 @@ export function ShiftCashScreen() {
         actions={[{ icon: 'refresh', onPress: refetch }]}
       />
 
-      {/* Date nav */}
+      {/* Date nav — chỉ Admin được lùi xem ngày cũ; Staff/Manager ghim hôm nay. */}
       <Card className="p-2.5">
-        <View className="flex-row items-center justify-between">
-          <Pressable onPress={() => shiftDay(-1)} className="w-10 h-10 items-center justify-center rounded-full bg-bg dark:bg-surface-dark">
-            <Icon name="chevron-left" size={22} tone="default" />
-          </Pressable>
-          <View className="items-center">
+        {todayOnly ? (
+          <View className="items-center py-1">
             <Text variant="subtitle">{dayjs(date).format('dddd')}</Text>
-            <Text variant="bodySmall" tone="muted">{dayjs(date).format('DD/MM/YYYY')}{isToday ? '  ·  Hôm nay' : ''}</Text>
+            <Text variant="bodySmall" tone="muted">{dayjs(date).format('DD/MM/YYYY')}  ·  Hôm nay</Text>
           </View>
-          <Pressable
-            onPress={() => shiftDay(1)}
-            disabled={isToday}
-            className={cn('w-10 h-10 items-center justify-center rounded-full bg-bg dark:bg-surface-dark', isToday && 'opacity-30')}
-          >
-            <Icon name="chevron-right" size={22} tone="default" />
-          </Pressable>
-        </View>
-        {!isToday ? (
-          <Pressable onPress={() => { setDenomEditing(false); setDate(vnToday()); }} className="mt-2 self-center">
-            <Badge tone="secondary" icon="calendar-today">Về hôm nay</Badge>
-          </Pressable>
-        ) : null}
+        ) : (
+          <>
+            <View className="flex-row items-center justify-between">
+              <Pressable onPress={() => shiftDay(-1)} className="w-10 h-10 items-center justify-center rounded-full bg-bg dark:bg-surface-dark">
+                <Icon name="chevron-left" size={22} tone="default" />
+              </Pressable>
+              <View className="items-center">
+                <Text variant="subtitle">{dayjs(date).format('dddd')}</Text>
+                <Text variant="bodySmall" tone="muted">{dayjs(date).format('DD/MM/YYYY')}{isToday ? '  ·  Hôm nay' : ''}</Text>
+              </View>
+              <Pressable
+                onPress={() => shiftDay(1)}
+                disabled={isToday}
+                className={cn('w-10 h-10 items-center justify-center rounded-full bg-bg dark:bg-surface-dark', isToday && 'opacity-30')}
+              >
+                <Icon name="chevron-right" size={22} tone="default" />
+              </Pressable>
+            </View>
+            {!isToday ? (
+              <Pressable onPress={() => { setDenomEditing(false); setDate(vnToday()); }} className="mt-2 self-center">
+                <Badge tone="secondary" icon="calendar-today">Về hôm nay</Badge>
+              </Pressable>
+            ) : null}
+          </>
+        )}
       </Card>
-
-      {/* View-only notice */}
-      {!isToday && !isAdmin ? (
-        <View className="flex-row items-center gap-2 px-3.5 py-2.5 rounded-xl bg-warning-soft">
-          <Icon name="lock-outline" size={18} tone="warning" />
-          <Text variant="bodySmall" tone="warning" className="flex-1 font-semibold">
-            Đang xem ngày cũ — chỉ Admin mới được chỉnh sửa.
-          </Text>
-        </View>
-      ) : null}
 
       {loading && !summary ? (
         <Loading />

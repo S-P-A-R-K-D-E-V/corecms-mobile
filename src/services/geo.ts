@@ -42,12 +42,31 @@ export type NearestBranch = {
   within: boolean;
 };
 
+/** Chi nhánh tính geofence: đang hoạt động + có toạ độ — khớp BE (SmartCheckIn, cổng kiểm quầy). */
+function isGeofenceBranch(b: IBranchLocation): b is IBranchLocation & { latitude: number; longitude: number } {
+  return b.isActive !== false && b.latitude != null && b.longitude != null;
+}
+
+/** Có chi nhánh nào đã cấu hình toạ độ không — không có thì BE bỏ qua geofence (cho qua). */
+export function hasGeofenceBranches(branches: IBranchLocation[]): boolean {
+  return branches.some(isGeofenceBranch);
+}
+
+/** Đang trong bán kính geofence của BẤT KỲ chi nhánh nào (BE xét "any", không chỉ chi nhánh gần nhất). */
+export function isWithinAnyBranch(coords: LatLng, branches: IBranchLocation[]): boolean {
+  return branches.some((b) => {
+    if (!isGeofenceBranch(b) || !(b.geofenceRadius > 0)) return false;
+    return haversineMeters(coords, { latitude: b.latitude, longitude: b.longitude }) <= b.geofenceRadius;
+  });
+}
+
 /** Chi nhánh gần nhất + khoảng cách + có đang trong khu vực cửa hàng không.
- *  Dùng cho cả overlay địa chỉ (check-in) và chặn truy cập (kiểm tiền quầy). */
+ *  Dùng cho cả overlay địa chỉ (check-in) và chặn truy cập (kiểm tiền quầy).
+ *  Bỏ qua chi nhánh ngừng hoạt động — BE cũng không tính. */
 export function findNearestBranch(coords: LatLng, branches: IBranchLocation[]): NearestBranch | null {
   let best: NearestBranch | null = null;
   for (const b of branches) {
-    if (b.latitude == null || b.longitude == null) continue;
+    if (!isGeofenceBranch(b)) continue;
     const distance = haversineMeters(coords, { latitude: b.latitude, longitude: b.longitude });
     const radius = b.geofenceRadius || 0;
     if (best === null || distance < best.distance) {
@@ -55,6 +74,35 @@ export function findNearestBranch(coords: LatLng, branches: IBranchLocation[]): 
     }
   }
   return best;
+}
+
+/** Lý do geofence không đạt: không tải được chi nhánh / sai số GPS quá lớn / ở ngoài mọi chi nhánh. */
+export type GeofenceFailReason = 'branches_error' | 'low_accuracy' | 'outside';
+
+export type GeofenceResult =
+  | { ok: true; reason: null; nearest: NearestBranch | null }
+  | { ok: false; reason: GeofenceFailReason; nearest: NearestBranch | null };
+
+/**
+ * Xét geofence giống BE (SmartCheckIn / cổng kiểm quầy):
+ * - `branches` null = không tải được danh sách chi nhánh → KHÔNG đạt (fail closed).
+ * - Không chi nhánh hoạt động nào có toạ độ → bỏ qua geofence (đạt).
+ * - Sai số > `maxAccuracy` mét → không đạt; còn lại phải nằm trong bán kính của BẤT KỲ chi nhánh nào.
+ */
+export function evaluateGeofence(
+  coords: LatLng & { accuracy?: number },
+  branches: IBranchLocation[] | null,
+  { maxAccuracy }: { maxAccuracy?: number } = {}
+): GeofenceResult {
+  if (branches == null) return { ok: false, reason: 'branches_error', nearest: null };
+  if (!hasGeofenceBranches(branches)) return { ok: true, reason: null, nearest: null };
+  const nearest = findNearestBranch(coords, branches);
+  if (maxAccuracy != null && coords.accuracy != null && coords.accuracy > maxAccuracy) {
+    return { ok: false, reason: 'low_accuracy', nearest };
+  }
+  return isWithinAnyBranch(coords, branches)
+    ? { ok: true, reason: null, nearest }
+    : { ok: false, reason: 'outside', nearest };
 }
 
 /** Reverse-geocode toạ độ → địa chỉ (logic giống core-fe: Nominatim OSM).

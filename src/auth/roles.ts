@@ -13,6 +13,12 @@ export const INTERNAL_APP_ROLES = ['Staff', 'Manager', 'Admin'] as const;
 /** Vai trò được phép vào tính năng Kiểm tiền quầy (đồng bộ core-fe nav). */
 export const SHIFT_CASH_ROLES = ['Staff', 'Manager', 'Admin'] as const;
 
+/**
+ * Vai trò vào thẳng Kiểm quầy (không cần ca hôm nay / GPS, xem được ngày cũ) — CHỈ Admin, khớp BE
+ * (RequireShiftCashAccess). Staff & Manager: phải có ca hôm nay (giờ VN) + đang ở cửa hàng, chỉ ngày hôm nay.
+ */
+export const SHIFT_CASH_BYPASS_ROLES = ['Admin'] as const;
+
 /** Vai trò được xem Dashboard & nhóm tiện ích "Quản trị" — CHỈ Admin. */
 export const ADMIN_ROLES = ['Admin'] as const;
 
@@ -58,6 +64,11 @@ export function canUseInternalApp(user: AuthUser | null | undefined): boolean {
 /** True nếu user có quyền Quản trị (thấy Dashboard + nhóm tiện ích "Quản trị"). */
 export function isAdminUser(user: AuthUser | null | undefined): boolean {
   return hasAnyRole(user, ADMIN_ROLES);
+}
+
+/** True nếu user vào thẳng Kiểm quầy, bỏ qua cổng ca hôm nay + GPS (chỉ Admin). */
+export function bypassesShiftCashGate(user: AuthUser | null | undefined): boolean {
+  return hasAnyRole(user, SHIFT_CASH_BYPASS_ROLES);
 }
 
 /** True nếu user là cấp quản lý (Manager/Admin) — thấy nhóm tiện ích "Quản lý". */
