@@ -14,6 +14,16 @@ export class AppError extends Error {
 const GENERIC = 'Vui lòng thử lại';
 
 /**
+ * Lỗi API có mã `code` không (vd 'Auth.ProviderAlreadyLinked'). BE gắn mã lỗi ErrorOr vào ProblemDetails
+ * theo hai kiểu: `errorCodes: [...]` (409/404/500) hoặc làm khoá của `errors` (400 validation).
+ */
+export function hasApiErrorCode(err: any, code: string): boolean {
+  if (!err || typeof err !== 'object') return false;
+  if (Array.isArray(err.errorCodes) && err.errorCodes.includes(code)) return true;
+  return !!err.errors && typeof err.errors === 'object' && !Array.isArray(err.errors) && code in err.errors;
+}
+
+/**
  * Normalise an unknown thrown value into a user-facing Vietnamese message.
  * Mirrors (and replaces) the per-screen `extractApiError` that lived in the
  * legacy check-in screen.

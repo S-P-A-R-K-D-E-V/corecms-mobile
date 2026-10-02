@@ -13,7 +13,14 @@ import { extractApiError } from 'src/services/error';
 import { getStore, isMultiStore, setStore } from 'src/services/store-config';
 import { isAppleSignInAvailable } from 'src/features/auth/apple-sign-in';
 import { startWebLink } from 'src/features/auth/web-link';
-import { announceLinkResult, providerLabel, useLinkedAccounts, type OAuthConnection } from './use-linked-accounts';
+import {
+  announceLinkResult,
+  isProviderLinked,
+  linkErrorMessage,
+  providerLabel,
+  useLinkedAccounts,
+  type OAuthConnection,
+} from './use-linked-accounts';
 
 const ROLE: Record<string, { key: string; tone: 'error' | 'secondary' | 'primary' | 'neutral' }> = {
   Admin: { key: 'profile.roleAdmin', tone: 'error' },
@@ -51,8 +58,16 @@ export function ProfileScreen() {
   useEffect(() => {
     if (isMultiStore) isAppleSignInAvailable().then(setAppleAvailable);
   }, []);
-  // Bản cửa hàng: một email đăng nhập + nhiều Google/Apple đã liên kết để đăng nhập nhanh.
+  // Bản cửa hàng: một email đăng nhập + tối đa MỘT Google và MỘT Apple liên kết để đăng nhập nhanh.
+  // Đã có loại nào thì ẩn dòng "Liên kết …" của loại đó (cả lúc đang tải danh sách — tránh bấm khi
+  // chưa biết); muốn đổi tài khoản thì gỡ cái cũ trước. Apple chỉ liên kết được trên iOS.
   const linked = useLinkedAccounts(isMultiStore);
+  const appleOffered = appleAvailable && Platform.OS === 'ios';
+  const googleLinked = isProviderLinked(linked.connections, 'google');
+  const appleLinked = isProviderLinked(linked.connections, 'apple');
+  const canLinkGoogle = !linked.loading && !googleLinked;
+  const canLinkApple = appleOffered && !linked.loading && !appleLinked;
+  const showSwitchHint = !linked.loading && (googleLinked || (appleOffered && appleLinked));
 
   async function handleLogout() {
     const ok = await confirm({
@@ -88,7 +103,9 @@ export function ProfileScreen() {
         await linked.refresh();
       }
     } catch (err) {
-      toast.error(extractApiError(err), t('profile.linkFailed'));
+      toast.error(linkErrorMessage(err, 'google'), t('profile.linkFailed'));
+      // 409 = đã có Google khác (danh sách trên máy cũ) → làm mới để ẩn dòng liên kết.
+      await linked.refresh();
     } finally {
       setLinking(false);
     }
@@ -99,7 +116,8 @@ export function ProfileScreen() {
     try {
       if (await linked.linkAppleNative()) toast.success(t('profile.linkedToast', { provider: 'Apple' }));
     } catch (err) {
-      toast.error(extractApiError(err), t('profile.linkFailed'));
+      toast.error(linkErrorMessage(err, 'apple'), t('profile.linkFailed'));
+      await linked.refresh();
     } finally {
       setLinking(false);
     }
@@ -109,9 +127,12 @@ export function ProfileScreen() {
     const account = connection.email
       ? `${providerLabel(connection.provider)} (${connection.email})`
       : providerLabel(connection.provider);
+    // Android không liên kết Apple được → báo trước là gỡ rồi chỉ gắn lại được trên iPhone/iPad.
+    const appleOnAndroid = Platform.OS === 'android' && connection.provider.toLowerCase() === 'apple';
+    const message = t('profile.unlinkMessage', { account });
     const ok = await confirm({
       title: t('profile.unlinkTitle'),
-      message: t('profile.unlinkMessage', { account }),
+      message: appleOnAndroid ? `${message} ${t('profile.unlinkAppleAndroid')}` : message,
       confirmText: t('profile.unlink'),
       destructive: true,
     });
@@ -226,10 +247,11 @@ export function ProfileScreen() {
       {isMultiStore ? (
         <SectionCard title={t('profile.linkedAccounts')} bodyClassName="pt-0">
           <Text variant="caption" tone="muted" className="pb-2 leading-4">
-            {t('profile.linkedAccountsDesc', { email: user?.email ?? '' })}
+            {t(appleOffered ? 'profile.linkedAccountsDesc' : 'profile.linkedAccountsDescNoApple', { email: user?.email ?? '' })}
           </Text>
-          {linked.connections.map((c) => (
+          {linked.connections.map((c, i) => (
             <View key={c.id}>
+              {i > 0 ? <Divider className="ml-12" /> : null}
               <ListItem
                 icon={PROVIDER_ICON[c.provider.toLowerCase()] ?? 'link-variant'}
                 iconTone="success"
@@ -238,19 +260,23 @@ export function ProfileScreen() {
                 onPress={() => handleUnlink(c)}
                 right={<Text variant="caption" tone="error" className="font-semibold">{t('profile.unlink')}</Text>}
               />
-              <Divider className="ml-12" />
             </View>
           ))}
-          <ListItem
-            icon="google"
-            iconTone="primary"
-            title={t('profile.linkGoogle')}
-            onPress={linking ? undefined : handleLinkGoogle}
-            showChevron
-          />
-          {appleAvailable && Platform.OS === 'ios' ? (
+          {canLinkGoogle ? (
             <>
-              <Divider className="ml-12" />
+              {linked.connections.length > 0 ? <Divider className="ml-12" /> : null}
+              <ListItem
+                icon="google"
+                iconTone="primary"
+                title={t('profile.linkGoogle')}
+                onPress={linking ? undefined : handleLinkGoogle}
+                showChevron
+              />
+            </>
+          ) : null}
+          {canLinkApple ? (
+            <>
+              {linked.connections.length > 0 || canLinkGoogle ? <Divider className="ml-12" /> : null}
               <ListItem
                 icon="apple"
                 iconTone="muted"
@@ -260,6 +286,11 @@ export function ProfileScreen() {
                 showChevron
               />
             </>
+          ) : null}
+          {showSwitchHint ? (
+            <Text variant="caption" tone="faint" className="pt-2 leading-4">
+              {t('profile.switchAccountHint')}
+            </Text>
           ) : null}
         </SectionCard>
       ) : null}
