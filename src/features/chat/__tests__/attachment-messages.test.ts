@@ -10,7 +10,6 @@ describe('thông báo gửi tệp chat', () => {
       { code: 'needs_conversion', name: 'IMG.HEIC' },
       { code: 'empty_file', name: 'rong.txt' },
       { code: 'attachment_too_large', name: 'to.jpg', size: 12.4 * MB, maxBytes: 10 * MB },
-      { code: 'total_too_large', size: 54 * MB, maxBytes: 50 * MB },
     ];
     for (const issue of issues) expect(issueMessage(issue)).not.toMatch(/^chat\./);
     expect(issueMessage(issues[4])).toBe('“to.jpg” nặng 12.4 MB — tối đa 10 MB.');

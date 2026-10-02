@@ -137,7 +137,9 @@ export function useAttachmentOutbox(conversationId: string) {
             attachments: o.items.map((i) => ({ objectKey: i.objectKey!, fileName: i.name })),
             clientMessageId: o.clientMessageId,
           }),
-        { shouldRetry: (e) => describeUploadError(e, 'send').retryable }
+        // Mất mạng lúc gửi tin: có thể server đã nhận (chưa chống trùng theo clientMessageId) → không tự gửi
+        // lại, để người dùng bấm "Thử lại". Lỗi 5xx/429 thì chưa tạo tin → tự thử lại.
+        { shouldRetry: (e) => { const d = describeUploadError(e, 'send'); return d.retryable && d.key !== 'network'; } }
       );
       if (runToken.current !== token) return;
       // Hiện ngay, không chờ SignalR (store bỏ trùng theo id).

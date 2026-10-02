@@ -13,26 +13,29 @@ export type AttachmentKind = 'image' | 'file';
 
 type TypeRule = { ext: string; kind: AttachmentKind; maxBytes: number };
 
-/** Loại được gửi (content-type chuẩn → đuôi tệp, loại, dung lượng tối đa). */
+// Mỗi tệp ≤ 10 MB, mọi loại — khớp core-be MessengerAttachmentService.MaxFileBytes (server trả lại maxBytes
+// trong kết quả presign và kiểm lại khi gửi tin).
+const MAX_FILE_BYTES = 10 * MB;
+
+/** Loại được gửi (content-type chuẩn → đuôi tệp, loại, dung lượng tối đa) — khớp danh sách của core-be. */
 export const ATTACHMENT_TYPES: Record<string, TypeRule> = {
-  'image/jpeg': { ext: 'jpg', kind: 'image', maxBytes: 10 * MB },
-  'image/png': { ext: 'png', kind: 'image', maxBytes: 10 * MB },
-  'image/webp': { ext: 'webp', kind: 'image', maxBytes: 10 * MB },
-  'image/gif': { ext: 'gif', kind: 'image', maxBytes: 10 * MB },
-  'application/pdf': { ext: 'pdf', kind: 'file', maxBytes: 20 * MB },
-  'application/msword': { ext: 'doc', kind: 'file', maxBytes: 20 * MB },
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { ext: 'docx', kind: 'file', maxBytes: 20 * MB },
-  'application/vnd.ms-excel': { ext: 'xls', kind: 'file', maxBytes: 20 * MB },
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { ext: 'xlsx', kind: 'file', maxBytes: 20 * MB },
-  'text/plain': { ext: 'txt', kind: 'file', maxBytes: 5 * MB },
-  'text/csv': { ext: 'csv', kind: 'file', maxBytes: 5 * MB },
+  'image/jpeg': { ext: 'jpg', kind: 'image', maxBytes: MAX_FILE_BYTES },
+  'image/png': { ext: 'png', kind: 'image', maxBytes: MAX_FILE_BYTES },
+  'image/webp': { ext: 'webp', kind: 'image', maxBytes: MAX_FILE_BYTES },
+  'image/gif': { ext: 'gif', kind: 'image', maxBytes: MAX_FILE_BYTES },
+  'application/pdf': { ext: 'pdf', kind: 'file', maxBytes: MAX_FILE_BYTES },
+  'application/msword': { ext: 'doc', kind: 'file', maxBytes: MAX_FILE_BYTES },
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': { ext: 'docx', kind: 'file', maxBytes: MAX_FILE_BYTES },
+  'application/vnd.ms-excel': { ext: 'xls', kind: 'file', maxBytes: MAX_FILE_BYTES },
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': { ext: 'xlsx', kind: 'file', maxBytes: MAX_FILE_BYTES },
+  'text/plain': { ext: 'txt', kind: 'file', maxBytes: MAX_FILE_BYTES },
+  'text/csv': { ext: 'csv', kind: 'file', maxBytes: MAX_FILE_BYTES },
 };
 
 /** Loại tài liệu cho DocumentPicker (ảnh chọn qua thư viện ảnh). */
 export const DOCUMENT_PICKER_TYPES = Object.keys(ATTACHMENT_TYPES).filter((m) => !m.startsWith('image/'));
 
 export const MAX_FILES_PER_MESSAGE = 10;
-export const MAX_TOTAL_BYTES = 50 * MB;
 export const MAX_PARALLEL_UPLOADS = 3;
 const MAX_FILE_NAME = 200;
 
@@ -224,12 +227,10 @@ export type AttachmentIssue =
   | { code: 'unsupported_type'; name: string }
   | { code: 'needs_conversion'; name: string }
   | { code: 'empty_file'; name: string }
-  | { code: 'attachment_too_large'; name: string; size: number; maxBytes: number }
-  | { code: 'total_too_large'; size: number; maxBytes: number };
+  | { code: 'attachment_too_large'; name: string; size: number; maxBytes: number };
 
 export function validateAttachments(files: { name: string; contentType: string; size: number }[]): AttachmentIssue | null {
   if (files.length > MAX_FILES_PER_MESSAGE) return { code: 'too_many_files', max: MAX_FILES_PER_MESSAGE };
-  let total = 0;
   for (const f of files) {
     const rule = attachmentRule(f.contentType);
     if (!rule) {
@@ -237,9 +238,7 @@ export function validateAttachments(files: { name: string; contentType: string; 
     }
     if (!(f.size > 0)) return { code: 'empty_file', name: f.name };
     if (f.size > rule.maxBytes) return { code: 'attachment_too_large', name: f.name, size: f.size, maxBytes: rule.maxBytes };
-    total += f.size;
   }
-  if (total > MAX_TOTAL_BYTES) return { code: 'total_too_large', size: total, maxBytes: MAX_TOTAL_BYTES };
   return null;
 }
 
@@ -332,8 +331,9 @@ export function describeUploadError(err: unknown, stage: UploadStage): UploadErr
     }
     if (status === 403) return { key: 'forbidden', retryable: false, status };
     if (status === 404 || status === 405) {
-      // presign chưa có → core-be chưa lên bản mới; gửi tin 404 → hội thoại không còn.
-      return stage === 'presign' ? { key: 'serverOutdated', retryable: false, status } : { key: 'forbidden', retryable: false, status };
+      // 404 có body {error, code} → hội thoại không còn; 404/405 rỗng ở bước presign → core-be chưa lên bản mới.
+      const outdated = stage === 'presign' && !serverMessageOf(err.body);
+      return { key: outdated ? 'serverOutdated' : 'forbidden', retryable: false, status };
     }
     if (status === 408 || status === 429 || status >= 500) return { key: 'failed', retryable: true, status };
     return { key: 'failed', retryable: false, serverMessage: serverMessageOf(err.body), status };

@@ -652,7 +652,6 @@ export const vi = {
       heic: 'Ảnh “{name}” là HEIC, bản app này chưa chuyển được sang JPEG. Hãy cập nhật app hoặc chọn ảnh khác.',
       empty: '“{name}” trống (0 byte).',
       tooLarge: '“{name}” nặng {size} — tối đa {max}.',
-      totalTooLarge: 'Mỗi lần gửi tối đa {max} tổng cộng — bớt tệp rồi gửi lại.',
       prepareFailed: 'Không đọc được tệp đã chọn. Vui lòng chọn lại.',
       network: 'Mất kết nối mạng khi gửi tệp. Kiểm tra Wi‑Fi/4G rồi bấm Thử lại.',
       linkExpired: 'Liên kết tải lên đã hết hạn. Bấm Thử lại để gửi tiếp.',

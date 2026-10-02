@@ -15,8 +15,6 @@ export function issueMessage(issue: AttachmentIssue): string {
       return t('chat.attach.empty', { name: issue.name });
     case 'attachment_too_large':
       return t('chat.attach.tooLarge', { name: issue.name, size: formatBytes(issue.size), max: formatBytes(issue.maxBytes) });
-    case 'total_too_large':
-      return t('chat.attach.totalTooLarge', { max: formatBytes(issue.maxBytes) });
   }
 }
 

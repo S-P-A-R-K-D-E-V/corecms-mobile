@@ -652,7 +652,6 @@ export const en: Dict = {
       heic: '“{name}” is a HEIC photo this app version can’t convert to JPEG yet. Update the app or pick another photo.',
       empty: '“{name}” is empty (0 bytes).',
       tooLarge: '“{name}” is {size} — the limit is {max}.',
-      totalTooLarge: 'One message can carry at most {max} in total — remove some files and try again.',
       prepareFailed: 'Couldn’t read the selected file. Please pick it again.',
       network: 'Lost connection while sending. Check Wi‑Fi or mobile data and tap Retry.',
       linkExpired: 'The upload link expired. Tap Retry to continue.',

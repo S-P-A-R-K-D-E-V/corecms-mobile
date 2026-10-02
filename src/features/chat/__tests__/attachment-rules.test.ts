@@ -104,7 +104,9 @@ describe('kiểm tra trước khi xin URL', () => {
   const jpg = (size: number, name = 'a.jpg') => ({ name, contentType: 'image/jpeg', size });
 
   it('hợp lệ', () => {
-    expect(validateAttachments([jpg(500_000), { name: 'b.pdf', contentType: 'application/pdf', size: 15 * MB }])).toBeNull();
+    expect(validateAttachments([jpg(500_000), { name: 'b.pdf', contentType: 'application/pdf', size: 9 * MB }])).toBeNull();
+    // Không giới hạn tổng (server chỉ giới hạn từng tệp + số tệp).
+    expect(validateAttachments(Array.from({ length: 10 }, () => jpg(9 * MB)))).toBeNull();
   });
 
   it('quá 10 tệp', () => {
@@ -117,15 +119,10 @@ describe('kiểm tra trước khi xin URL', () => {
     expect(validateAttachments([jpg(0, 'rong.jpg')])).toEqual({ code: 'empty_file', name: 'rong.jpg' });
   });
 
-  it('giới hạn theo loại: ảnh 10 MB, PDF/Office 20 MB, TXT/CSV 5 MB', () => {
+  it('mỗi tệp ≤ 10 MB, mọi loại (khớp core-be)', () => {
     expect(validateAttachments([jpg(11 * MB, 'to.jpg')])).toEqual({ code: 'attachment_too_large', name: 'to.jpg', size: 11 * MB, maxBytes: 10 * MB });
-    expect(validateAttachments([{ name: 'a.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 19 * MB }])).toBeNull();
-    expect(validateAttachments([{ name: 'a.csv', contentType: 'text/csv', size: 6 * MB }])).toMatchObject({ code: 'attachment_too_large', maxBytes: 5 * MB });
-  });
-
-  it('tổng một lần gửi ≤ 50 MB', () => {
-    const pdf = { name: 'a.pdf', contentType: 'application/pdf', size: 18 * MB };
-    expect(validateAttachments([pdf, pdf, pdf])).toMatchObject({ code: 'total_too_large', maxBytes: 50 * MB });
+    expect(validateAttachments([{ name: 'a.xlsx', contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 10 * MB }])).toBeNull();
+    expect(validateAttachments([{ name: 'a.pdf', contentType: 'application/pdf', size: 12 * MB }])).toMatchObject({ code: 'attachment_too_large', maxBytes: 10 * MB });
   });
 });
 
@@ -199,6 +196,7 @@ describe('lỗi → thông báo', () => {
     expect(describeUploadError(new HttpStatusError(400, { error: 'Quá lớn' }), 'presign')).toEqual({ key: 'rejected', retryable: false, serverMessage: 'Quá lớn', status: 400 });
     expect(describeUploadError(new HttpStatusError(403, ''), 'presign')).toMatchObject({ key: 'forbidden', retryable: false });
     expect(describeUploadError(new HttpStatusError(404, ''), 'presign')).toMatchObject({ key: 'serverOutdated', retryable: false });
+    expect(describeUploadError(new HttpStatusError(404, { error: 'Không tìm thấy hội thoại.', code: 'Messenger.ConversationNotFound' }), 'presign')).toMatchObject({ key: 'forbidden', retryable: false });
     expect(describeUploadError(new HttpStatusError(503, ''), 'presign')).toMatchObject({ key: 'failed', retryable: true });
     // Interceptor chung trả chuỗi khi không có phản hồi (mất mạng / quá giờ).
     expect(describeUploadError('Something went wrong', 'presign')).toEqual({ key: 'network', retryable: true });
