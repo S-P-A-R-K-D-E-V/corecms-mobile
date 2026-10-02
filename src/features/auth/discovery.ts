@@ -23,16 +23,30 @@ export type Pending = {
   result: DiscoverResult;
   at: number;
   firstAt: number;
+  /** Mã cửa hàng của trang đăng nhập đã mở đăng nhập này (Google từ trang của một cửa hàng) — ưu tiên vào. */
+  prefer?: string | null;
 };
+
+/**
+ * Đăng nhập Google/Apple hợp lệ nhưng tài khoản chưa thuộc cửa hàng nào: trang đăng nhập (Chào mừng hoặc
+ * trang của cửa hàng) hiện lời nhắn thay vì sang màn chọn cửa hàng rỗng. Không giữ token/mật khẩu ở đây.
+ */
+export type NoStoreNotice = { email: string | null; via: SignInMethod };
 
 type DiscoveryState = {
   pending: Pending | null;
+  noStore: NoStoreNotice | null;
   clear: () => void;
+  showNoStore: (notice: NoStoreNotice) => void;
+  dismissNoStore: () => void;
 };
 
 export const useDiscovery = create<DiscoveryState>((set) => ({
   pending: null,
+  noStore: null,
   clear: () => set({ pending: null }),
+  showNoStore: (notice) => set({ pending: null, noStore: notice }),
+  dismissNoStore: () => set({ noStore: null }),
 }));
 
 export async function runDiscovery(request: DiscoverRequest): Promise<Pending> {
@@ -41,15 +55,15 @@ export async function runDiscovery(request: DiscoverRequest): Promise<Pending> {
   const now = Date.now();
   const via: SignInMethod = 'provider' in request ? request.provider : 'email';
   const pending: Pending = { state, request, via, result, at: now, firstAt: now };
-  useDiscovery.setState({ pending });
+  useDiscovery.setState({ pending, noStore: null });
   return pending;
 }
 
 /** Kết quả đã có sẵn (đổi mã từ đăng nhập web) → chờ người dùng chọn cửa hàng như discover. */
-export function setDiscovered(state: string, via: SignInMethod, result: DiscoverResult): Pending {
+export function setDiscovered(state: string, via: SignInMethod, result: DiscoverResult, prefer?: string | null): Pending {
   const now = Date.now();
-  const pending: Pending = { state, request: null, via, result, at: now, firstAt: now };
-  useDiscovery.setState({ pending });
+  const pending: Pending = { state, request: null, via, result, at: now, firstAt: now, prefer: prefer ?? null };
+  useDiscovery.setState({ pending, noStore: null });
   return pending;
 }
 

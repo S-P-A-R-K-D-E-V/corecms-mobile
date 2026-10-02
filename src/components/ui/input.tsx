@@ -15,12 +15,16 @@ export type TextFieldProps = TextInputProps & {
   icon?: IconName;
   className?: string;
   containerClassName?: string;
+  /** Phần tử bên phải ô (vd nút hiện/ẩn mật khẩu). */
+  right?: React.ReactNode;
+  /** Màu viền + icon khi đang nhập — mặc định màu cửa hàng; màn nền tảng (Chào mừng) truyền hồng Spark Store. */
+  accentColor?: string;
 };
 
 /** Apple-style field: soft gray fill, hairline that lights up + a subtle
  *  1.02 scale on focus. */
 export const TextField = forwardRef<TextInput, TextFieldProps>(function TextField(
-  { label, error, icon, className, containerClassName, onFocus, onBlur, multiline, ...props },
+  { label, error, icon, className, containerClassName, onFocus, onBlur, multiline, right, accentColor, ...props },
   ref
 ) {
   const { colorScheme } = useColorScheme();
@@ -35,7 +39,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
     <View className={cn('gap-1.5', containerClassName)}>
       {label ? <Text variant="footnote" tone="muted" className="font-semibold ml-1">{label}</Text> : null}
       <MotiView
-        animate={{ borderColor: focused && !error ? brand.primary : idleBorder, scale: focused ? 1.02 : 1 }}
+        animate={{ borderColor: focused && !error ? accentColor ?? brand.primary : idleBorder, scale: focused ? 1.02 : 1 }}
         transition={{ type: 'spring', ...spring.soft }}
         style={{
           flexDirection: 'row',
@@ -49,7 +53,9 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           backgroundColor: fill,
         }}
       >
-        {icon ? <Icon name={icon} size={18} tone={focused ? 'primary' : 'faint'} /> : null}
+        {icon ? (
+          <Icon name={icon} size={18} tone={focused ? 'primary' : 'faint'} color={focused && accentColor ? accentColor : undefined} />
+        ) : null}
         <TextInput
           ref={ref}
           placeholderTextColor={brand.faint}
@@ -60,6 +66,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           style={fam ? { fontFamily: fam } : undefined}
           {...props}
         />
+        {right}
       </MotiView>
       {error ? <Text variant="caption" tone="error" className="ml-1">{error}</Text> : null}
     </View>

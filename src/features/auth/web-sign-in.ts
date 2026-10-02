@@ -27,7 +27,8 @@ const MAX_AGE_MS = 15 * 60_000;
 
 export const AUTH_WEB_ORIGIN = AUTH_HUB_API.replace(/\/api\/?$/, '');
 
-type SavedPkce = { state: string; verifier: string; provider: WebProvider; at: number };
+/** prefer: mã cửa hàng khi mở từ trang đăng nhập của cửa hàng đó (vào thẳng nếu tài khoản thuộc cửa hàng). */
+type SavedPkce = { state: string; verifier: string; provider: WebProvider; at: number; prefer?: string | null };
 
 const B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 
@@ -49,16 +50,21 @@ export function hubRedirectUri(): string {
 
 /**
  * Mở trang đăng nhập web. Trả về {code, state} nếu trình duyệt trả URL về (iOS); null nếu người dùng
- * đóng trình duyệt, hoặc kết quả đi theo deep link tới màn auth/hub (Android).
+ * đóng trình duyệt, hoặc kết quả đi theo deep link tới màn auth/hub (Android). `prefer` = mã cửa hàng của
+ * trang đăng nhập đang mở (lưu cùng PKCE để màn auth/hub vẫn biết kể cả khi Android dọn app giữa chừng).
  */
-export async function startWebSignIn(provider: WebProvider, lang: string): Promise<{ code: string; state: string } | null> {
+export async function startWebSignIn(
+  provider: WebProvider,
+  lang: string,
+  prefer?: string | null
+): Promise<{ code: string; state: string } | null> {
   const verifier = base64Url(Crypto.getRandomBytes(32)); // 43 ký tự
   const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
     encoding: Crypto.CryptoEncoding.BASE64,
   });
   const challenge = digest.replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
   const state = newSsoState();
-  const saved: SavedPkce = { state, verifier, provider, at: Date.now() };
+  const saved: SavedPkce = { state, verifier, provider, at: Date.now(), prefer: prefer ?? null };
   await SecureStore.setItemAsync(PKCE_KEY, JSON.stringify(saved));
 
   const redirectUri = hubRedirectUri();
@@ -101,7 +107,7 @@ export function completeWebSignIn(code: string, state: string): Promise<Pending>
       }
       await SecureStore.deleteItemAsync(PKCE_KEY);
       const result = await redeemAppHubCode(code, state, saved.verifier);
-      return setDiscovered(state, saved.provider, result);
+      return setDiscovered(state, saved.provider, result, saved.prefer);
     })();
     inflight.set(code, job);
   }

@@ -22,6 +22,7 @@ export const PrefKeys = {
   fontScale: 'pref.fontScale',   // 'small' | 'medium' | 'large' | 'xlarge'
   launcherPins: 'pref.launcherPins', // JSON: { staff: string[], admin: string[] }
   aiConsent: 'pref.aiConsent', // phiên bản nội dung đồng ý gửi dữ liệu cho AI đã chấp nhận
+  lastStoreField: 'pref.lastStoreField', // mã / tên miền cửa hàng gõ lần trước ở trang đăng nhập (không bí mật)
 } as const;
 
 export const secure = {

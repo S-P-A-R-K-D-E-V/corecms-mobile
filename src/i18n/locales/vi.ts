@@ -100,6 +100,21 @@ export const vi = {
     webExpired: 'Liên kết đăng nhập đã hết hạn. Vui lòng thử lại.',
     finishing: 'Đang hoàn tất đăng nhập…',
   },
+  // Trang đăng nhập bản cửa hàng: Google / Apple / tài khoản email (mở 3 ô ngay trên trang).
+  signIn: {
+    emailAccount: 'Đăng nhập bằng tài khoản email',
+    storeLabel: 'Mã hoặc tên miền cửa hàng',
+    storePlaceholder: 'vd: demo hoặc cuahangcuaban.vn',
+    storeHelp: 'Mã cửa hàng do chủ cửa hàng cung cấp, hoặc tên miền / link trang web của cửa hàng. Chưa biết thì bỏ trống — app sẽ tự tìm các cửa hàng của tài khoản.',
+    storeOf: 'Cửa hàng',
+    showPassword: 'Hiện mật khẩu',
+    hidePassword: 'Ẩn mật khẩu',
+    notMember: 'Tài khoản này chưa thuộc cửa hàng {store}. Kiểm tra lại mã cửa hàng và email, hoặc nhờ chủ cửa hàng thêm bạn.',
+    notMemberHere: 'Tài khoản này chưa thuộc cửa hàng {store}. Kiểm tra lại email, hoặc nhờ chủ cửa hàng thêm bạn.',
+    noStoreTitle: 'Chưa có cửa hàng nào',
+    noStoreDesc: 'Tài khoản {account} chưa được liên kết với cửa hàng nào. Hãy đăng nhập bằng tài khoản email cửa hàng đã cấp, hoặc nhờ chủ cửa hàng thêm đúng email này.',
+    noStoreDescNoEmail: 'Tài khoản này chưa được liên kết với cửa hàng nào. Hãy đăng nhập bằng tài khoản email cửa hàng đã cấp, hoặc nhờ chủ cửa hàng thêm bạn.',
+  },
   emailSignIn: {
     title: 'Đăng nhập bằng email',
     subtitle: 'Dùng email và mật khẩu cửa hàng đã tạo cho bạn.',

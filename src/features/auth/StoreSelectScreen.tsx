@@ -8,6 +8,7 @@ import { AppHeader } from 'src/components/shared';
 import { queryClient } from 'src/services/query/client';
 import { useT } from 'src/i18n';
 import { SAAS_ZONE, lookupStore, setStore } from 'src/services/store-config';
+import { storeLookupErrorKey } from './sign-in';
 
 // ----------------------------------------------------------------------
 // Bản app cửa hàng — lối phụ: người dùng biết mã cửa hàng (phần trước .store.devbyspark.com) hoặc địa
@@ -15,14 +16,6 @@ import { SAAS_ZONE, lookupStore, setStore } from 'src/services/store-config';
 // lưu; từ đó API đi tới https://<mã>.store.devbyspark.com/api và đăng nhập trên trang web của cửa hàng
 // (hoặc Apple trên tên miền cửa hàng).
 // ----------------------------------------------------------------------
-
-const REASON_KEY = {
-  invalid: 'storeSelect.invalid',
-  not_found: 'storeSelect.notFound',
-  suspended: 'storeSelect.suspended',
-  rate_limited: 'emailSignIn.tooMany',
-  network: 'common.network',
-} as const;
 
 export function StoreSelectScreen() {
   const t = useT();
@@ -37,7 +30,7 @@ export function StoreSelectScreen() {
     try {
       const result = await lookupStore(code);
       if (!result.ok) {
-        setError(t(REASON_KEY[result.reason]));
+        setError(t(storeLookupErrorKey(result.reason)));
         return;
       }
       await setStore(result.profile);

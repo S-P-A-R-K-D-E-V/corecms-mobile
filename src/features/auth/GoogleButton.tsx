@@ -5,7 +5,8 @@ import { PressableScale, Text } from 'src/components/ui';
 
 // ----------------------------------------------------------------------
 // Nút "Tiếp tục với Google" theo hướng dẫn thương hiệu của Google: nền sáng, viền mảnh, logo "G" bốn
-// màu nguyên bản (không tô đơn sắc).
+// màu nguyên bản (không tô đơn sắc). compact: nằm nửa hàng cạnh nút Apple — chữ tự thu nhỏ cho vừa bề
+// ngang (iPhone SE). Cao tối thiểu 50 (bằng nút Apple), chữ phóng to thì nút cao theo, không bị xén.
 // ----------------------------------------------------------------------
 
 function GoogleG({ size = 20 }: { size?: number }) {
@@ -19,17 +20,38 @@ function GoogleG({ size = 20 }: { size?: number }) {
   );
 }
 
-export function GoogleButton({ label, disabled, onPress }: { label: string; disabled?: boolean; onPress: () => void }) {
+export function GoogleButton({
+  label,
+  disabled,
+  compact,
+  onPress,
+}: {
+  label: string;
+  disabled?: boolean;
+  compact?: boolean;
+  onPress: () => void;
+}) {
   return (
-    <PressableScale onPress={onPress} disabled={disabled} style={{ opacity: disabled ? 0.6 : 1 }}>
+    <PressableScale onPress={onPress} disabled={disabled} style={{ flexGrow: 1, opacity: disabled ? 0.6 : 1 }}>
       <View
         accessible
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ disabled: !!disabled }}
-        className="h-[50px] rounded-[12px] flex-row items-center justify-center gap-2.5 bg-white border border-[#747775]">
-        <GoogleG />
-        <Text className="text-[17px] font-semibold text-[#1F1F1F]">{label}</Text>
+        className="min-h-[50px] rounded-[12px] flex-row items-center justify-center bg-white border border-[#747775]"
+        style={{ flexGrow: 1, paddingHorizontal: compact ? 10 : 16, paddingVertical: 6, gap: compact ? 8 : 10 }}
+      >
+        <GoogleG size={compact ? 18 : 20} />
+        <Text
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+          maxFontSizeMultiplier={1.6}
+          style={{ flexShrink: 1 }}
+          className={compact ? 'text-[15px] font-semibold text-[#1F1F1F]' : 'text-[17px] font-semibold text-[#1F1F1F]'}
+        >
+          {label}
+        </Text>
       </View>
     </PressableScale>
   );

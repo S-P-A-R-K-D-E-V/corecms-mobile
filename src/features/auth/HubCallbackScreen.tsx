@@ -6,12 +6,14 @@ import { Spinner, Text } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { useT } from 'src/i18n';
 import { completeWebSignIn } from './web-sign-in';
-import { discoverErrorMessage, useEnterStore } from './use-enter-store';
+import { discoverErrorMessage } from './use-enter-store';
+import { useAfterDiscovery } from './use-sign-in';
 
 // ----------------------------------------------------------------------
 // sparkstore://auth/hub?code=…&state=… — trang auth.devbyspark.com/sso/start?app=1 chuyển về đây sau
-// khi đăng nhập Google/Apple (Android qua intent; iOS do WelcomeScreen đẩy vào). Đổi mã lấy danh sách
-// cửa hàng rồi đi tiếp như sau discover: 1 cửa hàng → vào thẳng, còn lại → màn chọn cửa hàng.
+// khi đăng nhập Google/Apple (Android qua intent; iOS do màn đăng nhập đẩy vào). Đổi mã lấy danh sách
+// cửa hàng rồi đi tiếp như sau discover: 1 cửa hàng (hoặc đúng cửa hàng của trang đăng nhập đã mở) →
+// vào thẳng; nhiều → màn chọn cửa hàng; không có → quay lại trang đăng nhập, hiện lời nhắn.
 // ----------------------------------------------------------------------
 
 /** Đổi màn ngay khi màn này còn đang trượt vào làm react-native-screens (Android) kẹt hiệu ứng mờ. */
@@ -19,15 +21,23 @@ const SETTLE_MS = 450;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Về Welcome đang có sẵn dưới stack (không chồng thêm một Welcome mới). */
-function backToWelcome() {
-  router.dismissTo('/welcome' as any);
+/**
+ * Về trang đăng nhập đã mở đăng nhập web (đang có sẵn dưới stack — không chồng thêm màn mới): trang của
+ * cửa hàng nếu mở từ đó, không thì Chào mừng. Chưa biết mở từ đâu (mã lỗi / hết hạn) → lùi một màn.
+ */
+function backToSignIn(fromStorePage?: boolean) {
+  if (fromStorePage === undefined) {
+    if (router.canGoBack()) router.back();
+    else router.replace('/welcome' as any);
+    return;
+  }
+  router.dismissTo((fromStorePage ? '/(auth)/login' : '/welcome') as any);
 }
 
 export function HubCallbackScreen() {
   const t = useT();
   const { code, state } = useLocalSearchParams<{ code?: string; state?: string }>();
-  const { enter } = useEnterStore();
+  const { proceed } = useAfterDiscovery();
 
   useEffect(() => {
     let cancelled = false;
@@ -36,23 +46,26 @@ export function HubCallbackScreen() {
     (async () => {
       if (typeof code !== 'string' || typeof state !== 'string' || !code || !state) {
         await settle();
-        if (!cancelled) backToWelcome();
+        if (!cancelled) backToSignIn();
         return;
       }
       try {
         const pending = await completeWebSignIn(code, state);
         await settle();
         if (cancelled) return;
-        if (pending.result.stores.length === 1) {
-          if (!(await enter(pending.result.stores[0]!.code))) backToWelcome();
-        } else {
-          router.replace('/store-picker' as any);
-        }
+        const fromStorePage = !!pending.prefer;
+        const { choice, entered } = await proceed(pending, {
+          wanted: pending.prefer ? { code: pending.prefer } : null,
+          mode: 'prefer',
+          nav: 'replace',
+        });
+        // Vào không được (đã báo lỗi) / không có cửa hàng nào (lời nhắn hiện trên trang đăng nhập) → quay lại.
+        if ((choice.kind === 'enter' && !entered) || choice.kind === 'none') backToSignIn(fromStorePage);
       } catch (err) {
         await settle();
         if (cancelled) return;
         toast.error(discoverErrorMessage(err), t('auth.loginFailed'));
-        backToWelcome();
+        backToSignIn();
       }
     })();
     return () => {

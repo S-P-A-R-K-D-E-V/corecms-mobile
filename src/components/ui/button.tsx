@@ -15,6 +15,12 @@ const sizeClass: Record<Size, string> = {
   md: 'h-12 px-4 rounded-[10px]',
   lg: 'h-[50px] px-5 rounded-[12px]',
 };
+// autoHeight: chiều cao tối thiểu thay vì cố định — chữ lớn (Dynamic Type iOS) làm nút cao thêm, không bị xén.
+const minSizeClass: Record<Size, string> = {
+  sm: 'min-h-9 px-3.5 py-1.5 rounded-[8px]',
+  md: 'min-h-12 px-4 py-2 rounded-[10px]',
+  lg: 'min-h-[50px] px-5 py-2.5 rounded-[12px]',
+};
 const sizeText: Record<Size, string> = { sm: 'text-[14px]', md: 'text-[15px]', lg: 'text-[17px]' };
 
 function styles(variant: Variant, action: Action): { box: string; label: string; icon: string; shadow: boolean } {
@@ -53,6 +59,8 @@ export type ButtonProps = {
   icon?: IconName;
   className?: string;
   fullWidth?: boolean;
+  /** Nút cao theo chữ (tối thiểu bằng cỡ thường), chữ xuống tối đa 2 dòng — cho màn có thể gặp chữ phóng to. */
+  autoHeight?: boolean;
   onPress?: () => void;
 };
 
@@ -66,6 +74,7 @@ export function Button({
   icon,
   className,
   fullWidth = true,
+  autoHeight,
   onPress,
 }: ButtonProps) {
   const s = styles(variant, action);
@@ -75,7 +84,7 @@ export function Button({
       <View
         className={cn(
           'flex-row items-center justify-center gap-2',
-          sizeClass[size],
+          autoHeight ? minSizeClass[size] : sizeClass[size],
           s.box,
           fullWidth && 'w-full',
           isDisabled && 'opacity-40',
@@ -94,7 +103,7 @@ export function Button({
             {icon ? <Icon name={icon} size={18} color={s.icon} /> : null}
             {typeof children === 'string' ? (
               <Text
-                numberOfLines={1}
+                numberOfLines={autoHeight ? 2 : 1}
                 style={{ flexShrink: 1 }}
                 className={cn('text-center font-semibold', sizeText[size], s.label)}
               >
