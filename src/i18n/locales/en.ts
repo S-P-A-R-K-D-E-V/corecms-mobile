@@ -152,6 +152,7 @@ export const en: Dict = {
     otherStore: 'Use a different store',
     loginFailed: 'Sign-in failed',
     noSession: "We didn't receive a session. Please try again.",
+    sessionOffline: "Can't reach the server. You're still signed in on this device — check your connection and try again.",
     email: 'Email',
     password: 'Password',
     loginCta: 'Sign in',

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-import { getHostApi } from 'src/services/store-config';
+import { getHostApi, getStoreCode, isMultiStore } from 'src/services/store-config';
 import type { IAuthResponse } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -13,6 +13,8 @@ import type { IAuthResponse } from 'src/types/corecms-api';
 //   - Chỉ xoá token khi server TỪ CHỐI dứt khoát (4xx, trừ 408/429). Mất mạng / 5xx → giữ nguyên.
 //   - Không bao giờ đụng tới cửa hàng đã nhớ (storeProfile) — xem store-config.
 //   - Nhiều request cùng 401 thì chỉ khôi phục một lần (single-flight), các request chờ chung kết quả.
+//   - Bản cửa hàng mà chưa gắn cửa hàng nào: không gửi phiên đi đâu cả (gốc API lúc đó là địa chỉ cố định
+//     của bản CiCi, không phải cửa hàng đã cấp phiên).
 // ----------------------------------------------------------------------
 
 export const ACCESS_TOKEN_KEY = 'accessToken';
@@ -35,6 +37,11 @@ export type RestoreOutcome =
 /** 4xx dứt khoát — server thật sự không nhận token/phiên này (408 hết giờ, 429 quá tải thì thử lại sau). */
 export function isAuthRejection(status: unknown): boolean {
   return typeof status === 'number' && status >= 400 && status < 500 && status !== 408 && status !== 429;
+}
+
+/** Bản cửa hàng chưa gắn cửa hàng (vd đọc storeProfile lỗi): chưa có nơi hợp lệ để gửi token/phiên. */
+export function hasSessionHost(): boolean {
+  return !isMultiStore || !!getStoreCode();
 }
 
 /** Token hiện tại (SignalR đọc lại mỗi lần kết nối/kết nối lại — không giữ token cũ). */
@@ -66,7 +73,7 @@ export function restoreSession(): Promise<RestoreOutcome> {
 
 async function doRestore(): Promise<RestoreOutcome> {
   const sessionToken = await SecureStore.getItemAsync(SESSION_TOKEN_KEY);
-  if (!sessionToken) return { kind: 'none' };
+  if (!sessionToken || !hasSessionHost()) return { kind: 'none' };
   const host = getHostApi();
   // Phiên trong máy vẫn là phiên mình gửi đi, trên đúng cửa hàng đó.
   const unchanged = async () =>

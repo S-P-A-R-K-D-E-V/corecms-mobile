@@ -1,10 +1,12 @@
-import React, { useReducer, useCallback, useMemo, useEffect, useState } from 'react';
+import React, { useReducer, useCallback, useMemo, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 import axiosInstance, { endpoints, getStorageUrl, setSessionExpiredHandler } from 'src/api/axios';
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_TOKEN_KEY, restoreSession } from 'src/api/session';
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_TOKEN_KEY } from 'src/api/session';
 import type { IAuthResponse, ILoginRequest, IRegisterRequest, IVerifyOtpRequest, IResendOtpRequest } from 'src/types/corecms-api';
 import { AuthContext, type AuthUser, type OAuthExtra } from './auth-context';
+import { resumeSession } from './resume-session';
 import { unregisterCurrentPushToken } from 'src/hooks/use-push-registration';
 import { storeProfileOf, type DiscoveredStore } from 'src/api/app-hub';
 import { forgetStore, setStore } from 'src/services/store-config';
@@ -34,32 +36,18 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case Types.INITIAL:
       return { loading: false, user: action.payload.user };
+    // Đăng nhập / đăng xuất là trạng thái dứt khoát — kể cả khi xảy ra lúc đang mở app (vd hết phiên
+    // giữa lúc khôi phục, hoặc đăng nhập qua deep link khi app vừa mở) thì cũng thôi màn chờ.
     case Types.LOGIN:
-      return { ...state, user: action.payload.user };
+      return { loading: false, user: action.payload.user };
     case Types.LOGOUT:
-      return { ...state, user: null };
+      return { loading: false, user: null };
     default:
       return state;
   }
 }
 
 // ----------------------------------------------------------------------
-
-function jwtDecode(token: string) {
-  const base64Url = token.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64 + '=='.slice(0, (4 - (base64.length % 4)) % 4);
-  return JSON.parse(atob(padded));
-}
-
-function isValidToken(token: string): boolean {
-  try {
-    const { exp } = jwtDecode(token);
-    return Date.now() < exp * 1000;
-  } catch {
-    return false;
-  }
-}
 
 /** Dựng AuthUser đầy đủ (kèm phone/address/bank/CCCD) từ response `GET /users/me`.
  *  Dùng ở mọi nơi cần biết hồ sơ đã đủ thông tin chưa — response đăng nhập
@@ -152,58 +140,71 @@ async function setSession(accessToken: string | null, refreshToken?: string | nu
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, { user: null, loading: true });
   const [pendingVerification, setPendingVerification] = useState<{ email: string } | null>(null);
+  // Mở app mà chưa kết nối được máy chủ trong khi máy vẫn còn phiên (mất mạng / 5xx): chưa phải đăng xuất.
+  // Trang đăng nhập báo "máy vẫn giữ phiên" + nút Thử lại; app tự thử lại mỗi lần quay lại nền trước.
+  const [sessionOffline, setSessionOffline] = useState(false);
+  const [resumingSession, setResumingSession] = useState(false);
+  const resuming = useRef(false);
+  // Tăng mỗi lần đăng nhập / đăng xuất chủ động — kết quả khôi phục phiên chạy dở về sau thì bỏ, không ghi đè.
+  const authEpoch = useRef(0);
+
+  /** Đăng nhập / đăng xuất chủ động: thắng mọi lần khôi phục phiên đang chạy dở. */
+  const commit = useCallback((action: Action) => {
+    authEpoch.current += 1;
+    setSessionOffline(false);
+    dispatch(action);
+  }, []);
 
   // Hết phiên giữa chừng (axios khôi phục không được vì server từ chối phiên): về "chưa đăng nhập".
   // Token đã được axios xoá; cửa hàng đã nhớ giữ nguyên → các cổng đưa về trang đăng nhập của cửa hàng.
   useEffect(() => {
     setSessionExpiredHandler(() => {
       setPendingVerification(null);
-      dispatch({ type: Types.LOGOUT });
+      commit({ type: Types.LOGOUT });
       // Người đăng nhập lại có thể là người khác — không để lộ dữ liệu đã nạp của người trước.
       queryClient.clear();
     });
     return () => setSessionExpiredHandler(null);
-  }, []);
+  }, [commit]);
 
-  // Mở app khi accessToken đã hết hạn: lấy token mới bằng phiên của máy (gia hạn phiên thêm 30 ngày).
-  // Chỉ mất phiên khi server từ chối (4xx) — mất mạng / 5xx thì giữ sessionToken cho lần mở sau.
-  const tryRestoreSession = useCallback(async (): Promise<boolean> => {
-    try {
-      const outcome = await restoreSession();
-      if (outcome.kind !== 'restored') return false;
-      const { token, refreshToken } = outcome.data;
-      await setSession(token, refreshToken);
-      const user = await loadUserAfterAuth(outcome.data, token, refreshToken);
-      dispatch({ type: Types.INITIAL, payload: { user } });
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
+  // Lấy lại phiên của máy — lúc mở app, và khi thử lại sau lần chưa kết nối được (xem resume-session.ts).
+  // accessToken hết hạn → khôi phục bằng sessionToken (server gia hạn phiên thêm 30 ngày). Chỉ mất phiên
+  // khi server từ chối (4xx); mất mạng / 5xx giữ nguyên mọi token.
   const initialize = useCallback(async () => {
+    if (resuming.current) return;
+    resuming.current = true;
+    setResumingSession(true);
+    const epoch = authEpoch.current;
     try {
-      const accessToken = await SecureStore.getItemAsync(STORAGE_KEY);
-      if (accessToken && isValidToken(accessToken)) {
-        axiosInstance.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
-        // Token bị từ chối (401) thì axios tự khôi phục bằng sessionToken rồi gọi lại — token có thể đã đổi.
-        const meRes = await axiosInstance.get(endpoints.users.me);
-        const current = (await SecureStore.getItemAsync(STORAGE_KEY)) ?? accessToken;
-        const user = buildUserFromMe(meRes.data, current);
-        dispatch({ type: Types.INITIAL, payload: { user } });
-        return;
+      // Lỗi bất ngờ (đọc SecureStore…) → như chưa đăng nhập, không tự thử lại liên tục.
+      const result = await resumeSession().catch(() => ({ kind: 'signed-out' as const }));
+      // Trong lúc chờ người dùng đã tự đăng nhập / đăng xuất — trạng thái đó mới đúng.
+      if (epoch !== authEpoch.current) return;
+      let user: AuthUser | null = null;
+      if (result.kind === 'ok') {
+        if (result.me) user = buildUserFromMe(result.me, result.accessToken, result.refreshToken);
+        else if (result.auth) user = buildThinUser(result.auth);
       }
-      const restored = await tryRestoreSession();
-      if (restored) return;
-      dispatch({ type: Types.INITIAL, payload: { user: null } });
-    } catch {
-      dispatch({ type: Types.INITIAL, payload: { user: null } });
+      setSessionOffline(result.kind === 'offline');
+      dispatch({ type: Types.INITIAL, payload: { user } });
+    } finally {
+      resuming.current = false;
+      setResumingSession(false);
     }
-  }, [tryRestoreSession]);
+  }, []);
 
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  // Chưa kết nối được lúc mở app: quay lại app (vừa bật mạng / Wi-Fi, mở lại từ đa nhiệm) thì tự thử lại.
+  useEffect(() => {
+    if (!sessionOffline || state.user) return;
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void initialize();
+    });
+    return () => sub.remove();
+  }, [sessionOffline, state.user, initialize]);
 
   const loginWithSessionToken = useCallback(async (sessionToken: string) => {
     const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.restoreSession, { sessionToken });
@@ -211,8 +212,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setSession(accessToken, refreshToken);
     if (newSessionToken) await SecureStore.setItemAsync(SESSION_KEY, newSessionToken);
     const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
-    dispatch({ type: Types.LOGIN, payload: { user } });
-  }, []);
+    commit({ type: Types.LOGIN, payload: { user } });
+  }, [commit]);
 
   const loginWithDiscoveredStore = useCallback(async (store: DiscoveredStore, state: string) => {
     // Gắn cửa hàng trước (xoá token của cửa hàng cũ): từ đây axios gọi https://<cửa hàng>/api.
@@ -223,8 +224,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setSession(accessToken, refreshToken);
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
-    dispatch({ type: Types.LOGIN, payload: { user } });
-  }, []);
+    commit({ type: Types.LOGIN, payload: { user } });
+  }, [commit]);
 
   const loginWithOAuth = useCallback(async (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => {
     const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.oauthLogin, {
@@ -239,8 +240,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setSession(accessToken, refreshToken);
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
-    dispatch({ type: Types.LOGIN, payload: { user } });
-  }, []);
+    commit({ type: Types.LOGIN, payload: { user } });
+  }, [commit]);
 
   const login = useCallback(async (email: string, password: string) => {
     const data: ILoginRequest = { email, password };
@@ -262,8 +263,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setSession(token, refreshToken);
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     const user = await loadUserAfterAuth(res.data, token, refreshToken);
-    dispatch({ type: Types.LOGIN, payload: { user } });
-  }, []);
+    commit({ type: Types.LOGIN, payload: { user } });
+  }, [commit]);
 
   const register = useCallback(
     async (email: string, password: string, firstName: string, lastName: string) => {
@@ -282,8 +283,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     setPendingVerification(null);
     const user = await loadUserAfterAuth(res.data, token, refreshToken);
-    dispatch({ type: Types.LOGIN, payload: { user } });
-  }, []);
+    commit({ type: Types.LOGIN, payload: { user } });
+  }, [commit]);
 
   const resendOtp = useCallback(async (email: string) => {
     const data: IResendOtpRequest = { email };
@@ -318,11 +319,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await setSession(null, null);
       await SecureStore.deleteItemAsync(SESSION_KEY);
       setPendingVerification(null);
-      dispatch({ type: Types.LOGOUT });
+      commit({ type: Types.LOGOUT });
       // Máy dùng chung: người đăng nhập sau không thấy dữ liệu đã nạp của người trước.
       queryClient.clear();
     }
-  }, [state.user]);
+  }, [state.user, commit]);
 
   // Server xoá dữ liệu cá nhân + vô hiệu mọi phiên; ở máy dọn token VÀ quên luôn cửa hàng (trường hợp
   // duy nhất máy quên cửa hàng) — màn gọi đưa về Chào mừng.
@@ -332,12 +333,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await setSession(null, null);
     await SecureStore.deleteItemAsync(SESSION_KEY);
     setPendingVerification(null);
-    dispatch({ type: Types.LOGOUT });
+    commit({ type: Types.LOGOUT });
     // Ngay sau LOGOUT (không await xen giữa): cổng render lại đã thấy máy không còn cửa hàng → Chào mừng,
     // không ghé trang đăng nhập của cửa hàng vừa rời.
     await forgetStore();
     queryClient.clear();
-  }, []);
+  }, [commit]);
 
   const status = state.loading ? 'loading' : state.user ? 'authenticated' : 'unauthenticated';
 
@@ -348,6 +349,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authenticated: status === 'authenticated',
       unauthenticated: status === 'unauthenticated',
       pendingVerification,
+      sessionOffline,
+      resumingSession,
+      retrySession: initialize,
       login,
       loginWithSessionToken,
       loginWithOAuth,
@@ -359,7 +363,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resendOtp,
       refreshUser,
     }),
-    [state.user, status, pendingVerification, login, loginWithSessionToken, loginWithOAuth, loginWithDiscoveredStore, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
+    [state.user, status, pendingVerification, sessionOffline, resumingSession, initialize, login, loginWithSessionToken, loginWithOAuth, loginWithDiscoveredStore, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -41,7 +41,16 @@ export type AuthContextType = {
   authenticated: boolean;
   unauthenticated: boolean;
   pendingVerification: { email: string } | null;
-  login: (email: string, password: string) => Promise<void>;
+  /**
+   * Mở app chưa kết nối được máy chủ (mất mạng / 5xx) trong khi máy vẫn còn phiên — chưa phải đăng xuất:
+   * trang đăng nhập báo và cho "Thử lại"; app tự thử lại khi quay lại nền trước.
+   */
+  sessionOffline: boolean;
+  /** Đang lấy lại phiên của máy (mở app / thử lại). */
+  resumingSession: boolean;
+  /** Thử lấy lại phiên của máy ngay (sau lần chưa kết nối được). */
+  retrySession: () => Promise<void>;
+  login:(email: string, password: string) => Promise<void>;
   loginWithSessionToken: (sessionToken: string) => Promise<void>;
   /** Đăng nhập bằng token nhà cung cấp (hiện dùng cho Sign in with Apple native trên iOS). */
   loginWithOAuth: (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => Promise<void>;

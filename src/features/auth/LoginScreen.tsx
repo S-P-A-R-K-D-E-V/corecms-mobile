@@ -31,7 +31,7 @@ export function LoginScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { colorScheme } = useColorScheme();
-  const { loginWithSessionToken, loginWithOAuth } = useAuthContext();
+  const { loginWithSessionToken, loginWithOAuth, sessionOffline, resumingSession, retrySession } = useAuthContext();
   const [loading, setLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -123,6 +123,19 @@ export function LoginScreen() {
             </Text>
           </MotiView>
         </View>
+
+        {/* Mở app chưa kết nối được máy chủ nhưng máy vẫn giữ phiên: không phải bị đăng xuất — thử lại là vào. */}
+        {sessionOffline ? (
+          <View className="rounded-2xl bg-warning/10 border border-warning/30 p-4 gap-3">
+            <View className="flex-row gap-3">
+              <Icon name="cloud-off-outline" size={20} tone="warning" />
+              <Text variant="footnote" tone="muted" className="flex-1">{t('auth.sessionOffline')}</Text>
+            </View>
+            <Button size="sm" variant="outline" action="neutral" icon="refresh" loading={resumingSession} onPress={() => void retrySession()}>
+              {t('common.retry')}
+            </Button>
+          </View>
+        ) : null}
 
         {/* Login card */}
         <MotiView from={{ opacity: 0, translateY: 16 }} animate={{ opacity: 1, translateY: 0 }} transition={{ type: 'timing', delay: 280 }}>

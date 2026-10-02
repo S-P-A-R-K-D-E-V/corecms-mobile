@@ -19,7 +19,12 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 let mockHost = 'https://shop1.store.devbyspark.com/api';
-jest.mock('src/services/store-config', () => ({ getHostApi: () => mockHost }));
+jest.mock('src/services/store-config', () => ({
+  isMultiStore: true,
+  getHostApi: () => mockHost,
+  // Chỉ tên miền vùng SaaS là cửa hàng; địa chỉ cố định của bản CiCi = chưa gắn cửa hàng.
+  getStoreCode: () => mockHost.match(/^https:\/\/([^.]+)\.store\.devbyspark\.com\//)?.[1] ?? null,
+}));
 
 // ----------------------------------------------------------------------
 // Server giả: adapter dùng chung cho axiosInstance và axios trần (restore-session).
@@ -226,6 +231,14 @@ describe('restoreSession', () => {
     };
     await expect(restoreSession()).resolves.toEqual({ kind: 'stale' });
     expect(mockSecure.get('accessToken')).toBe('old');
+  });
+
+  it('bản cửa hàng chưa gắn cửa hàng → none, không gửi phiên sang địa chỉ dự phòng', async () => {
+    mockHost = 'https://cici21chualang.vn/api'; // getHostApi() khi chưa có cửa hàng
+    server = () => ({ status: 200, data: { token: 'new' } });
+    await expect(restoreSession()).resolves.toEqual({ kind: 'none' });
+    expect(calls).toHaveLength(0);
+    expect(mockSecure.get('sessionToken')).toBe('s1');
   });
 
   it('mất mạng → ném lỗi, giữ sessionToken cho lần sau', async () => {

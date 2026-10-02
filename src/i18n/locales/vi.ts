@@ -152,6 +152,7 @@ export const vi = {
     otherStore: 'Dùng cửa hàng khác',
     loginFailed: 'Đăng nhập thất bại',
     noSession: 'Không nhận được phiên đăng nhập. Vui lòng thử lại.',
+    sessionOffline: 'Chưa kết nối được máy chủ. Máy vẫn giữ phiên đăng nhập của bạn — kiểm tra mạng rồi thử lại.',
     email: 'Email',
     password: 'Mật khẩu',
     loginCta: 'Đăng nhập',
