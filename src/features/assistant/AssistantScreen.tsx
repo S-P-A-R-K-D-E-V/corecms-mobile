@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Keyboard, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
 import dayjs from 'dayjs';
 
 import { Loading, goBackOrHome } from 'src/components/shared';
@@ -11,35 +10,26 @@ import { Text, Pressable, Icon, Spinner, Button } from 'src/components/ui';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
-import { haptics } from 'src/services/haptics';
 import { useT } from 'src/i18n';
 import { useAuthContext } from 'src/auth/auth-context';
 import { assistantEnabled, isManagerUser } from 'src/auth/roles';
 import { getStore, isMultiStore } from 'src/services/store-config';
-import {
-  startOrResumeSession,
-  fetchSessionMessages,
-  sendAssistantMessage,
-  type AssistantMessage,
-} from 'src/api/assistant';
-import { useAssistantCtx, type AssistantHubEvent } from 'src/components/assistant/assistant-provider';
 import { RichText } from './RichText';
+import { useAssistantChat } from './use-assistant-chat';
+import type { ScreenMessage } from './assistant-events';
 
 // ----------------------------------------------------------------------
 // Tab "Trợ lý" — AI Chat, KHÁC HOÀN TOÀN tab "Chat" nhắn tin nội bộ. BE tự chọn trợ lý theo người hỏi:
 //   - CiCi: nhân viên tự tra lương/lịch của riêng mình; admin tra số liệu cửa hàng (AI Gateway).
 //   - Cửa hàng SaaS: chủ/quản lý tra số liệu của chính cửa hàng (core-be StoreAssistant, chỉ đọc).
-// Trả lời stream qua SignalR (assistant-provider), lịch sử lấy qua REST.
+// Trả lời stream qua SignalR (assistant-provider), lịch sử lấy qua REST — state + watchdog ở use-assistant-chat.
 // ----------------------------------------------------------------------
 
-const SESSION_STORAGE_KEY = 'assistantSessionId';
 // App Store 5.1.2(i): xin phép rõ ràng trước khi gửi dữ liệu cá nhân cho AI bên thứ ba. Đổi nội dung
 // đồng ý (assistant.consentBody) theo cách làm người dùng phải đồng ý lại → tăng phiên bản.
 const AI_CONSENT_VERSION = 'v1';
 // Khớp PILL_H + lề của thanh tab nổi (src/app/(tabs)/_layout.tsx) — ô nhập phải nằm TRÊN thanh tab.
 const TAB_BAR_CLEARANCE = 72 + 8;
-
-type ScreenMessage = AssistantMessage & { streaming?: boolean; statusLabel?: string };
 
 function TypingBubble({ label }: { label?: string }) {
   return (
@@ -62,6 +52,7 @@ function TypingBubble({ label }: { label?: string }) {
 }
 
 function Bubble({ msg }: { msg: ScreenMessage }) {
+  const t = useT();
   const isMine = msg.role === 'user';
   return (
     <View className={cn('flex-row my-0.5', isMine ? 'justify-end' : 'justify-start')}>
@@ -73,6 +64,12 @@ function Bubble({ msg }: { msg: ScreenMessage }) {
       >
         {isMine ? (
           <Text className="text-white">{msg.content}</Text>
+        ) : msg.status === 'error' ? (
+          // Lỗi giữa chừng: giữ phần đã trả lời, thêm dòng báo lỗi.
+          <View className="gap-1">
+            {msg.content ? <RichText text={msg.content} /> : null}
+            <Text variant="bodySmall" tone="error">{t('assistant.error')}</Text>
+          </View>
         ) : (
           <RichText text={msg.content || (msg.streaming ? '…' : '')} />
         )}
@@ -104,7 +101,6 @@ export function AssistantScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { user } = useAuthContext();
-  const { joinSession, leaveSession, subscribe } = useAssistantCtx();
 
   const ownerMode = isManagerUser(user);
   const featureOn = assistantEnabled(user);
@@ -115,13 +111,9 @@ export function AssistantScreen() {
   const enabled = featureOn && consent === true;
   const storeName = getStore()?.name ?? getStore()?.code ?? '';
 
-  const [messages, setMessages] = useState<ScreenMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { messages, loading, sending, sessionId, stale, open, send: sendMessage } = useAssistantChat({ enabled });
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const [kbUp, setKbUp] = useState(false);
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const sessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -134,123 +126,15 @@ export function AssistantScreen() {
     };
   }, []);
 
-  const upsertStreamingMessage = useCallback((messageId: string, patch: Partial<ScreenMessage>) => {
-    setMessages((prev) => {
-      const idx = prev.findIndex((m) => m.id === messageId);
-      if (idx === -1) {
-        return [
-          ...prev,
-          { id: messageId, role: 'assistant', content: '', createdAt: new Date().toISOString(), streaming: true, ...patch },
-        ];
-      }
-      const next = [...prev];
-      next[idx] = { ...next[idx], ...patch };
-      return next;
-    });
-  }, []);
-
-  const openSession = useCallback(
-    async (fresh: boolean) => {
-      setLoading(true);
-      try {
-        if (fresh) await SecureStore.deleteItemAsync(SESSION_STORAGE_KEY);
-        const storedSessionId = fresh ? undefined : (await SecureStore.getItemAsync(SESSION_STORAGE_KEY)) || undefined;
-        const session = await startOrResumeSession(storedSessionId);
-        if (sessionIdRef.current && sessionIdRef.current !== session.sessionId) leaveSession(sessionIdRef.current);
-        sessionIdRef.current = session.sessionId;
-        setSessionId(session.sessionId);
-        await SecureStore.setItemAsync(SESSION_STORAGE_KEY, session.sessionId);
-        await joinSession(session.sessionId);
-        setMessages(fresh ? [] : await fetchSessionMessages(session.sessionId, 50));
-      } catch {
-        /* để trống, người dùng vẫn gõ được — sẽ tạo phiên mới khi gửi thất bại lần đầu */
-      } finally {
-        setLoading(false);
-      }
-    },
-    [joinSession, leaveSession]
-  );
-
-  useEffect(() => {
-    if (!enabled) {
-      setLoading(false);
-      return undefined;
-    }
-    void openSession(false);
-    return () => {
-      if (sessionIdRef.current) leaveSession(sessionIdRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
-
-  useEffect(() => {
-    return subscribe((ev: AssistantHubEvent) => {
-      if (!sessionIdRef.current || ev.sessionId !== sessionIdRef.current) return;
-      switch (ev.type) {
-        case 'streamingStarted':
-          upsertStreamingMessage(ev.messageId, { streaming: true, content: '' });
-          break;
-        case 'chunk':
-          setMessages((prev) => {
-            const idx = prev.findIndex((m) => m.id === ev.messageId);
-            if (idx === -1) return prev;
-            const next = [...prev];
-            next[idx] = { ...next[idx], content: (next[idx].content || '') + ev.content, statusLabel: undefined };
-            return next;
-          });
-          break;
-        case 'status':
-          upsertStreamingMessage(ev.messageId, { statusLabel: ev.phase === 'end' ? undefined : ev.label || ev.name || undefined });
-          break;
-        case 'completed':
-          upsertStreamingMessage(ev.messageId, { content: ev.content, streaming: false, statusLabel: undefined });
-          break;
-        case 'error':
-          upsertStreamingMessage(ev.messageId, { content: t('assistant.error'), streaming: false, statusLabel: undefined });
-          break;
-      }
-    });
-  }, [subscribe, upsertStreamingMessage, t]);
-
   async function send(raw: string) {
     const content = raw.trim();
-    const current = sessionIdRef.current;
-    if (!content || sending || !current) return;
-    haptics.light();
-    setSending(true);
+    if (!content || sending) return;
     setText('');
-    const userMsg: ScreenMessage = {
-      id: `local-${Date.now()}`,
-      role: 'user',
-      content,
-      createdAt: new Date().toISOString(),
-    };
-    setMessages((prev) => [...prev, userMsg]);
-    try {
-      const result = await sendAssistantMessage(current, content);
-      if (result.fromCache && result.cachedAnswer) {
-        upsertStreamingMessage(result.assistantMessageId, {
-          content: result.cachedAnswer,
-          streaming: false,
-          createdAt: new Date().toISOString(),
-        });
-      } else {
-        // Placeholder — nội dung thật sẽ đến qua SignalR (streamingStarted/chunk/completed).
-        upsertStreamingMessage(result.assistantMessageId, {
-          content: '',
-          streaming: true,
-          createdAt: new Date().toISOString(),
-        });
-      }
-    } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
-      setText(content);
-    } finally {
-      setSending(false);
-    }
+    const ok = await sendMessage(content);
+    if (!ok) setText(content);
   }
 
-  const streamingLabel = messages.find((m) => m.streaming)?.statusLabel;
+  const streamingLabel = messages.find((m) => m.streaming)?.statusLabel ?? (stale ? t('assistant.stillWorking') : undefined);
   const isAssistantTyping = messages.some((m) => m.streaming && !m.content);
   const suggestions = ownerMode
     ? [t('assistant.ownerQ1'), t('assistant.ownerQ2'), t('assistant.ownerQ3'), t('assistant.ownerQ4')]
@@ -276,7 +160,7 @@ export function AssistantScreen() {
         </View>
         {enabled && messages.length > 0 ? (
           <Pressable
-            onPress={() => openSession(true)}
+            onPress={() => open(true)}
             accessibilityLabel={t('assistant.newChat')}
             className="w-10 h-10 items-center justify-center rounded-full"
           >

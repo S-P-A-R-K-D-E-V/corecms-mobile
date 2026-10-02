@@ -337,6 +337,7 @@ export const vi = {
     notEnabledTitle: 'Trợ lý AI chưa bật',
     notEnabledDesc: 'Trợ lý AI chưa được bật cho cửa hàng này. Chủ cửa hàng có thể bật trong gói dịch vụ.',
     thinking: 'Đang suy nghĩ…',
+    stillWorking: 'Vẫn đang xử lý…',
     consentTitle: 'Trước khi dùng trợ lý AI',
     consentBody:
       'Câu hỏi bạn nhập và dữ liệu cửa hàng cần để trả lời (doanh thu, hàng hoá, ca làm, lương…) sẽ được gửi tới nhà cung cấp dịch vụ AI để tạo câu trả lời. Trợ lý chỉ đọc, không thay đổi dữ liệu. Không nhập thông tin cá nhân nhạy cảm.',
