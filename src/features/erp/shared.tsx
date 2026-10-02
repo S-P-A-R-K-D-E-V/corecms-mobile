@@ -52,12 +52,21 @@ export function priceLabel(p: IProductListItem): string {
   return money(prices[0] ?? p.basePrice);
 }
 
-export function StockBadge({ stock, min = 0, productType = 2 }: { stock: number; min?: number; productType?: number }) {
+function stockBadge(stock: number, min: number, productType: number) {
   if (productType === 3) return <Badge tone="info">{t('erp.service')}</Badge>;
   if (productType === 1) return <Badge tone="secondary">{t('erp.combo')}</Badge>;
   if (stock <= 0) return <Badge tone="error">{t('erp.outOfStock')}</Badge>;
   if (min > 0 && stock <= min) return <Badge tone="warning">{`${t('erp.lowStock')} · ${stock}`}</Badge>;
   return <Badge tone="neutral">{t('erp.stock', { n: fmtQty(stock) })}</Badge>;
+}
+
+/**
+ * Nhãn tồn kho. `alignEnd` khi nằm trong cột canh phải (dưới giá): Badge có sẵn `self-start` nên tự canh
+ * trái theo dòng giá rộng nhất ("90.000đ – 200.000đ") — bọc hàng ngang canh phải để cột tồn thẳng hàng.
+ */
+export function StockBadge({ stock, min = 0, productType = 2, alignEnd }: { stock: number; min?: number; productType?: number; alignEnd?: boolean }) {
+  const badge = stockBadge(stock, min, productType);
+  return alignEnd ? <View className="flex-row justify-end">{badge}</View> : badge;
 }
 
 export const fmtQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/\.?0+$/, ''));

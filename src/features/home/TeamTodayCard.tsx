@@ -42,7 +42,9 @@ function Row({ item }: { item: ITodayBoardItem }) {
         </Text>
       </View>
       <View className="items-end gap-1">
-        <Badge tone={st.tone}>{t(st.key)}</Badge>
+        <View className="flex-row justify-end">
+          <Badge tone={st.tone}>{t(st.key)}</Badge>
+        </View>
         {item.lateMinutes > 0 ? (
           <Text variant="caption" tone="warning" className="text-[10px] font-semibold">{t('home.lateBy', { n: item.lateMinutes })}</Text>
         ) : null}

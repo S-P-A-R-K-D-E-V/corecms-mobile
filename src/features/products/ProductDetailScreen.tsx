@@ -34,7 +34,7 @@ function VariantRow({ child, onSell, seeCost }: { child: IProductChild; onSell: 
       </View>
       <View className="items-end gap-1">
         <Text variant="bodySmall" className="font-bold">{money(child.basePrice)}</Text>
-        <StockBadge stock={stock} />
+        <StockBadge alignEnd stock={stock} />
       </View>
       <Pressable onPress={onSell} accessibilityLabel={t('erp.sellThis')} className="w-9 h-9 rounded-xl bg-primary-soft items-center justify-center">
         <Icon name="cart-plus" size={18} tone="primary" />

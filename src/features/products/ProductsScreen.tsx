@@ -36,7 +36,7 @@ function ProductRow({ item }: { item: IProductListItem }) {
       </View>
       <View className="items-end gap-1">
         <Text variant="bodySmall" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>{priceLabel(item)}</Text>
-        <StockBadge stock={stock} min={item.minQuantity} productType={item.productType} />
+        <StockBadge alignEnd stock={stock} min={item.minQuantity} productType={item.productType} />
       </View>
     </Pressable>
   );

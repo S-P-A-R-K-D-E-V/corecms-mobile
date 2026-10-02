@@ -11,6 +11,7 @@ import type { IRecentOrder, ITopSellingProduct } from 'src/types/corecms-api';
 
 import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { RevenueChart } from 'src/features/admin-dashboard/RevenueChart';
+import { isCancelledStatus } from 'src/features/erp/shared';
 import { useDashboardSummary, useRevenueReport, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
 import { HomeHero, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
@@ -134,7 +135,8 @@ function BreakEvenCard() {
 }
 
 function SaleRow({ order }: { order: IRecentOrder }) {
-  const cancelled = /cancel|huỷ|hủy/i.test(order.status);
+  // Dashboard trả Status dạng số KiotViet ("2" = đã huỷ) hoặc chữ — dùng chung bộ nhận diện của Hoá đơn.
+  const cancelled = isCancelledStatus(order.status) || isCancelledStatus(order.paymentStatus);
   const detail = order.itemsSummary ?? (order.itemCount ? t('home.items', { n: order.itemCount }) : null);
   const meta = [order.soldByName ? t('home.soldBy', { name: order.soldByName }) : null, timeAgo(order.createdAt)]
     .filter(Boolean)
@@ -156,7 +158,11 @@ function SaleRow({ order }: { order: IRecentOrder }) {
         <Text variant="bodySmall" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>
           {fmtMoney(order.totalAmount)}
         </Text>
-        {cancelled ? <Badge tone="error">{order.status}</Badge> : null}
+        {cancelled ? (
+          <View className="flex-row justify-end">
+            <Badge tone="error">{t('erp.cancelled')}</Badge>
+          </View>
+        ) : null}
       </View>
     </View>
   );
