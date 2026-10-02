@@ -20,8 +20,8 @@ import { StockAdjustmentHistory } from './StockAdjustmentHistory';
 // ----------------------------------------------------------------------
 // Chi tiết hàng: giá bán, tồn theo chi nhánh, biến thể; giá vốn chỉ chủ/quản lý thấy. "Bán món này"
 // thêm vào giỏ rồi mở Bán hàng.
-// Chủ cửa hàng: "Sửa tồn" từng chi nhánh (hàng thường) / từng biến thể — chỉ hàng hoá thường (combo, dịch vụ
-// không có tồn); hàng gộp biến thể sửa ở dòng biến thể. Chủ + quản lý xem lịch sử chỉnh tồn.
+// Chủ cửa hàng: "Sửa tồn" từng chi nhánh (hàng thường) / từng biến thể — không cho combo, dịch vụ (không có
+// tồn); hàng gộp biến thể sửa ở dòng biến thể. Chủ + quản lý xem lịch sử chỉnh tồn.
 // ----------------------------------------------------------------------
 
 /** Nút bút chì nhỏ cạnh dòng tồn. */
@@ -137,8 +137,12 @@ export function ProductDetailScreen() {
   const cost = avgCost(p.inventories);
   const cover = p.images?.[0]?.imageUrl;
   const children = (p.childProducts ?? []).filter((c) => c.isActive);
-  // Chỉ hàng hoá thường có tồn để sửa; lịch sử chỉnh tồn: chủ + quản lý.
-  const stocked = p.productType === 2;
+  // Có biến thể = có biến thể đang bán. Cờ hasVariants đồng bộ từ KiotViet bật cả với hàng không còn biến thể
+  // nào (CiCi: 205 hàng) → coi như hàng thường để còn bán / sửa tồn được.
+  const hasVariants = children.length > 0;
+  // Chỉ hàng có tồn (không phải combo / dịch vụ) mới sửa tồn; lịch sử chỉnh tồn: chủ + quản lý. Loại hàng đồng
+  // bộ từ KiotViet có thể chưa có (0) — coi là hàng thường.
+  const stocked = p.productType !== 1 && p.productType !== 3;
   const canAdjust = isAdmin && stocked;
   const editChild = (c: IProductChild) =>
     canAdjust && adjustableInventories(c.inventories).length > 0
@@ -193,7 +197,7 @@ export function ProductDetailScreen() {
               key={inv.id}
               inv={inv}
               onEdit={
-                canAdjust && !p.hasVariants && typeof inv.branchId === 'number'
+                canAdjust && !hasVariants && typeof inv.branchId === 'number'
                   ? () => setAdjust({ target: { productId: p.id, name: p.name, inventories: p.inventories ?? [] }, branchId: inv.branchId! })
                   : undefined
               }
@@ -205,9 +209,9 @@ export function ProductDetailScreen() {
       {isManager && stocked ? (
         <StockAdjustmentHistory
           key={p.id}
-          targets={p.hasVariants ? children.map((c) => ({ productId: c.id, label: variantName('', c) })) : [{ productId: p.id }]}
+          targets={hasVariants ? children.map((c) => ({ productId: c.id, label: variantName('', c) })) : [{ productId: p.id }]}
           canRetry={isAdmin}
-          lazy={p.hasVariants}
+          lazy={hasVariants}
         />
       ) : null}
 
@@ -217,7 +221,7 @@ export function ProductDetailScreen() {
         </SectionCard>
       ) : null}
 
-      {!p.hasVariants && p.allowsSale ? (
+      {!hasVariants && p.allowsSale ? (
         <Button icon="cart-plus" onPress={() => sell(lineFromProduct(p))}>{t('erp.sellThis')}</Button>
       ) : null}
 
