@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View, type TextInput } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,22 +9,28 @@ import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { spring } from 'src/theme/motion';
 import { toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
+import { DiscoverError } from 'src/api/app-hub';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { extractApiError } from 'src/services/error';
 import { useLocaleStore, useT } from 'src/i18n';
 import { getStore, storeDomain } from 'src/services/store-config';
-import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
-import { useDiscovery } from './discovery';
-import { EmailAccountToggle, NoStoreNotice, OAuthButtons, PasswordField } from './SignInControls';
-import { directLoginErrorKey, signInButtons } from './sign-in';
+import { signInWithApple } from './apple-sign-in';
+import { runDiscovery, useDiscovery } from './discovery';
+import { EmailAccountToggle, NoStoreNotice, OAuthButtons, PasswordField, useAnnounce, useAppleSignInAvailable } from './SignInControls';
+import { directLoginErrorKey, shouldDiscoverAfterStoreOAuth, signInButtons } from './sign-in';
 import { discoverErrorMessage } from './use-enter-store';
+import { useAfterDiscovery } from './use-sign-in';
 import { startWebSignIn } from './web-sign-in';
 
 // ----------------------------------------------------------------------
 // Bản cửa hàng — trang đăng nhập của cửa hàng máy đang nhớ (đã đăng xuất / hết phiên). Màu cửa hàng.
-//   - Google + Apple một hàng (Apple chỉ iOS). Apple: native, đăng nhập thẳng vào cửa hàng này
-//     (/auth/oauth-login trên tên miền cửa hàng). Google: qua trang web như màn Chào mừng, mang theo mã
-//     cửa hàng này → tài khoản thuộc cửa hàng thì vào thẳng (xem HubCallbackScreen).
+//   - Google, Apple (Apple chỉ iOS), ưu tiên cửa hàng này:
+//       Apple (native): đăng nhập thẳng vào cửa hàng này (/auth/oauth-login trên tên miền cửa hàng — giữ
+//       được cửa hàng cho tự đăng ký). Máy chủ báo không phải thành viên / Apple không trả email → tìm các
+//       cửa hàng của Apple ID đó (app-hub/discover): có cửa hàng khác → màn chọn; không có → lời nhắn ngay
+//       trên trang (thay cho lỗi tiếng Việt của máy chủ).
+//       Google: qua trang web như màn Chào mừng, mang theo mã cửa hàng này → thuộc cửa hàng thì vào thẳng,
+//       không thì chọn / lời nhắn (xem HubCallbackScreen).
 //   - "Đăng nhập bằng tài khoản email": mở ngay trên trang Email + Mật khẩu (cửa hàng đã biết — hiện tên,
 //     không cần ô cửa hàng) → POST /auth/login trực tiếp trên tên miền cửa hàng, ngay trong app.
 //   - "Dùng cửa hàng khác" → màn Chào mừng (KHÔNG quên cửa hàng này cho tới khi vào cửa hàng mới).
@@ -35,9 +41,10 @@ export function StoreLoginScreen() {
   const insets = useSafeAreaInsets();
   const locale = useLocaleStore((s) => s.locale);
   const { login, loginWithOAuth, sessionOffline, resumingSession, retrySession, authenticated } = useAuthContext();
+  const { proceed, entering } = useAfterDiscovery();
   const noStore = useDiscovery((s) => s.noStore);
   const dismissNoStore = useDiscovery((s) => s.dismissNoStore);
-  const [appleAvailable, setAppleAvailable] = useState(false);
+  const appleAvailable = useAppleSignInAvailable();
   const [busy, setBusy] = useState(false);
   const store = getStore();
   const storeName = store?.name ?? store?.code ?? '';
@@ -49,24 +56,40 @@ export function StoreLoginScreen() {
   const [formError, setFormError] = useState<string | undefined>();
   const passwordRef = useRef<TextInput>(null);
 
-  useEffect(() => {
-    isAppleSignInAvailable().then(setAppleAvailable);
-  }, []);
-
-  const working = busy || authenticated;
+  const working = busy || !!entering || authenticated;
   const buttons = signInButtons(Platform.OS, appleAvailable);
+  // Lỗi đăng nhập hiện dưới ô mật khẩu: đọc luôn cho người dùng VoiceOver / TalkBack.
+  useAnnounce(formError);
 
   async function handleApple() {
     dismissNoStore();
     setBusy(true);
     try {
-      const result = await signInWithApple();
-      if (!result) return; // người dùng tự huỷ
-      await loginWithOAuth('apple', result.token, result.extra);
-      track(AnalyticsEvent.LoginSuccess);
-      router.replace('/');
-    } catch (err: any) {
-      toast.error(extractApiError(err), t('welcome.appleFailed'));
+      const apple = await signInWithApple();
+      if (!apple) return; // người dùng tự huỷ
+      try {
+        await loginWithOAuth('apple', apple.token, apple.extra);
+        track(AnalyticsEvent.LoginSuccess);
+        router.replace('/');
+        return;
+      } catch (err) {
+        if (!shouldDiscoverAfterStoreOAuth(err)) throw err;
+      }
+      // Apple ID này không vào được cửa hàng này: tìm các cửa hàng của nó (authorizationCode chưa dùng —
+      // máy chủ từ chối trước bước đổi mã) → có cửa hàng khác thì chọn, không có thì lời nhắn trên trang.
+      const pending = await runDiscovery({
+        provider: 'apple',
+        token: apple.token,
+        nonce: apple.extra.nonce,
+        firstName: apple.extra.firstName,
+        lastName: apple.extra.lastName,
+        authorizationCode: apple.extra.authorizationCode,
+      });
+      await proceed(pending, { wanted: store ? { code: store.code, host: store.host } : null, mode: 'prefer' });
+    } catch (err) {
+      const key = err instanceof DiscoverError ? null : directLoginErrorKey(err);
+      const message = err instanceof DiscoverError ? discoverErrorMessage(err) : key ? t(key, { store: storeName }) : extractApiError(err);
+      toast.error(message, t('welcome.appleFailed'));
     } finally {
       setBusy(false);
     }
@@ -118,6 +141,8 @@ export function StoreLoginScreen() {
   // Sang màn Chào mừng tìm cửa hàng khác nhưng KHÔNG quên cửa hàng này: chỉ thay khi vào được cửa hàng
   // mới. Lùi lại / thoát app giữa chừng thì lần mở sau vẫn về trang đăng nhập của cửa hàng này.
   function handleChangeStore() {
+    // Lời nhắn "chưa có cửa hàng" là của lần đăng nhập ở trang này — không mang sang màn Chào mừng.
+    dismissNoStore();
     router.push('/welcome' as any);
   }
 

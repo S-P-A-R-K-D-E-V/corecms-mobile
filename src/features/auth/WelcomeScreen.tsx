@@ -13,9 +13,9 @@ import { spring } from 'src/theme/motion';
 import { softShadow } from 'src/theme';
 import { usePlatformPrimary } from 'src/theme/BrandScope';
 import { getStore, lookupStore, type StoreProfile } from 'src/services/store-config';
-import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
+import { signInWithApple } from './apple-sign-in';
 import { runDiscovery, useDiscovery } from './discovery';
-import { EmailAccountToggle, NoStoreNotice, OAuthButtons, PasswordField } from './SignInControls';
+import { EmailAccountToggle, NoStoreNotice, OAuthButtons, PasswordField, useAnnounce, useAppleSignInAvailable } from './SignInControls';
 import { normalizeStoreField, signInButtons, storeLookupErrorKey } from './sign-in';
 import { discoverErrorMessage } from './use-enter-store';
 import { loadLastStoreField, saveLastStoreField, useAfterDiscovery } from './use-sign-in';
@@ -23,9 +23,9 @@ import { startWebSignIn } from './web-sign-in';
 
 // ----------------------------------------------------------------------
 // Màn đầu tiên của bản cửa hàng (toàn cầu) — trang đăng nhập có BA nút:
-//   - "Tiếp tục với Google" + "Tiếp tục với Apple" (một hàng; Apple chỉ iOS — Android ẩn Apple, chủ quyết
-//     định 2026-10-01): OAuth → app tự tìm các cửa hàng gắn với tài khoản đó (app-hub/discover; Google qua
-//     trang web, xem web-sign-in.ts) → 1 cửa hàng vào thẳng, nhiều cửa hàng thì chọn, không có thì nhắn rõ.
+//   - "Tiếp tục với Google", "Tiếp tục với Apple" (xếp dọc, cùng cỡ; Apple chỉ iOS — Android ẩn Apple, chủ
+//     quyết định 2026-10-01): OAuth → app tự tìm các cửa hàng gắn với tài khoản đó (app-hub/discover; Google
+//     qua trang web, xem web-sign-in.ts) → 1 cửa hàng vào thẳng, nhiều cửa hàng thì chọn, không có thì nhắn rõ.
 //   - "Đăng nhập bằng tài khoản email": mở ngay trên trang 3 ô — mã/tên miền cửa hàng, email, mật khẩu.
 //     Có ô cửa hàng: tra cửa hàng trước (lookupStore), đăng nhập rồi vào ĐÚNG cửa hàng đó (tài khoản không
 //     thuộc cửa hàng → báo lỗi). Bỏ trống: như OAuth (1 → vào, nhiều → chọn).
@@ -49,7 +49,11 @@ function BackToStore({ disabled }: { disabled: boolean }) {
   const name = store.name ?? store.code;
   return (
     <Pressable
-      onPress={() => router.dismissTo('/(auth)/login' as any)}
+      onPress={() => {
+        // Lời nhắn "chưa có cửa hàng" là của lần đăng nhập ở màn này — không mang sang trang của cửa hàng.
+        useDiscovery.getState().dismissNoStore();
+        router.dismissTo('/(auth)/login' as any);
+      }}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={t('welcome.backToStore', { store: name })}
@@ -96,7 +100,7 @@ export function WelcomeScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const locale = useLocaleStore((s) => s.locale);
-  const [appleAvailable, setAppleAvailable] = useState(false);
+  const appleAvailable = useAppleSignInAvailable();
   const [busy, setBusy] = useState(false);
   const { proceed, entering } = useAfterDiscovery();
   const { authenticated } = useAuthContext();
@@ -114,7 +118,6 @@ export function WelcomeScreen() {
   const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
-    isAppleSignInAvailable().then(setAppleAvailable);
     // Điền sẵn ô cửa hàng gõ lần trước (không đè nếu người dùng đã gõ).
     loadLastStoreField().then((last) => {
       if (last) setStoreField((current) => current || last);
@@ -125,6 +128,9 @@ export function WelcomeScreen() {
   // khoá nút cho tới khi xong, không để bắt đầu đăng nhập mới chồng lên.
   const working = busy || !!entering || authenticated;
   const buttons = signInButtons(Platform.OS, appleAvailable);
+  // Lỗi hiện dưới ô nhập: đọc luôn cho người dùng VoiceOver / TalkBack.
+  useAnnounce(storeError);
+  useAnnounce(formError);
 
   async function handleApple() {
     dismissNoStore();

@@ -11,7 +11,16 @@ import { vi } from 'src/i18n/locales/vi';
 import { en } from 'src/i18n/locales/en';
 import type { DiscoveredStore } from 'src/api/app-hub';
 import { useDiscovery, type Pending } from '../discovery';
-import { chooseStore, directLoginErrorKey, normalizeStoreField, signInButtons, storeLookupErrorKey } from '../sign-in';
+import {
+  SIGN_IN_BUTTON_HEIGHT,
+  chooseStore,
+  directLoginErrorKey,
+  normalizeStoreField,
+  shouldDiscoverAfterStoreOAuth,
+  signInButtonHeight,
+  signInButtons,
+  storeLookupErrorKey,
+} from '../sign-in';
 import { loadLastStoreField, saveLastStoreField, useAfterDiscovery } from '../use-sign-in';
 
 // Trang đăng nhập bản cửa hàng: Google + Apple (iOS) + "Đăng nhập bằng tài khoản email" mở 3 ô
@@ -21,25 +30,48 @@ import { loadLastStoreField, saveLastStoreField, useAfterDiscovery } from '../us
 const lookup = (dict: object, key: string) => key.split('.').reduce<any>((node, part) => node?.[part], dict);
 
 describe('signInButtons', () => {
-  it('iOS có Apple → Google + Apple cùng một hàng, luôn có nút email', () => {
-    expect(signInButtons('ios', true)).toEqual({ google: true, apple: true, oauthRow: true, email: true });
+  it('iOS có Apple → Google, Apple, email (ba nút)', () => {
+    expect(signInButtons('ios', true)).toEqual({ google: true, apple: true, email: true });
   });
 
-  it('iOS chưa dùng được Apple → chỉ Google', () => {
-    expect(signInButtons('ios', false)).toEqual({ google: true, apple: false, oauthRow: false, email: true });
+  it('iOS chưa dùng được Apple → chỉ Google + email', () => {
+    expect(signInButtons('ios', false)).toEqual({ google: true, apple: false, email: true });
   });
 
   it('Android (và web) không hiện Apple dù máy báo có', () => {
     expect(signInButtons('android', true).apple).toBe(false);
-    expect(signInButtons('android', true).oauthRow).toBe(false);
     expect(signInButtons('web', true).apple).toBe(false);
+  });
+});
+
+describe('signInButtonHeight (Google, Apple, email luôn cao bằng nhau)', () => {
+  it('cỡ chữ thường → 50 (bằng nút Apple native mặc định)', () => {
+    expect(SIGN_IN_BUTTON_HEIGHT).toBe(50);
+    expect(signInButtonHeight(1)).toBe(50);
+    expect(signInButtonHeight(0.85)).toBe(50); // chữ nhỏ không làm nút thấp hơn chuẩn
+  });
+
+  it('chữ to → cao theo, tối đa 64', () => {
+    expect(signInButtonHeight(1.12)).toBe(56);
+    expect(signInButtonHeight(1.25)).toBe(63);
+    expect(signInButtonHeight(2)).toBe(64);
+  });
+
+  it('giá trị lạ → 50', () => {
+    expect(signInButtonHeight(Number.NaN)).toBe(50);
+    expect(signInButtonHeight(0)).toBe(50);
   });
 });
 
 describe('normalizeStoreField', () => {
   it('bỏ khoảng trắng, ký tự vô hình, chữ thường', () => {
     expect(normalizeStoreField('  Demo  ')).toBe('demo');
-    expect(normalizeStoreField('​demo﻿')).toBe('demo');
+    // Ký tự vô hình hay dính khi dán từ tin nhắn: zero-width space / joiner, BOM — ở đầu, giữa, cuối.
+    const zwsp = String.fromCharCode(0x200b);
+    const zwj = String.fromCharCode(0x200d);
+    const bom = String.fromCharCode(0xfeff);
+    expect(normalizeStoreField(`${zwsp}demo${bom}`)).toBe('demo');
+    expect(normalizeStoreField(`de${zwj}mo`)).toBe('demo');
     expect(normalizeStoreField('CiCi21ChuaLang.vn')).toBe('cici21chualang.vn');
   });
 
@@ -103,6 +135,19 @@ describe('ánh xạ lỗi → khoá i18n', () => {
     expect(directLoginErrorKey({ errors: { 'User.AccountBanned': ['x'] } })).toBe('emailSignIn.banned');
     expect(directLoginErrorKey({ status: 429, title: 'Too Many Requests' })).toBe('emailSignIn.tooMany');
     expect(directLoginErrorKey('Something went wrong')).toBe('common.network');
+    expect(directLoginErrorKey({ errors: { 'Auth.InvalidOAuthToken': ['x'] } })).toBe('welcome.signInFailed');
+  });
+
+  it('Apple trên trang cửa hàng: chỉ tìm cửa hàng khác khi không vào được cửa hàng này', () => {
+    expect(shouldDiscoverAfterStoreOAuth({ errors: { 'Auth.NotMemberOfTenant': ['x'] } })).toBe(true);
+    expect(shouldDiscoverAfterStoreOAuth({ errorCodes: ['Auth.NotMemberOfTenant'] })).toBe(true);
+    expect(shouldDiscoverAfterStoreOAuth({ errors: { 'Auth.ExternalEmailMissing': ['x'] } })).toBe(true);
+    expect(shouldDiscoverAfterStoreOAuth({ errors: { 'Auth.ExternalEmailNotVerified': ['x'] } })).toBe(true);
+    // Lỗi khác (token sai, bị khoá, mất mạng) → báo lỗi, không đăng nhập lại lần nữa.
+    expect(shouldDiscoverAfterStoreOAuth({ errors: { 'Auth.InvalidOAuthToken': ['x'] } })).toBe(false);
+    expect(shouldDiscoverAfterStoreOAuth({ errors: { 'User.AccountBanned': ['x'] } })).toBe(false);
+    expect(shouldDiscoverAfterStoreOAuth('Something went wrong')).toBe(false);
+    expect(shouldDiscoverAfterStoreOAuth(null)).toBe(false);
   });
 
   it('lỗi lạ → null (hiện thông báo của máy chủ)', () => {
@@ -120,6 +165,8 @@ describe('ánh xạ lỗi → khoá i18n', () => {
       'emailSignIn.notActive',
       'emailSignIn.banned',
       'emailSignIn.tooMany',
+      'welcome.signInFailed',
+      'storePicker.emptyAppleHint',
       'signIn.emailAccount',
       'signIn.storeLabel',
       'signIn.storeHelp',
@@ -209,6 +256,30 @@ describe('useAfterDiscovery', () => {
     expect(useDiscovery.getState().noStore).toEqual({ email: 'a@b.co', via: 'apple' });
     expect(useDiscovery.getState().pending).toBeNull();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it('vào không được (lỗi mạng / máy chủ) → bỏ kết quả discover, không giữ mật khẩu trong bộ nhớ', async () => {
+    mockEnter.mockResolvedValueOnce(false);
+    const { result } = renderHook(() => useAfterDiscovery());
+    let out: any;
+    await act(async () => {
+      out = await result.current.proceed(pending(['demo']), { notice: false });
+    });
+    expect(out).toEqual({ choice: { kind: 'enter', code: 'demo' }, entered: false });
+    expect(useDiscovery.getState().pending).toBeNull();
+  });
+
+  it('trang của cửa hàng (prefer): Apple / Google thuộc cửa hàng này → vào thẳng; không thuộc → chọn cửa hàng khác', async () => {
+    const { result } = renderHook(() => useAfterDiscovery());
+    await act(async () => {
+      await result.current.proceed(pending(['cici', 'demo'], 'apple'), { wanted: { code: 'demo' }, mode: 'prefer' });
+    });
+    expect(mockEnter).toHaveBeenCalledWith('demo');
+    await act(async () => {
+      await result.current.proceed(pending(['cici'], 'apple'), { wanted: { code: 'demo' }, mode: 'prefer' });
+    });
+    expect(router.push).toHaveBeenCalledWith('/store-picker');
+    expect(mockEnter).toHaveBeenCalledTimes(1);
   });
 
   it('email: không thuộc cửa hàng đã gõ → không vào đâu, không giữ mật khẩu trong bộ nhớ', async () => {

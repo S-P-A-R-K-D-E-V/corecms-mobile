@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Redirect, router } from 'expo-router';
@@ -30,8 +31,10 @@ export function StorePickerScreen() {
   const pending = useDiscovery((s) => s.pending);
   const clear = useDiscovery((s) => s.clear);
   const { enter, entering } = useEnterStore();
+  // Đang tự lùi về trang đăng nhập (startOver): kết quả discover vừa bỏ — không Redirect chồng lên lần lùi.
+  const leaving = useRef(false);
 
-  if (!pending) return <Redirect href={'/welcome' as any} />;
+  if (!pending) return leaving.current ? null : <Redirect href={'/welcome' as any} />;
 
   const { result } = pending;
   const email = result.email ?? '';
@@ -39,9 +42,14 @@ export function StorePickerScreen() {
   const stores = lastStoreFirst(result.stores);
   const viaApple = pending.via === 'apple';
 
+  // Lùi về đúng trang đăng nhập đã mở màn này (Chào mừng, hoặc trang của cửa hàng khi đăng nhập Google /
+  // Apple từ đó) — giữ nguyên chữ đã gõ ở đó, không chồng thêm một màn Chào mừng mới. Mở thẳng bằng link
+  // (không có gì để lùi) → Chào mừng.
   function startOver() {
+    leaving.current = true;
     clear();
-    router.replace('/welcome' as any);
+    if (router.canGoBack()) router.back();
+    else router.replace('/welcome' as any);
   }
 
   if (result.stores.length === 0) {

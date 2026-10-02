@@ -37,7 +37,12 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
 
   return (
     <View className={cn('gap-1.5', containerClassName)}>
-      {label ? <Text variant="footnote" tone="muted" className="font-semibold ml-1">{label}</Text> : null}
+      {label ? (
+        // Nhãn đã gắn vào ô nhập (accessibilityLabel bên dưới) — ẩn bản chữ với trình đọc màn hình để không đọc hai lần.
+        <Text variant="footnote" tone="muted" className="font-semibold ml-1" accessibilityElementsHidden importantForAccessibility="no">
+          {label}
+        </Text>
+      ) : null}
       <MotiView
         animate={{ borderColor: focused && !error ? accentColor ?? brand.primary : idleBorder, scale: focused ? 1.02 : 1 }}
         transition={{ type: 'spring', ...spring.soft }}
@@ -58,6 +63,9 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
         ) : null}
         <TextInput
           ref={ref}
+          // Trợ năng: nhãn hiện phía trên là Text riêng — gắn vào ô để VoiceOver / TalkBack đọc "Email, ô nhập"
+          // thay vì chỉ "ô nhập" (ô không có placeholder). Màn gọi truyền accessibilityLabel riêng thì dùng cái đó.
+          accessibilityLabel={label}
           placeholderTextColor={brand.faint}
           multiline={multiline}
           onFocus={(e) => { setFocused(true); onFocus?.(e); }}

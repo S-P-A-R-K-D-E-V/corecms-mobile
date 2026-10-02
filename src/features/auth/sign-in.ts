@@ -13,15 +13,32 @@ export type SignInButtons = {
   google: boolean;
   /** Sign in with Apple native — chỉ iOS (Android ẩn Apple, chủ quyết định 2026-10-01). */
   apple: boolean;
-  /** Google + Apple gọn trên MỘT hàng; false = Google một mình cả hàng. */
-  oauthRow: boolean;
   email: boolean;
 };
 
-/** Nút đăng nhập theo nền tảng: iOS có Apple → Google + Apple cùng hàng; còn lại chỉ Google. Luôn có nút email. */
+/**
+ * Nút đăng nhập theo nền tảng: iOS có Apple → Google, Apple, email; còn lại Google, email. Ba nút xếp dọc,
+ * mỗi nút cả hàng, cao bằng nhau (HIG + guideline 4.8: Apple không nhỏ / kém nổi hơn Google). Không đặt
+ * Google + Apple chung một hàng: nửa hàng (~160pt) không đủ cho "Continue with Google/Apple" — chữ Google
+ * co còn ~10pt, chữ trong nút Apple native cũng bị co / cắt.
+ */
 export function signInButtons(os: string, appleAvailable: boolean): SignInButtons {
   const apple = os === 'ios' && appleAvailable;
-  return { google: true, apple, oauthRow: apple, email: true };
+  return { google: true, apple, email: true };
+}
+
+/** Cao chuẩn của nút đăng nhập (bằng nút Apple native mặc định). */
+export const SIGN_IN_BUTTON_HEIGHT = 50;
+const SIGN_IN_BUTTON_MAX_HEIGHT = 64;
+
+/**
+ * Chiều cao chung của nút Google / Apple / email theo cỡ chữ (cỡ chữ hệ thống × cỡ chữ trong app): chữ to
+ * thì cả ba nút cùng cao thêm (tối đa 64) — nút Apple native vẽ chữ theo chiều cao nên chữ Apple cũng to
+ * theo, và Apple không bao giờ thấp hơn Google.
+ */
+export function signInButtonHeight(fontScale: number): number {
+  const scale = Number.isFinite(fontScale) && fontScale > 0 ? fontScale : 1;
+  return Math.min(SIGN_IN_BUTTON_MAX_HEIGHT, Math.max(SIGN_IN_BUTTON_HEIGHT, Math.round(SIGN_IN_BUTTON_HEIGHT * scale)));
 }
 
 /**
@@ -31,7 +48,7 @@ export function signInButtons(os: string, appleAvailable: boolean): SignInButton
  */
 export function normalizeStoreField(raw: string | null | undefined): string {
   if (!raw) return '';
-  return raw.replace(/[​-‍﻿]/g, '').trim().toLowerCase();
+  return raw.replace(/[\u200B-\u200D\uFEFF]/g, '').trim().toLowerCase();
 }
 
 type StoreLike = { code: string; host?: string | null };
@@ -93,16 +110,31 @@ export function storeLookupErrorKey(reason: LookupReason): string {
 const NO_RESPONSE = 'Something went wrong';
 
 /**
- * Lỗi đăng nhập email + mật khẩu trực tiếp trên tên miền cửa hàng (POST /auth/login) → khoá i18n.
- * null = lỗi lạ → hiện thông báo của máy chủ (extractApiError).
+ * Lỗi đăng nhập trực tiếp trên tên miền cửa hàng (email + mật khẩu POST /auth/login, Apple POST
+ * /auth/oauth-login) → khoá i18n. null = lỗi lạ → hiện thông báo của máy chủ (extractApiError).
  */
 export function directLoginErrorKey(err: unknown): string | null {
   if (err === NO_RESPONSE) return 'common.network';
   if (hasApiErrorCode(err, 'Auth.InvalidCred')) return 'emailSignIn.invalid';
   if (hasApiErrorCode(err, 'Auth.NotMemberOfTenant')) return 'signIn.notMemberHere';
+  if (hasApiErrorCode(err, 'Auth.InvalidOAuthToken') || hasApiErrorCode(err, 'Auth.UnsupportedProvider')) return 'welcome.signInFailed';
   if (hasApiErrorCode(err, 'User.EmailNotVerified')) return 'emailSignIn.notVerified';
   if (hasApiErrorCode(err, 'User.AccountNotActive')) return 'emailSignIn.notActive';
   if (hasApiErrorCode(err, 'User.AccountBanned')) return 'emailSignIn.banned';
   if (err && typeof err === 'object' && (err as { status?: unknown }).status === 429) return 'emailSignIn.tooMany';
   return null;
+}
+
+/**
+ * Apple trên trang của một cửa hàng: đăng nhập thẳng vào cửa hàng này (/auth/oauth-login — giữ được cửa hàng
+ * cho tự đăng ký, tự thêm thành viên) trước. Chỉ khi máy chủ báo Apple ID này không vào được cửa hàng này
+ * (không phải thành viên / Apple không trả email để khớp tài khoản) mới tìm các cửa hàng của Apple ID đó
+ * (app-hub/discover): có cửa hàng khác → chọn, không có → lời nhắn rõ trên trang (kèm gợi ý "Ẩn email").
+ */
+export function shouldDiscoverAfterStoreOAuth(err: unknown): boolean {
+  return (
+    hasApiErrorCode(err, 'Auth.NotMemberOfTenant') ||
+    hasApiErrorCode(err, 'Auth.ExternalEmailMissing') ||
+    hasApiErrorCode(err, 'Auth.ExternalEmailNotVerified')
+  );
 }

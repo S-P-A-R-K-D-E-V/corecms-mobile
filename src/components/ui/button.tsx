@@ -80,7 +80,15 @@ export function Button({
   const s = styles(variant, action);
   const isDisabled = disabled || loading;
   return (
-    <PressableScale onPress={onPress} disabled={isDisabled} style={fullWidth ? { width: '100%' } : undefined}>
+    <PressableScale
+      onPress={onPress}
+      disabled={isDisabled}
+      style={fullWidth ? { width: '100%' } : undefined}
+      // Trợ năng: đọc là "nút"; đang tải thì chữ bị thay bằng vòng quay — vẫn giữ nhãn + báo "đang bận".
+      accessibilityRole="button"
+      accessibilityLabel={typeof children === 'string' ? children : undefined}
+      accessibilityState={{ disabled: !!isDisabled, busy: !!loading }}
+    >
       <View
         className={cn(
           'flex-row items-center justify-center gap-2',

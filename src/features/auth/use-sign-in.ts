@@ -31,8 +31,13 @@ export function useAfterDiscovery() {
       const { wanted = null, mode = 'strict', nav = 'push', notice = true } = options;
       const choice = chooseStore(pending.result.stores, wanted, mode);
       switch (choice.kind) {
-        case 'enter':
-          return { choice, entered: await enter(choice.code) };
+        case 'enter': {
+          const entered = await enter(choice.code);
+          // Không vào được (đã báo lỗi): bỏ luôn kết quả discover — không giữ mật khẩu / token trong bộ nhớ
+          // khi không còn màn nào dùng tới (bấm lại "Đăng nhập" sẽ chạy discover mới).
+          if (!entered) useDiscovery.getState().clear();
+          return { choice, entered };
+        }
         case 'pick':
           if (nav === 'replace') router.replace('/store-picker' as any);
           else router.push('/store-picker' as any);

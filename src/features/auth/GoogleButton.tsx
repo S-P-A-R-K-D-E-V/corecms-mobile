@@ -2,11 +2,12 @@ import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { PressableScale, Text } from 'src/components/ui';
+import { SIGN_IN_BUTTON_HEIGHT } from './sign-in';
 
 // ----------------------------------------------------------------------
 // Nút "Tiếp tục với Google" theo hướng dẫn thương hiệu của Google: nền sáng, viền mảnh, logo "G" bốn
-// màu nguyên bản (không tô đơn sắc). compact: nằm nửa hàng cạnh nút Apple — chữ tự thu nhỏ cho vừa bề
-// ngang (iPhone SE). Cao tối thiểu 50 (bằng nút Apple), chữ phóng to thì nút cao theo, không bị xén.
+// màu nguyên bản (không tô đơn sắc). Luôn cả hàng (đủ chỗ cho chữ cỡ thường); cao `height` — màn đăng nhập
+// truyền cùng chiều cao với nút Apple (signInButtonHeight) để hai nút luôn bằng nhau.
 // ----------------------------------------------------------------------
 
 function GoogleG({ size = 20 }: { size?: number }) {
@@ -23,32 +24,36 @@ function GoogleG({ size = 20 }: { size?: number }) {
 export function GoogleButton({
   label,
   disabled,
-  compact,
+  height = SIGN_IN_BUTTON_HEIGHT,
   onPress,
 }: {
   label: string;
   disabled?: boolean;
-  compact?: boolean;
+  /** Chiều cao nút (mặc định 50 = nút Apple native). */
+  height?: number;
   onPress: () => void;
 }) {
   return (
-    <PressableScale onPress={onPress} disabled={disabled} style={{ flexGrow: 1, opacity: disabled ? 0.6 : 1 }}>
+    <PressableScale
+      onPress={onPress}
+      disabled={disabled}
+      style={{ opacity: disabled ? 0.6 : 1 }}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+    >
       <View
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ disabled: !!disabled }}
-        className="min-h-[50px] rounded-[12px] flex-row items-center justify-center bg-white border border-[#747775]"
-        style={{ flexGrow: 1, paddingHorizontal: compact ? 10 : 16, paddingVertical: 6, gap: compact ? 8 : 10 }}
+        className="rounded-[12px] flex-row items-center justify-center bg-white border border-[#747775]"
+        style={{ minHeight: height, paddingHorizontal: 16, paddingVertical: 6, gap: 10 }}
       >
-        <GoogleG size={compact ? 18 : 20} />
+        <GoogleG size={20} />
         <Text
           numberOfLines={1}
           adjustsFontSizeToFit
-          minimumFontScale={0.7}
+          minimumFontScale={0.8}
           maxFontSizeMultiplier={1.6}
           style={{ flexShrink: 1 }}
-          className={compact ? 'text-[15px] font-semibold text-[#1F1F1F]' : 'text-[17px] font-semibold text-[#1F1F1F]'}
+          className="text-[17px] font-semibold text-[#1F1F1F]"
         >
           {label}
         </Text>
