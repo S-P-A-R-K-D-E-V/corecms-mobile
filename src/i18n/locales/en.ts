@@ -81,8 +81,7 @@ export const en: Dict = {
   welcome: {
     eyebrow: 'Welcome',
     title: 'Say hello to {brand}',
-    tagline: 'Running your store made easy — starting today.',
-    featureLabel: 'Feature',
+    tagline: 'Running your store made easy — starting today.',
     feature1Title: 'Smart check-in',
     feature1Desc: 'Face, GPS and your check-in history.',
     feature2Title: 'Flexible shift management',

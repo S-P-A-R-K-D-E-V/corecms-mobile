@@ -26,4 +26,4 @@ export { Donut } from './donut';
 export type { DonutSegment } from './donut';
 export { SuccessOverlay } from './success-overlay';
 export { cn } from './utils';
-export { SparkStoreIcon, SparkStoreBolt, SStoreWordmark, SPARK_STORE_BRAND, SPARK_STORE_PLUM } from './spark-store-logo';
+export { SparkStoreIcon, SparkStoreBolt, SparkStoreWordmark, SPARK_STORE_BRAND, SPARK_STORE_PLUM } from './spark-store-logo';

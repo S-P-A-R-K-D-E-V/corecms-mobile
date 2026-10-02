@@ -81,8 +81,7 @@ export const vi = {
   welcome: {
     eyebrow: 'Welcome',
     title: 'Chào mừng đến với {brand}',
-    tagline: 'Quản lý cửa hàng dễ dàng, bắt đầu từ hôm nay.',
-    featureLabel: 'Feature',
+    tagline: 'Quản lý cửa hàng dễ dàng, bắt đầu từ hôm nay.',
     feature1Title: 'Chấm công thông minh',
     feature1Desc: 'Khuôn mặt, GPS và lịch sử chấm công.',
     feature2Title: 'Quản lý ca làm linh hoạt',

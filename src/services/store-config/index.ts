@@ -23,7 +23,7 @@ export const isMultiStore = APP_VARIANT === 'store';
 export const appleSignInEnabled = !!extra.appleSignIn;
 
 /** Tên hiển thị trong app: bản CiCi giữ nguyên chữ cũ, bản cửa hàng dùng tên app trung tính. */
-export const APP_DISPLAY_NAME = isMultiStore ? (Constants.expoConfig?.name ?? 'S Store') : 'CiCi Internal App';
+export const APP_DISPLAY_NAME = isMultiStore ? (Constants.expoConfig?.name ?? 'Spark Store') : 'CiCi Internal App';
 
 export const SAAS_ZONE = process.env.EXPO_PUBLIC_SAAS_ZONE ?? 'store.devbyspark.com';
 /** API đăng nhập một lần của bản cửa hàng (chỉ /app-hub). */
