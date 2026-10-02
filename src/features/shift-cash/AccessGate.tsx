@@ -96,6 +96,7 @@ function StaffAccessGate({ children }: { children: React.ReactNode }) {
   };
 
   // Quay lại app (từ nền) → kiểm tra lại ca + lấy lại vị trí ngầm; ra khỏi cửa hàng thì bị chặn lại.
+  // Đang chặn vì quyền/GPS tắt mà vừa bật trong Cài đặt (nút "Mở Cài đặt") → tự kiểm tra lại, khỏi bấm thử lại.
   const latest = useRef({ refetch: shiftQ.refetch, revalidate: gps.revalidate });
   latest.current = { refetch: shiftQ.refetch, revalidate: gps.revalidate };
   useEffect(() => {

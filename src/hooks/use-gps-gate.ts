@@ -37,7 +37,8 @@ export type GpsGate = {
   reason: GpsBlockReason | null;
   retry: () => Promise<Coords | null>;
   /** Lấy lại vị trí ngầm (vd app quay lại foreground) — KHÔNG hiện màn "đang xác định", chỉ chặn
-   *  khi kết quả mới rõ ràng không đạt (ra ngoài cửa hàng / vị trí giả / bị thu hồi quyền). */
+   *  khi kết quả mới rõ ràng không đạt (ra ngoài cửa hàng / vị trí giả / bị thu hồi quyền).
+   *  Đang bị chặn vì quyền / GPS tắt mà giờ quyền đã cấp (vừa bật trong Cài đặt) → lấy lại từ đầu. */
   revalidate: () => Promise<void>;
 };
 
@@ -115,6 +116,18 @@ export function useGpsGate({
   }, [requireGeofence, readPosition]);
 
   const revalidate = useCallback(async () => {
+    // Đang chặn vì chưa cấp quyền / không lấy được vị trí: người dùng có thể vừa vào Cài đặt bật lên rồi
+    // quay lại → lấy lại từ đầu. Chỉ khi quyền ĐÃ cấp — không tự bật hộp thoại xin quyền (Android: hộp
+    // thoại đưa app ra nền rồi vào lại → hỏi lặp mãi); vẫn từ chối thì giữ màn chặn, chờ bấm thử lại.
+    if (status === 'error') {
+      try {
+        const { status: perm } = await Location.getForegroundPermissionsAsync();
+        if (perm === 'granted') await fetchGps();
+      } catch {
+        // Không đọc được quyền → giữ màn chặn.
+      }
+      return;
+    }
     if (status !== 'ready') return;
     try {
       const { status: perm } = await Location.getForegroundPermissionsAsync();
@@ -131,7 +144,7 @@ export function useGpsGate({
     } catch {
       // Lấy vị trí ngầm lỗi → giữ toạ độ đã xác minh, không khoá màn đang thao tác.
     }
-  }, [status, readPosition, maxAccuracy]);
+  }, [status, readPosition, maxAccuracy, fetchGps]);
 
   // Tự lấy GPS khi mở màn (hoặc khi vừa được bật).
   const started = useRef(false);

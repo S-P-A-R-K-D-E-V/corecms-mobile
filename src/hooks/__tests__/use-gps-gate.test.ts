@@ -103,4 +103,40 @@ describe('useGpsGate (kiểm quầy)', () => {
     });
     expect(result.current).toMatchObject({ allowed: false, reason: 'outside' });
   });
+
+  it('đang chặn vì quyền, vào Cài đặt bật rồi quay lại → tự lấy lại vị trí và cho qua', async () => {
+    loc.requestForegroundPermissionsAsync.mockResolvedValueOnce({ status: 'denied' } as any);
+    const { result } = renderHook(() => useGpsGate(strict));
+    await waitFor(() => expect(result.current.reason).toBe('permission'));
+
+    // Đã bật trong Cài đặt: hỏi quyền lần nữa trả granted ngay (không hiện hộp thoại).
+    await act(async () => {
+      await result.current.revalidate();
+    });
+    expect(result.current).toMatchObject({ status: 'ready', allowed: true, reason: null });
+  });
+
+  it('quay lại mà vẫn chưa cấp quyền → giữ màn chặn, KHÔNG tự bật lại hộp thoại xin quyền', async () => {
+    loc.requestForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' } as any);
+    loc.getForegroundPermissionsAsync.mockResolvedValue({ status: 'denied' } as any);
+    const { result } = renderHook(() => useGpsGate(strict));
+    await waitFor(() => expect(result.current.reason).toBe('permission'));
+
+    await act(async () => {
+      await result.current.revalidate();
+    });
+    expect(result.current).toMatchObject({ allowed: false, reason: 'permission' });
+    expect(loc.requestForegroundPermissionsAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('GPS tắt (không lấy được vị trí), bật lên rồi quay lại → tự lấy lại', async () => {
+    loc.getCurrentPositionAsync.mockRejectedValueOnce(new Error('Location services are disabled'));
+    const { result } = renderHook(() => useGpsGate(strict));
+    await waitFor(() => expect(result.current.reason).toBe('unavailable'));
+
+    await act(async () => {
+      await result.current.revalidate();
+    });
+    expect(result.current).toMatchObject({ status: 'ready', allowed: true });
+  });
 });
