@@ -268,6 +268,10 @@ export const endpoints = {
     sessions: '/chatbot/sessions',
     messages: '/chatbot/messages',
     sessionMessages: (sessionId: string) => `/chatbot/sessions/${sessionId}/messages`,
+    capabilities: '/chatbot/capabilities',
+    // Ảnh gửi trợ lý: xin presigned URL rồi PUT thẳng lên R2 — API chỉ nhận objectKey (JSON), không nhận ảnh.
+    presign: (sessionId: string) => `/chatbot/sessions/${sessionId}/attachments/presign`,
+    retry: (messageId: string) => `/chatbot/messages/${messageId}/retry`,
   },
   messenger: {
     conversations: '/messenger/conversations',

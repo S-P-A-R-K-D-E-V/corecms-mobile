@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Keyboard, ScrollView } from 'react-native';
+import { View, FlatList, KeyboardAvoidingView, Platform, Keyboard, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,31 +7,38 @@ import dayjs from 'dayjs';
 
 import { Loading, goBackOrHome } from 'src/components/shared';
 import { toast } from 'src/components/overlay';
-import { Text, Pressable, Icon, Spinner, Button } from 'src/components/ui';
+import { Text, Pressable, Icon, Button } from 'src/components/ui';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { useT } from 'src/i18n';
 import { useAuthContext, type AuthUser } from 'src/auth/auth-context';
+import { getStorageUrl } from 'src/api/axios';
 import { assistantEnabled, isManagerUser } from 'src/auth/roles';
 import { getStore, isMultiStore } from 'src/services/store-config';
 import { RichText, hasWideContent } from './RichText';
-import { useAssistantChat } from './use-assistant-chat';
+import { useAssistantCapabilities, useAssistantChat } from './use-assistant-chat';
 import { isInFlight, type ScreenMessage } from './assistant-events';
 import { normalizeBlocks } from './blocks';
-import { MessageBlocks, SuggestionChips, suggestionsOf } from './MessageBlocks';
+import { ImageGrid, MessageBlocks, SuggestionChips, suggestionsOf } from './MessageBlocks';
 import { StepList } from './StepList';
+import { Composer } from './Composer';
+import { imageRulesOf } from './image-attachments';
 
 // ----------------------------------------------------------------------
 // Tab "Trợ lý" — AI Chat, KHÁC HOÀN TOÀN tab "Chat" nhắn tin nội bộ. BE tự chọn trợ lý theo người hỏi:
 //   - CiCi: nhân viên tự tra lương/lịch của riêng mình; admin tra số liệu cửa hàng (AI Gateway).
 //   - Cửa hàng SaaS: chủ/quản lý tra số liệu của chính cửa hàng (core-be StoreAssistant, chỉ đọc).
 // Trả lời stream qua SignalR (assistant-provider), lịch sử lấy qua REST — state + watchdog ở use-assistant-chat.
+// GET /chatbot/capabilities (server mới) quyết định bật/tắt, tier và có cho gửi ảnh không; server cũ → như trước.
 // ----------------------------------------------------------------------
 
 // App Store 5.1.2(i): xin phép rõ ràng trước khi gửi dữ liệu cá nhân cho AI bên thứ ba. Đổi nội dung
 // đồng ý (assistant.consentBody) theo cách làm người dùng phải đồng ý lại → tăng phiên bản.
-const AI_CONSENT_VERSION = 'v1';
+// v2: ảnh người dùng gửi kèm cũng được gửi tới nhà cung cấp AI.
+const AI_CONSENT_VERSION = 'v2';
+/** Tier server mà trợ lý tra số liệu cửa hàng (gợi ý / chữ kiểu chủ cửa hàng). */
+const OWNER_TIERS = ['cici_admin', 'store_admin', 'store_manager'];
 // Khớp PILL_H + lề của thanh tab nổi (src/app/(tabs)/_layout.tsx) — ô nhập phải nằm TRÊN thanh tab.
 const TAB_BAR_CLEARANCE = 72 + 8;
 
@@ -75,18 +82,27 @@ function Bubble({ msg, user, busy, showSuggestions, stale, onSend, onRetry }: Bu
   const streaming = !!msg.streaming;
   const hasSteps = !!msg.steps?.length;
   const wide = !isMine && (blocks.some((b) => b.type !== 'suggestions') || hasWideContent(msg.content));
+  // Ảnh người dùng gửi: bản trên máy (vừa gửi) hoặc đường dẫn media đã ký của server.
+  const sentImages = isMine
+    ? msg.localUris?.length
+      ? msg.localUris
+      : (msg.attachments ?? []).filter((a) => a.kind === 'image' && typeof a.url === 'string' && a.url).map((a) => getStorageUrl(a.url))
+    : [];
 
   return (
     <View className={cn('my-0.5', isMine ? 'items-end' : 'items-start')}>
       <View
         className={cn(
           'px-3.5 py-2.5 rounded-2xl',
-          wide ? 'w-[86%]' : 'max-w-[86%]',
+          wide ? 'w-[86%]' : sentImages.length ? 'w-[72%]' : 'max-w-[86%]',
           isMine ? 'bg-primary' : 'bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark'
         )}
       >
         {isMine ? (
-          <Text className="text-white">{msg.content}</Text>
+          <View className="gap-1.5">
+            {sentImages.length ? <ImageGrid uris={sentImages} /> : null}
+            {msg.content ? <Text className="text-white">{msg.content}</Text> : null}
+          </View>
         ) : (
           <>
             <StepList steps={msg.steps} streaming={streaming} hasText={!!msg.content} />
@@ -168,17 +184,22 @@ export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthContext();
 
-  const ownerMode = isManagerUser(user);
   const featureOn = assistantEnabled(user);
+  const caps = useAssistantCapabilities(featureOn);
+  const capabilities = caps.capabilities;
+  // Server mới báo tắt (chưa cấu hình / gói không có / vai trò không dùng được) → không hiện ô soạn.
+  const capsOff = capabilities?.enabled === false;
+  const tier = capabilities?.tier;
+  const ownerMode = tier ? OWNER_TIERS.includes(tier) : isManagerUser(user);
   const [consent, setConsent] = useState<boolean | null>(null);
   useEffect(() => {
     prefs.get(PrefKeys.aiConsent).then((v) => setConsent(v === AI_CONSENT_VERSION)).catch(() => setConsent(false));
   }, []);
-  const enabled = featureOn && consent === true;
-  const storeName = getStore()?.name ?? getStore()?.code ?? '';
+  const enabled = featureOn && caps.loaded && !capsOff && consent === true;
+  const storeName = capabilities?.storeName || getStore()?.name || getStore()?.code || '';
+  const imageRules = useMemo(() => imageRulesOf(capabilities), [capabilities]);
 
-  const { messages, loading, sending, sessionId, stale, open, send: sendMessage } = useAssistantChat({ enabled });
-  const [text, setText] = useState('');
+  const { messages, loading, sending, sessionId, stale, open, send: sendMessage, retry } = useAssistantChat({ enabled });
   const [kbUp, setKbUp] = useState(false);
 
   useEffect(() => {
@@ -192,26 +213,17 @@ export function AssistantScreen() {
     };
   }, []);
 
-  /** Gửi chữ trong ô nhập: xoá ô ngay, gửi lỗi thì trả lại. */
-  async function send(raw: string) {
-    const content = raw.trim();
-    if (!content || sending) return;
-    setText('');
-    const ok = await sendMessage(content);
-    if (!ok) setText(content);
-  }
-
   /** Gửi câu từ chip gợi ý / nút thao tác — không đụng bản nháp đang gõ. */
   async function sendPrompt(prompt: string) {
     if (sending) return;
-    if (!(await sendMessage(prompt))) toast.error(t('assistant.error'));
+    if ((await sendMessage(prompt)) !== 'sent') toast.error(t('assistant.error'));
   }
 
   const busy = sending || messages.some(isInFlight);
   const last = messages[messages.length - 1];
   // Chip gợi ý chỉ dưới câu trả lời CUỐI cùng, đã xong.
   const suggestionsFor = last && last.role === 'assistant' && !last.streaming && last.status !== 'error' ? last.id : null;
-  const suggestions = starterQuestions(undefined, ownerMode, t);
+  const suggestions = starterQuestions(tier, ownerMode, t);
   const subtitle = ownerMode && storeName
     ? t('assistant.storeSubtitle', { store: storeName })
     : ownerMode && !isMultiStore
@@ -242,7 +254,7 @@ export function AssistantScreen() {
         ) : null}
       </View>
 
-      {featureOn && consent === false ? (
+      {featureOn && caps.loaded && !capsOff && consent === false ? (
         <ScrollView contentContainerClassName="flex-grow justify-center px-7 gap-4 py-8" contentContainerStyle={{ paddingBottom: TAB_BAR_CLEARANCE + 16 }}>
           <View className="w-16 h-16 rounded-2xl items-center justify-center bg-primary-soft self-center">
             <Icon name="shield-lock-outline" size={30} tone="primary" />
@@ -263,13 +275,15 @@ export function AssistantScreen() {
           </Button>
         </ScrollView>
       ) : !enabled ? (
-        consent === null && featureOn ? <Loading /> : (
+        featureOn && (!caps.loaded || (!capsOff && consent === null)) ? <Loading /> : (
         <View className="flex-1 items-center justify-center px-8 gap-3" style={{ paddingBottom: TAB_BAR_CLEARANCE }}>
           <View className="w-16 h-16 rounded-2xl items-center justify-center bg-primary-soft">
             <Icon name="robot-off-outline" size={32} tone="primary" />
           </View>
           <Text variant="title2" className="text-center">{t('assistant.notEnabledTitle')}</Text>
-          <Text tone="muted" className="text-center leading-6">{t('assistant.notEnabledDesc')}</Text>
+          <Text tone="muted" className="text-center leading-6">
+            {capsOff && capabilities?.reason === 'role_not_allowed' ? t('assistant.managersOnly') : t('assistant.notEnabledDesc')}
+          </Text>
         </View>
         )
       ) : (
@@ -303,35 +317,22 @@ export function AssistantScreen() {
                   showSuggestions={item.id === suggestionsFor}
                   stale={stale && !!item.streaming}
                   onSend={sendPrompt}
+                  onRetry={retry}
                 />
               )}
               keyboardShouldPersistTaps="handled"
             />
           )}
 
-          <View
-            className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark"
-            style={{ paddingBottom: kbUp ? 8 : Math.max(insets.bottom, 8) + TAB_BAR_CLEARANCE }}
-          >
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder={ownerMode ? t('assistant.placeholder') : t('assistant.staffPlaceholder')}
-              placeholderTextColor={brand.faint}
-              multiline
-              maxLength={1000}
-              editable={!!sessionId}
-              className="flex-1 rounded-3xl px-4 py-2.5 text-[15px] text-ink dark:text-ink-dark bg-bg dark:bg-bg-dark max-h-32"
-            />
-            <Pressable
-              onPress={() => send(text)}
-              disabled={!text.trim() || sending}
-              accessibilityLabel="Send"
-              className="w-11 h-11 items-center justify-center rounded-full"
-            >
-              {sending ? <Spinner /> : <Icon name="send" size={24} tone={text.trim() ? 'primary' : 'faint'} />}
-            </Pressable>
-          </View>
+          <Composer
+            sessionId={sessionId}
+            sending={sending}
+            placeholder={ownerMode ? t('assistant.placeholder') : t('assistant.staffPlaceholder')}
+            imageInput={!!capabilities?.imageInput}
+            rules={imageRules}
+            bottomPadding={kbUp ? 0 : Math.max(insets.bottom, 8) + TAB_BAR_CLEARANCE - 8}
+            onSend={(content, attachments, localUris) => sendMessage(content, { attachments, localUris })}
+          />
         </KeyboardAvoidingView>
       )}
     </View>
