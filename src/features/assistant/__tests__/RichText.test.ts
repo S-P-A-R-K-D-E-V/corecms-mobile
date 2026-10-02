@@ -37,6 +37,15 @@ describe('parseInline', () => {
   it('link trong chữ đậm vẫn bấm được', () => {
     expect(parseInline('**[Phiếu](https://a.vn)**')).toEqual([{ text: 'Phiếu', link: 'https://a.vn', bold: true }]);
   });
+
+  it('ảnh markdown ở câu trả lời cũ → link chữ alt (không dấu ! thừa, không vẽ ảnh ngoài khối đã kiểm)', () => {
+    expect(parseInline('Mẫu: ![Ốp lưng](https://cdn.kiotviet.vn/a.jpg)')).toEqual([
+      { text: 'Mẫu: ' },
+      { text: 'Ốp lưng', link: 'https://cdn.kiotviet.vn/a.jpg' },
+    ]);
+    expect(parseInline('![](https://a.vn/x.jpg)')).toEqual([{ text: 'https://a.vn/x.jpg', link: 'https://a.vn/x.jpg' }]);
+    expect(parseInline('![x](javascript:alert)')).toEqual([{ text: 'x' }]);
+  });
 });
 
 describe('parseMarkdown', () => {

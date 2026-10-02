@@ -99,12 +99,13 @@ function ActionButtons({
 
   return (
     <View className="flex-row flex-wrap gap-2">
-      {actions.map((a) => {
+      {actions.map((a, i) => {
         // Đang có câu trả lời chạy → tạm khoá, tránh chồng lệnh.
         const disabled = busy;
         return (
           <Pressable
-            key={a.id}
+            // id do server cấp; tin cũ / server lạ có thể trùng → kèm vị trí cho key không đụng nhau.
+            key={`${a.id}-${i}`}
             disabled={disabled}
             onPress={() => press(a)}
             className={cn(

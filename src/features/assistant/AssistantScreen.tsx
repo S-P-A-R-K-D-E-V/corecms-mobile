@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, Keyboard, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { MotiView } from 'moti';
@@ -73,7 +73,8 @@ type BubbleProps = {
   onRetry?: (msg: ScreenMessage) => void;
 };
 
-function Bubble({ msg, user, busy, showSuggestions, stale, onSend, onRetry }: BubbleProps) {
+// memo: mỗi chunk stream làm màn vẽ lại — chỉ bong bóng có props đổi (thường chỉ tin đang stream) mới vẽ lại.
+const Bubble = memo(function Bubble({ msg, user, busy, showSuggestions, stale, onSend, onRetry }: BubbleProps) {
   const t = useT();
   const isMine = msg.role === 'user';
   // Khối từ server vẫn kiểm lại theo người dùng hiện tại (route được phép, ảnh/link an toàn).
@@ -81,7 +82,8 @@ function Bubble({ msg, user, busy, showSuggestions, stale, onSend, onRetry }: Bu
   const suggestions = showSuggestions ? suggestionsOf(blocks) : [];
   const streaming = !!msg.streaming;
   const hasSteps = !!msg.steps?.length;
-  const wide = !isMine && (blocks.some((b) => b.type !== 'suggestions') || hasWideContent(msg.content));
+  const wideText = useMemo(() => !isMine && hasWideContent(msg.content), [isMine, msg.content]);
+  const wide = !isMine && (blocks.some((b) => b.type !== 'suggestions') || wideText);
   // Ảnh người dùng gửi: bản trên máy (vừa gửi) hoặc đường dẫn media đã ký của server.
   const sentImages = isMine
     ? msg.localUris?.length
@@ -141,7 +143,9 @@ function Bubble({ msg, user, busy, showSuggestions, stale, onSend, onRetry }: Bu
       ) : null}
     </View>
   );
-}
+});
+
+const keyOf = (m: ScreenMessage) => m.id;
 
 function Suggestions({ items, onPick }: { items: string[]; onPick: (q: string) => void }) {
   return (
@@ -214,16 +218,35 @@ export function AssistantScreen() {
   }, []);
 
   /** Gửi câu từ chip gợi ý / nút thao tác — không đụng bản nháp đang gõ. */
-  async function sendPrompt(prompt: string) {
-    if (sending) return;
-    if ((await sendMessage(prompt)) !== 'sent') toast.error(t('assistant.error'));
-  }
+  const sendPrompt = useCallback(
+    async (prompt: string) => {
+      if (sending) return;
+      if ((await sendMessage(prompt)) !== 'sent') toast.error(t('assistant.error'));
+    },
+    [sending, sendMessage, t]
+  );
 
   const busy = sending || messages.some(isInFlight);
   const last = messages[messages.length - 1];
   // Chip gợi ý chỉ dưới câu trả lời CUỐI cùng, đã xong.
   const suggestionsFor = last && last.role === 'assistant' && !last.streaming && last.status !== 'error' ? last.id : null;
   const suggestions = starterQuestions(tier, ownerMode, t);
+  // FlatList inverted: tin mới nhất ở đầu mảng. Giữ cùng mảng / cùng renderItem khi không đổi để ô không vẽ lại thừa.
+  const listData = useMemo(() => [...messages].reverse(), [messages]);
+  const renderItem = useCallback(
+    ({ item }: { item: ScreenMessage }) => (
+      <Bubble
+        msg={item}
+        user={user}
+        busy={busy}
+        showSuggestions={item.id === suggestionsFor}
+        stale={stale && !!item.streaming}
+        onSend={sendPrompt}
+        onRetry={retry}
+      />
+    ),
+    [user, busy, suggestionsFor, stale, sendPrompt, retry]
+  );
   const subtitle = ownerMode && storeName
     ? t('assistant.storeSubtitle', { store: storeName })
     : ownerMode && !isMultiStore
@@ -305,21 +328,11 @@ export function AssistantScreen() {
             </ScrollView>
           ) : (
             <FlatList
-              data={[...messages].reverse()}
-              keyExtractor={(m) => m.id}
+              data={listData}
+              keyExtractor={keyOf}
               inverted
               contentContainerClassName="px-3 py-2"
-              renderItem={({ item }) => (
-                <Bubble
-                  msg={item}
-                  user={user}
-                  busy={busy}
-                  showSuggestions={item.id === suggestionsFor}
-                  stale={stale && !!item.streaming}
-                  onSend={sendPrompt}
-                  onRetry={retry}
-                />
-              )}
+              renderItem={renderItem}
               keyboardShouldPersistTaps="handled"
             />
           )}

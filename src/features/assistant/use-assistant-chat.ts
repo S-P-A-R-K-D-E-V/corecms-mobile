@@ -274,11 +274,13 @@ export function useAssistantChat({ enabled }: { enabled: boolean }) {
         if (isHttpStatusError(err) && (err.status === 404 || err.status === 409)) {
           const list = messagesRef.current;
           const idx = list.findIndex((m) => m.id === msg.id);
+          // Đúng câu hỏi ngay trước câu trả lời lỗi. Câu chỉ có ảnh (không chữ) → không gửi lại được (objectKey
+          // gắn với tin cũ) — không được lùi về một câu chữ cũ hơn, sẽ hỏi nhầm câu khác.
           const lastUser = list
             .slice(0, idx === -1 ? list.length : idx)
             .reverse()
-            .find((m) => m.role === 'user' && m.content.trim());
-          if (lastUser && (await send(lastUser.content)) === 'sent') return;
+            .find((m) => m.role === 'user');
+          if (lastUser?.content.trim() && (await send(lastUser.content)) === 'sent') return;
         }
         toast.error(t('assistant.error'));
       }

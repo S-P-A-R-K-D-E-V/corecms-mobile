@@ -110,6 +110,8 @@ export function normalizeBlocks(raw: unknown, user: AuthUser | null | undefined)
   if (!Array.isArray(raw)) return [];
   const out: UiBlock[] = [];
   const count = { image: 0, link: 0, action: 0, suggestions: 0 };
+  // Model hay lặp cùng một link → một thẻ (url cũng là key khi vẽ).
+  const linkUrls = new Set<string>();
   for (const b of raw) {
     if (out.length >= BLOCK_LIMITS.total) break;
     if (!isObj(b)) continue;
@@ -126,7 +128,8 @@ export function normalizeBlocks(raw: unknown, user: AuthUser | null | undefined)
       case 'link': {
         if (count.link >= BLOCK_LIMITS.link) break;
         const block = linkBlock(b);
-        if (block) {
+        if (block && !linkUrls.has(block.url)) {
+          linkUrls.add(block.url);
           out.push(block);
           count.link++;
         }

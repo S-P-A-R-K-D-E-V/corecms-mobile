@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { ScrollView, View } from 'react-native';
 
 import { Text } from 'src/components/ui';
@@ -23,9 +24,10 @@ export type MdBlock =
   | { type: 'table'; header: string[]; rows: string[][] }
   | { type: 'rule' };
 
-// Thứ tự quan trọng: link / URL trước để dấu _ * trong URL không bị hiểu là nghiêng.
+// Thứ tự quan trọng: link / URL trước để dấu _ * trong URL không bị hiểu là nghiêng. ![alt](url) (ảnh markdown ở
+// câu trả lời cũ, trước khi có khối ảnh) → link chữ alt: ảnh chỉ hiện qua khối image đã được server kiểm host.
 const INLINE =
-  /(\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s<>()[\]]+|\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|_[^_\s][^_]*_|\*[^*\s][^*]*\*)/g;
+  /(!\[[^\]\n]*\]\([^)\s]+\)|\[[^\]\n]+\]\([^)\s]+\)|https?:\/\/[^\s<>()[\]]+|\*\*[^*]+\*\*|__[^_]+__|`[^`]+`|_[^_\s][^_]*_|\*[^*\s][^*]*\*)/g;
 const TRAILING_PUNCT = /[.,;:!?'"”’]+$/;
 
 export function parseInline(line: string): Span[] {
@@ -35,9 +37,9 @@ export function parseInline(line: string): Span[] {
     const index = match.index ?? 0;
     if (index > last) spans.push({ text: line.slice(last, index) });
     const token = match[0];
-    if (token.startsWith('[')) {
-      const m = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(token)!;
-      const label = m[1]!;
+    if (token.startsWith('[') || token.startsWith('![')) {
+      const m = /^!?\[([^\]]*)\]\(([^)\s]+)\)$/.exec(token)!;
+      const label = m[1]!.trim() || m[2]!;
       // Link không phải http(s) (javascript:, tel:…) → chỉ giữ chữ.
       spans.push(isHttpUrl(m[2]) ? { text: label, link: m[2]! } : { text: label });
     } else if (/^https?:\/\//i.test(token)) {
@@ -268,8 +270,9 @@ function CodeBox({ text }: { text: string }) {
   );
 }
 
-export function RichText({ text }: { text: string }) {
-  const blocks = parseMarkdown(text);
+// memo + useMemo: danh sách chat dài vẽ lại mỗi lần có chunk stream — chỉ phân tích lại tin có nội dung đổi.
+export const RichText = memo(function RichText({ text }: { text: string }) {
+  const blocks = useMemo(() => parseMarkdown(text), [text]);
   return (
     <View className="gap-1.5">
       {blocks.map((b, i) => {
@@ -312,4 +315,4 @@ export function RichText({ text }: { text: string }) {
       })}
     </View>
   );
-}
+});

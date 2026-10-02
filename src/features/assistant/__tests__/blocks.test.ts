@@ -88,6 +88,8 @@ describe('normalizeBlocks', () => {
         { type: 'link', url: 'javascript:alert(1)', title: 'x' },
         { type: 'link', url: 'tel:0900000000' },
         { type: 'link', url: 'https://cici21chualang.vn/chinh-sach' },
+        // trùng url → bỏ (một thẻ, key không đụng nhau)
+        { type: 'link', url: 'https://cici21chualang.vn/chinh-sach', title: 'Lặp' },
       ],
       admin
     );
