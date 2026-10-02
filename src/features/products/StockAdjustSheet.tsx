@@ -106,7 +106,8 @@ function StockAdjustForm({ target, initialBranchId, onClose }: { target: StockTa
       requestIds.reset();
       setError(null);
       setSubmitted({ id: res.id, status: res.status });
-      kickStockAdjustmentPolling(qc, target.productId);
+      // Còn chờ đẩy → nhớ id để tải lại tồn khi KiotViet nhận; Local thì tồn đã đổi, tải lại ngay bên dưới.
+      kickStockAdjustmentPolling(qc, target.productId, isInFlight(res.status) ? res.id : undefined);
       invalidateProductStock(qc);
     },
     onError: (err) => {
@@ -121,7 +122,7 @@ function StockAdjustForm({ target, initialBranchId, onClose }: { target: StockTa
     onSuccess: () => {
       haptics.light();
       setError(null);
-      kickStockAdjustmentPolling(qc, target.productId);
+      kickStockAdjustmentPolling(qc, target.productId, submitted!.id);
     },
     onError: (err) => {
       haptics.error();

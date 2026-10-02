@@ -5,7 +5,7 @@ import { createStockAdjustment, getStockAdjustments, retryStockAdjustment } from
 import { useLocaleStore } from 'src/i18n';
 import type { IStockAdjustment } from 'src/types/erp';
 
-import { stockAdjustmentsKey, stockAdjustmentsQuery } from '../hooks';
+import { kickStockAdjustmentPolling, stockAdjustmentsKey, stockAdjustmentsQuery, wasStockAdjusted } from '../hooks';
 import {
   POLL_INTERVAL_MS,
   POLL_WINDOW_MS,
@@ -17,6 +17,7 @@ import {
   parseQuantity,
   previewOnHand,
   reasonLabel,
+  settleAwaited,
   shouldPoll,
   signedQuantity,
   sortRecent,
@@ -148,6 +149,17 @@ describe('trạng thái + hỏi lại', () => {
     expect(newlyApplied([adj()], [adj(), adj({ id: 'new', status: 'Synced' })])).toBe(false);
   });
 
+  it('settleAwaited: lần máy này đang chờ → bỏ khỏi danh sách khi xong (nhận / lỗi); true nếu có lần đã nhận', () => {
+    const awaiting = new Set(['a1', 'a2', 'a3']);
+    expect(settleAwaited(awaiting, [adj({ id: 'a1' }), adj({ id: 'a2', status: 'Failed' })])).toBe(false);
+    expect([...awaiting]).toEqual(['a1', 'a3']);
+    // Lần của người khác đã nhận → không phải việc của danh sách chờ.
+    expect(settleAwaited(awaiting, [adj({ id: 'a1', status: 'Synced' }), adj({ id: 'other', status: 'Synced' })])).toBe(true);
+    expect([...awaiting]).toEqual(['a3']);
+    expect(settleAwaited(awaiting, [adj({ id: 'a3', status: 'Local' })])).toBe(true);
+    expect(awaiting.size).toBe(0);
+  });
+
   it('sortRecent: mới nhất lên đầu, không đổi mảng gốc', () => {
     const items = [adj({ id: 'old', createdAt: '2026-10-01T01:00:00Z' }), adj({ id: 'new', createdAt: '2026-10-02T01:00:00Z' })];
     expect(sortRecent(items).map((a) => a.id)).toEqual(['new', 'old']);
@@ -195,6 +207,39 @@ describe('stockAdjustmentsQuery', () => {
     const pending = [adj({ createdAt: new Date().toISOString() })];
     expect(opts.refetchInterval({ state: { data: pending } })).toBe(POLL_INTERVAL_MS);
     expect(opts.refetchInterval({ state: { data: [adj({ status: 'Synced' })] } })).toBe(false);
+    qc.clear();
+  });
+
+  it('lần vừa gửi đã lên KiotViet ngay lần hỏi đầu (không kịp thấy Pending) → vẫn tải lại tồn, một lần', async () => {
+    const qc = new QueryClient();
+    const invalidate = jest.spyOn(qc, 'invalidateQueries').mockResolvedValue();
+    kickStockAdjustmentPolling(qc, 'p3', 'fast');
+    expect(invalidate).toHaveBeenLastCalledWith({ queryKey: ['erp', 'stock-adjustments', 'p3'] });
+    expect(wasStockAdjusted('p3')).toBe(true);
+    expect(wasStockAdjusted('p-never')).toBe(false);
+    invalidate.mockClear();
+
+    jest.spyOn(axios, 'get').mockResolvedValue({ data: [adj({ id: 'fast', status: 'Synced', kvOnHandAfter: 4 })] });
+    await stockAdjustmentsQuery(qc, 'p3').queryFn();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['erp', 'product'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['erp', 'products'] });
+
+    invalidate.mockClear();
+    await stockAdjustmentsQuery(qc, 'p3').queryFn();
+    expect(invalidate).not.toHaveBeenCalled();
+    qc.clear();
+  });
+
+  it('"Thử lại" lần lỗi rồi KiotViet nhận luôn (Failed → Synced) → tải lại tồn', async () => {
+    const qc = new QueryClient();
+    const invalidate = jest.spyOn(qc, 'invalidateQueries').mockResolvedValue();
+    qc.setQueryData(stockAdjustmentsKey('p4'), [adj({ id: 'r1', status: 'Failed', error: 'KiotViet 500' })]);
+    kickStockAdjustmentPolling(qc, 'p4', 'r1');
+    invalidate.mockClear();
+
+    jest.spyOn(axios, 'get').mockResolvedValue({ data: [adj({ id: 'r1', status: 'Synced' })] });
+    await stockAdjustmentsQuery(qc, 'p4').queryFn();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['erp', 'product'] });
     qc.clear();
   });
 

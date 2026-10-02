@@ -12,14 +12,15 @@ import { t } from 'src/i18n';
 import type { IStockAdjustment } from 'src/types/erp';
 
 import { fmtQty } from 'src/features/erp/shared';
-import { kickStockAdjustmentPolling, stockAdjustmentsQuery } from './hooks';
+import { kickStockAdjustmentPolling, stockAdjustmentsQuery, wasStockAdjusted } from './hooks';
 import { StockAdjustStatusBadge } from './StockAdjustSheet';
 import { reasonLabel, sortRecent, stockAdjustErrorMessage } from './stock-adjust';
 
 // ----------------------------------------------------------------------
 // Lịch sử chỉnh tồn (chủ cửa hàng + quản lý): mới nhất trước, trạng thái đẩy KiotViet; lần lỗi có "Thử lại"
 // (chỉ chủ cửa hàng). Hàng thường: tải luôn, chỉ hiện khi đã có lần chỉnh. Hàng có biến thể: mỗi biến thể một
-// danh sách → bấm "Xem" mới tải (không gọi hàng loạt mỗi lần mở chi tiết).
+// danh sách → bấm "Xem" mới tải (không gọi hàng loạt mỗi lần mở chi tiết) — trừ khi vừa sửa tồn một biến thể
+// trên máy này: mở sẵn để vẫn hỏi trạng thái đẩy (và tải lại tồn khi KiotViet nhận) sau khi đóng sheet.
 // ----------------------------------------------------------------------
 
 const MAX_ROWS = 15;
@@ -35,7 +36,8 @@ const quantityLabel = (a: IStockAdjustment) =>
 
 export function StockAdjustmentHistory({ targets, canRetry, lazy }: { targets: HistoryTarget[]; canRetry: boolean; lazy: boolean }) {
   const qc = useQueryClient();
-  const [opened, setOpened] = useState(!lazy);
+  const [expanded, setExpanded] = useState(!lazy);
+  const opened = expanded || targets.some((x) => wasStockAdjusted(x.productId));
   const results = useQueries({ queries: targets.map((x) => stockAdjustmentsQuery(qc, x.productId, opened)) });
 
   const retry = useMutation({
@@ -43,7 +45,7 @@ export function StockAdjustmentHistory({ targets, canRetry, lazy }: { targets: H
     onSuccess: (_, row) => {
       haptics.light();
       toast.info(t('erp.stockAdj.retried'));
-      kickStockAdjustmentPolling(qc, row.productId);
+      kickStockAdjustmentPolling(qc, row.productId, row.id);
     },
     onError: (err) => toast.error(stockAdjustErrorMessage(err), t('erp.actionFailed')),
   });
@@ -53,7 +55,7 @@ export function StockAdjustmentHistory({ targets, canRetry, lazy }: { targets: H
   if (!opened) {
     return (
       <SectionCard title={t('erp.stockAdj.history')} icon="history" bodyClassName="pt-0">
-        <Button variant="soft" size="sm" icon="history" onPress={() => setOpened(true)}>{t('erp.stockAdj.showHistory')}</Button>
+        <Button variant="soft" size="sm" icon="history" onPress={() => setExpanded(true)}>{t('erp.stockAdj.showHistory')}</Button>
       </SectionCard>
     );
   }

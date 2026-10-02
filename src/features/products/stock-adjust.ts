@@ -111,6 +111,21 @@ export function newlyApplied(prev: IStockAdjustment[] | undefined, next: IStockA
   return next.some((a) => isApplied(a.status) && isInFlight(before.get(a.id)));
 }
 
+/**
+ * Lần chỉnh máy này vừa gửi / vừa "Thử lại" (`awaiting`) đã ra kết quả chưa: bỏ khỏi danh sách chờ những lần đã
+ * xong (nhận hoặc lỗi); true nếu có lần đã nhận → tải lại tồn. Bù cho newlyApplied khi không kịp thấy bước chờ:
+ * KiotViet nhận trước lần hỏi đầu tiên, hoặc Failed → Synced ngay sau "Thử lại".
+ */
+export function settleAwaited(awaiting: Set<string>, next: IStockAdjustment[]): boolean {
+  let applied = false;
+  for (const a of next) {
+    if (!awaiting.has(a.id) || isInFlight(a.status)) continue;
+    awaiting.delete(a.id);
+    if (isApplied(a.status)) applied = true;
+  }
+  return applied;
+}
+
 /** Mới nhất lên đầu. */
 export function sortRecent<T extends { createdAt: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
