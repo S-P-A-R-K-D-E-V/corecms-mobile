@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, FlatList, KeyboardAvoidingView, Platform, TextInput, Keyboard, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { MotiView } from 'moti';
@@ -6,17 +6,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 
 import { Loading, goBackOrHome } from 'src/components/shared';
+import { toast } from 'src/components/overlay';
 import { Text, Pressable, Icon, Spinner, Button } from 'src/components/ui';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { useT } from 'src/i18n';
-import { useAuthContext } from 'src/auth/auth-context';
+import { useAuthContext, type AuthUser } from 'src/auth/auth-context';
 import { assistantEnabled, isManagerUser } from 'src/auth/roles';
 import { getStore, isMultiStore } from 'src/services/store-config';
-import { RichText } from './RichText';
+import { RichText, hasWideContent } from './RichText';
 import { useAssistantChat } from './use-assistant-chat';
-import type { ScreenMessage } from './assistant-events';
+import { isInFlight, type ScreenMessage } from './assistant-events';
+import { normalizeBlocks } from './blocks';
+import { MessageBlocks, SuggestionChips, suggestionsOf } from './MessageBlocks';
+import { StepList } from './StepList';
 
 // ----------------------------------------------------------------------
 // Tab "Trợ lý" — AI Chat, KHÁC HOÀN TOÀN tab "Chat" nhắn tin nội bộ. BE tự chọn trợ lý theo người hỏi:
@@ -31,52 +35,94 @@ const AI_CONSENT_VERSION = 'v1';
 // Khớp PILL_H + lề của thanh tab nổi (src/app/(tabs)/_layout.tsx) — ô nhập phải nằm TRÊN thanh tab.
 const TAB_BAR_CLEARANCE = 72 + 8;
 
-function TypingBubble({ label }: { label?: string }) {
+function TypingDots({ label }: { label?: string }) {
   return (
-    <View className="flex-row justify-start my-1">
-      <View className="flex-row items-center gap-2 px-4 py-3 rounded-2xl bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark">
-        {[0, 1, 2].map((i) => (
-          <MotiView
-            key={i}
-            from={{ opacity: 0.3, translateY: 0 }}
-            animate={{ opacity: 1, translateY: -3 }}
-            transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 420, delay: i * 140 }}
-            // MotiView không nhận className (NativeWind) — kích thước/màu qua style.
-            style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: brand.muted }}
-          />
-        ))}
-        {label ? <Text variant="caption" tone="muted">{label}</Text> : null}
-      </View>
+    <View className="flex-row items-center gap-2 py-1">
+      {[0, 1, 2].map((i) => (
+        <MotiView
+          key={i}
+          from={{ opacity: 0.3, translateY: 0 }}
+          animate={{ opacity: 1, translateY: -3 }}
+          transition={{ loop: true, repeatReverse: true, type: 'timing', duration: 420, delay: i * 140 }}
+          // MotiView không nhận className (NativeWind) — kích thước/màu qua style.
+          style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: brand.muted }}
+        />
+      ))}
+      {label ? <Text variant="caption" tone="muted">{label}</Text> : null}
     </View>
   );
 }
 
-function Bubble({ msg }: { msg: ScreenMessage }) {
+type BubbleProps = {
+  msg: ScreenMessage;
+  user: AuthUser | null | undefined;
+  /** Đang có câu trả lời chạy / đang gửi → khoá nút thao tác + chip gợi ý. */
+  busy: boolean;
+  /** Đây là câu trả lời cuối và đã xong → hiện chip gợi ý. */
+  showSuggestions: boolean;
+  /** Đang chờ mà im lặng lâu → "Vẫn đang xử lý…". */
+  stale: boolean;
+  onSend: (prompt: string) => void;
+  onRetry?: (msg: ScreenMessage) => void;
+};
+
+function Bubble({ msg, user, busy, showSuggestions, stale, onSend, onRetry }: BubbleProps) {
   const t = useT();
   const isMine = msg.role === 'user';
+  // Khối từ server vẫn kiểm lại theo người dùng hiện tại (route được phép, ảnh/link an toàn).
+  const blocks = useMemo(() => (isMine ? [] : normalizeBlocks(msg.blocks, user)), [isMine, msg.blocks, user]);
+  const suggestions = showSuggestions ? suggestionsOf(blocks) : [];
+  const streaming = !!msg.streaming;
+  const hasSteps = !!msg.steps?.length;
+  const wide = !isMine && (blocks.some((b) => b.type !== 'suggestions') || hasWideContent(msg.content));
+
   return (
-    <View className={cn('flex-row my-0.5', isMine ? 'justify-end' : 'justify-start')}>
+    <View className={cn('my-0.5', isMine ? 'items-end' : 'items-start')}>
       <View
         className={cn(
-          'max-w-[86%] px-3.5 py-2.5 rounded-2xl',
+          'px-3.5 py-2.5 rounded-2xl',
+          wide ? 'w-[86%]' : 'max-w-[86%]',
           isMine ? 'bg-primary' : 'bg-surface dark:bg-surface-dark border border-line/60 dark:border-line-dark'
         )}
       >
         {isMine ? (
           <Text className="text-white">{msg.content}</Text>
-        ) : msg.status === 'error' ? (
-          // Lỗi giữa chừng: giữ phần đã trả lời, thêm dòng báo lỗi.
-          <View className="gap-1">
-            {msg.content ? <RichText text={msg.content} /> : null}
-            <Text variant="bodySmall" tone="error">{t('assistant.error')}</Text>
-          </View>
         ) : (
-          <RichText text={msg.content || (msg.streaming ? '…' : '')} />
+          <>
+            <StepList steps={msg.steps} streaming={streaming} hasText={!!msg.content} />
+            {streaming && !msg.content && !hasSteps ? (
+              <TypingDots label={msg.statusLabel ?? (stale ? t('assistant.stillWorking') : t('assistant.thinking'))} />
+            ) : null}
+            {msg.content ? <RichText text={msg.content} /> : null}
+            {streaming && msg.content && stale ? (
+              <Text variant="caption" tone="muted" className="mt-1">{t('assistant.stillWorking')}</Text>
+            ) : null}
+            {blocks.length ? <MessageBlocks blocks={blocks} busy={busy} onSend={onSend} /> : null}
+            {msg.status === 'error' ? (
+              // Lỗi giữa chừng: giữ phần đã trả lời, thêm dòng báo lỗi + Thử lại.
+              <View className="flex-row flex-wrap items-center gap-x-1.5 gap-y-1 mt-1.5">
+                <Icon name="alert-circle-outline" size={15} tone="error" />
+                <Text variant="bodySmall" tone="error">{t('assistant.replyFailed')}</Text>
+                {onRetry ? (
+                  <Pressable onPress={() => onRetry(msg)} disabled={busy} accessibilityRole="button" hitSlop={8}>
+                    <Text variant="bodySmall" tone="primary" className="font-semibold underline">{t('assistant.retry')}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+          </>
         )}
-        <Text className={cn('text-[10px] text-right mt-1', isMine ? 'text-white/65' : 'text-faint')}>
-          {dayjs(msg.createdAt).format('HH:mm')}
-        </Text>
+        {streaming ? null : (
+          <Text className={cn('text-[10px] text-right mt-1', isMine ? 'text-white/65' : 'text-faint')}>
+            {dayjs(msg.createdAt).format('HH:mm')}
+          </Text>
+        )}
       </View>
+      {suggestions.length ? (
+        <View className="w-[86%]">
+          <SuggestionChips items={suggestions} disabled={busy} onSend={onSend} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -95,6 +141,26 @@ function Suggestions({ items, onPick }: { items: string[]; onPick: (q: string) =
       ))}
     </View>
   );
+}
+
+/**
+ * Câu hỏi gợi ý lúc chưa có tin: theo tier của capabilities (server mới), chưa có thì theo vai trò như cũ.
+ * Quản lý cửa hàng không có công cụ tiền → bỏ câu doanh thu.
+ */
+export function starterQuestions(tier: string | null | undefined, ownerMode: boolean, tr: (k: string) => string): string[] {
+  const owner = ['ownerQ1', 'ownerQ2', 'ownerQ3', 'ownerQ4'];
+  const staff = ['staffQ1', 'staffQ2', 'staffQ3'];
+  const keys =
+    tier === 'cici_admin' || tier === 'store_admin'
+      ? owner
+      : tier === 'store_manager'
+        ? owner.slice(1)
+        : tier === 'cici_staff'
+          ? staff
+          : ownerMode
+            ? owner
+            : staff;
+  return keys.map((k) => tr(`assistant.${k}`));
 }
 
 export function AssistantScreen() {
@@ -126,6 +192,7 @@ export function AssistantScreen() {
     };
   }, []);
 
+  /** Gửi chữ trong ô nhập: xoá ô ngay, gửi lỗi thì trả lại. */
   async function send(raw: string) {
     const content = raw.trim();
     if (!content || sending) return;
@@ -134,11 +201,17 @@ export function AssistantScreen() {
     if (!ok) setText(content);
   }
 
-  const streamingLabel = messages.find((m) => m.streaming)?.statusLabel ?? (stale ? t('assistant.stillWorking') : undefined);
-  const isAssistantTyping = messages.some((m) => m.streaming && !m.content);
-  const suggestions = ownerMode
-    ? [t('assistant.ownerQ1'), t('assistant.ownerQ2'), t('assistant.ownerQ3'), t('assistant.ownerQ4')]
-    : [t('assistant.staffQ1'), t('assistant.staffQ2'), t('assistant.staffQ3')];
+  /** Gửi câu từ chip gợi ý / nút thao tác — không đụng bản nháp đang gõ. */
+  async function sendPrompt(prompt: string) {
+    if (sending) return;
+    if (!(await sendMessage(prompt))) toast.error(t('assistant.error'));
+  }
+
+  const busy = sending || messages.some(isInFlight);
+  const last = messages[messages.length - 1];
+  // Chip gợi ý chỉ dưới câu trả lời CUỐI cùng, đã xong.
+  const suggestionsFor = last && last.role === 'assistant' && !last.streaming && last.status !== 'error' ? last.id : null;
+  const suggestions = starterQuestions(undefined, ownerMode, t);
   const subtitle = ownerMode && storeName
     ? t('assistant.storeSubtitle', { store: storeName })
     : ownerMode && !isMultiStore
@@ -214,7 +287,7 @@ export function AssistantScreen() {
               <Text tone="muted" className="text-center leading-6">
                 {ownerMode ? t('assistant.emptyDesc') : t('assistant.staffEmptyDesc')}
               </Text>
-              <Suggestions items={suggestions} onPick={send} />
+              <Suggestions items={suggestions} onPick={sendPrompt} />
             </ScrollView>
           ) : (
             <FlatList
@@ -222,8 +295,16 @@ export function AssistantScreen() {
               keyExtractor={(m) => m.id}
               inverted
               contentContainerClassName="px-3 py-2"
-              ListHeaderComponent={isAssistantTyping ? <TypingBubble label={streamingLabel ?? t('assistant.thinking')} /> : null}
-              renderItem={({ item }) => <Bubble msg={item} />}
+              renderItem={({ item }) => (
+                <Bubble
+                  msg={item}
+                  user={user}
+                  busy={busy}
+                  showSuggestions={item.id === suggestionsFor}
+                  stale={stale && !!item.streaming}
+                  onSend={sendPrompt}
+                />
+              )}
               keyboardShouldPersistTaps="handled"
             />
           )}

@@ -338,6 +338,10 @@ export const en: Dict = {
     notEnabledDesc: "The AI assistant isn't enabled for this store yet. The store owner can turn it on in the plan settings.",
     thinking: 'Thinking…',
     stillWorking: 'Still working…',
+    composing: 'Putting the answer together…',
+    stepsDone: 'Checked {n} data sources',
+    replyFailed: 'The reply was interrupted.',
+    retry: 'Retry',
     consentTitle: 'Before you use the AI assistant',
     consentBody:
       'Your questions and the store data needed to answer them (sales, products, shifts, pay…) are sent to an AI service provider to generate the answer. The assistant only reads data; it never changes it. Please don’t type sensitive personal information.',
