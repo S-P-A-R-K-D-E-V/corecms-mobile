@@ -7,7 +7,7 @@ import { homeHref } from 'src/auth/roles';
 import { useFeatureFlag } from 'src/services/remote-config';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { isProfileComplete } from 'src/services/profile-completion';
-import { Text, Spinner } from 'src/components/ui';
+import { Text, Spinner, SparkStoreBolt, SPARK_STORE_BRAND } from 'src/components/ui';
 import { softShadow } from 'src/theme';
 import { APP_DISPLAY_NAME, getStoreCode, isMultiStore } from 'src/services/store-config';
 
@@ -27,12 +27,24 @@ export default function Index() {
   }, []);
 
   // Splash while we resolve auth + first-run flag.
+  if ((loading || onboardingDone === null) && isMultiStore) {
+    // Nối liền splash hệ thống (app.config: nền màu thương hiệu + tia chớp trắng) — không nháy sang nền trắng.
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: SPARK_STORE_BRAND }}>
+        {/* Cùng cỡ tia chớp với splash hệ thống (app.config imageWidth 180) để chuyển cảnh không nhảy. */}
+        <SparkStoreBolt size={180 * 0.87} />
+        <View style={{ position: 'absolute', bottom: 96 }}>
+          <Spinner color="#FFFFFF" />
+        </View>
+      </View>
+    );
+  }
   if (loading || onboardingDone === null) {
     return (
       <View className="flex-1 items-center justify-center bg-bg dark:bg-bg-dark gap-5">
         {/* Dùng chính app icon để đồng bộ 100% với logo trên màn hình chính. */}
         <Image
-          source={isMultiStore ? require('../../assets/store/icon.png') : require('../../assets/icon.png')}
+          source={require('../../assets/icon.png')}
           style={{ width: 92, height: 92, borderRadius: 20, ...softShadow }}
           resizeMode="contain"
         />

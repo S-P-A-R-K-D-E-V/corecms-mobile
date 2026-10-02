@@ -22,8 +22,10 @@ const STORE_APP_NAME = process.env.STORE_APP_NAME ?? 'Spark Store';
 const STORE_BUNDLE_ID = process.env.STORE_BUNDLE_ID ?? 'com.devbyspark.store';
 const STORE_APP_SCHEME = process.env.STORE_APP_SCHEME ?? 'sparkstore';
 const STORE_APP_VERSION = process.env.STORE_APP_VERSION ?? '1.0.0';
-/** Ảnh thương hiệu của bản cửa hàng — thay file trong assets/store/ khi có bộ nhận diện chính thức. */
+/** Ảnh thương hiệu của bản cửa hàng (assets/store/: icon.svg là bản gốc vector — tia chớp trắng trên nền hồng). */
 const STORE_ASSETS = './assets/store';
+/** Màu thương hiệu Spark Store: nền icon, splash, màu icon thông báo. Sau đăng nhập app vẫn đổi theo màu cửa hàng. */
+const STORE_BRAND_COLOR = '#DB4F7A';
 
 type Plugin = NonNullable<ExpoConfig['plugins']>[number];
 
@@ -34,8 +36,17 @@ const STORE_PLUGIN_TEXT: Record<string, Record<string, string>> = {
     cameraPermission: en.NSCameraUsageDescription,
     microphonePermission: en.NSMicrophoneUsageDescription,
   },
-  'expo-notifications': { icon: `${STORE_ASSETS}/notification-icon.png` },
+  'expo-notifications': { icon: `${STORE_ASSETS}/notification-icon.png`, color: STORE_BRAND_COLOR },
 };
+
+/** Splash: nền màu thương hiệu + tia chớp trắng ở giữa (sáng/tối như nhau). */
+const STORE_SPLASH = {
+  image: `${STORE_ASSETS}/splash-icon.png`,
+  imageWidth: 180,
+  resizeMode: 'contain',
+  backgroundColor: STORE_BRAND_COLOR,
+  dark: { image: `${STORE_ASSETS}/splash-icon.png`, backgroundColor: STORE_BRAND_COLOR },
+} as const;
 
 function storePlugins(plugins: ExpoConfig['plugins'] = []): Plugin[] {
   return plugins.map((plugin) => {
@@ -56,7 +67,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     scheme: STORE_APP_SCHEME,
     version: STORE_APP_VERSION,
     icon: `${STORE_ASSETS}/icon.png`,
-    splash: { ...base.splash, image: `${STORE_ASSETS}/splash.png`, backgroundColor: '#FFFFFF' },
+    splash: { image: STORE_SPLASH.image, resizeMode: 'contain', backgroundColor: STORE_BRAND_COLOR },
     locales: {
       en: './locales/en.json',
       vi: './locales/vi.json',
@@ -75,9 +86,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     android: {
       ...base.android,
       package: STORE_BUNDLE_ID,
-      adaptiveIcon: { foregroundImage: `${STORE_ASSETS}/adaptive-icon.png`, backgroundColor: '#B45877' },
+      adaptiveIcon: { foregroundImage: `${STORE_ASSETS}/adaptive-icon.png`, backgroundColor: STORE_BRAND_COLOR },
     },
-    plugins: [...storePlugins(base.plugins), 'expo-apple-authentication'],
+    plugins: [...storePlugins(base.plugins), 'expo-apple-authentication', ['expo-splash-screen', STORE_SPLASH]],
     extra: {
       ...base.extra,
       appVariant: 'store',

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Image, Platform, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
-import { Text, Button, Icon, Pressable, Spinner, type IconName } from 'src/components/ui';
+import { Text, Button, Icon, Pressable, Spinner, SparkStoreIcon, type IconName } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { useLocaleStore, useT, type Locale } from 'src/i18n';
 import { spring } from 'src/theme/motion';
@@ -129,11 +129,9 @@ export function WelcomeScreen() {
           transition={{ type: 'spring', ...spring.soft }}
           style={{ alignItems: 'center' }}
         >
-          <Image
-            source={require('../../../assets/store/icon.png')}
-            style={{ width: 84, height: 84, borderRadius: 20, ...softShadow }}
-            resizeMode="contain"
-          />
+          <View style={{ borderRadius: 19, ...softShadow }}>
+            <SparkStoreIcon size={84} />
+          </View>
           <Text variant="title" className="mt-5 text-center">{APP_DISPLAY_NAME}</Text>
           <Text tone="muted" className="text-center mt-2 text-[15px] leading-[22px]">{t('welcome.tagline')}</Text>
         </MotiView>
