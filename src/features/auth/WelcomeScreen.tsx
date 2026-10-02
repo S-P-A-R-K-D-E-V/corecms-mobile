@@ -6,12 +6,11 @@ import { router } from 'expo-router';
 import { useColorScheme } from 'nativewind';
 import * as AppleAuthentication from 'expo-apple-authentication';
 
-import { Text, Button, Icon, Pressable, Spinner, SparkStoreIcon, type IconName } from 'src/components/ui';
+import { Text, Button, Icon, Pressable, Spinner, SparkStoreIcon, SStoreWordmark, type IconName } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { useLocaleStore, useT, type Locale } from 'src/i18n';
 import { spring } from 'src/theme/motion';
 import { softShadow } from 'src/theme';
-import { APP_DISPLAY_NAME } from 'src/services/store-config';
 import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
 import { runDiscovery } from './discovery';
 import { GoogleButton } from './GoogleButton';
@@ -27,10 +26,11 @@ import { startWebSignIn } from './web-sign-in';
 //   của cửa hàng như trước.
 // ----------------------------------------------------------------------
 
-const POINTS: { icon: IconName; key: string }[] = [
-  { icon: 'face-recognition', key: 'welcome.point1' },
-  { icon: 'calendar-sync-outline', key: 'welcome.point2' },
-  { icon: 'robot-happy-outline', key: 'welcome.point3' },
+// Ba tính năng nổi bật (nội dung chủ app duyệt): số thứ tự + tiêu đề + mô tả.
+const FEATURES: { no: string; icon: IconName; key: string }[] = [
+  { no: '01', icon: 'face-recognition', key: 'welcome.feature1' },
+  { no: '02', icon: 'calendar-sync-outline', key: 'welcome.feature2' },
+  { no: '03', icon: 'cash-multiple', key: 'welcome.feature3' },
 ];
 
 function LanguageToggle() {
@@ -132,7 +132,10 @@ export function WelcomeScreen() {
           <View style={{ borderRadius: 19, ...softShadow }}>
             <SparkStoreIcon size={84} />
           </View>
-          <Text variant="title" className="mt-5 text-center">{APP_DISPLAY_NAME}</Text>
+          <Text variant="label" tone="primary" className="mt-5 tracking-[1.6px]">{t('welcome.eyebrow')}</Text>
+          {/* "Chào mừng đến với" + dòng riêng chữ thương hiệu 2 màu "S Store" (không để bị ngắt giữa S và Store). */}
+          <Text variant="title2" className="mt-1.5 text-center">{t('welcome.title').split('{brand}')[0].trim()}</Text>
+          <SStoreWordmark style={{ fontSize: 40, lineHeight: 46, fontWeight: '800', letterSpacing: -0.6, marginTop: 2 }} />
           <Text tone="muted" className="text-center mt-2 text-[15px] leading-[22px]">{t('welcome.tagline')}</Text>
         </MotiView>
 
@@ -140,14 +143,18 @@ export function WelcomeScreen() {
           from={{ opacity: 0, translateY: 12 }}
           animate={{ opacity: 1, translateY: 0 }}
           transition={{ type: 'timing', delay: 150 }}
-          style={{ marginTop: 28, gap: 12 }}
+          style={{ marginTop: 26, gap: 14 }}
         >
-          {POINTS.map((p) => (
-            <View key={p.key} className="flex-row items-center gap-3">
-              <View className="w-9 h-9 rounded-xl items-center justify-center bg-primary-soft">
-                <Icon name={p.icon} size={20} tone="primary" />
+          {FEATURES.map((f) => (
+            <View key={f.key} className="flex-row items-start gap-3">
+              <View className="w-10 h-10 rounded-xl items-center justify-center bg-primary-soft">
+                <Icon name={f.icon} size={20} tone="primary" />
               </View>
-              <Text variant="callout" className="flex-1 font-medium">{t(p.key)}</Text>
+              <View className="flex-1">
+                <Text variant="caption" tone="primary" className="font-bold tracking-[0.6px]">{`${t('welcome.featureLabel')} ${f.no}`}</Text>
+                <Text variant="callout" className="font-semibold">{t(`${f.key}Title`)}</Text>
+                <Text variant="footnote" tone="muted">{t(`${f.key}Desc`)}</Text>
+              </View>
             </View>
           ))}
         </MotiView>

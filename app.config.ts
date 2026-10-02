@@ -18,13 +18,13 @@ const en = enLocale.ios;
 // (src/auth/utils/mobile-redirect.ts).
 // ----------------------------------------------------------------------
 
-const STORE_APP_NAME = process.env.STORE_APP_NAME ?? 'Spark Store';
+const STORE_APP_NAME = process.env.STORE_APP_NAME ?? 'S Store';
 const STORE_BUNDLE_ID = process.env.STORE_BUNDLE_ID ?? 'com.devbyspark.store';
 const STORE_APP_SCHEME = process.env.STORE_APP_SCHEME ?? 'sparkstore';
 const STORE_APP_VERSION = process.env.STORE_APP_VERSION ?? '1.0.0';
 /** Ảnh thương hiệu của bản cửa hàng (assets/store/: icon.svg là bản gốc vector — tia chớp trắng trên nền hồng). */
 const STORE_ASSETS = './assets/store';
-/** Màu thương hiệu Spark Store: nền icon, splash, màu icon thông báo. Sau đăng nhập app vẫn đổi theo màu cửa hàng. */
+/** Màu thương hiệu S Store: nền icon, splash, màu icon thông báo. Sau đăng nhập app vẫn đổi theo màu cửa hàng. */
 const STORE_BRAND_COLOR = '#DB4F7A';
 
 type Plugin = NonNullable<ExpoConfig['plugins']>[number];
