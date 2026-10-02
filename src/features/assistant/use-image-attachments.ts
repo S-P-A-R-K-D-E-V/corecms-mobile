@@ -6,12 +6,14 @@ import { t } from 'src/i18n';
 import { presignAssistantImages } from 'src/api/assistant';
 import { putToPresignedUrl, readLocalFile, type PresignedTarget } from 'src/api/presigned-upload';
 import { nameFromUri } from 'src/features/chat/attachment-rules';
+import { sniffFileType } from 'src/features/chat/attachment-prepare';
 import { checkImage, imageErrorKey, type ImageRules } from './image-attachments';
 
 // ----------------------------------------------------------------------
 // Ảnh đính kèm ở ô soạn trợ lý: chọn ảnh → kiểm loại/dung lượng → xin presigned URL (một lượt cho cả lô)
 // → PUT song song thẳng lên R2. Ảnh không bao giờ đi qua API; câu hỏi chỉ mang objectKey.
-// Không thêm thư viện nén: picker nén JPEG (quality 0.7), iOS xin bản tương thích (không HEIC).
+// Không thêm thư viện nén: picker nén JPEG (quality 0.7), iOS xin bản tương thích (không HEIC). Loại ảnh lấy theo
+// magic bytes: Android nén ảnh HEIC/WebP ra JPEG nhưng vẫn báo mimeType gốc.
 // ----------------------------------------------------------------------
 
 export type ImageAttachmentItem = {
@@ -113,7 +115,12 @@ export function useImageAttachments(sessionId: string | null, rules: ImageRules)
         rejected = 'uploadFailed';
         continue;
       }
-      const check = checkImage({ name: asset.fileName ?? nameFromUri(asset.uri), mimeType: asset.mimeType ?? blob.type, size: blob.size }, rules);
+      // Bytes thật (Android: ảnh HEIC đã nén thành JPEG vẫn mang nhãn image/heic) — server ký đúng Content-Type này.
+      const sniffed = await sniffFileType(asset.uri);
+      const check = checkImage(
+        { name: asset.fileName ?? nameFromUri(asset.uri), mimeType: asset.mimeType ?? blob.type, sniffed, size: blob.size },
+        rules
+      );
       if (!check.ok) {
         rejected = check.reason === 'type' ? 'imageTypeUnsupported' : check.reason === 'size' ? 'imageTooLarge' : 'uploadFailed';
         continue;

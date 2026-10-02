@@ -26,6 +26,21 @@ describe('checkImage', () => {
     });
   });
 
+  it('Android: ảnh HEIC/WebP đã bị picker nén thành JPEG nhưng vẫn báo loại gốc → theo magic bytes', () => {
+    expect(checkImage({ name: 'IMG_1.heic', mimeType: 'image/heic', sniffed: 'image/jpeg', size: 10 }, rules)).toEqual({
+      ok: true,
+      contentType: 'image/jpeg',
+      fileName: 'IMG_1.jpg',
+    });
+    expect(checkImage({ name: 'a.webp', mimeType: 'image/webp', sniffed: 'image/jpeg', size: 10 }, rules)).toMatchObject({
+      ok: true,
+      contentType: 'image/jpeg',
+      fileName: 'a.jpg',
+    });
+    // Bytes thật là HEIC (iOS không chuyển được) → vẫn chặn dù nhãn là JPEG.
+    expect(checkImage({ name: 'a.jpg', mimeType: 'image/jpeg', sniffed: 'image/heic', size: 10 }, rules)).toEqual({ ok: false, reason: 'type' });
+  });
+
   it('quá dung lượng / rỗng', () => {
     expect(checkImage({ name: 'a.jpg', mimeType: 'image/jpeg', size: rules.maxImageBytes + 1 }, rules)).toEqual({ ok: false, reason: 'size' });
     expect(checkImage({ name: 'a.jpg', mimeType: 'image/jpeg', size: 0 }, rules)).toEqual({ ok: false, reason: 'empty' });

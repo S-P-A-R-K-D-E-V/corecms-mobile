@@ -27,12 +27,16 @@ export type ImageCheck =
   | { ok: true; contentType: string; fileName: string }
   | { ok: false; reason: 'type' | 'size' | 'empty' };
 
-/** Loại (theo content-type picker, thiếu thì theo đuôi) + dung lượng thật (blob.size). HEIC/HEIF không nhận. */
+/**
+ * Loại ảnh: ưu tiên magic bytes (sniffed) — Android nén ảnh HEIC/WebP thành JPEG nhưng picker vẫn báo loại gốc;
+ * không đọc được thì theo content-type picker, thiếu nữa thì theo đuôi. Dung lượng thật (blob.size).
+ * HEIC/HEIF không nhận.
+ */
 export function checkImage(
-  file: { name?: string | null; mimeType?: string | null; size: number },
+  file: { name?: string | null; mimeType?: string | null; sniffed?: string | null; size: number },
   rules: ImageRules
 ): ImageCheck {
-  const contentType = resolveContentType(file.name, file.mimeType);
+  const contentType = file.sniffed || resolveContentType(file.name, file.mimeType);
   if (!contentType || contentType === 'image/heic' || contentType === 'image/heif' || !rules.imageTypes.includes(contentType)) {
     return { ok: false, reason: 'type' };
   }

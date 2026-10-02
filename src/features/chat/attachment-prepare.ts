@@ -72,6 +72,15 @@ async function readHead(uri: string): Promise<Uint8Array | null> {
   }
 }
 
+/**
+ * Loại ảnh thật theo magic bytes (null = không đọc được / không nhận ra). Android: picker nén (quality < 1)
+ * ra JPEG nhưng vẫn báo mimeType gốc image/heic | image/webp — phải tin bytes, không tin nhãn.
+ */
+export async function sniffFileType(uri: string): Promise<string | null> {
+  const head = await readHead(uri);
+  return head ? sniffContentType(head) : null;
+}
+
 async function fileSize(uri: string, fallback: number): Promise<number> {
   try {
     const info = await FileSystem.getInfoAsync(uri);
@@ -120,8 +129,7 @@ export async function prepareAttachment(p: PickedAttachment): Promise<PreparedAt
   let size = p.size ?? 0;
 
   if (p.source === 'image') {
-    const head = await readHead(uri);
-    const sniffed = head ? sniffContentType(head) : null;
+    const sniffed = await sniffFileType(uri);
     if (sniffed) contentType = sniffed;
     const plan = contentType ? planImageProcessing({ contentType, width: p.width, height: p.height, size }) : null;
     const M = plan ? getImageManipulator() : null;
