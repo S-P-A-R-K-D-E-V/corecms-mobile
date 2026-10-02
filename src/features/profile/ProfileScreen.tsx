@@ -10,7 +10,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { useLocaleStore, useT } from 'src/i18n';
 import { extractApiError } from 'src/services/error';
-import { getStore, isMultiStore, setStore } from 'src/services/store-config';
+import { getStore, isMultiStore } from 'src/services/store-config';
 import { isAppleSignInAvailable } from 'src/features/auth/apple-sign-in';
 import { startWebLink } from 'src/features/auth/web-link';
 import {
@@ -88,9 +88,12 @@ export function ProfileScreen() {
       confirmText: t('profile.switchStore'),
     });
     if (!ok) return;
-    try { await logout(); } catch {}
-    await setStore(null);
+    // Sang màn Chào mừng TRƯỚC rồi mới đăng xuất máy này (chỉ phiên của máy này): đăng xuất trước thì cổng
+    // của màn hiện tại tự chuyển về trang đăng nhập, tranh với lệnh sang Chào mừng. Chào mừng khoá nút cho
+    // tới khi đăng xuất xong. Cửa hàng hiện tại vẫn được nhớ (Chào mừng có "Quay lại …") cho tới khi thật
+    // sự vào cửa hàng mới.
     router.replace('/welcome' as any);
+    try { await logout(); } catch {}
   }
 
   async function handleLinkGoogle() {
@@ -167,7 +170,8 @@ export function ProfileScreen() {
     try {
       await deleteAccount();
       toast.success(t('profile.deleted'));
-      router.replace('/');
+      // Xoá tài khoản thì máy quên luôn cửa hàng → bản cửa hàng về màn Chào mừng.
+      router.replace((isMultiStore ? '/welcome' : '/') as any);
     } catch (err) {
       toast.error(extractApiError(err), t('profile.deleteFailed'));
     }

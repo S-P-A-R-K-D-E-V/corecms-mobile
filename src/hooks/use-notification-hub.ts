@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { Vibration } from 'react-native';
 import * as signalR from '@microsoft/signalr';
-import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
 
 import { useAuthContext } from 'src/auth/auth-context';
 import { getHostApi } from 'src/api/axios';
+import { currentAccessToken } from 'src/api/session';
 import type { INotification } from 'src/api/notifications';
 import type { NotificationPreferences } from './use-notification-settings';
 
@@ -31,11 +31,10 @@ export function useNotificationHub(options?: {
     let mounted = true;
 
     (async () => {
-      const token = await SecureStore.getItemAsync('accessToken');
-
       const conn = new signalR.HubConnectionBuilder()
         .withUrl(`${getHostApi()}/hubs/notifications`, {
-          accessTokenFactory: () => token ?? '',
+          // Đọc token hiện tại mỗi lần (kết nối lại): token có thể đã được làm mới sau 401.
+          accessTokenFactory: currentAccessToken,
           transport: signalR.HttpTransportType.WebSockets,
           skipNegotiation: true,
         })

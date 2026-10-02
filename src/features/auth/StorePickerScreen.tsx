@@ -6,12 +6,14 @@ import { Text, Button, Card, Icon, PressableScale, Spinner, Badge } from 'src/co
 import { AppHeader } from 'src/components/shared';
 import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { useT } from 'src/i18n';
+import { getStoreCode, lastStoreFirst } from 'src/services/store-config';
 import { useDiscovery } from './discovery';
 import { useEnterStore } from './use-enter-store';
 
 // ----------------------------------------------------------------------
 // Sau khi đăng nhập một lần (Apple/email): chọn cửa hàng để vào. Không có cửa hàng nào → hướng dẫn nhờ
-// quản lý thêm đúng email (Apple "Ẩn email" là trường hợp hay gặp nhất).
+// quản lý thêm đúng email (Apple "Ẩn email" là trường hợp hay gặp nhất). Cửa hàng máy đang nhớ (vào gần
+// nhất) đứng đầu danh sách, kèm nhãn "Dùng gần nhất".
 // ----------------------------------------------------------------------
 
 const ROLE_KEY: Record<string, string> = {
@@ -31,6 +33,8 @@ export function StorePickerScreen() {
 
   const { result } = pending;
   const email = result.email ?? '';
+  const lastCode = getStoreCode();
+  const stores = lastStoreFirst(result.stores);
   const viaApple = pending.via === 'apple';
 
   function startOver() {
@@ -78,8 +82,9 @@ export function StorePickerScreen() {
         {email ? <Text tone="muted" className="mb-2">{t('storePicker.subtitle', { email })}</Text> : null}
       </View>
       <ScrollView contentContainerClassName="px-4 pt-2 gap-3" contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        {result.stores.map((store) => {
+        {stores.map((store) => {
           const busy = entering === store.code;
+          const isLast = !!lastCode && store.code.toLowerCase() === lastCode;
           return (
             <PressableScale key={store.code} onPress={() => enter(store.code)} disabled={!!entering}>
               <Card className="p-4 flex-row items-center gap-3.5">
@@ -87,8 +92,11 @@ export function StorePickerScreen() {
                 <View className="flex-1 gap-0.5">
                   <Text variant="headline" numberOfLines={1}>{store.name}</Text>
                   <Text variant="caption" tone="faint" numberOfLines={1}>{store.host}</Text>
-                  <View className="flex-row mt-1">
+                  <View className="flex-row flex-wrap gap-1.5 mt-1">
                     <Badge tone="neutral">{t(ROLE_KEY[store.role] ?? 'storePicker.roleUser')}</Badge>
+                    {isLast ? (
+                      <Badge tone="primary" icon="history">{t('storePicker.lastUsed')}</Badge>
+                    ) : null}
                   </View>
                 </View>
                 {busy ? <Spinner /> : <Icon name="chevron-right" size={22} tone="faint" />}

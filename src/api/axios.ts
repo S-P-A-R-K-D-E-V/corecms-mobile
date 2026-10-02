@@ -1,41 +1,118 @@
-import axios, { AxiosRequestConfig } from 'axios';
+import axios, { AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { router } from 'expo-router';
 
 // ----------------------------------------------------------------------
 
 import { getHostApi } from 'src/services/store-config';
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, restoreSession, type RestoreOutcome } from './session';
 
 export { getHostApi };
 
 const axiosInstance = axios.create({ baseURL: getHostApi() });
 
+type AuthRetryConfig = InternalAxiosRequestConfig & {
+  /** Token đã gắn khi gửi (để biết 401 là do token cũ hay token hiện tại). */
+  _sentToken?: string | null;
+  /** Đã thử lại sau 401 một lần — lần này 401 nữa thì thôi. */
+  _authRetry?: boolean;
+};
+
 // Attach JWT token to every request
-axiosInstance.interceptors.request.use(async (config) => {
+axiosInstance.interceptors.request.use(async (config: AuthRetryConfig) => {
   // Bản app cửa hàng: gốc API đổi theo cửa hàng người dùng chọn lúc chạy (store-config).
   config.baseURL = getHostApi();
-  const token = await SecureStore.getItemAsync('accessToken');
+  // SecureStore là nguồn duy nhất: không còn token thì không gửi header cũ còn sót trong defaults.
+  const token = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
+  } else {
+    config.headers.delete('Authorization');
   }
+  config._sentToken = token;
   return config;
 });
+
+// ----------------------------------------------------------------------
+// Hết phiên giữa chừng: AuthProvider đăng ký hàm này để chuyển về "chưa đăng nhập" (LOGOUT). axios
+// không tự điều hướng — các cổng (index, InternalAppGuard) đưa về trang đăng nhập của cửa hàng đã nhớ.
+// ----------------------------------------------------------------------
+
+let onSessionExpired: (() => void) | null = null;
+
+export function setSessionExpiredHandler(handler: (() => void) | null) {
+  onSessionExpired = handler;
+}
+
+/** /auth/* cho phép gọi khi chưa đăng nhập: 401 ở đây là sai thông tin đăng nhập, không phải hết phiên. */
+const ANONYMOUS_AUTH_PATHS = new Set([
+  '/auth/login',
+  '/auth/register',
+  '/auth/verify-otp',
+  '/auth/resend-otp',
+  '/auth/restore-session',
+  '/auth/oauth-login',
+  '/auth/sso/exchange',
+  '/auth/refresh-token',
+]);
+
+export function isAnonymousAuthPath(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url
+    .replace(/^https?:\/\/[^/]+/i, '')
+    .replace(/^\/api(?=\/)/, '')
+    .split(/[?#]/)[0]!
+    .replace(/\/+$/, '')
+    .toLowerCase();
+  return ANONYMOUS_AUTH_PATHS.has(path);
+}
+
+/**
+ * 401 giữa phiên (accessToken hết hạn, hoặc BE đổi trạng thái tài khoản giữa phiên): khôi phục phiên
+ * bằng sessionToken (một lần cho mọi request đang 401) rồi gửi lại request đó MỘT lần.
+ *   - khôi phục được            → gửi lại với token mới.
+ *   - server từ chối phiên (4xx) → token đã xoá, báo AuthProvider đăng xuất (cửa hàng vẫn nhớ).
+ *   - mất mạng / 5xx             → giữ nguyên token, chỉ trả lỗi request này.
+ * Trả về null = không gửi lại, để request lỗi như bình thường.
+ */
+async function recoverFrom401(config: AuthRetryConfig) {
+  config._authRetry = true;
+
+  // Request đã gửi bằng token cũ, trong lúc đó token đã được làm mới → gửi lại luôn, không khôi phục nữa.
+  const current = await SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  if (current && current !== config._sentToken) return axiosInstance(config);
+
+  let outcome: RestoreOutcome;
+  try {
+    outcome = await restoreSession();
+  } catch {
+    return null; // mất mạng / server lỗi — giữ phiên
+  }
+
+  switch (outcome.kind) {
+    case 'restored':
+      return axiosInstance(config);
+    case 'rejected':
+      onSessionExpired?.();
+      return null;
+    case 'none':
+      // Không có phiên để khôi phục mà token đang dùng bị từ chối → coi như hết phiên.
+      if (config._sentToken) {
+        await Promise.all([ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY].map((k) => SecureStore.deleteItemAsync(k)));
+        onSessionExpired?.();
+      }
+      return null;
+    default:
+      return null; // 'stale': đã đăng xuất / đổi cửa hàng trong lúc chờ
+  }
+}
 
 axiosInstance.interceptors.response.use(
   (res) => res,
   async (error) => {
-    // BE re-kiểm tra status mỗi request (banned/pending giữa phiên trả 401 dù
-    // access token còn hạn). Đăng xuất ngay thay vì để app lặp lỗi API cho
-    // tới khi hết hạn tự nhiên. Các thao tác dưới đây là idempotent nên vô
-    // hại nếu nhiều request cùng lúc bị 401 và cùng chạy vào nhánh này.
-    if (error?.response?.status === 401) {
-      const hadToken = await SecureStore.getItemAsync('accessToken');
-      if (hadToken) {
-        await SecureStore.deleteItemAsync('accessToken');
-        await SecureStore.deleteItemAsync('refreshToken');
-        delete axiosInstance.defaults.headers.common.Authorization;
-        router.replace('/(auth)/login');
-      }
+    const config = error?.config as AuthRetryConfig | undefined;
+    if (error?.response?.status === 401 && config && !config._authRetry && !isAnonymousAuthPath(config.url)) {
+      const retried = await recoverFrom401(config);
+      if (retried) return retried;
     }
     return Promise.reject((error.response && error.response.data) || 'Something went wrong');
   }

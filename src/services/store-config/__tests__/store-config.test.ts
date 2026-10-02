@@ -79,11 +79,14 @@ describe('getHostApi', () => {
 
   it('từ chối host không hợp lệ (không để lọt vào URL)', async () => {
     const config = loadWithVariant('store');
-    await config.setStore({
-      code: 'x', host: 'evil.com/@attacker', name: null, logoUrl: null, primaryColor: null,
-      locale: null, currency: null, timezone: null,
-    });
+    await expect(
+      config.setStore({
+        code: 'x', host: 'evil.com/@attacker', name: null, logoUrl: null, primaryColor: null,
+        locale: null, currency: null, timezone: null,
+      })
+    ).rejects.toThrow();
     expect(config.getStore()).toBeNull();
+    expect(config.getHostApi()).not.toContain('evil.com');
   });
 
   it('đổi cửa hàng xoá token của cửa hàng cũ', async () => {

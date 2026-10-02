@@ -8,9 +8,12 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 
 import { Text, Button, Icon, Pressable, Spinner, SparkStoreIcon, SparkStoreWordmark, type IconName } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
+import { useAuthContext } from 'src/auth/auth-context';
+import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { useLocaleStore, useT, type Locale } from 'src/i18n';
 import { spring } from 'src/theme/motion';
 import { softShadow } from 'src/theme';
+import { getStore } from 'src/services/store-config';
 import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
 import { runDiscovery } from './discovery';
 import { GoogleButton } from './GoogleButton';
@@ -24,6 +27,8 @@ import { startWebSignIn } from './web-sign-in';
 // - Android: Google qua web. Không hiện Apple trên Android (chủ quyết định 2026-10-01).
 // - Tài khoản mật khẩu: "Tiếp tục với email". Biết mã cửa hàng: nhập mã rồi đăng nhập trên trang web
 //   của cửa hàng như trước.
+// - Máy còn nhớ một cửa hàng (vào từ "Dùng cửa hàng khác" / "Đổi cửa hàng"): nút "Quay lại <cửa hàng>"
+//   về trang đăng nhập của cửa hàng đó — cửa hàng chỉ bị thay khi thật sự vào cửa hàng mới.
 // ----------------------------------------------------------------------
 
 // Ba tính năng nổi bật (nội dung chủ app duyệt): tiêu đề + mô tả.
@@ -32,6 +37,30 @@ const FEATURES: { icon: IconName; key: string }[] = [
   { icon: 'calendar-sync-outline', key: 'welcome.feature2' },
   { icon: 'cash-multiple', key: 'welcome.feature3' },
 ];
+
+/** "‹ Quay lại <cửa hàng>" — về trang đăng nhập của cửa hàng máy đang nhớ. */
+function BackToStore({ disabled }: { disabled: boolean }) {
+  const t = useT();
+  const store = getStore();
+  if (!store) return null;
+  const name = store.name ?? store.code;
+  return (
+    <Pressable
+      onPress={() => router.dismissTo('/(auth)/login' as any)}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={t('welcome.backToStore', { store: name })}
+      className="flex-row items-center gap-2 rounded-full bg-surface dark:bg-surface-dark border border-line dark:border-line-dark pl-1.5 pr-3 py-1"
+      style={{ flexShrink: 1, opacity: disabled ? 0.6 : 1 }}
+    >
+      <Icon name="chevron-left" size={18} tone="muted" />
+      <StoreAvatar name={name} logoUrl={store.logoUrl} color={store.primaryColor} size={22} />
+      <Text variant="caption" className="font-semibold" numberOfLines={1} style={{ flexShrink: 1 }}>
+        {t('welcome.backToStore', { store: name })}
+      </Text>
+    </Pressable>
+  );
+}
 
 function LanguageToggle() {
   const locale = useLocaleStore((s) => s.locale);
@@ -67,6 +96,7 @@ export function WelcomeScreen() {
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [busy, setBusy] = useState(false);
   const { enter, entering } = useEnterStore();
+  const { authenticated } = useAuthContext();
 
   useEffect(() => {
     isAppleSignInAvailable().then(setAppleAvailable);
@@ -110,7 +140,9 @@ export function WelcomeScreen() {
     }
   }
 
-  const working = busy || !!entering;
+  // Còn đăng nhập = đang đăng xuất để đổi cửa hàng (Hồ sơ → Đổi cửa hàng) hoặc vừa vào xong một cửa hàng:
+  // khoá nút cho tới khi xong, không để bắt đầu đăng nhập mới chồng lên.
+  const working = busy || !!entering || authenticated;
   const nativeApple = appleAvailable && Platform.OS === 'ios';
 
   return (
@@ -118,7 +150,10 @@ export function WelcomeScreen() {
       <View pointerEvents="none" className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-primary/15" />
       <View pointerEvents="none" className="absolute top-72 -left-28 w-64 h-64 rounded-full bg-secondary/10" />
 
-      <View className="flex-row justify-end px-5 pt-2">
+      <View className="flex-row items-center justify-between gap-3 px-5 pt-2">
+        <View style={{ flexShrink: 1 }}>
+          <BackToStore disabled={working} />
+        </View>
         <LanguageToggle />
       </View>
 

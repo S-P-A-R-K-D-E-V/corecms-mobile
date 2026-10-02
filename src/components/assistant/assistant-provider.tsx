@@ -1,8 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import * as signalR from '@microsoft/signalr';
-import * as SecureStore from 'expo-secure-store';
 
 import { getHostApi } from 'src/api/axios';
+import { currentAccessToken } from 'src/api/session';
 import { useAuthContext } from 'src/auth/auth-context';
 
 // ----------------------------------------------------------------------
@@ -67,12 +67,13 @@ export function AssistantProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     (async () => {
-      const token = await SecureStore.getItemAsync('accessToken');
+      const token = await currentAccessToken();
       if (!token || !mounted) return;
 
       const conn = new signalR.HubConnectionBuilder()
         .withUrl(hubUrl(), {
-          accessTokenFactory: () => token,
+          // Đọc token hiện tại mỗi lần (kết nối lại): token có thể đã được làm mới sau 401.
+          accessTokenFactory: currentAccessToken,
           transport: signalR.HttpTransportType.WebSockets,
           skipNegotiation: true,
         })

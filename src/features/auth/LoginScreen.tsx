@@ -17,7 +17,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { extractApiError } from 'src/services/error';
 import { useT } from 'src/i18n';
-import { APP_DISPLAY_NAME, getStore, getWebOrigin, isMultiStore, setStore, storeDomain } from 'src/services/store-config';
+import { APP_DISPLAY_NAME, getStore, getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 import { isAppleSignInAvailable, signInWithApple } from './apple-sign-in';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -57,9 +57,10 @@ export function LoginScreen() {
     }
   }
 
-  async function handleChangeStore() {
-    await setStore(null);
-    router.replace('/welcome' as any);
+  // Sang màn Chào mừng tìm cửa hàng khác nhưng KHÔNG quên cửa hàng này: chỉ thay khi vào được cửa hàng
+  // mới. Lùi lại / thoát app giữa chừng thì lần mở sau vẫn về trang đăng nhập của cửa hàng này.
+  function handleChangeStore() {
+    router.push('/welcome' as any);
   }
 
   async function handleWebLogin() {

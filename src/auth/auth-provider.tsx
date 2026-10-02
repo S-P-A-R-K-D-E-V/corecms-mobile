@@ -1,19 +1,20 @@
 import React, { useReducer, useCallback, useMemo, useEffect, useState } from 'react';
 import * as SecureStore from 'expo-secure-store';
 
-import axiosInstance, { endpoints, getStorageUrl } from 'src/api/axios';
-import type { IAuthResponse, ILoginRequest, IRegisterRequest, IVerifyOtpRequest, IResendOtpRequest, IRestoreSessionRequest } from 'src/types/corecms-api';
+import axiosInstance, { endpoints, getStorageUrl, setSessionExpiredHandler } from 'src/api/axios';
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_TOKEN_KEY, restoreSession } from 'src/api/session';
+import type { IAuthResponse, ILoginRequest, IRegisterRequest, IVerifyOtpRequest, IResendOtpRequest } from 'src/types/corecms-api';
 import { AuthContext, type AuthUser, type OAuthExtra } from './auth-context';
 import { unregisterCurrentPushToken } from 'src/hooks/use-push-registration';
 import { storeProfileOf, type DiscoveredStore } from 'src/api/app-hub';
-import { setStore } from 'src/services/store-config';
+import { forgetStore, setStore } from 'src/services/store-config';
 import { queryClient } from 'src/services/query/client';
 
 // ----------------------------------------------------------------------
 
-const STORAGE_KEY = 'accessToken';
-const REFRESH_KEY = 'refreshToken';
-const SESSION_KEY = 'sessionToken';
+const STORAGE_KEY = ACCESS_TOKEN_KEY;
+const REFRESH_KEY = REFRESH_TOKEN_KEY;
+const SESSION_KEY = SESSION_TOKEN_KEY;
 
 // ----------------------------------------------------------------------
 
@@ -118,6 +119,17 @@ async function loadUserAfterAuth(authRes: IAuthResponse, accessToken: string, re
   }
 }
 
+/** Đăng xuất không chờ mạng chập chờn quá lâu — token trên máy vẫn bị xoá dù server chưa trả lời. */
+const LOGOUT_CALL_TIMEOUT_MS = 10_000;
+
+function withinMs(promise: Promise<unknown>, ms: number): Promise<unknown> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function setSession(accessToken: string | null, refreshToken?: string | null) {
   if (accessToken) {
     await SecureStore.setItemAsync(STORAGE_KEY, accessToken);
@@ -141,20 +153,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, { user: null, loading: true });
   const [pendingVerification, setPendingVerification] = useState<{ email: string } | null>(null);
 
+  // Hết phiên giữa chừng (axios khôi phục không được vì server từ chối phiên): về "chưa đăng nhập".
+  // Token đã được axios xoá; cửa hàng đã nhớ giữ nguyên → các cổng đưa về trang đăng nhập của cửa hàng.
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      setPendingVerification(null);
+      dispatch({ type: Types.LOGOUT });
+      // Người đăng nhập lại có thể là người khác — không để lộ dữ liệu đã nạp của người trước.
+      queryClient.clear();
+    });
+    return () => setSessionExpiredHandler(null);
+  }, []);
+
+  // Mở app khi accessToken đã hết hạn: lấy token mới bằng phiên của máy (gia hạn phiên thêm 30 ngày).
+  // Chỉ mất phiên khi server từ chối (4xx) — mất mạng / 5xx thì giữ sessionToken cho lần mở sau.
   const tryRestoreSession = useCallback(async (): Promise<boolean> => {
     try {
-      const savedSession = await SecureStore.getItemAsync(SESSION_KEY);
-      if (!savedSession) return false;
-      const data: IRestoreSessionRequest = { sessionToken: savedSession };
-      const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.restoreSession, data);
-      const { token, refreshToken, sessionToken } = res.data;
+      const outcome = await restoreSession();
+      if (outcome.kind !== 'restored') return false;
+      const { token, refreshToken } = outcome.data;
       await setSession(token, refreshToken);
-      if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
-      const user = await loadUserAfterAuth(res.data, token, refreshToken);
+      const user = await loadUserAfterAuth(outcome.data, token, refreshToken);
       dispatch({ type: Types.INITIAL, payload: { user } });
       return true;
     } catch {
-      await SecureStore.deleteItemAsync(SESSION_KEY);
       return false;
     }
   }, []);
@@ -164,8 +186,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const accessToken = await SecureStore.getItemAsync(STORAGE_KEY);
       if (accessToken && isValidToken(accessToken)) {
         axiosInstance.defaults.headers.common.Authorization = `Bearer ${accessToken}`;
+        // Token bị từ chối (401) thì axios tự khôi phục bằng sessionToken rồi gọi lại — token có thể đã đổi.
         const meRes = await axiosInstance.get(endpoints.users.me);
-        const user = buildUserFromMe(meRes.data, accessToken);
+        const current = (await SecureStore.getItemAsync(STORAGE_KEY)) ?? accessToken;
+        const user = buildUserFromMe(meRes.data, current);
         dispatch({ type: Types.INITIAL, payload: { user } });
         return;
       }
@@ -275,12 +299,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  // Đăng xuất MÁY NÀY: gửi sessionToken để server chỉ tắt phiên của máy này (thiết bị khác, web vẫn đăng
+  // nhập). Server lấy người dùng từ JWT; userId trong body chỉ để bản server cũ còn nhận. Cửa hàng vẫn nhớ.
   const logout = useCallback(async () => {
+    const sessionToken = await SecureStore.getItemAsync(SESSION_KEY);
     // Unregister push token before clearing session so the request still has auth header
-    await unregisterCurrentPushToken().catch(() => {});
+    await withinMs(unregisterCurrentPushToken().catch(() => {}), LOGOUT_CALL_TIMEOUT_MS);
     try {
       if (state.user?.id) {
-        await axiosInstance.post(endpoints.auth.logout, { userId: state.user.id });
+        await axiosInstance.post(
+          endpoints.auth.logout,
+          { userId: state.user.id, ...(sessionToken ? { sessionToken } : {}) },
+          { timeout: LOGOUT_CALL_TIMEOUT_MS }
+        );
       }
     } catch {}
     finally {
@@ -288,10 +319,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await SecureStore.deleteItemAsync(SESSION_KEY);
       setPendingVerification(null);
       dispatch({ type: Types.LOGOUT });
+      // Máy dùng chung: người đăng nhập sau không thấy dữ liệu đã nạp của người trước.
+      queryClient.clear();
     }
   }, [state.user]);
 
-  // Server xoá dữ liệu cá nhân + vô hiệu mọi phiên; ở máy chỉ còn dọn token như đăng xuất.
+  // Server xoá dữ liệu cá nhân + vô hiệu mọi phiên; ở máy dọn token VÀ quên luôn cửa hàng (trường hợp
+  // duy nhất máy quên cửa hàng) — màn gọi đưa về Chào mừng.
   const deleteAccount = useCallback(async () => {
     await unregisterCurrentPushToken().catch(() => {});
     await axiosInstance.delete(endpoints.auth.deleteAccount, { data: { confirm: true } });
@@ -299,6 +333,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await SecureStore.deleteItemAsync(SESSION_KEY);
     setPendingVerification(null);
     dispatch({ type: Types.LOGOUT });
+    // Ngay sau LOGOUT (không await xen giữa): cổng render lại đã thấy máy không còn cửa hàng → Chào mừng,
+    // không ghé trang đăng nhập của cửa hàng vừa rời.
+    await forgetStore();
+    queryClient.clear();
   }, []);
 
   const status = state.loading ? 'loading' : state.user ? 'authenticated' : 'unauthenticated';

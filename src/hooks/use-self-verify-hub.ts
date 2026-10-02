@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import * as SecureStore from 'expo-secure-store';
 
 import { getHostApi } from 'src/api/axios';
+import { currentAccessToken } from 'src/api/session';
 
 // ----------------------------------------------------------------------
 // Live camera "tự kiểm tra khuôn mặt" — mirror use-notification-hub.ts (JWT qua SecureStore,
@@ -73,11 +73,10 @@ export function useSelfVerifyHub(active: boolean) {
     let mounted = true;
 
     (async () => {
-      const token = await SecureStore.getItemAsync('accessToken');
-
       const conn = new signalR.HubConnectionBuilder()
         .withUrl(`${getHostApi()}/hubs/self-verify`, {
-          accessTokenFactory: () => token ?? '',
+          // Đọc token hiện tại mỗi lần (kết nối lại): token có thể đã được làm mới sau 401.
+          accessTokenFactory: currentAccessToken,
           transport: signalR.HttpTransportType.WebSockets,
           skipNegotiation: true,
         })

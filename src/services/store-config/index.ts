@@ -12,6 +12,9 @@ import { applyBrandColor } from 'src/theme/brand-color';
 //             web  https://<host>        (trang đăng nhập web của cửa hàng)
 //             API  https://<host>/api    (ingress store-api-<mã> → core-api)
 //           Đổi cửa hàng thì xoá toàn bộ token của cửa hàng cũ.
+// Cửa hàng đã nhớ = cửa hàng VÀO GẦN NHẤT. Đăng xuất, hết phiên, bấm "Đổi cửa hàng" đều KHÔNG quên nó:
+// mở app lại là về đúng trang đăng nhập của cửa hàng đó. Chỉ thay khi thật sự vào cửa hàng khác
+// (setStore), và chỉ quên hẳn khi xoá tài khoản (forgetStore).
 // ----------------------------------------------------------------------
 
 export type AppVariant = 'cici' | 'store';
@@ -109,18 +112,37 @@ export async function loadStore(): Promise<StoreProfile | null> {
 /** @deprecated giữ tên cũ cho chỗ gọi hiện có. */
 export const loadStoreCode = async () => (await loadStore())?.code ?? null;
 
-/** Chọn/bỏ chọn cửa hàng. Luôn xoá token cũ để không mang phiên của cửa hàng này sang cửa hàng khác. */
-export async function setStore(profile: StoreProfile | null): Promise<void> {
+/**
+ * Vào (gắn) một cửa hàng — thay cửa hàng đã nhớ. Luôn xoá token cũ để không mang phiên của cửa hàng này
+ * sang cửa hàng khác. Thông tin cửa hàng không hợp lệ → báo lỗi, KHÔNG đụng gì (cửa hàng cũ vẫn nhớ).
+ */
+export async function setStore(profile: StoreProfile): Promise<void> {
+  const clean = sanitize(profile);
+  if (!clean) throw new Error('store-config: thông tin cửa hàng không hợp lệ');
   await Promise.all(AUTH_KEYS.map((k) => SecureStore.deleteItemAsync(k)));
   await SecureStore.deleteItemAsync(LEGACY_CODE_KEY);
-  const clean = profile ? sanitize(profile) : null;
-  if (clean) {
-    await SecureStore.setItemAsync(STORE_KEY, JSON.stringify(clean));
-  } else {
-    await SecureStore.deleteItemAsync(STORE_KEY);
-  }
+  await SecureStore.setItemAsync(STORE_KEY, JSON.stringify(clean));
   current = clean;
   applyFormat(current);
+}
+
+/** Quên hẳn cửa hàng + mọi token (chỉ dùng khi xoá tài khoản) — lần mở sau về màn Chào mừng. */
+export async function forgetStore(): Promise<void> {
+  // Bỏ cửa hàng trong bộ nhớ trước mọi await: màn nào render giữa chừng cũng thấy "chưa có cửa hàng".
+  current = null;
+  await Promise.all(AUTH_KEYS.map((k) => SecureStore.deleteItemAsync(k)));
+  await SecureStore.deleteItemAsync(LEGACY_CODE_KEY);
+  await SecureStore.deleteItemAsync(STORE_KEY);
+  applyFormat(current);
+}
+
+/** Danh sách cửa hàng với cửa hàng đã nhớ (vào gần nhất) lên đầu; thứ tự còn lại giữ nguyên. */
+export function lastStoreFirst<T extends { code: string }>(stores: readonly T[]): T[] {
+  const last = current?.code;
+  if (!last) return [...stores];
+  const index = stores.findIndex((s) => s.code.toLowerCase() === last);
+  if (index <= 0) return [...stores];
+  return [stores[index]!, ...stores.slice(0, index), ...stores.slice(index + 1)];
 }
 
 /** Cập nhật thông tin hiển thị (tên, logo…) của cửa hàng đang gắn — KHÔNG đụng token. */
@@ -132,9 +154,10 @@ export async function updateStoreDetails(patch: Partial<Omit<StoreProfile, 'code
 }
 
 /** @deprecated dùng setStore. */
-export async function setStoreCode(code: string | null): Promise<void> {
+export async function setStoreCode(code: string): Promise<void> {
   const normalized = normalizeStoreCode(code);
-  await setStore(normalized ? profileFromCode(normalized) : null);
+  if (!normalized) throw new Error('store-config: mã cửa hàng không hợp lệ');
+  await setStore(profileFromCode(normalized));
 }
 
 function profileFromCode(code: string): StoreProfile {
