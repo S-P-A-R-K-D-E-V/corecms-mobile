@@ -1,4 +1,7 @@
+import * as FileSystem from 'expo-file-system/legacy';
+
 import axios, { endpoints } from './axios';
+import { HttpStatusError } from './http-status-error';
 
 // ----------------------------------------------------------------------
 
@@ -56,7 +59,22 @@ export type DirectMessage = {
   readBy?: { userId: string; readAt: string }[];
 };
 
-export type ChatFile = { uri: string; name: string; type: string };
+// Đính kèm qua presigned URL (khớp core-be):
+// POST …/attachments/presign {files:[{fileName,contentType,size}]} → {expiresAt, files:[{objectKey,uploadUrl,method,headers,maxBytes}]}
+// rồi PUT tệp lên uploadUrl, rồi POST …/messages {content, attachments:[{objectKey,fileName}], clientMessageId}.
+export type PresignAttachmentFile = { fileName: string; contentType: string; size: number };
+
+export type PresignedAttachment = {
+  objectKey: string;
+  uploadUrl: string;
+  method?: string;
+  headers?: Record<string, string>;
+  maxBytes?: number;
+};
+
+export type PresignAttachmentsResponse = { expiresAt: string; files: PresignedAttachment[] };
+
+export type OutgoingAttachment = { objectKey: string; fileName: string };
 
 export type InternalUser = {
   id: string;
@@ -108,18 +126,58 @@ export async function sendMessage(conversationId: string, content: string): Prom
   return res.data;
 }
 
-export async function sendAttachment(
+// Interceptor chung chỉ trả body (mất mã trạng thái) → các lệnh đính kèm tự xử lý status, trừ 401 vẫn để
+// interceptor làm mới phiên.
+const KEEP_STATUS = { validateStatus: (status: number) => status !== 401 };
+
+function unwrap<T>(res: { status: number; data: T }): T {
+  if (res.status >= 200 && res.status < 300) return res.data;
+  throw new HttpStatusError(res.status, res.data);
+}
+
+export async function presignAttachments(
   conversationId: string,
-  files: ChatFile[],
-  caption?: string
+  files: PresignAttachmentFile[]
+): Promise<PresignAttachmentsResponse> {
+  const res = await axios.post(endpoints.messenger.attachmentsPresign(conversationId), { files }, KEEP_STATUS);
+  const data = unwrap<PresignAttachmentsResponse>(res);
+  if (!Array.isArray(data?.files) || data.files.length !== files.length) throw new HttpStatusError(502, data);
+  return data;
+}
+
+/**
+ * PUT tệp thẳng lên R2 bằng presigned URL (không qua API, không kèm Authorization). Dùng upload task của
+ * expo-file-system để có tiến độ và đọc tệp từ đĩa (không nạp cả tệp vào JS).
+ */
+export async function uploadToPresignedUrl(
+  target: PresignedAttachment,
+  file: { uri: string; contentType: string },
+  onProgress?: (sent: number, total: number) => void
+): Promise<void> {
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(target.headers ?? {})) {
+    // Content-Length / Host do hệ điều hành tự đặt.
+    if (!/^(content-length|host)$/i.test(k)) headers[k] = v;
+  }
+  if (!Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')) headers['Content-Type'] = file.contentType;
+  const method = (target.method ?? 'PUT').toUpperCase() as 'PUT' | 'POST' | 'PATCH';
+  const task = FileSystem.createUploadTask(
+    target.uploadUrl,
+    file.uri,
+    { httpMethod: method, uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT, headers },
+    onProgress ? (p) => onProgress(p.totalBytesSent, p.totalBytesExpectedToSend) : undefined
+  );
+  const res = await task.uploadAsync();
+  if (!res) throw new HttpStatusError(0, null); // bị huỷ
+  if (res.status < 200 || res.status >= 300) throw new HttpStatusError(res.status, res.body);
+}
+
+export async function sendAttachmentMessage(
+  conversationId: string,
+  body: { content: string; attachments: OutgoingAttachment[]; clientMessageId: string }
 ): Promise<DirectMessage> {
-  const formData = new FormData();
-  files.forEach((f) => formData.append('files', f as any));
-  if (caption?.trim()) formData.append('content', caption.trim());
-  const res = await axios.post(endpoints.messenger.attachments(conversationId), formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-  return res.data;
+  const res = await axios.post(endpoints.messenger.messages(conversationId), body, KEEP_STATUS);
+  return unwrap<DirectMessage>(res);
 }
 
 export async function markRead(conversationId: string): Promise<void> {

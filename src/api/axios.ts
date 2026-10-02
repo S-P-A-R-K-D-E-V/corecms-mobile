@@ -277,7 +277,8 @@ export const endpoints = {
     member: (conversationId: string, memberId: string) =>
       `/messenger/conversations/${conversationId}/members/${memberId}`,
     messages: (conversationId: string) => `/messenger/conversations/${conversationId}/messages`,
-    attachments: (conversationId: string) => `/messenger/conversations/${conversationId}/attachments`,
+    // Ảnh/tệp chat: xin presigned URL rồi PUT thẳng lên R2 (không gửi multipart qua API nữa).
+    attachmentsPresign: (conversationId: string) => `/messenger/conversations/${conversationId}/attachments/presign`,
     markRead: (conversationId: string) => `/messenger/conversations/${conversationId}/read`,
     users: '/messenger/users',
   },

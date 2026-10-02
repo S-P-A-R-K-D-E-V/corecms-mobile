@@ -17,6 +17,7 @@ import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { showActionSheet, toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
+import { t } from 'src/i18n';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -55,17 +56,19 @@ import { getStorageUrl } from 'src/api/axios';
 import {
   fetchMessages,
   sendMessage,
-  sendAttachment,
   markRead,
   isGroupConversation,
   type DirectMessage,
   type MessageAttachment,
-  type ChatFile,
 } from 'src/api/messenger';
 import { useMessengerStore, selectMessages, selectTyping } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { useMessengerCtx } from 'src/components/messenger/messenger-provider';
 import { ImageViewer, type ViewerImage } from './ImageViewer';
+import { AttachmentOutboxBar } from './AttachmentOutboxBar';
+import { useAttachmentOutbox } from './useAttachmentOutbox';
+import { canProcessImages, type PickedAttachment } from './attachment-prepare';
+import { DOCUMENT_PICKER_TYPES, MAX_FILES_PER_MESSAGE, formatBytes } from './attachment-rules';
 
 /** Mở tệp (không phải ảnh) trong trình xem in-app (SFSafariVC / Custom Tabs). */
 function openFileInApp(url: string) {
@@ -75,14 +78,6 @@ function openFileInApp(url: string) {
     toolbarColor: '#FFFFFF',
     enableBarCollapsing: true,
   }).catch(() => {});
-}
-
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10MB — đồng bộ giới hạn BE
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function AttachmentView({ att, isMine, onOpenImage }: { att: MessageAttachment; isMine: boolean; onOpenImage: (objectKey: string) => void }) {
@@ -105,7 +100,7 @@ function AttachmentView({ att, isMine, onOpenImage }: { att: MessageAttachment; 
       <Icon name="file-document-outline" size={26} tone={isMine ? 'inverse' : 'primary'} />
       <View className="flex-1">
         <Text className={cn('font-semibold', isMine && 'text-white')} numberOfLines={1}>{att.fileName}</Text>
-        <Text variant="caption" className={isMine ? 'text-white/70' : 'text-faint'}>{formatSize(att.sizeBytes)}</Text>
+        <Text variant="caption" className={isMine ? 'text-white/70' : 'text-faint'}>{formatBytes(att.sizeBytes)}</Text>
       </View>
       <Icon name="download" size={18} tone={isMine ? 'inverse' : 'muted'} />
     </Pressable>
@@ -150,7 +145,9 @@ export function ChatDetailScreen() {
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  // Gửi ảnh/tệp: presigned URL → PUT thẳng lên R2 → gửi tin kèm objectKey (không qua API).
+  const attachments = useAttachmentOutbox(conversationId!);
+  const uploading = attachments.busy;
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -241,76 +238,69 @@ export function ChatDetailScreen() {
     if (v.length > 0) sendTyping(conversationId!);
   }
 
-  async function uploadFiles(files: ChatFile[]) {
-    const tooBig = files.find((f) => (f as any).size && (f as any).size > MAX_ATTACHMENT_BYTES);
-    if (tooBig) {
-      toast.warning('Mỗi tệp không được vượt quá 10MB.', 'Tệp quá lớn');
-      return;
-    }
-    setUploading(true);
-    try {
-      await sendAttachment(conversationId!, files, text.trim() || undefined);
-      setText('');
-    } catch {
-      toast.error('Không gửi được tệp. Vui lòng thử lại.', 'Gửi thất bại');
-    } finally {
-      setUploading(false);
-    }
+  /** Chữ đang gõ đi kèm làm chú thích; gửi không được thì trả lại ô nhập. */
+  async function sendPicked(picked: PickedAttachment[]) {
+    const caption = text.trim();
+    setText('');
+    const started = await attachments.start(picked, caption);
+    if (!started && caption) setText((cur) => cur || caption);
+  }
+
+  function discardAttachments() {
+    const caption = attachments.discard();
+    if (caption) setText((cur) => cur || caption);
   }
 
   async function pickImages() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      toast.error('Vui lòng cấp quyền truy cập ảnh để gửi hình.', 'Cần quyền thư viện ảnh');
+      toast.error(t('chat.attach.permission'), t('chat.attach.permissionTitle'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
-      selectionLimit: 10,
-      quality: 0.8,
+      selectionLimit: MAX_FILES_PER_MESSAGE,
+      // iOS mặc định trả nguyên ảnh HEIC (bỏ qua quality) → server/Android/web không nhận; xin bản JPEG tương thích.
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      // Có bộ nén → lấy chất lượng gốc rồi tự thu nhỏ + nén một lần; bản app cũ chưa có → để picker nén.
+      quality: canProcessImages() ? 1 : 0.8,
+      exif: false,
     });
-    if (result.canceled) return;
-    const files: ChatFile[] = result.assets.map((a, i) => ({
-      uri: a.uri,
-      name: a.fileName ?? `image_${Date.now()}_${i}.jpg`,
-      type: a.mimeType ?? 'image/jpeg',
-    }));
-    await uploadFiles(files.map((f, i) => ({ ...f, size: result.assets[i].fileSize } as any)));
+    if (result.canceled || result.assets.length === 0) return;
+    await sendPicked(
+      result.assets.map((a) => ({
+        uri: a.uri,
+        name: a.fileName,
+        mimeType: a.mimeType,
+        size: a.fileSize,
+        width: a.width,
+        height: a.height,
+        source: 'image' as const,
+      }))
+    );
   }
 
   async function pickDocuments() {
     const result = await DocumentPicker.getDocumentAsync({
-      type: [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'text/plain',
-        'text/csv',
-      ],
+      type: DOCUMENT_PICKER_TYPES,
       multiple: true,
       copyToCacheDirectory: true,
     });
-    if (result.canceled) return;
-    const files = result.assets.map((a) => ({
-      uri: a.uri,
-      name: a.name,
-      type: a.mimeType ?? 'application/octet-stream',
-      size: a.size ?? undefined,
-    })) as any[];
-    await uploadFiles(files);
+    if (result.canceled || result.assets.length === 0) return;
+    await sendPicked(
+      result.assets.map((a) => ({ uri: a.uri, name: a.name, mimeType: a.mimeType, size: a.size, source: 'document' as const }))
+    );
   }
 
   function handleAttachPress() {
     if (uploading || sending) return;
     showActionSheet({
-      title: 'Đính kèm',
-      message: 'Chọn loại tệp muốn gửi',
+      title: t('chat.attach.title'),
+      message: t('chat.attach.subtitle'),
       options: [
-        { label: 'Hình ảnh', icon: 'image-multiple-outline', onPress: pickImages },
-        { label: 'Tệp (pdf, doc, xls…)', icon: 'file-document-outline', onPress: pickDocuments },
+        { label: t('chat.attach.images'), icon: 'image-multiple-outline', onPress: pickImages },
+        { label: t('chat.attach.files'), icon: 'file-document-outline', onPress: pickDocuments },
       ],
     });
   }
@@ -367,12 +357,7 @@ export function ChatDetailScreen() {
           />
         )}
 
-        {uploading ? (
-          <View className="flex-row items-center gap-2 px-4 py-1.5">
-            <Spinner />
-            <Text variant="caption" tone="muted">Đang gửi tệp…</Text>
-          </View>
-        ) : null}
+        <AttachmentOutboxBar outbox={attachments.outbox} onRetry={attachments.retry} onDiscard={discardAttachments} />
 
         <View
           className="flex-row items-end gap-2 p-2 px-3 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark"
