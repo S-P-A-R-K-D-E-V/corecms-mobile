@@ -1,10 +1,12 @@
 {
   "ios": {
     "NSLocationWhenInUseUsageDescription": "Your location is used to confirm you are at the store when you check in or count the cash drawer.",
-    "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is used to confirm you are at the store when you check in.",
-    "NSCameraUsageDescription": "The camera is used to verify your face at check-in and to scan kiosk QR codes.",
+    "NSLocationAlwaysAndWhenInUseUsageDescription": "Your location is only used while the app is open, to confirm you are at the store when you check in or count the cash drawer.",
+    "NSLocationAlwaysUsageDescription": "Your location is only used while the app is open, to confirm you are at the store when you check in or count the cash drawer.",
+    "NSCameraUsageDescription": "The camera is used to verify your face at check-in, scan kiosk QR codes and scan product barcodes when selling.",
     "NSMicrophoneUsageDescription": "The microphone is only needed by the camera for face verification videos. No audio is kept.",
     "NSPhotoLibraryUsageDescription": "Photo access lets you pick a profile picture or attach photos in chat.",
+    "NSPhotoLibraryAddUsageDescription": "Lets you save QR codes and images to your photo library.",
     "NSFaceIDUsageDescription": "Face ID lets you sign in faster."
   }
 }

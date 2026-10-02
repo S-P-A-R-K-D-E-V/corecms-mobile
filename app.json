@@ -27,8 +27,9 @@
       "bundleIdentifier": "com.corecms.mobile",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "CiCi cần vị trí để xác minh check-in của bạn.",
-        "NSCameraUsageDescription": "CiCi cần camera để chụp ảnh xác thực khuôn mặt khi check-in.",
+        "NSCameraUsageDescription": "CiCi cần camera để xác thực khuôn mặt khi check-in và quét mã vạch hàng hoá khi bán hàng.",
         "NSPhotoLibraryUsageDescription": "CiCi cần quyền truy cập ảnh để cập nhật ảnh đại diện.",
+        "NSPhotoLibraryAddUsageDescription": "CiCi cần quyền lưu ảnh để bạn lưu mã QR và hình ảnh vào thư viện ảnh.",
         "NSFaceIDUsageDescription": "CiCi sử dụng Face ID để xác thực nhanh hơn.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -63,13 +64,14 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "CiCi cần vị trí để xác minh check-in."
+          "locationAlwaysAndWhenInUsePermission": "CiCi chỉ dùng vị trí khi đang mở app, để xác minh check-in.",
+          "locationAlwaysPermission": "CiCi chỉ dùng vị trí khi đang mở app, để xác minh check-in."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "CiCi cần camera để xác thực khuôn mặt.",
+          "cameraPermission": "CiCi cần camera để xác thực khuôn mặt khi check-in và quét mã vạch hàng hoá khi bán hàng.",
           "microphonePermission": "CiCi cần micro để quay video xác thực khuôn mặt (không ghi âm)."
         }
       ],

@@ -4,6 +4,7 @@ import * as signalR from '@microsoft/signalr';
 import { getHostApi } from 'src/api/axios';
 import { currentAccessToken } from 'src/api/session';
 import { useAuthContext } from 'src/auth/auth-context';
+import { isMultiStore } from 'src/services/store-config';
 
 // ----------------------------------------------------------------------
 // Kết nối SignalR dùng chung cho tab "Trợ lý" (AI Chat) — KHÁC HOÀN TOÀN
@@ -17,8 +18,9 @@ import { useAuthContext } from 'src/auth/auth-context';
 // subscribe trực tiếp vào provider này để nhận event theo thời gian thực.
 // ----------------------------------------------------------------------
 
-// Hàm, không phải hằng: bản app cửa hàng chỉ biết gốc API sau khi đọc mã cửa hàng.
-const hubUrl = () => process.env.EXPO_PUBLIC_ASSISTANT_HUB_URL ?? `${getHostApi()}/hubs/chat`;
+// Hàm, không phải hằng: bản app cửa hàng chỉ biết gốc API sau khi đọc mã cửa hàng. Bản cửa hàng bỏ qua biến
+// môi trường ghi đè hub (cùng lý do với messenger-provider: URL cố định là hub của CiCi).
+export const hubUrl = () => (!isMultiStore && process.env.EXPO_PUBLIC_ASSISTANT_HUB_URL) || `${getHostApi()}/hubs/chat`;
 
 export type AssistantHubEvent =
   | { type: 'streamingStarted'; sessionId: string; messageId: string }

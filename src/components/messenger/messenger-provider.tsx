@@ -5,6 +5,7 @@ import { getHostApi } from 'src/api/axios';
 import { currentAccessToken } from 'src/api/session';
 import { useAuthContext } from 'src/auth/auth-context';
 import { fetchConversations, fetchUsers } from 'src/api/messenger';
+import { isMultiStore } from 'src/services/store-config';
 import { useMessengerStore } from 'src/store/messenger-store';
 
 // ----------------------------------------------------------------------
@@ -15,7 +16,9 @@ import { useMessengerStore } from 'src/store/messenger-store';
 // ----------------------------------------------------------------------
 
 // Hàm, không phải hằng: bản app cửa hàng chỉ biết gốc API sau khi đọc mã cửa hàng.
-const hubUrl = () => process.env.EXPO_PUBLIC_SIGNALR_HUB_URL ?? `${getHostApi()}/hubs/messenger`;
+// Bản cửa hàng BỎ QUA EXPO_PUBLIC_SIGNALR_HUB_URL: .env (commit, EAS/APK đều nạp) trỏ hub của CiCi → mọi
+// cửa hàng khác bị TenantHubFilter từ chối token, chat thời gian thực chết. Luôn đi theo gốc API cửa hàng.
+export const hubUrl = () => (!isMultiStore && process.env.EXPO_PUBLIC_SIGNALR_HUB_URL) || `${getHostApi()}/hubs/messenger`;
 
 type MessengerContextValue = {
   connection: signalR.HubConnection | null;

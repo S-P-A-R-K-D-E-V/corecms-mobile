@@ -29,9 +29,18 @@ const STORE_BRAND_COLOR = '#DB4F7A';
 
 type Plugin = NonNullable<ExpoConfig['plugins']>[number];
 
-/** Chuỗi xin quyền của plugin (Android dùng; iOS lấy từ infoPlist/locales) — tiếng Anh cho bản toàn cầu. */
+/**
+ * Chuỗi xin quyền của plugin (Android dùng; iOS: plugin GHI ĐÈ infoPlist) — tiếng Anh cho bản toàn cầu, bản
+ * dịch tiếng Việt qua `locales`. Khoá nào thiếu, plugin vị trí tự điền câu chung chung "Allow $(PRODUCT_NAME) to
+ * access your location" → đặt đủ cả 3 khoá, kể cả "Always" dù app chỉ xin quyền khi đang mở (không gọi
+ * requestBackgroundPermissionsAsync), và đè câu tiếng Việt của bản CiCi trong app.json.
+ */
 const STORE_PLUGIN_TEXT: Record<string, Record<string, string>> = {
-  'expo-location': { locationAlwaysAndWhenInUsePermission: en.NSLocationAlwaysAndWhenInUseUsageDescription },
+  'expo-location': {
+    locationWhenInUsePermission: en.NSLocationWhenInUseUsageDescription,
+    locationAlwaysAndWhenInUsePermission: en.NSLocationAlwaysAndWhenInUseUsageDescription,
+    locationAlwaysPermission: en.NSLocationAlwaysUsageDescription,
+  },
   'expo-camera': {
     cameraPermission: en.NSCameraUsageDescription,
     microphonePermission: en.NSMicrophoneUsageDescription,
@@ -66,6 +75,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     name: STORE_APP_NAME,
     scheme: STORE_APP_SCHEME,
     version: STORE_APP_VERSION,
+    // OTA (EAS Update, kênh store-*) chỉ tới bản build cùng phiên bản app — không dùng chung "54.0.0" cố định với
+    // CiCi, để bản cập nhật JS không rơi vào bản build cũ thiếu module native mới. Bản build có native mới thì
+    // tăng STORE_APP_VERSION.
+    runtimeVersion: { policy: 'appVersion' },
     icon: `${STORE_ASSETS}/icon.png`,
     splash: { image: STORE_SPLASH.image, resizeMode: 'contain', backgroundColor: STORE_BRAND_COLOR },
     locales: {
