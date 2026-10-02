@@ -60,6 +60,12 @@
       "ios": {
         "ascAppId": "6783600148"
       }
+    },
+    "store-production": {
+      "ios": {
+        "ascAppId": "6818444586",
+        "appleTeamId": "FVS6S6U8V4"
+      }
     }
   }
 }
