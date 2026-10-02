@@ -156,8 +156,8 @@ export async function uploadToPresignedUrl(
 ): Promise<void> {
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(target.headers ?? {})) {
-    // Content-Length / Host do hệ điều hành tự đặt.
-    if (!/^(content-length|host)$/i.test(k)) headers[k] = v;
+    // Content-Length / Host do hệ điều hành tự đặt; không bao giờ kèm Authorization / Cookie lên R2 (URL đã ký).
+    if (!/^(content-length|host|authorization|cookie)$/i.test(k)) headers[k] = v;
   }
   if (!Object.keys(headers).some((k) => k.toLowerCase() === 'content-type')) headers['Content-Type'] = file.contentType;
   const method = (target.method ?? 'PUT').toUpperCase() as 'PUT' | 'POST' | 'PATCH';
