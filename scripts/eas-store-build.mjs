@@ -32,7 +32,7 @@ if (existsSync('.easignore')) {
 const gitignore = readFileSync('.gitignore', 'utf8');
 writeFileSync(
   '.easignore',
-  `${gitignore}\n# Tạm thời (scripts/eas-store-build.mjs): để EAS sinh native code từ app.config.ts cho bản cửa hàng.\n/android\n/ios\n`
+  `${gitignore}\n# Tạm thời (scripts/eas-store-build.mjs): để EAS sinh native code từ app.config.ts cho bản cửa hàng.\n/android\n/ios\n# Mock xem trước giao diện (chỉ loại qua .git/info/exclude) — không gửi lên EAS.\n/src/dev/\n`
 );
 
 try {

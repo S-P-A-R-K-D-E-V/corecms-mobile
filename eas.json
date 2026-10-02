@@ -32,7 +32,9 @@
         "EXPO_PUBLIC_SAAS_ZONE": "store.devbyspark.com",
         "EXPO_PUBLIC_AUTH_HUB_API": "https://auth.devbyspark.com/api",
         "EXPO_PUBLIC_PRIVACY_URL": "https://auth.devbyspark.com/privacy-policy/",
-        "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn"
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn",
+        "STORE_APP_NAME": "Spark Store",
+        "STORE_APP_VERSION": "1.0.0"
       },
       "android": {
         "buildType": "apk"
@@ -46,7 +48,9 @@
         "EXPO_PUBLIC_SAAS_ZONE": "store.devbyspark.com",
         "EXPO_PUBLIC_AUTH_HUB_API": "https://auth.devbyspark.com/api",
         "EXPO_PUBLIC_PRIVACY_URL": "https://auth.devbyspark.com/privacy-policy/",
-        "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn"
+        "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn",
+        "STORE_APP_NAME": "Spark Store",
+        "STORE_APP_VERSION": "1.0.0"
       }
     }
   },

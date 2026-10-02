@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "test": "jest",
     "build:store:android": "node scripts/eas-store-build.mjs android store-preview",
-    "build:store:ios": "node scripts/eas-store-build.mjs ios store-production"
+    "build:store:ios": "node scripts/eas-store-build.mjs ios store-production",
+    "submit:store:ios": "node scripts/eas-store-submit.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
