@@ -43,7 +43,7 @@ export function CalendarStrip({ weekStart, onWeekChange, markedDates, poolDates 
           <Text variant="subtitle" className="capitalize">{monthLabel}</Text>
           {!isCurrentWeek ? (
             <View className="px-1.5 py-0.5 rounded-full bg-primary/10">
-              <Text className="text-[10px] text-primary font-semibold">Hôm nay</Text>
+              <Text variant="micro" className="text-primary font-semibold">Hôm nay</Text>
             </View>
           ) : null}
         </Pressable>

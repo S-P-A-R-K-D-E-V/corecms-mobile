@@ -55,7 +55,10 @@ function FeatureTile({ item, columns }: { item: FeatureItem; columns: number }) 
       </View>
       {disabled ? (
         <View className="rounded-full px-1.5 py-px bg-warning-soft -mt-0.5">
-          <Text className="text-[8px] text-warning-text font-bold">{t('launcher.comingSoon')}</Text>
+          {/* nano + cỡ 8px cố định: chip hẹp dưới ô icon — không mang lineHeight 22px của 'body' nữa. */}
+          <Text variant="nano" className="text-warning-text font-bold" style={{ fontSize: 8, lineHeight: 10 }} numberOfLines={1}>
+            {t('launcher.comingSoon')}
+          </Text>
         </View>
       ) : null}
       <Text variant="caption" numberOfLines={2} className="text-center text-[11px] leading-[13px]">

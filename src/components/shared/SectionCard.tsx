@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, type ViewStyle } from 'react-native';
 import { Card } from '../ui/card';
 import { Text } from '../ui/text';
+import { CountBadge } from '../ui/count-badge';
 import { Pressable } from '../ui/pressable';
 import { Icon, type IconName } from '../ui/icon';
 import { cn } from '../ui/utils';
@@ -41,11 +42,7 @@ export function SectionCard({
       <View className="flex-row items-center gap-2">
         {icon ? <Icon name={icon} size={18} tone="primary" /> : null}
         <Text variant="subtitle">{title}</Text>
-        {typeof count === 'number' && count > 0 ? (
-          <View className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary items-center justify-center">
-            <Text className="text-white text-[10px] font-bold">{count}</Text>
-          </View>
-        ) : null}
+        {typeof count === 'number' ? <CountBadge count={count} size="md" tone="primary" /> : null}
       </View>
       {collapsible ? (
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} tone="muted" />

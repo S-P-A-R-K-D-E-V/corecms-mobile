@@ -1,6 +1,7 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { Text } from '../ui/text';
+import { CountBadge } from '../ui/count-badge';
 import { Pressable } from '../ui/pressable';
 import { Icon, type IconName } from '../ui/icon';
 
@@ -46,11 +47,7 @@ export function AppHeader({ title, subtitle, back, onBack, actions }: AppHeaderP
             className="w-10 h-10 items-center justify-center rounded-full bg-bg dark:bg-surface-dark"
           >
             <Icon name={a.icon} size={20} tone="default" />
-            {a.badge ? (
-              <View className="absolute top-1.5 right-1.5 min-w-[16px] h-4 px-1 rounded-full bg-error items-center justify-center">
-                <Text className="text-white text-[9px] font-bold">{a.badge > 99 ? '99+' : a.badge}</Text>
-              </View>
-            ) : null}
+            <CountBadge count={a.badge} style={{ position: 'absolute', top: 6, right: 6 }} />
           </Pressable>
         ))}
       </View>

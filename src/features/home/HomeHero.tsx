@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
-import { Text, Icon, Pressable, Avatar, BrandGradient, type IconName } from 'src/components/ui';
+import { Text, Icon, Pressable, Avatar, BrandGradient, CountBadge, type IconName } from 'src/components/ui';
 import { useAuthContext } from 'src/auth/auth-context';
 import { canUseAssistant, assistantEnabled } from 'src/auth/roles';
 import { getStore } from 'src/services/store-config';
@@ -39,14 +39,7 @@ function HeaderButton({ icon, badge, label, onPress }: { icon: IconName; badge?:
       style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GLASS, alignItems: 'center', justifyContent: 'center' }}
     >
       <Icon name={icon} size={21} color="#FFFFFF" />
-      {badge ? (
-        <View
-          style={{ position: 'absolute', top: 4, right: 3, minWidth: 16, height: 16, paddingHorizontal: 3, borderRadius: 8 }}
-          className="bg-error items-center justify-center"
-        >
-          <Text tone="inverse" className="text-[9px] font-bold">{badge > 99 ? '99+' : badge}</Text>
-        </View>
-      ) : null}
+      <CountBadge count={badge} style={{ position: 'absolute', top: 4, right: 3 }} />
     </Pressable>
   );
 }

@@ -7,7 +7,7 @@ import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
 
 import { AppHeader, EmptyState, Loading } from 'src/components/shared';
-import { Text, TextField, Divider, Pressable } from 'src/components/ui';
+import { Text, TextField, Divider, Pressable, CountBadge } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { fetchConversations, fetchUsers, openPrivateConversation, isGroupConversation, type ConversationSummary, type InternalUser } from 'src/api/messenger';
@@ -59,11 +59,7 @@ function ConversationRow({ conv }: { conv: ConversationSummary }) {
           <Text variant="bodySmall" tone={unread ? 'default' : 'muted'} className={cn('flex-1', unread && 'font-medium')} numberOfLines={1}>
             {conv.lastMessagePreview ?? 'Chưa có tin nhắn'}
           </Text>
-          {unread ? (
-            <View className="min-w-[20px] h-5 px-1.5 rounded-full bg-primary items-center justify-center">
-              <Text className="text-white text-[10px] font-bold">{conv.unreadCount}</Text>
-            </View>
-          ) : null}
+          {unread ? <CountBadge count={conv.unreadCount} size="md" tone="primary" /> : null}
         </View>
       </View>
     </Pressable>

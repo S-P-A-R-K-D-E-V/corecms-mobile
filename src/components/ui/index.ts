@@ -3,6 +3,7 @@ export { Text, Heading } from './text';
 export { Button } from './button';
 export { Card } from './card';
 export { Badge } from './badge';
+export { CountBadge, countBadgeHeight, formatBadgeCount } from './count-badge';
 export { Chip } from './chip';
 export { TextField } from './input';
 export { TimeField } from './time-field';

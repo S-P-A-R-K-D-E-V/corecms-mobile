@@ -74,7 +74,7 @@ function FeatureRow({
         <Text variant="bodySmall" className="flex-1 font-medium">{featureLabel(item)}</Text>
         {disabled ? (
           <View className="rounded-full px-2 py-0.5 bg-warning-soft">
-            <Text className="text-[9px] text-warning-text font-bold">{t('launcher.comingSoon')}</Text>
+            <Text variant="nano" className="text-warning-text font-bold">{t('launcher.comingSoon')}</Text>
           </View>
         ) : null}
       </Pressable>

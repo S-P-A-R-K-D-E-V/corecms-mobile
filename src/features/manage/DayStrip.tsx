@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import dayjs from 'dayjs';
 
-import { Text, Icon, Pressable } from 'src/components/ui';
+import { Text, Icon, Pressable, CountBadge, countBadgeHeight } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { haptics } from 'src/services/haptics';
 
@@ -63,11 +63,12 @@ export function DayStrip({
                 {d.format('DD')}
               </Text>
               {countByDate ? (
-                <View className={cn('min-w-[16px] h-4 px-1 rounded-full items-center justify-center', active ? 'bg-white/25' : count > 0 ? 'bg-primary-soft' : 'bg-transparent')}>
-                  {count > 0 ? (
-                    <Text className={cn('text-[9px] font-bold', active ? 'text-white' : 'text-primary')}>{count}</Text>
-                  ) : null}
-                </View>
+                count > 0 ? (
+                  <CountBadge count={count} tone={active ? 'onPrimary' : 'soft'} />
+                ) : (
+                  // Chừa đúng chiều cao huy hiệu để 7 ô ngày luôn thẳng hàng.
+                  <View style={{ height: countBadgeHeight() }} />
+                )
               ) : null}
             </Pressable>
           );
