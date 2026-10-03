@@ -690,6 +690,10 @@ export const vi = {
       failed: 'Không gửi được tệp. Bấm Thử lại.',
     },
   },
+  push: {
+    otherStoreTitle: 'Thông báo của cửa hàng khác',
+    otherStore: 'Thông báo này của cửa hàng {store}. Đăng nhập cửa hàng đó để xem.',
+  },
   payment: {
     Cash: 'Tiền mặt',
     Card: 'Thẻ',

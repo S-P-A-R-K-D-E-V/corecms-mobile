@@ -116,6 +116,45 @@ describe('cửa hàng đã nhớ', () => {
   });
 });
 
+describe('trước khi sang cửa hàng khác', () => {
+  it('việc của cửa hàng cũ chạy khi gốc API + token vẫn là của cửa hàng cũ; vào lại cùng cửa hàng thì không chạy', async () => {
+    const app = await launch();
+    await app.setStore(profile('shop1', 'Tiệm 1'));
+    signedIn();
+    const seen: string[] = [];
+    const off = app.onBeforeStoreChange((next, previous) => {
+      seen.push(`${previous.code}→${next.code} ${app.getHostApi()} token=${mockSecure.get('accessToken')}`);
+    });
+
+    await app.setStore(profile('shop1', 'Tiệm 1 (đổi tên)'));
+    expect(seen).toEqual([]);
+
+    signedIn(); // setStore luôn xoá token (kể cả cùng cửa hàng) — đăng nhập lại rồi mới đổi
+    await app.setStore(profile('shop2', 'Tiệm 2'));
+    expect(seen).toEqual(['shop1→shop2 https://shop1.store.devbyspark.com/api token=a']);
+    expect(mockSecure.has('accessToken')).toBe(false);
+
+    off();
+    signedIn();
+    await app.setStore(profile('shop3', 'Tiệm 3'));
+    expect(seen).toHaveLength(1);
+  });
+
+  it('chưa gắn cửa hàng nào → không có gì để làm; việc lỗi không chặn đổi cửa hàng', async () => {
+    const app = await launch();
+    const listener = jest.fn(() => {
+      throw new Error('hỏng');
+    });
+    app.onBeforeStoreChange(listener);
+    await app.setStore(profile('shop1', 'Tiệm 1'));
+    expect(listener).not.toHaveBeenCalled();
+
+    await expect(app.setStore(profile('shop2', 'Tiệm 2'))).resolves.toBeUndefined();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(app.getStoreCode()).toBe('shop2');
+  });
+});
+
 describe('lastStoreFirst', () => {
   const stores = [{ code: 'shop1' }, { code: 'shop2' }, { code: 'shop3' }];
 

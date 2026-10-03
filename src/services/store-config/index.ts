@@ -112,6 +112,22 @@ export async function loadStore(): Promise<StoreProfile | null> {
 /** @deprecated giữ tên cũ cho chỗ gọi hiện có. */
 export const loadStoreCode = async () => (await loadStore())?.code ?? null;
 
+type BeforeStoreChange = (next: StoreProfile, previous: StoreProfile) => Promise<unknown> | unknown;
+
+const beforeStoreChange = new Set<BeforeStoreChange>();
+
+/**
+ * Việc phải làm với cửa hàng ĐANG gắn ngay trước khi sang cửa hàng khác — lúc gốc API vẫn là cửa hàng cũ và token
+ * của nó còn trong máy (vd. huỷ đăng ký push ở cửa hàng cũ). Lỗi không chặn việc đổi cửa hàng (việc tự giới hạn
+ * thời gian chờ). Trả về hàm gỡ đăng ký.
+ */
+export function onBeforeStoreChange(listener: BeforeStoreChange): () => void {
+  beforeStoreChange.add(listener);
+  return () => {
+    beforeStoreChange.delete(listener);
+  };
+}
+
 /**
  * Vào (gắn) một cửa hàng — thay cửa hàng đã nhớ. Luôn xoá token cũ để không mang phiên của cửa hàng này
  * sang cửa hàng khác. Thông tin cửa hàng không hợp lệ → báo lỗi, KHÔNG đụng gì (cửa hàng cũ vẫn nhớ).
@@ -119,6 +135,12 @@ export const loadStoreCode = async () => (await loadStore())?.code ?? null;
 export async function setStore(profile: StoreProfile): Promise<void> {
   const clean = sanitize(profile);
   if (!clean) throw new Error('store-config: thông tin cửa hàng không hợp lệ');
+  const previous = current;
+  if (previous && previous.code !== clean.code) {
+    await Promise.all(
+      [...beforeStoreChange].map((listener) => Promise.resolve().then(() => listener(clean, previous)).catch(() => {}))
+    );
+  }
   await Promise.all(AUTH_KEYS.map((k) => SecureStore.deleteItemAsync(k)));
   await SecureStore.deleteItemAsync(LEGACY_CODE_KEY);
   await SecureStore.setItemAsync(STORE_KEY, JSON.stringify(clean));

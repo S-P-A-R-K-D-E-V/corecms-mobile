@@ -689,6 +689,10 @@ export const en: Dict = {
       failed: 'Couldn’t send the file. Tap Retry.',
     },
   },
+  push: {
+    otherStoreTitle: 'Notification from another store',
+    otherStore: 'This notification is from {store}. Sign in to that store to view it.',
+  },
   payment: {
     Cash: 'Cash',
     Card: 'Card',

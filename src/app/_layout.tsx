@@ -15,6 +15,7 @@ import * as ScreenOrientation from 'expo-screen-orientation';
 import { AuthProvider } from 'src/auth/auth-provider';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { usePushRegistration } from 'src/hooks/use-push-registration';
+import { usePushTaps } from 'src/hooks/use-push-taps';
 import { useHydrateLauncher } from 'src/features/launcher/store';
 import { queryClient } from 'src/services/query/client';
 import { RemoteConfigProvider } from 'src/services/remote-config';
@@ -31,10 +32,11 @@ import { hydrateLocale, useLocaleStore } from 'src/i18n';
 // Keep the native splash up until the Minimal font is ready.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Registers the Expo push token once the user is authenticated. Lives inside
-// AuthProvider so useAuthContext is available.
+// Registers the Expo push token once the user is authenticated (per store). Lives inside
+// AuthProvider so useAuthContext is available. Chạm vào push của cửa hàng khác → báo, không mở theo link.
 function PushRegistrationWrapper() {
   usePushRegistration();
+  usePushTaps();
   return null;
 }
 
