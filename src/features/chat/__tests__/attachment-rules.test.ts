@@ -3,6 +3,7 @@ import {
   MB,
   base64ToBytes,
   batchProgress,
+  bytesToBase64,
   describeUploadError,
   fileNameFor,
   fitWithin,
@@ -64,6 +65,17 @@ describe('loại tệp', () => {
     expect(Array.from(base64ToBytes('iVBORw0KGgo='))).toEqual([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     expect(Array.from(base64ToBytes('/9j/4AAQ'))).toEqual([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
     expect(sniffContentType(base64ToBytes('/9j/4AAQSkZJRgABAQ=='))).toBe('image/jpeg');
+    // Base64 của iOS có thể xuống dòng.
+    expect(Array.from(base64ToBytes('/9j/\n4AAQ\r\n'))).toEqual([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+  });
+
+  it('mã / giải base64 khớp Buffer, kể cả tệp dài qua nhiều khúc', () => {
+    for (const len of [0, 1, 2, 3, 4, 5, 12287, 12288, 12289, 40000]) {
+      const data = Uint8Array.from({ length: len }, (_, i) => (i * 7919 + len) & 0xff);
+      const b64 = bytesToBase64(data);
+      expect(b64).toBe(Buffer.from(data).toString('base64'));
+      expect(Array.from(base64ToBytes(b64))).toEqual(Array.from(data));
+    }
   });
 
   it('định dạng dung lượng', () => {
@@ -75,21 +87,36 @@ describe('loại tệp', () => {
 });
 
 describe('xử lý ảnh trước khi gửi', () => {
-  it('HEIC luôn chuyển JPEG; GIF giữ nguyên', () => {
-    expect(planImageProcessing({ contentType: 'image/heic', width: 800, height: 600, size: 100_000 })).toMatchObject({ format: 'jpeg' });
+  const jpeg = { format: 'jpeg', compress: 0.7, maxEdge: 2048 };
+
+  it('HEIC luôn chuyển JPEG; GIF giữ nguyên (ảnh động, không có EXIF)', () => {
+    expect(planImageProcessing({ contentType: 'image/heic', width: 800, height: 600, size: 100_000 })).toEqual(jpeg);
+    expect(planImageProcessing({ contentType: 'image/avif', size: 100_000 })).toEqual(jpeg);
     expect(planImageProcessing({ contentType: 'image/gif', width: 4000, height: 4000, size: 9 * MB })).toBeNull();
+    expect(planImageProcessing({ contentType: 'image/gif', width: 300, height: 300, size: 50_000 })).toBeNull();
   });
 
-  it('JPEG nhỏ gửi nguyên; lớn (cạnh dài / dung lượng) thì thu nhỏ + nén', () => {
-    expect(planImageProcessing({ contentType: 'image/jpeg', width: 1280, height: 960, size: 400_000 })).toBeNull();
-    expect(planImageProcessing({ contentType: 'image/jpeg', width: 4032, height: 3024, size: 900_000 })).toMatchObject({ format: 'jpeg', maxEdge: 2048 });
-    expect(planImageProcessing({ contentType: 'image/jpeg', width: 1600, height: 1200, size: 2 * MB })).toMatchObject({ format: 'jpeg' });
+  it('JPEG / WEBP luôn vẽ lại (bỏ EXIF/GPS) — kể cả ảnh nhỏ — vẫn giới hạn cạnh dài 2048 + JPEG 0.7', () => {
+    // Trước đây JPEG ≤ 2048px, ≤ 1,5 MB gửi nguyên tệp → giữ EXIF/GPS.
+    expect(planImageProcessing({ contentType: 'image/jpeg', width: 1280, height: 960, size: 400_000 })).toEqual(jpeg);
+    expect(planImageProcessing({ contentType: 'image/jpeg', width: 640, height: 480, size: 40_000 })).toEqual(jpeg);
+    expect(planImageProcessing({ contentType: 'image/jpeg', width: 4032, height: 3024, size: 900_000 })).toEqual(jpeg);
+    expect(planImageProcessing({ contentType: 'image/jpeg', width: 1600, height: 1200, size: 2 * MB })).toEqual(jpeg);
+    expect(planImageProcessing({ contentType: 'image/webp', width: 800, height: 800, size: 90_000 })).toEqual(jpeg);
+    // Picker không báo kích thước / dung lượng → vẫn vẽ lại.
+    expect(planImageProcessing({ contentType: 'image/jpeg' })).toEqual(jpeg);
   });
 
-  it('ảnh chụp màn hình PNG giữ PNG khi thu nhỏ; PNG nặng thì sang JPEG', () => {
-    expect(planImageProcessing({ contentType: 'image/png', width: 1179, height: 2556, size: 800_000 })).toMatchObject({ format: 'png' });
-    expect(planImageProcessing({ contentType: 'image/png', width: 1000, height: 800, size: 300_000 })).toBeNull();
-    expect(planImageProcessing({ contentType: 'image/png', width: 3000, height: 4000, size: 6 * MB })).toMatchObject({ format: 'jpeg' });
+  it('PNG luôn vẽ lại: ảnh chụp màn hình giữ PNG (không mất chất lượng); PNG nặng thì sang JPEG', () => {
+    const png = { format: 'png', compress: 1, maxEdge: 2048 };
+    expect(planImageProcessing({ contentType: 'image/png', width: 1179, height: 2556, size: 800_000 })).toEqual(png);
+    expect(planImageProcessing({ contentType: 'image/png', width: 1000, height: 800, size: 300_000 })).toEqual(png);
+    expect(planImageProcessing({ contentType: 'image/png', width: 3000, height: 4000, size: 6 * MB })).toEqual(jpeg);
+  });
+
+  it('không phải ảnh tĩnh → không vẽ lại', () => {
+    expect(planImageProcessing({ contentType: 'application/pdf', size: 1000 })).toBeNull();
+    expect(planImageProcessing({ contentType: 'video/mp4', size: 1000 })).toBeNull();
   });
 
   it('thu nhỏ giữ tỉ lệ, cạnh dài ≤ 2048', () => {

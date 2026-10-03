@@ -39,10 +39,10 @@ export const MAX_FILES_PER_MESSAGE = 10;
 export const MAX_PARALLEL_UPLOADS = 3;
 const MAX_FILE_NAME = 200;
 
-// Ảnh: cạnh dài tối đa + chất lượng JPEG khi phải thu nhỏ / chuyển định dạng (~300–700 KB / ảnh, bỏ EXIF/GPS).
+// Ảnh: cạnh dài tối đa + chất lượng JPEG khi vẽ lại (~300–700 KB / ảnh). Mọi ảnh đều được vẽ lại trước khi gửi
+// (kể cả JPEG nhỏ) để bỏ EXIF/GPS — xem planImageProcessing.
 export const IMAGE_MAX_EDGE = 2048;
 export const IMAGE_JPEG_QUALITY = 0.7;
-const JPEG_REENCODE_OVER_BYTES = 1.5 * MB;
 const PNG_TO_JPEG_OVER_BYTES = 4 * MB;
 
 /** Ảnh máy xuất ra nhưng server không nhận (Android/web không hiển thị được) — phải chuyển sang JPEG. */
@@ -169,43 +169,79 @@ export function sniffContentType(bytes: Uint8Array): string | null {
 }
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+// Bảng tra ký tự → giá trị 6 bit (-1 = không phải ký tự base64): giải cả tệp vài MB vẫn nhanh.
+const B64_INDEX = (() => {
+  const index = new Int16Array(128).fill(-1);
+  for (let i = 0; i < B64.length; i++) index[B64.charCodeAt(i)] = i;
+  return index;
+})();
 
-/** Giải base64 (đoạn đầu tệp đọc bằng expo-file-system) — không phụ thuộc atob của engine. */
+/** Giải base64 (tệp đọc bằng expo-file-system) — không phụ thuộc atob của engine; bỏ qua '=', xuống dòng. */
 export function base64ToBytes(b64: string): Uint8Array {
-  const clean = b64.replace(/[^A-Za-z0-9+/]/g, '');
-  const out: number[] = [];
+  const out = new Uint8Array(Math.ceil((b64.length * 3) / 4));
+  let n = 0;
   let buf = 0;
   let bits = 0;
-  for (const ch of clean) {
-    buf = (buf << 6) | B64.indexOf(ch);
+  for (let i = 0; i < b64.length; i++) {
+    const code = b64.charCodeAt(i);
+    const v = code < 128 ? B64_INDEX[code]! : -1;
+    if (v < 0) continue;
+    buf = ((buf << 6) | v) & 0xffffff;
     bits += 6;
     if (bits >= 8) {
       bits -= 8;
-      out.push((buf >> bits) & 0xff);
+      out[n++] = (buf >> bits) & 0xff;
     }
   }
-  return Uint8Array.from(out);
+  return out.subarray(0, n);
+}
+
+/** Mã base64 (ghi lại tệp bằng expo-file-system). Ghép theo khúc để không dựng chuỗi từng ký tự. */
+export function bytesToBase64(bytes: Uint8Array): string {
+  const CHUNK = 3 * 4096; // bội số của 3 → chỉ khúc cuối có '='
+  const parts: string[] = [];
+  for (let start = 0; start < bytes.length; start += CHUNK) {
+    const end = Math.min(start + CHUNK, bytes.length);
+    let out = '';
+    for (let i = start; i < end; i += 3) {
+      const b0 = bytes[i]!;
+      const b1 = i + 1 < end ? bytes[i + 1]! : 0;
+      const b2 = i + 2 < end ? bytes[i + 2]! : 0;
+      out +=
+        B64[b0 >> 2]! +
+        B64[((b0 & 3) << 4) | (b1 >> 4)]! +
+        (i + 1 < end ? B64[((b1 & 15) << 2) | (b2 >> 6)]! : '=') +
+        (i + 2 < end ? B64[b2 & 63]! : '=');
+    }
+    parts.push(out);
+  }
+  return parts.join('');
 }
 
 // ----------------------------------------------------------------------
-// Ảnh: có cần thu nhỏ / chuyển định dạng không
+// Ảnh: vẽ lại trước khi gửi (bỏ EXIF/GPS) — thu nhỏ / chuyển định dạng khi cần
 
 export type ImagePlan = { format: 'jpeg' | 'png'; compress: number; maxEdge: number };
 
+/**
+ * Mọi ảnh tĩnh đều vẽ lại một lần trước khi gửi: bộ nén ghi tệp mới không mang EXIF (GPS, máy chụp, giờ chụp).
+ * Picker không bỏ được: Android chép lại EXIF gốc kể cả khi nén (quality < 1); iOS trả nguyên bytes JPEG
+ * (quality = 1). Ảnh đã nhỏ (≤ 2048px) vẫn vẽ lại, chỉ không thu nhỏ — giữ giới hạn cạnh dài / dung lượng như cũ.
+ *   HEIC/HEIF/AVIF/TIFF/BMP, JPEG, WEBP → JPEG 0.7.
+ *   PNG → giữ PNG (ảnh chụp màn hình, chữ sắc nét; vẽ lại không mất chất lượng); PNG nặng (> 4 MB) → JPEG.
+ *   GIF → null: giữ nguyên ảnh động (GIF không có EXIF/GPS).
+ */
 export function planImageProcessing(img: { contentType: string; width?: number; height?: number; size?: number }): ImagePlan | null {
-  const longEdge = Math.max(img.width ?? 0, img.height ?? 0);
-  const tooBig = longEdge > IMAGE_MAX_EDGE;
   const size = img.size ?? 0;
   const jpeg: ImagePlan = { format: 'jpeg', compress: IMAGE_JPEG_QUALITY, maxEdge: IMAGE_MAX_EDGE };
   if (isConvertibleImage(img.contentType)) return jpeg;
   switch (img.contentType) {
     case 'image/jpeg':
     case 'image/webp':
-      return tooBig || size > JPEG_REENCODE_OVER_BYTES ? jpeg : null;
+      return jpeg;
     case 'image/png':
       // PNG nặng gần như luôn là ảnh chụp lưu PNG → JPEG; ảnh chụp màn hình giữ PNG (chữ sắc nét).
-      if (size > PNG_TO_JPEG_OVER_BYTES) return jpeg;
-      return tooBig ? { format: 'png', compress: 1, maxEdge: IMAGE_MAX_EDGE } : null;
+      return size > PNG_TO_JPEG_OVER_BYTES ? jpeg : { format: 'png', compress: 1, maxEdge: IMAGE_MAX_EDGE };
     default:
       return null; // GIF giữ nguyên (ảnh động)
   }

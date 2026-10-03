@@ -5,15 +5,15 @@ import { toast } from 'src/components/overlay';
 import { t } from 'src/i18n';
 import { presignAssistantImages } from 'src/api/assistant';
 import { putToPresignedUrl, readLocalFile, type PresignedTarget } from 'src/api/presigned-upload';
-import { nameFromUri } from 'src/features/chat/attachment-rules';
-import { sniffFileType } from 'src/features/chat/attachment-prepare';
+import { imagePickerQuality, pickedImage, prepareAttachment } from 'src/features/chat/attachment-prepare';
 import { checkImage, imageErrorKey, type ImageRules } from './image-attachments';
 
 // ----------------------------------------------------------------------
-// Ảnh đính kèm ở ô soạn trợ lý: chọn ảnh → kiểm loại/dung lượng → xin presigned URL (một lượt cho cả lô)
-// → PUT song song thẳng lên R2. Ảnh không bao giờ đi qua API; câu hỏi chỉ mang objectKey.
-// Không thêm thư viện nén: picker nén JPEG (quality 0.7), iOS xin bản tương thích (không HEIC). Loại ảnh lấy theo
-// magic bytes: Android nén ảnh HEIC/WebP ra JPEG nhưng vẫn báo mimeType gốc.
+// Ảnh đính kèm ở ô soạn trợ lý: chọn ảnh → chuẩn bị như ảnh chat (prepareAttachment: vẽ lại để bỏ EXIF/GPS,
+// HEIC → JPEG, cạnh dài ≤ 2048px) → kiểm loại/dung lượng → xin presigned URL (một lượt cho cả lô) → PUT song song
+// thẳng lên R2. Ảnh không bao giờ đi qua API; câu hỏi chỉ mang objectKey. Loại ảnh lấy theo magic bytes (Android
+// nén ảnh HEIC/WebP ra JPEG nhưng vẫn báo mimeType gốc). Android picker chép lại EXIF gốc (kể cả GPS) khi nén →
+// không được gửi thẳng tệp của picker.
 // ----------------------------------------------------------------------
 
 export type ImageAttachmentItem = {
@@ -98,7 +98,8 @@ export function useImageAttachments(sessionId: string | null, rules: ImageRules)
       mediaTypes: ['images'],
       allowsMultipleSelection: room > 1,
       selectionLimit: room,
-      quality: 0.7,
+      // Có bộ nén → lấy bản gốc rồi vẽ lại một lần (bỏ EXIF/GPS); bản app cũ chưa có → để picker nén.
+      quality: imagePickerQuality(0.7),
       // iOS mặc định trả HEIC gốc (server không nhận) → xin bản JPEG tương thích.
       preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
       exif: false,
@@ -107,18 +108,20 @@ export function useImageAttachments(sessionId: string | null, rules: ImageRules)
 
     const added: ImageAttachmentItem[] = [];
     let rejected: 'imageTypeUnsupported' | 'imageTooLarge' | 'uploadFailed' | null = null;
+    // Tuần tự: mỗi ảnh giải mã tốn nhiều RAM.
     for (const asset of result.assets.slice(0, room)) {
       let blob: Blob;
+      let prepared: Awaited<ReturnType<typeof prepareAttachment>>;
       try {
-        blob = await readLocalFile(asset.uri);
+        prepared = await prepareAttachment(pickedImage(asset));
+        blob = await readLocalFile(prepared.uri);
       } catch {
         rejected = 'uploadFailed';
         continue;
       }
-      // Bytes thật (Android: ảnh HEIC đã nén thành JPEG vẫn mang nhãn image/heic) — server ký đúng Content-Type này.
-      const sniffed = await sniffFileType(asset.uri);
+      // Loại thật của tệp sẽ gửi (đã vẽ lại → JPEG/PNG; không thì theo magic bytes) — server ký đúng Content-Type này.
       const check = checkImage(
-        { name: asset.fileName ?? nameFromUri(asset.uri), mimeType: asset.mimeType ?? blob.type, sniffed, size: blob.size },
+        { name: prepared.name, mimeType: prepared.contentType, sniffed: prepared.contentType, size: blob.size },
         rules
       );
       if (!check.ok) {
@@ -127,7 +130,7 @@ export function useImageAttachments(sessionId: string | null, rules: ImageRules)
       }
       const id = `img-${Date.now()}-${seq++}`;
       blobsRef.current.set(id, blob);
-      added.push({ id, localUri: asset.uri, type: check.contentType, size: blob.size, fileName: check.fileName, status: 'uploading' });
+      added.push({ id, localUri: prepared.uri, type: check.contentType, size: blob.size, fileName: check.fileName, status: 'uploading' });
     }
     if (rejected) toast.error(t(`assistant.${rejected}`));
     if (added.length === 0) return;

@@ -67,7 +67,7 @@ import { useMessengerCtx } from 'src/components/messenger/messenger-provider';
 import { ImageViewer, type ViewerImage } from './ImageViewer';
 import { AttachmentOutboxBar } from './AttachmentOutboxBar';
 import { useAttachmentOutbox } from './useAttachmentOutbox';
-import { canProcessImages, type PickedAttachment } from './attachment-prepare';
+import { imagePickerQuality, pickedImage, type PickedAttachment } from './attachment-prepare';
 import { DOCUMENT_PICKER_TYPES, MAX_FILES_PER_MESSAGE, formatBytes } from './attachment-rules';
 
 /** Mở tệp (không phải ảnh) trong trình xem in-app (SFSafariVC / Custom Tabs). */
@@ -263,22 +263,12 @@ export function ChatDetailScreen() {
       selectionLimit: MAX_FILES_PER_MESSAGE,
       // iOS mặc định trả nguyên ảnh HEIC (bỏ qua quality) → server/Android/web không nhận; xin bản JPEG tương thích.
       preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
-      // Có bộ nén → lấy chất lượng gốc rồi tự thu nhỏ + nén một lần; bản app cũ chưa có → để picker nén.
-      quality: canProcessImages() ? 1 : 0.8,
+      // Có bộ nén → lấy chất lượng gốc rồi tự thu nhỏ + nén một lần (bỏ EXIF/GPS); bản app cũ chưa có → để picker nén.
+      quality: imagePickerQuality(0.8),
       exif: false,
     });
     if (result.canceled || result.assets.length === 0) return;
-    await sendPicked(
-      result.assets.map((a) => ({
-        uri: a.uri,
-        name: a.fileName,
-        mimeType: a.mimeType,
-        size: a.fileSize,
-        width: a.width,
-        height: a.height,
-        source: 'image' as const,
-      }))
-    );
+    await sendPicked(result.assets.map(pickedImage));
   }
 
   async function pickDocuments() {

@@ -9,13 +9,32 @@ import { Text, Button, Badge, Icon, Pressable } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { getMyCleaningChecklist, completeCleaningTask, type CleaningPhotoFile } from 'src/api/cleaning';
+import { imagePickerQuality, pickedImage, prepareAttachment } from 'src/features/chat/attachment-prepare';
 import type { ICleaningTaskInstance, CleaningTaskStatus } from 'src/types/corecms-api';
+import { cleaningVideoFile, firstRejectedCleaningMedia, isAcceptedCleaningMedia } from './cleaning-media';
 
 // ----------------------------------------------------------------------
 
 const MAX_PHOTOS = 5;
 
 const BLOCK_LABEL: Record<string, string> = { Morning: 'Sáng', Afternoon: 'Chiều', Evening: 'Tối' };
+
+/**
+ * Ảnh → chuẩn bị như ảnh chat (vẽ lại: bỏ EXIF/GPS, HEIC → JPEG, cạnh dài ≤ 2048px); video giữ nguyên tệp.
+ * Tuần tự: mỗi ảnh giải mã tốn nhiều RAM.
+ */
+async function toCleaningFiles(assets: ImagePicker.ImagePickerAsset[]): Promise<CleaningPhotoFile[]> {
+  const files: CleaningPhotoFile[] = [];
+  for (const [index, asset] of assets.entries()) {
+    if (asset.type === 'video') {
+      files.push(cleaningVideoFile(asset, index));
+      continue;
+    }
+    const prepared = await prepareAttachment(pickedImage(asset));
+    files.push({ uri: prepared.uri, name: prepared.name, type: prepared.contentType });
+  }
+  return files;
+}
 
 const STATUS_TONE: Record<CleaningTaskStatus, 'neutral' | 'info' | 'success' | 'error'> = {
   Pending: 'neutral',
@@ -87,6 +106,7 @@ export function CleaningChecklistScreen() {
   const [date, setDate] = useState(dayjs().format('YYYY-MM-DD'));
   const [pickerTask, setPickerTask] = useState<ICleaningTaskInstance | null>(null);
   const [pendingPhotos, setPendingPhotos] = useState<CleaningPhotoFile[]>([]);
+  const [preparing, setPreparing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const { data, isFetching, isError, error, refetch } = useQuery({
@@ -110,6 +130,27 @@ export function CleaningChecklistScreen() {
     setPendingPhotos((prev) => prev.filter((_, i) => i !== index));
   }
 
+  /** Thêm ảnh/video vừa chọn; tệp server không nhận (vd. HEIC trên bản app chưa có bộ nén) thì bỏ và báo rõ. */
+  async function addAssets(assets: ImagePicker.ImagePickerAsset[]) {
+    setPreparing(true);
+    try {
+      const files = await toCleaningFiles(assets);
+      const rejected = firstRejectedCleaningMedia(files);
+      if (rejected) {
+        toast.error(
+          `“${rejected.name}” không gửi được — chỉ nhận ảnh JPG, PNG, WEBP, GIF và video MP4, MOV, WEBM, 3GP. Hãy cập nhật app hoặc chọn ảnh khác.`,
+          'Không thêm được tệp'
+        );
+      }
+      const accepted = files.filter((f) => isAcceptedCleaningMedia(f.type));
+      setPendingPhotos((prev) => [...prev, ...accepted].slice(0, MAX_PHOTOS));
+    } catch {
+      toast.error('Không đọc được ảnh đã chọn. Vui lòng chọn lại.');
+    } finally {
+      setPreparing(false);
+    }
+  }
+
   async function addFromCamera() {
     if (pendingPhotos.length >= MAX_PHOTOS) {
       toast.warning(`Tối đa ${MAX_PHOTOS} ảnh`);
@@ -120,13 +161,10 @@ export function CleaningChecklistScreen() {
       toast.error('Vui lòng cấp quyền camera để chụp ảnh minh chứng.', 'Cần cấp quyền');
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
+    // Có bộ nén → lấy bản gốc rồi vẽ lại một lần (bỏ EXIF/GPS); bản app cũ chưa có → để camera nén.
+    const result = await ImagePicker.launchCameraAsync({ quality: imagePickerQuality(0.7), exif: false });
     if (result.canceled || result.assets.length === 0) return;
-    const asset = result.assets[0];
-    setPendingPhotos((prev) => [
-      ...prev,
-      { uri: asset.uri, name: asset.fileName ?? `cleaning_${Date.now()}.jpg`, type: asset.mimeType ?? 'image/jpeg' },
-    ].slice(0, MAX_PHOTOS));
+    await addAssets(result.assets.slice(0, 1));
   }
 
   async function addFromLibrary() {
@@ -142,18 +180,15 @@ export function CleaningChecklistScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images', 'videos'],
-      quality: 0.7,
+      quality: imagePickerQuality(0.7),
       allowsMultipleSelection: true,
       selectionLimit: remaining,
+      // iOS mặc định trả nguyên ảnh HEIC (bỏ qua quality) → server không nhận; xin bản JPEG tương thích.
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+      exif: false,
     });
-    if (result.canceled) return;
-    const newPhotos: CleaningPhotoFile[] = result.assets.map((a, i) => {
-      const isVideo = a.type === 'video';
-      const fallbackName = isVideo ? `cleaning_${Date.now()}_${i}.mp4` : `cleaning_${Date.now()}_${i}.jpg`;
-      const fallbackType = isVideo ? 'video/mp4' : 'image/jpeg';
-      return { uri: a.uri, name: a.fileName ?? fallbackName, type: a.mimeType ?? fallbackType };
-    });
-    setPendingPhotos((prev) => [...prev, ...newPhotos].slice(0, MAX_PHOTOS));
+    if (result.canceled || result.assets.length === 0) return;
+    await addAssets(result.assets.slice(0, remaining));
   }
 
   async function handleSubmit() {
@@ -230,7 +265,7 @@ export function CleaningChecklistScreen() {
         title={pickerTask ? `Ảnh minh chứng: ${pickerTask.name}` : ''}
         onClose={closePicker}
         footer={
-          <Button loading={submitting} disabled={pendingPhotos.length === 0} onPress={handleSubmit}>
+          <Button loading={submitting} disabled={pendingPhotos.length === 0 || preparing} onPress={handleSubmit}>
             Hoàn thành ({pendingPhotos.length} ảnh)
           </Button>
         }
@@ -269,12 +304,18 @@ export function CleaningChecklistScreen() {
           {pendingPhotos.length < MAX_PHOTOS ? (
             <View className="flex-row gap-2">
               <View className="flex-1">
-                <Button variant="outline" icon="camera-outline" onPress={addFromCamera}>
+                <Button variant="outline" icon="camera-outline" disabled={preparing || submitting} onPress={addFromCamera}>
                   Chụp ảnh
                 </Button>
               </View>
               <View className="flex-1">
-                <Button variant="outline" icon="image-multiple-outline" onPress={addFromLibrary}>
+                <Button
+                  variant="outline"
+                  icon="image-multiple-outline"
+                  loading={preparing}
+                  disabled={preparing || submitting}
+                  onPress={addFromLibrary}
+                >
                   Thư viện (ảnh/video)
                 </Button>
               </View>

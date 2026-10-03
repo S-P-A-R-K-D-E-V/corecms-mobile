@@ -4,6 +4,7 @@ import { requireOptionalNativeModule } from 'expo';
 import {
   attachmentKind,
   base64ToBytes,
+  bytesToBase64,
   fileNameFor,
   fitWithin,
   nameFromUri,
@@ -13,10 +14,12 @@ import {
   type AttachmentKind,
   type ImagePlan,
 } from './attachment-rules';
+import { scrubJpegLocation } from './image-metadata';
 
 // ----------------------------------------------------------------------
-// Chuẩn bị tệp trước khi xin presigned URL: xác định đúng loại (magic bytes), ảnh HEIC → JPEG, ảnh lớn thu
-// nhỏ cạnh dài ≤ 2048px + nén JPEG 0.7 (bỏ luôn EXIF/GPS), đọc dung lượng thật của tệp sẽ gửi.
+// Chuẩn bị tệp trước khi xin presigned URL: xác định đúng loại (magic bytes), mọi ảnh tĩnh vẽ lại một lần để bỏ
+// EXIF/GPS (HEIC → JPEG, cạnh dài ≤ 2048px, JPEG 0.7), đọc dung lượng thật của tệp sẽ gửi. Dùng chung cho chat,
+// ảnh gửi trợ lý và ảnh minh chứng vệ sinh. Bản app chưa có bộ nén: JPEG vẫn được xoá GPS trên bytes (image-metadata).
 // ----------------------------------------------------------------------
 
 type Manipulator = typeof import('expo-image-manipulator');
@@ -45,6 +48,11 @@ export function canProcessImages(): boolean {
   return getImageManipulator() !== null;
 }
 
+/** quality cho expo-image-picker: có bộ nén → lấy bản gốc (nén một lần ở prepareAttachment); không thì để picker nén. */
+export function imagePickerQuality(fallback: number): number {
+  return canProcessImages() ? 1 : fallback;
+}
+
 export type PickedAttachment = {
   uri: string;
   name?: string | null;
@@ -54,6 +62,26 @@ export type PickedAttachment = {
   height?: number;
   source: 'image' | 'document';
 };
+
+/** Ảnh từ expo-image-picker (thư viện / camera) → đầu vào prepareAttachment. */
+export function pickedImage(asset: {
+  uri: string;
+  fileName?: string | null;
+  mimeType?: string | null;
+  fileSize?: number | null;
+  width?: number;
+  height?: number;
+}): PickedAttachment {
+  return {
+    uri: asset.uri,
+    name: asset.fileName,
+    mimeType: asset.mimeType,
+    size: asset.fileSize,
+    width: asset.width,
+    height: asset.height,
+    source: 'image',
+  };
+}
 
 export type PreparedAttachment = {
   uri: string;
@@ -79,6 +107,28 @@ async function readHead(uri: string): Promise<Uint8Array | null> {
 export async function sniffFileType(uri: string): Promise<string | null> {
   const head = await readHead(uri);
   return head ? sniffContentType(head) : null;
+}
+
+// Phần đầu tệp đủ chứa metadata JPEG (mỗi đoạn EXIF/XMP ≤ 64 KB) — đọc thử trước, chỉ đọc cả tệp khi có vị trí.
+const JPEG_HEAD_BYTES = 192 * 1024;
+let scrubSeq = 0;
+
+/**
+ * Đường lùi khi không vẽ lại được ảnh: xoá GPS/XMP ngay trên bytes JPEG. Không có gì để xoá → giữ tệp cũ; có →
+ * ghi bản đã xoá ra tệp mới trong cache. Đọc / ghi lỗi → ném lỗi: không gửi ảnh có thể còn vị trí.
+ */
+async function stripJpegLocation(uri: string): Promise<string> {
+  const Base64 = FileSystem.EncodingType.Base64;
+  const head = base64ToBytes(await FileSystem.readAsStringAsync(uri, { encoding: Base64, position: 0, length: JPEG_HEAD_BYTES }));
+  const probe = scrubJpegLocation(head);
+  if (!probe.changed && probe.complete) return uri;
+
+  const all = base64ToBytes(await FileSystem.readAsStringAsync(uri, { encoding: Base64 }));
+  if (!scrubJpegLocation(all).changed) return uri;
+  if (!FileSystem.cacheDirectory) throw new Error('attachment-prepare: không có thư mục cache');
+  const out = `${FileSystem.cacheDirectory}anh_sach_${Date.now()}_${scrubSeq++}.jpg`;
+  await FileSystem.writeAsStringAsync(out, bytesToBase64(all), { encoding: Base64 });
+  return out;
 }
 
 async function fileSize(uri: string, fallback: number): Promise<number> {
@@ -120,7 +170,7 @@ async function processImage(M: Manipulator, uri: string, plan: ImagePlan): Promi
 
 /**
  * Chuẩn bị một tệp. Không ném lỗi khi loại không hợp lệ — trả về để validateAttachments báo rõ tên tệp
- * (vd. HEIC trên bản app chưa có bộ nén).
+ * (vd. HEIC trên bản app chưa có bộ nén). Chỉ ném khi không đọc được tệp ảnh để xoá vị trí.
  */
 export async function prepareAttachment(p: PickedAttachment): Promise<PreparedAttachment> {
   const originalName = p.name || nameFromUri(p.uri);
@@ -133,17 +183,21 @@ export async function prepareAttachment(p: PickedAttachment): Promise<PreparedAt
     if (sniffed) contentType = sniffed;
     const plan = contentType ? planImageProcessing({ contentType, width: p.width, height: p.height, size }) : null;
     const M = plan ? getImageManipulator() : null;
+    let redrawn = false;
     if (plan && M) {
       try {
         const out = await processImage(M, uri, plan);
         uri = out.uri;
         contentType = out.contentType;
         size = 0;
+        redrawn = true;
       } catch {
         // Không xử lý được (ảnh hỏng / thiếu bộ giải mã): gửi ảnh gốc nếu server nhận loại đó; HEIC sẽ bị
         // validateAttachments chặn kèm hướng dẫn.
       }
     }
+    // Không vẽ lại được (bản app chưa có bộ nén / vẽ lại lỗi): JPEG vẫn phải bỏ vị trí trước khi gửi.
+    if (!redrawn && contentType === 'image/jpeg') uri = await stripJpegLocation(uri);
   }
 
   const type = contentType ?? 'application/octet-stream';
