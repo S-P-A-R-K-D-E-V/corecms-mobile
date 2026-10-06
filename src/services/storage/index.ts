@@ -25,6 +25,8 @@ export const PrefKeys = {
   lastStoreField: 'pref.lastStoreField', // mã / tên miền cửa hàng gõ lần trước ở trang đăng nhập (không bí mật)
   workingBranch: 'pref.workingBranch', // tiền tố — `pref.workingBranch.<mã cửa hàng>`: chi nhánh máy đang làm việc
   posCart: 'pref.posCart', // tiền tố — `pref.posCart.<mã cửa hàng>`: giỏ hàng + lần bán chưa có kết quả
+  fnbDeviceId: 'pref.fnbDeviceId', // uuid của lần cài app này — deviceId gửi kèm mọi lệnh ghi F&B
+  fnbQueue: 'pref.fnbQueue', // tiền tố — `pref.fnbQueue.<mã cửa hàng>`: hàng đợi lệnh ghi F&B chưa có kết quả
 } as const;
 
 export const secure = {

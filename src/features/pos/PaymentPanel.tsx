@@ -24,6 +24,8 @@ export type PaymentState = {
   ready: boolean;
   account?: IBankAccount;
   transferRef?: string;
+  /** Tiền mặt khách đưa (chỉ khi method = Cash) — F&B gửi lên làm cashTendered. */
+  cashGiven?: number;
 };
 
 const METHODS: { key: PaymentMethod; icon: string }[] = [
@@ -53,8 +55,14 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
 
   const ready = method === 'Cash' ? given >= total : method === 'Transfer' ? !!account && transferOk : true;
   useEffect(() => {
-    onChange({ method, ready, account: method === 'Transfer' ? account : undefined, transferRef: method === 'Transfer' ? transferRef : undefined });
-  }, [method, ready, account, transferRef, onChange]);
+    onChange({
+      method,
+      ready,
+      account: method === 'Transfer' ? account : undefined,
+      transferRef: method === 'Transfer' ? transferRef : undefined,
+      cashGiven: method === 'Cash' ? given : undefined,
+    });
+  }, [method, ready, account, transferRef, given, onChange]);
 
   const qr = method === 'Transfer' && account ? vietQrUrl(account, total, transferRef) : null;
 

@@ -379,6 +379,7 @@ export const endpoints = {
   // ── F&B: thực đơn, sơ đồ bàn, đơn mở, phiếu bar (contract F&B POS v1) ──
   fnb: {
     menu: '/fnb/menu',
+    areas: '/fnb/areas',
     floor: '/fnb/floor',
     sync: '/fnb/sync',
     order: (id: string) => `/fnb/orders/${id}`,
