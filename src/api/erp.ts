@@ -3,6 +3,7 @@ import type {
   IBankAccount,
   ICreatePurchaseOrderRequest,
   ICreateSaleRequest,
+  ICreateSaleResponse,
   ICreateStockAdjustmentRequest,
   IPaged,
   IPagedPurchaseOrders,
@@ -101,9 +102,13 @@ export async function getSalesOrder(id: string): Promise<ISalesOrder> {
   return res.data;
 }
 
-/** Tạo hoá đơn bán — core-be lưu đơn, trừ tồn và xếp hàng đẩy sang KiotViet. */
-export async function createSale(data: ICreateSaleRequest): Promise<{ id: string }> {
-  const res = await axios.post<{ id: string }>(endpoints.salesOrders.create, data);
+/**
+ * Tạo hoá đơn bán — core-be lưu đơn và trừ tồn. Chỉ xếp hàng đẩy sang KiotViet khi cửa hàng có đẩy hoá đơn
+ * (kiotVietSyncStatus = Pending); còn lại hoá đơn chỉ lưu trong hệ thống (NotPushed). core-be cũ không trả
+ * kiotVietSyncStatus.
+ */
+export async function createSale(data: ICreateSaleRequest): Promise<ICreateSaleResponse> {
+  const res = await axios.post<ICreateSaleResponse>(endpoints.salesOrders.create, data);
   return res.data;
 }
 

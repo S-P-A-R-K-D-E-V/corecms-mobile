@@ -16,17 +16,19 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser, usesAdminShell } from 'src/auth/roles';
 import { getProducts, getWarehouses, createSale } from 'src/api/erp';
 import { t } from 'src/i18n';
-import type { IProductChild, IProductListItem } from 'src/types/erp';
+import type { ICreateSaleResponse, IProductChild, IProductListItem } from 'src/types/erp';
 
 import { SearchBar, ProductThumb, StockBadge, ListFooter, priceLabel, stockOf, childStock, money, fmtQty, useDebounced } from 'src/features/erp/shared';
+import { isSaleQueuedForKiotViet } from 'src/features/erp/kiotviet-sync';
 import { useProductSearch } from 'src/features/products/hooks';
 import { useCart, cartCount, cartTotal, lineFromProduct, lineFromVariant, type CartLine } from './cart-store';
 import { PaymentPanel, type PaymentState } from './PaymentPanel';
 
 // ----------------------------------------------------------------------
-// Bán hàng trên app: chọn hàng (tìm / quét mã), giỏ hàng, thanh toán → core-be tạo hoá đơn, trừ tồn và
-// đẩy sang KiotViet (KiotViet vẫn là hệ thống bán chính). Nhân viên bán đúng giá niêm yết; quản lý được
-// sửa giá dòng (core-be chặn ở server).
+// Bán hàng trên app: chọn hàng (tìm / quét mã), giỏ hàng, thanh toán → core-be tạo hoá đơn và trừ tồn.
+// Hoá đơn chỉ được đẩy sang KiotViet khi cửa hàng có đẩy hoá đơn (core-be trả kiotVietSyncStatus = Pending);
+// còn lại chỉ lưu trong hệ thống (NotPushed) — bảng "Đã bán xong" chỉ nhắc KiotViet khi đơn thật sự chờ đẩy.
+// Nhân viên bán đúng giá niêm yết; quản lý được sửa giá dòng (core-be chặn ở server).
 // ----------------------------------------------------------------------
 
 const TAB_CLEARANCE = 96;
@@ -159,7 +161,7 @@ export function PosScreen() {
   const [payment, setPayment] = useState<PaymentState | null>(null);
   const [note, setNote] = useState('');
   const [transferRef, setTransferRef] = useState('');
-  const [done, setDone] = useState<{ id: string } | null>(null);
+  const [done, setDone] = useState<ICreateSaleResponse | null>(null);
 
   const total = cartTotal(lines);
   const count = cartCount(lines);
@@ -399,7 +401,9 @@ export function PosScreen() {
           <View className="w-16 h-16 rounded-full bg-success-soft items-center justify-center">
             <Icon name="check-bold" size={34} tone="success" />
           </View>
-          <Text variant="bodySmall" tone="muted" className="text-center">{t('erp.saleSync')}</Text>
+          {isSaleQueuedForKiotViet(done) ? (
+            <Text variant="bodySmall" tone="muted" className="text-center">{t('erp.saleSync')}</Text>
+          ) : null}
         </View>
         <View className="flex-row gap-2 mt-3">
           <View className="flex-1">

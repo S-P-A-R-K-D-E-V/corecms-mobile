@@ -10,6 +10,8 @@ import { getStorageUrl } from 'src/api/axios';
 import { t } from 'src/i18n';
 import type { IProductChild, IProductInventory, IProductListItem } from 'src/types/erp';
 
+import { syncBadge } from './kiotviet-sync';
+
 // ----------------------------------------------------------------------
 // Mảnh dùng chung cho Hàng hoá / Bán hàng / Hoá đơn / Nhập hàng.
 // ----------------------------------------------------------------------
@@ -137,12 +139,13 @@ export function isCancelledStatus(status?: string | null): boolean {
   return /hủy|huỷ|cancel/i.test(status ?? '') || status === '2';
 }
 
-/** Nhãn đồng bộ KiotViet cho đơn tạo trên app/web (đơn đồng bộ từ KiotViet về thì không hiện). */
+/**
+ * Nhãn đồng bộ KiotViet cho đơn tạo trên app/web. Không hiện với đơn đồng bộ từ KiotViet về, đơn chỉ lưu
+ * trong hệ thống (NotPushed) và trạng thái lạ — xem syncBadge.
+ */
 export function SyncBadge({ status }: { status?: string | null }) {
-  if (!status || status === 'None') return null;
-  if (status === 'Synced') return <Badge tone="success" icon="check">{t('erp.synced')}</Badge>;
-  if (status === 'Failed') return <Badge tone="error" icon="alert-circle-outline">{t('erp.syncFailed')}</Badge>;
-  return <Badge tone="info" icon="sync">{t('erp.syncPending')}</Badge>;
+  const badge = syncBadge(status);
+  return badge ? <Badge tone={badge.tone} icon={badge.icon}>{t(badge.labelKey)}</Badge> : null;
 }
 
 export function ListFooter({ loading }: { loading: boolean }) {

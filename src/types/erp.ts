@@ -132,11 +132,20 @@ export interface ISalesOrder {
   createdAt: string;
   items: ISalesOrderItem[];
   payments: ISalesOrderPayment[];
-  /** Đơn tạo trên app/web đẩy sang KiotViet: None|Pending|Pushing|Synced|Failed. */
-  kiotVietSyncStatus?: string | null;
+  /** Trạng thái đẩy sang KiotViet của đơn tạo trên app/web — xem KiotVietSyncStatus. */
+  kiotVietSyncStatus?: KiotVietSyncStatus | string | null;
+  /** Lý do đẩy lỗi (Failed); NotPushed luôn null. */
   kiotVietSyncError?: string | null;
   kiotVietOrderCode?: string | null;
 }
+
+/**
+ * None: đơn đồng bộ từ KiotViet về (hoặc đơn đang chờ đẩy / đẩy lỗi đã huỷ) · Pending: chờ đẩy sang KiotViet
+ * · Pushing: đang đẩy · Synced: KiotViet đã nhận · Failed: đẩy lỗi (kiotVietSyncError)
+ * · NotPushed: chỉ lưu trong hệ thống, không đẩy KiotViet — trạng thái bình thường, không phải lỗi (cửa hàng
+ * không nối KiotViet, hoặc core-be đang tắt đẩy hoá đơn); huỷ đơn vẫn giữ NotPushed.
+ */
+export type KiotVietSyncStatus = 'None' | 'Pending' | 'Pushing' | 'Synced' | 'Failed' | 'NotPushed';
 
 export interface IPagedSalesOrders {
   totalCount: number;
@@ -171,6 +180,12 @@ export interface ICreateSaleRequest {
     price: number;
   }[];
   payments: ICreateSalePayment[];
+}
+
+/** POST /sales-orders. core-be cũ chỉ trả `id`; bản mới kèm trạng thái đẩy KiotViet (Pending | NotPushed). */
+export interface ICreateSaleResponse {
+  id: string;
+  kiotVietSyncStatus?: KiotVietSyncStatus | string | null;
 }
 
 // ── Chỉnh tồn kho (chủ cửa hàng) ────────────────────────────────────────
