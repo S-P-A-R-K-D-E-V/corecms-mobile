@@ -376,6 +376,23 @@ export const endpoints = {
   warehouses: { list: '/warehouses' },
   suppliers: { list: '/suppliers' },
   bankAccounts: { list: '/bank-accounts' },
+  // ── F&B: thực đơn, sơ đồ bàn, đơn mở, phiếu bar (contract F&B POS v1) ──
+  fnb: {
+    menu: '/fnb/menu',
+    floor: '/fnb/floor',
+    sync: '/fnb/sync',
+    order: (id: string) => `/fnb/orders/${id}`,
+    orderInfo: (id: string) => `/fnb/orders/${id}/info`,
+    orderLines: (id: string) => `/fnb/orders/${id}/lines`,
+    orderLine: (id: string, lineId: string) => `/fnb/orders/${id}/lines/${lineId}`,
+    orderSend: (id: string) => `/fnb/orders/${id}/send`,
+    orderVoid: (id: string) => `/fnb/orders/${id}/void`,
+    orderMove: (id: string) => `/fnb/orders/${id}/move`,
+    orderBill: (id: string) => `/fnb/orders/${id}/bill`,
+    orderCheckout: (id: string) => `/fnb/orders/${id}/checkout`,
+    orderCancel: (id: string) => `/fnb/orders/${id}/cancel`,
+    ticketPrintResult: (id: string) => `/fnb/kitchen-tickets/${id}/print-result`,
+  },
 };
 
 // ----------------------------------------------------------------------
