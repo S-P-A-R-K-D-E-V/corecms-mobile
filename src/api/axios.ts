@@ -360,6 +360,7 @@ export const endpoints = {
     children: (id: string) => `/products/${id}/children`,
     stockAdjustments: (id: string) => `/products/${id}/stock-adjustments`,
   },
+  categories: { list: '/categories' },
   salesOrders: {
     list: '/sales-orders',
     details: (id: string) => `/sales-orders/${id}`,

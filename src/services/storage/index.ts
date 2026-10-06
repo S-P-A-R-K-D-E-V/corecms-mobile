@@ -23,6 +23,8 @@ export const PrefKeys = {
   launcherPins: 'pref.launcherPins', // JSON: { staff: string[], admin: string[] }
   aiConsent: 'pref.aiConsent', // phiên bản nội dung đồng ý gửi dữ liệu cho AI đã chấp nhận
   lastStoreField: 'pref.lastStoreField', // mã / tên miền cửa hàng gõ lần trước ở trang đăng nhập (không bí mật)
+  workingBranch: 'pref.workingBranch', // tiền tố — `pref.workingBranch.<mã cửa hàng>`: chi nhánh máy đang làm việc
+  posCart: 'pref.posCart', // tiền tố — `pref.posCart.<mã cửa hàng>`: giỏ hàng + lần bán chưa có kết quả
 } as const;
 
 export const secure = {

@@ -107,8 +107,9 @@ export function ProductDetailScreen() {
 
   function sell(line: Parameters<typeof add>[0]) {
     haptics.light();
-    add(line);
-    toast.success(t('erp.added', { name: line.name }));
+    // Giỏ đang khoá (lần bán trước chưa có kết quả) thì không thêm được — vẫn sang màn Bán hàng để kiểm tra.
+    if (add(line)) toast.success(t('erp.added', { name: line.name }));
+    else toast.info(t('erp.saleCheckLocked'));
     // Đóng màn chi tiết (stack) trước rồi mới đổi tab: làm cùng lúc trên Android để lại lớp chuyển cảnh
     // trắng che màn Bán hàng.
     if (router.canGoBack()) router.back();

@@ -1,9 +1,9 @@
 import axios, { endpoints } from './axios';
 import type {
   IBankAccount,
+  ICategory,
   ICreatePurchaseOrderRequest,
   ICreateSaleRequest,
-  ICreateSaleResponse,
   ICreateStockAdjustmentRequest,
   IPaged,
   IPagedPurchaseOrders,
@@ -23,11 +23,30 @@ import type {
 // ERP trên app (core-be: Products / SalesOrders / PurchaseOrders / Warehouses / Suppliers / BankAccounts).
 // ----------------------------------------------------------------------
 
-export async function getProducts(params: { keyword?: string; page?: number; pageSize?: number }): Promise<IPaged<IProductListItem>> {
+/** `categoryId`: core-be lọc đúng nhóm đó (không gộp hàng của nhóm con). */
+export async function getProducts(params: {
+  keyword?: string;
+  categoryId?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<IPaged<IProductListItem>> {
   const res = await axios.get<IPaged<IProductListItem>>(endpoints.products.list, {
-    params: { isActive: true, page: 1, pageSize: 30, ...params, keyword: params.keyword?.trim() || undefined },
+    params: {
+      isActive: true,
+      page: 1,
+      pageSize: 30,
+      ...params,
+      keyword: params.keyword?.trim() || undefined,
+      categoryId: params.categoryId || undefined,
+    },
   });
   return res.data;
+}
+
+/** Nhóm hàng của cửa hàng — danh sách phẳng, có cả nhóm con và nhóm đã ẩn (isActive = false). */
+export async function getCategories(): Promise<ICategory[]> {
+  const res = await axios.get<ICategory[]>(endpoints.categories.list);
+  return res.data ?? [];
 }
 
 export async function getProduct(id: string): Promise<IProductDetail> {
@@ -102,14 +121,28 @@ export async function getSalesOrder(id: string): Promise<ISalesOrder> {
   return res.data;
 }
 
+/** Kết quả thô của POST /sales-orders: mã trạng thái + body. `status: null` = không nhận được trả lời dùng được. */
+export type SaleHttpResult = { status: number | null; data: unknown };
+
 /**
  * Tạo hoá đơn bán — core-be lưu đơn và trừ tồn. Chỉ xếp hàng đẩy sang KiotViet khi cửa hàng có đẩy hoá đơn
  * (kiotVietSyncStatus = Pending); còn lại hoá đơn chỉ lưu trong hệ thống (NotPushed). core-be cũ không trả
  * kiotVietSyncStatus.
+ *
+ * Không ném lỗi: trả mã trạng thái để nơi gọi phân biệt "máy chủ từ chối" (4xx — chắc chắn chưa tạo hoá đơn)
+ * với "chưa biết kết quả" (hết `timeoutMs`, mất mạng, 5xx → `status: null`). Interceptor chung chỉ trả body
+ * nên 4xx được nhận về như phản hồi thường; riêng 401 vẫn đi đường lỗi để axios khôi phục phiên rồi gửi lại.
  */
-export async function createSale(data: ICreateSaleRequest): Promise<ICreateSaleResponse> {
-  const res = await axios.post<ICreateSaleResponse>(endpoints.salesOrders.create, data);
-  return res.data;
+export async function submitSale(data: ICreateSaleRequest, timeoutMs: number): Promise<SaleHttpResult> {
+  try {
+    const res = await axios.post<unknown>(endpoints.salesOrders.create, data, {
+      timeout: timeoutMs,
+      validateStatus: (status) => status !== 401 && status < 500,
+    });
+    return { status: res.status, data: res.data };
+  } catch (error) {
+    return { status: null, data: error };
+  }
 }
 
 // ── Nhập hàng ───────────────────────────────────────────────────────────

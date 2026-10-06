@@ -1,5 +1,6 @@
 import '../../global.css';
 import 'src/services/message-notifications'; // đăng ký handler thông báo OS (gồm lọc tin nhắn)
+import 'src/features/branch/store-scope'; // đổi cửa hàng → quên chi nhánh đang làm việc + giỏ hàng của cửa hàng cũ
 
 import { useEffect, useMemo, useState } from 'react';
 import { View } from 'react-native';

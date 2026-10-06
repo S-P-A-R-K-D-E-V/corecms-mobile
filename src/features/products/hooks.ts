@@ -7,11 +7,14 @@ import { POLL_INTERVAL_MS, newlyApplied, settleAwaited, shouldPoll, sortRecent }
 
 const PAGE = 30;
 
-/** Danh sách hàng đang kinh doanh, tìm theo tên/mã/mã vạch (cả biến thể), tải thêm khi cuộn. */
-export function useProductSearch(keyword: string) {
+/**
+ * Danh sách hàng đang kinh doanh, tìm theo tên/mã/mã vạch (cả biến thể), tải thêm khi cuộn. `categoryId`:
+ * chỉ hàng thuộc đúng nhóm đó (core-be lọc).
+ */
+export function useProductSearch(keyword: string, categoryId?: string | null) {
   return useInfiniteQuery({
-    queryKey: ['erp', 'products', keyword],
-    queryFn: ({ pageParam }) => getProducts({ keyword, page: pageParam, pageSize: PAGE }),
+    queryKey: ['erp', 'products', keyword, categoryId ?? null],
+    queryFn: ({ pageParam }) => getProducts({ keyword, categoryId: categoryId ?? undefined, page: pageParam, pageSize: PAGE }),
     initialPageParam: 1,
     getNextPageParam: (last, pages) => (pages.length * PAGE < last.totalCount ? pages.length + 1 : undefined),
     staleTime: 60_000,

@@ -126,6 +126,9 @@ export interface IChangePasswordRequest {
 // Branch
 // ======================================================================
 
+/** Loại hình kinh doanh của chi nhánh — mỗi chi nhánh đúng một loại. */
+export type BranchBusinessType = 'retail' | 'fnb';
+
 /** Chi nhánh/cửa hàng — khớp BE BranchResponse (camelCase). */
 export interface IBranchLocation {
   id: string;
@@ -143,6 +146,8 @@ export interface IBranchLocation {
   isActive: boolean;
   createdDate: string;
   modifiedDate?: string;
+  /** Loại hình chi nhánh. core-be cũ không trả trường này → coi như "retail" (xem branchTypeOf). */
+  businessType?: BranchBusinessType | null;
 }
 
 // ======================================================================

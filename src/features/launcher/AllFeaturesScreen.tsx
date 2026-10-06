@@ -21,6 +21,7 @@ import {
   type LauncherGroup,
 } from './registry';
 import { useLauncherStore } from './store';
+import { useFeatureContext } from './feature-context';
 import { FeatureGrid } from './FeatureGrid';
 import { t } from 'src/i18n';
 
@@ -100,17 +101,18 @@ export function AllFeaturesScreen() {
   const pinKeys = useLauncherStore((s) => s.pins[variant]);
   const setPins = useLauncherStore((s) => s.setPins);
 
-  const pinned = useMemo(() => visiblePins(pinKeys, user), [pinKeys, user]);
+  const ctx = useFeatureContext();
+  const pinned = useMemo(() => visiblePins(pinKeys, user, ctx), [pinKeys, user, ctx]);
   const pinnedKeys = useMemo(() => new Set(pinned.map((f) => f.key)), [pinned]);
   const full = pinned.length >= MAX_PINS;
 
   const groups = useMemo(() => {
-    const all = availableFeatures(user);
+    const all = availableFeatures(user, ctx);
     const order: LauncherGroup[] = ['sales', 'personal', 'manage', 'admin'];
     return order
       .map((g) => ({ group: g, items: all.filter((f) => f.group === g) }))
       .filter((x) => x.items.length > 0);
-  }, [user]);
+  }, [user, ctx]);
 
   function togglePin(key: string) {
     const current = pinned.map((f) => f.key);

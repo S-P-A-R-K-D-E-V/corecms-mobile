@@ -1,6 +1,7 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
 import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES, SHIFT_CASH_ROLES, canUseAssistant, assistantEnabled } from 'src/auth/roles';
+import type { BranchType } from 'src/features/branch/working-branch';
 import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
@@ -17,6 +18,38 @@ export const MAX_PINS = 8;
 /** Màu ô icon theo mảng việc (như icon nhiều màu của Minimal bản web) — không tô hết bằng màu chính. */
 export type FeatureTone = 'primary' | 'info' | 'success' | 'warning' | 'secondary';
 
+/** Ngữ cảnh ngoài vai trò để quyết định hiện một tiện ích. */
+export type FeatureContext = {
+  /** Loại hình của chi nhánh máy đang làm việc; null = chưa chọn chi nhánh / chưa biết. */
+  branchType: BranchType | null;
+  /** Tính năng cửa hàng đang bật (GET /users/me → enabledFeatures); null = chưa biết. */
+  enabledFeatures: readonly string[] | null;
+};
+
+/** Ngữ cảnh của người dùng này; không truyền loại hình chi nhánh = chưa biết. */
+export function featureContext(user: AuthUser | null | undefined, branchType: BranchType | null = null): FeatureContext {
+  return { branchType, enabledFeatures: user?.enabledFeatures ?? null };
+}
+
+/**
+ * Cửa hàng CÓ bật tính năng `key`. Chưa biết danh sách thì coi như CHƯA bật — ngược với trợ lý AI
+ * (assistantEnabled): tính năng đang phát triển phải ẩn khi thiếu thông tin.
+ */
+export function hasStoreFeature(ctx: FeatureContext, key: string): boolean {
+  return !!ctx.enabledFeatures && ctx.enabledFeatures.includes(key);
+}
+
+/** Khoá tính năng bán hàng F&B của gói cửa hàng. */
+export const FNB_POS_FEATURE = 'commerce.fnb.pos';
+
+/**
+ * Điều kiện hiện tiện ích F&B: cửa hàng có khoá tính năng VÀ chi nhánh đang làm việc là F&B. Thiếu một trong hai
+ * (hoặc chưa biết) thì ẩn — F&B không được lộ ra ngoài khi chưa bật.
+ */
+export function fnbVisible(ctx: FeatureContext, featureKey: string = FNB_POS_FEATURE): boolean {
+  return ctx.branchType === 'fnb' && hasStoreFeature(ctx, featureKey);
+}
+
 export type FeatureItem = {
   key: string;
   label: string;
@@ -29,8 +62,11 @@ export type FeatureItem = {
   roles?: readonly string[];
   /** Route chưa triển khai — hiển thị mờ + nhãn "Sắp có". */
   comingSoon?: boolean;
-  /** Điều kiện hiển thị ngoài vai trò (vd trợ lý AI tuỳ cửa hàng bật). */
-  visible?: (user: AuthUser | null | undefined) => boolean;
+  /**
+   * Điều kiện hiển thị ngoài vai trò (vd trợ lý AI tuỳ cửa hàng bật). `ctx`: loại hình chi nhánh đang làm việc +
+   * tính năng cửa hàng bật — tiện ích theo loại hình (F&B) dùng fnbVisible(ctx).
+   */
+  visible?: (user: AuthUser | null | undefined, ctx: FeatureContext) => boolean;
 };
 
 const GROUP_KEYS: Record<LauncherGroup, string> = {
@@ -104,14 +140,22 @@ export function getFeature(key: string): FeatureItem | undefined {
   return BY_KEY.get(key);
 }
 
-/** Các tiện ích user ĐƯỢC PHÉP thấy (lọc theo vai trò). */
-export function availableFeatures(user: AuthUser | null | undefined): FeatureItem[] {
-  return FEATURE_REGISTRY.filter((f) => hasAnyRole(user, f.roles) && (f.visible?.(user) ?? true));
+/** Tiện ích này có hiện với người dùng + ngữ cảnh này không (vai trò và điều kiện `visible`). */
+export function isFeatureVisible(item: FeatureItem, user: AuthUser | null | undefined, ctx: FeatureContext = featureContext(user)): boolean {
+  return hasAnyRole(user, item.roles) && (item.visible?.(user, ctx) ?? true);
+}
+
+/**
+ * Các tiện ích user ĐƯỢC PHÉP thấy (lọc theo vai trò + ngữ cảnh). Không truyền `ctx` = chưa biết chi nhánh
+ * (tiện ích theo loại hình sẽ ẩn) — màn hình lấy ctx bằng useFeatureContext().
+ */
+export function availableFeatures(user: AuthUser | null | undefined, ctx: FeatureContext = featureContext(user)): FeatureItem[] {
+  return FEATURE_REGISTRY.filter((f) => isFeatureVisible(f, user, ctx));
 }
 
 /** Ghim đang hiện: chỉ mục user được thấy, giữ thứ tự ghim, tối đa MAX_PINS. */
-export function visiblePins(keys: string[], user: AuthUser | null | undefined): FeatureItem[] {
-  const allowed = new Set(availableFeatures(user).map((f) => f.key));
+export function visiblePins(keys: string[], user: AuthUser | null | undefined, ctx: FeatureContext = featureContext(user)): FeatureItem[] {
+  const allowed = new Set(availableFeatures(user, ctx).map((f) => f.key));
   return keys
     .filter((k) => allowed.has(k))
     .map((k) => getFeature(k))

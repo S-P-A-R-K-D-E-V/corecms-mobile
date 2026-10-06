@@ -1,137 +1,76 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, FlatList, TextInput } from 'react-native';
-import { router } from 'expo-router';
+import { View, ScrollView, TextInput } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useColorScheme } from 'nativewind';
 
-import { AppHeader, EmptyState, Sheet, BarcodeScannerModal } from 'src/components/shared';
-import { Text, Icon, Pressable, Button, Divider, Skeleton, Chip } from 'src/components/ui';
-import { cn } from 'src/components/ui/utils';
+import { AppHeader, Sheet, BarcodeScannerModal, type HeaderAction } from 'src/components/shared';
+import { Text, Icon, Pressable, Button, Divider, Chip } from 'src/components/ui';
 import { toast, confirm } from 'src/components/overlay';
 import { brand, grey, softShadow } from 'src/theme';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser, usesAdminShell } from 'src/auth/roles';
-import { getProducts, getWarehouses, createSale } from 'src/api/erp';
+import { useResponsive } from 'src/hooks/use-responsive';
+import { getProducts, getWarehouses } from 'src/api/erp';
 import { t } from 'src/i18n';
 import type { ICreateSaleResponse, IProductChild, IProductListItem } from 'src/types/erp';
 
-import { SearchBar, ProductThumb, StockBadge, ListFooter, priceLabel, stockOf, childStock, money, fmtQty, useDebounced } from 'src/features/erp/shared';
+import { StockBadge, childStock, money, fmtQty } from 'src/features/erp/shared';
 import { isSaleQueuedForKiotViet } from 'src/features/erp/kiotviet-sync';
-import { useProductSearch } from 'src/features/products/hooks';
-import { useCart, cartCount, cartTotal, lineFromProduct, lineFromVariant, type CartLine } from './cart-store';
+import { useWorkingBranch } from 'src/features/branch/working-branch';
+import { WorkingBranchSheet } from 'src/features/branch/WorkingBranchSheet';
+import { useCart, cartCount, cartTotal, lineFromProduct, lineFromVariant } from './cart-store';
+import { CartPanel } from './CartPanel';
 import { PaymentPanel, type PaymentState } from './PaymentPanel';
+import { ProductPicker } from './ProductPicker';
+import { sendSale } from './checkout';
+import { buildSaleDraft } from './sale-request';
+import { cartPaneWidth, isSplitPos } from './pos-layout';
 
 // ----------------------------------------------------------------------
-// Bán hàng trên app: chọn hàng (tìm / quét mã), giỏ hàng, thanh toán → core-be tạo hoá đơn và trừ tồn.
+// Bán hàng trên app: chọn hàng (tìm / quét mã / lọc nhóm), giỏ hàng, thanh toán → core-be tạo hoá đơn và trừ tồn.
 // Hoá đơn chỉ được đẩy sang KiotViet khi cửa hàng có đẩy hoá đơn (core-be trả kiotVietSyncStatus = Pending);
 // còn lại chỉ lưu trong hệ thống (NotPushed) — bảng "Đã bán xong" chỉ nhắc KiotViet khi đơn thật sự chờ đẩy.
 // Nhân viên bán đúng giá niêm yết; quản lý được sửa giá dòng (core-be chặn ở server).
+//
+// Màn này chỉ ghép các khung ProductPicker / CartPanel / PaymentPanel theo thiết bị (pos-layout.ts):
+//   - điện thoại, tablet cầm dọc: danh sách hàng + thanh giỏ nổi, giỏ và thanh toán mở bằng bảng trượt (như trước);
+//   - tablet xoay ngang: hai khung — hàng bên trái, giỏ + thanh toán bên phải; thanh tab ẩn, có nút quay lại.
+// Hoá đơn ghi vào chi nhánh đang làm việc của máy (working-branch.ts). Mỗi lần bán có mã chống trùng; hết 15 giây
+// chưa có trả lời thì giỏ khoá và hiện "Đang kiểm tra hoá đơn" để gửi lại đúng mã đó (sale-request.ts).
 // ----------------------------------------------------------------------
 
 const TAB_CLEARANCE = 96;
 
-function ProductPickRow({ item, inCart, onPress }: { item: IProductListItem; inCart: number; onPress: () => void }) {
+/** Thân bảng "Đang kiểm tra hoá đơn": chưa biết lần bán vừa rồi đã thành hoá đơn hay chưa. */
+function SaleCheckPanel({
+  amount,
+  busy,
+  stillUnknown,
+  onRetry,
+  onDrop,
+}: {
+  amount: number;
+  busy: boolean;
+  stillUnknown: boolean;
+  onRetry: () => void;
+  onDrop: () => void;
+}) {
   return (
-    <Pressable onPress={onPress} className="flex-row items-center gap-3 px-4 py-2.5">
-      <ProductThumb uri={item.coverImageUrl} name={item.name} size={40} />
-      <View className="flex-1">
-        <Text variant="bodySmall" className="font-semibold" numberOfLines={2}>{item.name}</Text>
-        <View className="flex-row items-center gap-1.5 mt-0.5">
-          <Text variant="caption" tone="muted" numberOfLines={1}>{item.code}</Text>
-          <StockBadge stock={stockOf(item)} min={item.minQuantity} productType={item.productType} />
+    <View className="gap-3">
+      <View className="items-center gap-2 py-1">
+        <View className="w-16 h-16 rounded-full bg-warning-soft items-center justify-center">
+          <Icon name="timer-sand" size={32} tone="warning" />
         </View>
+        <Text variant="bodySmall" className="text-center">{t('erp.saleCheckMsg', { amount: money(amount) })}</Text>
+        {stillUnknown ? (
+          <Text variant="caption" tone="warning" className="text-center font-semibold">{t('erp.saleCheckStill')}</Text>
+        ) : null}
       </View>
-      <Text variant="bodySmall" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>{priceLabel(item)}</Text>
-      <View className={cn('w-9 h-9 rounded-xl items-center justify-center', inCart ? 'bg-primary' : 'bg-primary-soft')}>
-        {inCart ? (
-          <Text tone="inverse" className="font-bold text-[13px]">{inCart}</Text>
-        ) : (
-          <Icon name={item.hasVariants && (item.childProducts ?? []).filter((c) => c.isActive).length > 1 ? 'chevron-down' : 'plus'} size={20} tone="primary" />
-        )}
-      </View>
-    </Pressable>
-  );
-}
-
-function QtyStepper({ value, onChange }: { value: number; onChange: (n: number) => void }) {
-  return (
-    <View className="flex-row items-center rounded-xl border border-line dark:border-line-dark">
-      <Pressable onPress={() => onChange(value - 1)} hitSlop={6} className="w-9 h-9 items-center justify-center">
-        <Icon name={value <= 1 ? 'trash-can-outline' : 'minus'} size={18} tone={value <= 1 ? 'error' : 'default'} />
-      </Pressable>
-      <Text className="min-w-[28px] text-center font-bold" style={{ fontVariant: ['tabular-nums'] }}>{fmtQty(value)}</Text>
-      <Pressable onPress={() => onChange(value + 1)} hitSlop={6} className="w-9 h-9 items-center justify-center">
-        <Icon name="plus" size={18} tone="primary" />
-      </Pressable>
-    </View>
-  );
-}
-
-function CartLineRow({ line, canEditPrice }: { line: CartLine; canEditPrice: boolean }) {
-  const { colorScheme } = useColorScheme();
-  const setQty = useCart((s) => s.setQty);
-  const setPrice = useCart((s) => s.setPrice);
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(String(line.price));
-  const changed = line.price !== line.listPrice;
-
-  return (
-    <View className="py-2.5 gap-1.5">
-      <View className="flex-row items-start gap-2">
-        <View className="flex-1">
-          <Text variant="bodySmall" className="font-semibold" numberOfLines={2}>{line.name}</Text>
-          <Text variant="caption" tone="muted">
-            {line.code}
-            {line.qty > line.stock ? `  ·  ${t('erp.stock', { n: fmtQty(line.stock) })}` : ''}
-          </Text>
-        </View>
-        <Text variant="bodySmall" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>{money(line.price * line.qty)}</Text>
-      </View>
-      <View className="flex-row items-center justify-between">
-        {canEditPrice && editing ? (
-          <View className="flex-row items-center gap-2">
-            <TextInput
-              value={text}
-              onChangeText={(v) => setText(v.replace(/[^0-9]/g, ''))}
-              keyboardType="number-pad"
-              autoFocus
-              onBlur={() => {
-                setPrice(line.key, Number(text || 0));
-                setEditing(false);
-              }}
-              style={{
-                minWidth: 110,
-                height: 36,
-                paddingHorizontal: 10,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: brand.primary,
-                fontWeight: '700',
-                color: colorScheme === 'dark' ? '#FFFFFF' : brand.ink,
-              }}
-            />
-          </View>
-        ) : (
-          <Pressable
-            disabled={!canEditPrice}
-            onPress={() => {
-              setText(String(line.price));
-              setEditing(true);
-            }}
-            className="flex-row items-center gap-1"
-          >
-            <Text variant="caption" tone={changed ? 'warning' : 'muted'} className="font-semibold">
-              {money(line.price)}
-              {changed ? `  (${money(line.listPrice)})` : ''}
-            </Text>
-            <Icon name={canEditPrice ? 'pencil-outline' : 'lock-outline'} size={13} tone="faint" />
-          </Pressable>
-        )}
-        <QtyStepper value={line.qty} onChange={(n) => setQty(line.key, n)} />
-      </View>
+      <Button icon="refresh" loading={busy} onPress={onRetry}>{t('erp.saleCheckRetry')}</Button>
+      <Button variant="ghost" action="error" disabled={busy} onPress={onDrop}>{t('erp.saleCheckDrop')}</Button>
     </View>
   );
 }
@@ -140,20 +79,38 @@ export function PosScreen() {
   const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const { user } = useAuthContext();
+  const { width, isTablet, isLandscape } = useResponsive();
+  const split = isSplitPos({ isTablet, isLandscape });
   const canEditPrice = isManagerUser(user);
+
   const lines = useCart((s) => s.lines);
   const add = useCart((s) => s.add);
   const clear = useCart((s) => s.clear);
+  const pending = useCart((s) => s.pending);
+  const dropPendingSale = useCart((s) => s.dropPendingSale);
+  // Lần bán chưa biết kết quả (hết giờ, mất mạng, app bị tắt lúc đang gửi): giỏ khoá, chỉ được kiểm tra lại.
+  const checking = pending?.status === 'unknown';
 
-  const [keyword, setKeyword] = useState('');
-  const q = useDebounced(keyword);
-  const query = useProductSearch(q);
-  const items = useMemo(() => query.data?.pages.flatMap((p) => p.items) ?? [], [query.data]);
+  const branch = useWorkingBranch((s) => s.branch);
+  const branchOptions = useWorkingBranch((s) => s.options);
+  const needsBranch = useWorkingBranch((s) => s.needsPick);
+  const manyBranches = (branchOptions?.length ?? 0) > 1;
 
   const warehousesQ = useQuery({ queryKey: ['erp', 'warehouses'], queryFn: getWarehouses, staleTime: 10 * 60_000 });
   const warehouses = useMemo(() => (warehousesQ.data ?? []).filter((w) => w.isActive), [warehousesQ.data]);
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
   const warehouse = warehouses.find((w) => w.id === warehouseId) ?? warehouses.find((w) => w.isDefault) ?? warehouses[0];
+
+  // Màn Bán hàng là một tab nên vẫn nằm đó khi sang tab khác — bảng tự mở chỉ được hiện lúc màn này đang mở.
+  const [focused, setFocused] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      // Máy quầy mở cả ngày: mỗi lần vào màn, danh sách chi nhánh đã cũ thì hỏi lại để đối chiếu chi nhánh đang làm việc.
+      void qc.refetchQueries({ queryKey: ['branches'], stale: true });
+      return () => setFocused(false);
+    }, [qc])
+  );
 
   const [scanning, setScanning] = useState(false);
   const [variantOf, setVariantOf] = useState<IProductListItem | null>(null);
@@ -162,6 +119,10 @@ export function PosScreen() {
   const [note, setNote] = useState('');
   const [transferRef, setTransferRef] = useState('');
   const [done, setDone] = useState<ICreateSaleResponse | null>(null);
+  const [checkOpen, setCheckOpen] = useState(false);
+  const [stillUnknown, setStillUnknown] = useState(false);
+  // 'thenPay' = đang bấm Thanh toán thì phải chọn chi nhánh trước, chọn xong mở thanh toán luôn.
+  const [branchPick, setBranchPick] = useState<'open' | 'thenPay' | null>(null);
 
   const total = cartTotal(lines);
   const count = cartCount(lines);
@@ -174,25 +135,45 @@ export function PosScreen() {
     if (sheet === 'pay') setTransferRef(`TT ${Date.now().toString().slice(-6)}`);
   }, [sheet]);
 
-  function addProduct(p: IProductListItem) {
+  // Còn lần bán chờ kiểm tra: vào màn là mở bảng kiểm tra; có kết quả dứt khoát thì tự đóng.
+  useEffect(() => {
+    setCheckOpen(focused && checking);
+    if (!checking) setStillUnknown(false);
+  }, [focused, checking]);
+
+  // Cửa hàng nhiều chi nhánh mà máy chưa có chi nhánh (chưa chọn / chi nhánh đã chọn không còn): vào màn là hỏi.
+  useEffect(() => {
+    if (focused && needsBranch) setBranchPick((v) => v ?? 'open');
+  }, [focused, needsBranch]);
+
+  /** Thêm vào giỏ; giỏ đang khoá vì lần bán trước chưa xong thì báo và mở lại bảng kiểm tra. */
+  function addLine(line: Parameters<typeof add>[0]): boolean {
+    if (add(line)) {
+      haptics.light();
+      return true;
+    }
+    toast.info(t('erp.saleCheckLocked'));
+    if (checking) setCheckOpen(true);
+    return false;
+  }
+
+  function addProduct(p: IProductListItem): boolean {
     const variants = (p.childProducts ?? []).filter((c) => c.isActive);
     if (p.hasVariants && variants.length === 1) {
       // KiotViet CiCi: hầu hết hàng có đúng 1 biến thể → thêm thẳng, khỏi mở bảng chọn.
-      addVariant(p, variants[0]);
-      return;
+      return addVariant(p, variants[0]);
     }
     if (p.hasVariants && variants.length > 1) {
       setVariantOf(p);
-      return;
+      return true;
     }
-    haptics.light();
-    add(lineFromProduct(p));
+    return addLine(lineFromProduct(p));
   }
 
-  function addVariant(parent: IProductListItem, c: IProductChild) {
-    haptics.light();
-    add(lineFromVariant(parent, c));
+  function addVariant(parent: IProductListItem, c: IProductChild): boolean {
+    const added = addLine(lineFromVariant(parent, c));
     setVariantOf(null);
+    return added;
   }
 
   async function onScanned(code: string) {
@@ -205,9 +186,8 @@ export function PosScreen() {
         return;
       }
       const child = (parent.childProducts ?? []).find((c) => c.barCode === code || c.code === code);
-      if (child) addVariant(parent, child);
-      else addProduct(parent);
-      toast.success(t('erp.added', { name: child?.fullName || child?.name || parent.name }));
+      const added = child ? addVariant(parent, child) : addProduct(parent);
+      if (added) toast.success(t('erp.added', { name: child?.fullName || child?.name || parent.name }));
     } catch (err) {
       toast.error(extractApiError(err));
     }
@@ -216,95 +196,152 @@ export function PosScreen() {
   const sellerName = user ? `${user.lastName ?? ''} ${user.firstName ?? ''}`.trim() || user.email : undefined;
 
   const sale = useMutation({
-    mutationFn: () =>
-      createSale({
-        totalPayment: total,
-        method: payment!.method,
-        warehouseId: warehouse?.id,
-        note: note.trim() || undefined,
-        soldByName: sellerName,
-        invoiceDetails: lines.map((l) => ({
-          productId: l.productId,
-          productVariantId: l.variantId,
-          productCode: l.code,
-          productName: l.name,
-          quantity: l.qty,
-          price: l.price,
-        })),
-        payments: [
-          {
-            method: payment!.method,
-            amount: total,
-            accountId: payment!.method === 'Transfer' ? payment!.account?.kiotVietId ?? undefined : undefined,
-            transactionRef: payment!.method === 'Transfer' ? payment!.transferRef : undefined,
-          },
-        ],
-      }),
-    onSuccess: (res) => {
-      haptics.success();
-      clear();
-      setNote('');
-      setSheet(null);
-      setDone(res);
-      qc.invalidateQueries({ predicate: (x) => ['erp', 'admin', 'home'].includes(x.queryKey[0] as string) });
+    // 'pay': lần bán mới từ giỏ; 'recheck': gửi lại đúng gói đang chờ kiểm tra (cùng mã chống trùng).
+    mutationFn: (mode: 'pay' | 'recheck') =>
+      sendSale(
+        mode === 'recheck'
+          ? 'recheck'
+          : buildSaleDraft({
+              lines,
+              payment: payment!,
+              warehouseId: warehouse?.id,
+              branchRefId: branch?.id,
+              note,
+              soldByName: sellerName,
+            })
+      ),
+    onMutate: () => setStillUnknown(false),
+    onSuccess: (attempt, mode) => {
+      if (attempt.kind === 'created') {
+        // Giỏ đã được xoá trong sendSale.
+        haptics.success();
+        setNote('');
+        setSheet(null);
+        setDone(attempt.sale);
+        qc.invalidateQueries({ predicate: (x) => ['erp', 'admin', 'home'].includes(x.queryKey[0] as string) });
+      } else if (attempt.kind === 'rejected') {
+        toast.error(extractApiError(attempt.error), t('erp.saleFailed'));
+        // Có thể bị từ chối vì chi nhánh đang làm việc vừa ngừng hoạt động → hỏi lại danh sách để chọn lại.
+        void qc.invalidateQueries({ queryKey: ['branches'] });
+      } else {
+        // Chưa biết kết quả: đóng bảng thanh toán — giỏ đã khoá, bảng "Đang kiểm tra hoá đơn" tự mở.
+        setSheet(null);
+        if (mode === 'recheck') setStillUnknown(true);
+      }
     },
-    onError: (err) => toast.error(extractApiError(err), t('erp.saleFailed')),
   });
 
-  return (
-    <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
-      <View className="px-4 pt-2 gap-3">
-        <AppHeader back={!usesAdminShell(user)} title={t('tabs.pos')} subtitle={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || undefined} />
-        {warehouses.length > 1 ? (
-          <View className="flex-row flex-wrap gap-2 -mt-1">
-            {warehouses.map((w) => (
-              <Chip key={w.id} size="sm" icon="warehouse" label={w.name} selected={w.id === warehouse?.id} color="primary" onPress={() => setWarehouseId(w.id)} />
-            ))}
-          </View>
-        ) : null}
-        <SearchBar value={keyword} onChange={setKeyword} placeholder={t('erp.search')} onScan={() => setScanning(true)} loading={query.isFetching && !query.isFetchingNextPage && !!q} />
-      </View>
+  async function dropCheck() {
+    if (await confirm({ title: t('erp.saleCheckDrop'), message: t('erp.saleCheckDropConfirm'), destructive: true })) {
+      dropPendingSale();
+    }
+  }
 
-      {query.isLoading ? (
-        <View className="px-4 pt-4 gap-3">
-          {[0, 1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} width="100%" height={54} radius={14} />
+  function goPay() {
+    // Cửa hàng nhiều chi nhánh: phải biết máy đang bán ở chi nhánh nào trước khi thu tiền.
+    if (!branch && manyBranches) {
+      setSheet(null);
+      setBranchPick('thenPay');
+      return;
+    }
+    setSheet('pay');
+  }
+
+  async function clearCart() {
+    if (await confirm({ title: t('erp.clearCart'), message: t('erp.clearCartConfirm'), destructive: true })) {
+      clear();
+      setSheet(null);
+    }
+  }
+
+  // ── Các mảnh dùng chung cho cả hai bố cục ──────────────────────────────
+
+  const userName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim();
+  const headerActions: HeaderAction[] | undefined = manyBranches
+    ? [{ icon: 'store-marker-outline', onPress: () => setBranchPick('open') }]
+    : undefined;
+
+  const pickerHeader = (
+    <>
+      <AppHeader
+        // Hai khung: thanh tab ẩn nên luôn có nút quay lại.
+        back={split || !usesAdminShell(user)}
+        title={t('tabs.pos')}
+        subtitle={[userName, branch?.name].filter(Boolean).join(' · ') || undefined}
+        actions={headerActions}
+      />
+      {warehouses.length > 1 ? (
+        <View className="flex-row flex-wrap gap-2 -mt-1">
+          {warehouses.map((w) => (
+            <Chip key={w.id} size="sm" icon="warehouse" label={w.name} selected={w.id === warehouse?.id} color="primary" onPress={() => setWarehouseId(w.id)} />
           ))}
         </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(p) => p.id}
-          renderItem={({ item }) => <ProductPickRow item={item} inCart={inCart(item)} onPress={() => addProduct(item)} />}
-          ItemSeparatorComponent={() => <View className="h-px bg-line/60 dark:bg-line-dark ml-[68px]" />}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: TAB_CLEARANCE + insets.bottom + (count ? 76 : 0) }}
-          onEndReached={() => query.hasNextPage && !query.isFetchingNextPage && query.fetchNextPage()}
-          onEndReachedThreshold={0.4}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          ListEmptyComponent={<EmptyState icon="package-variant" title={t('erp.noResults')} />}
-          ListFooterComponent={<ListFooter loading={query.isFetchingNextPage} />}
-        />
-      )}
-
-      {/* Thanh giỏ hàng nổi trên thanh tab */}
-      {count > 0 ? (
-        <View style={{ position: 'absolute', left: 12, right: 12, bottom: TAB_CLEARANCE + Math.max(insets.bottom, 8) - 8 }}>
-          <Pressable
-            onPress={() => setSheet('cart')}
-            className="flex-row items-center gap-3 rounded-2xl bg-primary px-4 h-14"
-            style={softShadow}
-          >
-            <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}>
-              <Text tone="inverse" className="font-bold">{count}</Text>
-            </View>
-            <Text tone="inverse" className="flex-1 font-bold text-[17px]" style={{ fontVariant: ['tabular-nums'] }}>{money(total)}</Text>
-            <Text tone="inverse" className="font-bold">{t('erp.checkout')}</Text>
-            <Icon name="chevron-right" size={20} color="#FFFFFF" />
-          </Pressable>
-        </View>
       ) : null}
+    </>
+  );
 
+  const paying = sheet === 'pay';
+  const cartTitle = `${t('erp.cart')} · ${t('erp.cartItems', { n: fmtQty(count) })}`;
+
+  const payBody = (
+    <View className="gap-3">
+      <PaymentPanel total={total} transferRef={transferRef} onChange={setPayment} />
+      <TextInput
+        value={note}
+        onChangeText={setNote}
+        placeholder={t('erp.note')}
+        placeholderTextColor={grey[500]}
+        className="h-11 px-3 rounded-2xl border border-line dark:border-line-dark text-ink dark:text-ink-dark"
+      />
+    </View>
+  );
+
+  const payFooter = (
+    <View className="flex-row gap-2">
+      <View style={{ width: 132 }}>
+        <Button variant="soft" icon="chevron-left" onPress={() => setSheet('cart')}>{t('erp.cart')}</Button>
+      </View>
+      <View className="flex-1">
+        <Button icon="check" loading={sale.isPending} disabled={!payment?.ready || lines.length === 0} onPress={() => sale.mutate('pay')}>
+          {t('erp.complete')}
+        </Button>
+      </View>
+    </View>
+  );
+
+  const cartFooter = (
+    <View className="flex-row gap-2">
+      <View style={{ width: 110 }}>
+        <Button variant="ghost" action="error" onPress={clearCart}>
+          {t('erp.clearCart')}
+        </Button>
+      </View>
+      <View className="flex-1">
+        <Button icon="cash-register" disabled={lines.length === 0} onPress={goPay}>
+          {`${t('erp.checkout')} · ${money(total)}`}
+        </Button>
+      </View>
+    </View>
+  );
+
+  const checkBody = (
+    <SaleCheckPanel
+      amount={pending?.request.totalPayment ?? total}
+      busy={sale.isPending}
+      stillUnknown={stillUnknown}
+      onRetry={() => sale.mutate('recheck')}
+      onDrop={dropCheck}
+    />
+  );
+
+  // Mỗi lúc chỉ một bảng trượt: kiểm tra hoá đơn trước, rồi tới chọn chi nhánh khi không có bảng nào khác đang mở.
+  const checkSheetOpen = !split && focused && checkOpen;
+  const cartSheetOpen = !split && sheet !== null && !checkSheetOpen;
+  const branchSheetOpen =
+    focused && branchPick !== null && !checkSheetOpen && !cartSheetOpen && !variantOf && !done && !scanning;
+
+  const overlays = (
+    <>
       {/* Chọn biến thể */}
       <Sheet visible={!!variantOf} title={variantOf?.name ?? t('erp.pickVariant')} onClose={() => setVariantOf(null)}>
         {(variantOf?.childProducts ?? []).filter((c) => c.isActive).map((c, i) => (
@@ -320,79 +357,6 @@ export function PosScreen() {
             </Pressable>
           </View>
         ))}
-      </Sheet>
-
-      {/* Giỏ hàng → thanh toán */}
-      <Sheet
-        visible={sheet !== null}
-        title={sheet === 'pay' ? t('erp.checkout') : `${t('erp.cart')} · ${t('erp.cartItems', { n: fmtQty(count) })}`}
-        onClose={() => setSheet(null)}
-        footer={
-          sheet === 'pay' ? (
-            <View className="flex-row gap-2">
-              <View style={{ width: 132 }}>
-                <Button variant="soft" icon="chevron-left" onPress={() => setSheet('cart')}>{t('erp.cart')}</Button>
-              </View>
-              <View className="flex-1">
-                <Button icon="check" loading={sale.isPending} disabled={!payment?.ready || lines.length === 0} onPress={() => sale.mutate()}>
-                  {t('erp.complete')}
-                </Button>
-              </View>
-            </View>
-          ) : (
-            <View className="flex-row gap-2">
-              <View style={{ width: 110 }}>
-                <Button
-                  variant="ghost"
-                  action="error"
-                  onPress={async () => {
-                    if (await confirm({ title: t('erp.clearCart'), message: t('erp.clearCartConfirm'), destructive: true })) {
-                      clear();
-                      setSheet(null);
-                    }
-                  }}
-                >
-                  {t('erp.clearCart')}
-                </Button>
-              </View>
-              <View className="flex-1">
-                <Button icon="cash-register" disabled={lines.length === 0} onPress={() => setSheet('pay')}>
-                  {`${t('erp.checkout')} · ${money(total)}`}
-                </Button>
-              </View>
-            </View>
-          )
-        }
-      >
-        {sheet === 'pay' ? (
-          <View className="gap-3">
-            <PaymentPanel total={total} transferRef={transferRef} onChange={setPayment} />
-            <TextInput
-              value={note}
-              onChangeText={setNote}
-              placeholder={t('erp.note')}
-              placeholderTextColor={grey[500]}
-              className="h-11 px-3 rounded-2xl border border-line dark:border-line-dark text-ink dark:text-ink-dark"
-            />
-          </View>
-        ) : lines.length === 0 ? (
-          <EmptyState icon="cart-outline" title={t('erp.emptyCart')} />
-        ) : (
-          <View>
-            {!canEditPrice ? (
-              <View className="flex-row items-center gap-1.5 mb-1">
-                <Icon name="lock-outline" size={13} tone="muted" />
-                <Text variant="caption" tone="muted">{t('erp.priceLocked')}</Text>
-              </View>
-            ) : null}
-            {lines.map((l, i) => (
-              <View key={l.key}>
-                {i > 0 ? <Divider /> : null}
-                <CartLineRow line={l} canEditPrice={canEditPrice} />
-              </View>
-            ))}
-          </View>
-        )}
       </Sheet>
 
       {/* Bán xong */}
@@ -425,7 +389,112 @@ export function PosScreen() {
         </View>
       </Sheet>
 
+      {/* Chi nhánh đang làm việc */}
+      <WorkingBranchSheet
+        visible={branchSheetOpen}
+        onClose={() => setBranchPick(null)}
+        onPicked={() => {
+          if (branchPick === 'thenPay') setSheet('pay');
+        }}
+      />
+
       <BarcodeScannerModal visible={scanning} onClose={() => setScanning(false)} onScanned={onScanned} />
+    </>
+  );
+
+  // Khung chọn hàng luôn nằm cùng một chỗ trong cây giao diện ở cả hai bố cục → xoay máy không mất ô tìm kiếm,
+  // nhóm đang lọc và vị trí cuộn.
+  return (
+    <View
+      className={split ? 'flex-1 flex-row bg-bg dark:bg-bg-dark' : 'flex-1 bg-bg dark:bg-bg-dark'}
+      style={split ? { paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right } : { paddingTop: insets.top }}
+    >
+      <View className="flex-1">
+        <ProductPicker
+          header={pickerHeader}
+          inCart={inCart}
+          onPick={addProduct}
+          onScan={() => setScanning(true)}
+          // Hai khung: thanh tab đã ẩn. Một cột: chừa thanh tab nổi + thanh giỏ nổi.
+          bottomInset={split ? Math.max(insets.bottom, 8) + 16 : TAB_CLEARANCE + insets.bottom + (count || checking ? 76 : 0)}
+        />
+      </View>
+
+      {split ? (
+        // ── Tablet xoay ngang: giỏ hàng + thanh toán nằm sẵn bên phải ──
+        <View style={{ width: cartPaneWidth(width) }} className="border-l border-line/70 dark:border-line-dark bg-surface dark:bg-surface-dark">
+          <View className="px-5 pt-3 pb-1">
+            <Text variant="title2" numberOfLines={1}>
+              {checking ? t('erp.saleCheckTitle') : paying ? t('erp.checkout') : cartTitle}
+            </Text>
+          </View>
+          <ScrollView
+            className="flex-1"
+            contentContainerClassName="px-5 py-2"
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets
+          >
+            {checking ? checkBody : paying ? payBody : <CartPanel lines={lines} canEditPrice={canEditPrice} />}
+          </ScrollView>
+          {checking ? null : (
+            <View
+              className="px-5 pt-2 border-t border-line/70 dark:border-line-dark"
+              style={{ paddingBottom: Math.max(insets.bottom, 12) }}
+            >
+              {paying ? payFooter : cartFooter}
+            </View>
+          )}
+        </View>
+      ) : (
+        // ── Điện thoại / tablet cầm dọc: thanh nổi + bảng trượt như trước ──
+        <>
+          {/* Thanh nổi trên thanh tab: đang kiểm tra hoá đơn, hoặc giỏ hàng */}
+          {checking || count > 0 ? (
+            <View style={{ position: 'absolute', left: 12, right: 12, bottom: TAB_CLEARANCE + Math.max(insets.bottom, 8) - 8 }}>
+              {checking ? (
+                <Pressable onPress={() => setCheckOpen(true)} className="flex-row items-center gap-3 rounded-2xl bg-warning px-4 h-14" style={softShadow}>
+                  <Icon name="timer-sand" size={22} color={brand.ink} />
+                  {/* Chữ tối trên nền vàng ở cả chế độ sáng lẫn tối. */}
+                  <Text className="flex-1 font-bold" style={{ color: brand.ink }} numberOfLines={1}>{t('erp.saleCheckTitle')}</Text>
+                  <Text className="font-bold" style={{ color: brand.ink }}>{t('erp.saleCheckRetry')}</Text>
+                  <Icon name="chevron-right" size={20} color={brand.ink} />
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => setSheet('cart')}
+                  className="flex-row items-center gap-3 rounded-2xl bg-primary px-4 h-14"
+                  style={softShadow}
+                >
+                  <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: 'rgba(255,255,255,0.22)' }}>
+                    <Text tone="inverse" className="font-bold">{count}</Text>
+                  </View>
+                  <Text tone="inverse" className="flex-1 font-bold text-[17px]" style={{ fontVariant: ['tabular-nums'] }}>{money(total)}</Text>
+                  <Text tone="inverse" className="font-bold">{t('erp.checkout')}</Text>
+                  <Icon name="chevron-right" size={20} color="#FFFFFF" />
+                </Pressable>
+              )}
+            </View>
+          ) : null}
+
+          {/* Giỏ hàng → thanh toán */}
+          <Sheet
+            visible={cartSheetOpen}
+            title={paying ? t('erp.checkout') : cartTitle}
+            onClose={() => setSheet(null)}
+            footer={paying ? payFooter : cartFooter}
+          >
+            {paying ? payBody : <CartPanel lines={lines} canEditPrice={canEditPrice} />}
+          </Sheet>
+
+          {/* Đang kiểm tra hoá đơn */}
+          <Sheet visible={checkSheetOpen} title={t('erp.saleCheckTitle')} onClose={() => setCheckOpen(false)}>
+            {checkBody}
+          </Sheet>
+        </>
+      )}
+
+      {overlays}
     </View>
   );
 }

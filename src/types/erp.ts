@@ -72,6 +72,17 @@ export interface IProductDetail extends Omit<IProductListItem, 'coverImageUrl'> 
   attributes?: IProductAttribute[] | null;
 }
 
+/** Nhóm hàng — khớp CategoryResponse của core-be. GET /categories trả danh sách phẳng (có cả nhóm con). */
+export interface ICategory {
+  id: string;
+  name: string;
+  parentCategoryId?: string | null;
+  parentCategoryName?: string | null;
+  hasChild?: boolean;
+  isActive: boolean;
+  subCategories?: ICategory[] | null;
+}
+
 export interface IWarehouse {
   id: string;
   name: string;
@@ -169,6 +180,10 @@ export interface ICreateSaleRequest {
   totalPayment: number;
   method: PaymentMethod;
   warehouseId?: string;
+  /** Id (Guid) chi nhánh đang làm việc. core-be cũ bỏ qua trường lạ; bản mới ghi hoá đơn vào chi nhánh này. */
+  branchRefId?: string;
+  /** uuid của lần bán — gửi lại (hết giờ, mất mạng, app bị tắt) dùng lại id để core-be không tạo 2 hoá đơn. */
+  clientRequestId?: string;
   note?: string;
   soldByName?: string;
   invoiceDetails: {

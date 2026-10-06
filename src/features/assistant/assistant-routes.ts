@@ -1,6 +1,7 @@
 import type { AuthUser } from 'src/auth/auth-context';
 import { ADMIN_ROLES, INTERNAL_APP_ROLES, MANAGER_ROLES, hasAnyRole } from 'src/auth/roles';
 import { getFeature } from 'src/features/launcher/registry';
+import { currentFeatureContext } from 'src/features/launcher/feature-context';
 
 // ----------------------------------------------------------------------
 // Danh mục màn mà nút "mở màn" (action navigate) của trợ lý được phép mở — bản sao của
@@ -90,7 +91,7 @@ export function resolveRoute(
   const feature = getFeature(def.feature ?? key);
   if (feature) {
     if (feature.comingSoon || !hasAnyRole(user, feature.roles)) return null;
-    if (feature.visible && !feature.visible(user)) return null;
+    if (feature.visible && !feature.visible(user, currentFeatureContext(user))) return null;
   }
 
   if (params != null && (typeof params !== 'object' || Array.isArray(params))) return null;

@@ -11,6 +11,8 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { usesAdminShell } from 'src/auth/roles';
 import { useT } from 'src/i18n';
 import { useResponsive } from 'src/hooks/use-responsive';
+import { StoreScopeGate } from 'src/features/branch/StoreScopeGate';
+import { hidesTabBar } from 'src/features/pos/pos-layout';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { AssistantProvider } from 'src/components/assistant/assistant-provider';
@@ -63,7 +65,7 @@ function TabIcon({ xmlKey, size, color }: { xmlKey?: string; size: number; color
 function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; tabs: TabDef[] }) {
   const t = useT();
   const insets = useSafeAreaInsets();
-  const { isTablet } = useResponsive();
+  const { isTablet, isLandscape } = useResponsive();
   const bottomPad = Math.max(insets.bottom, 8);
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
@@ -88,6 +90,8 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
   // Ẩn tab bar trên MỌI màn chi tiết bên trong 1 tab (route khác 'index') —
   // ví dụ chat/[id], payroll/[id]. Giữ tab bar trên 5 màn chính (index).
   const focusedTab = state.routes[state.index];
+  // Bán hàng trên tablet xoay ngang chia hai khung: thanh nổi giữa đáy sẽ đè lên cả hai → ẩn (màn đó có nút quay lại).
+  if (hidesTabBar(focusedTab?.name, { isTablet, isLandscape })) return null;
   const nested = focusedTab?.state;
   if (nested && typeof nested.index === 'number') {
     const activeName = nested.routes?.[nested.index]?.name;
@@ -278,9 +282,11 @@ export default function TabsLayout() {
   // screen; tab bar tra route theo tên.
   const tabs = usesAdminShell(user) ? OWNER_TABS : STAFF_TABS;
 
-  // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống.
+  // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống. StoreScopeGate: nạp chi nhánh
+  // đang làm việc + giỏ hàng của cửa hàng này từ máy trước khi dựng tab.
   return (
     <InternalAppGuard>
+      <StoreScopeGate>
       <MessengerProvider>
         <AssistantProvider>
           <Tabs
@@ -305,6 +311,7 @@ export default function TabsLayout() {
           <InAppNotificationHost />
         </AssistantProvider>
       </MessengerProvider>
+      </StoreScopeGate>
     </InternalAppGuard>
   );
 }

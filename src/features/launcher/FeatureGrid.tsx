@@ -14,6 +14,7 @@ import { brand } from 'src/theme';
 import { featureLabel, visiblePins, type FeatureItem, type FeatureTone, type LauncherVariant } from './registry';
 import { t } from 'src/i18n';
 import { useLauncherStore } from './store';
+import { useFeatureContext } from './feature-context';
 import { LauncherEditor } from './LauncherEditor';
 
 // Nền ô icon theo tone (class tĩnh để tailwind sinh được).
@@ -89,7 +90,8 @@ export function FeatureGrid({
   const columns = columnsFor(width);
 
   // Chỉ hiện tiện ích user được phép (lọc role) và đang ghim, giữ đúng thứ tự ghim, tối đa 8.
-  const pinned = useMemo(() => visiblePins(pinKeys, user), [pinKeys, user]);
+  const ctx = useFeatureContext();
+  const pinned = useMemo(() => visiblePins(pinKeys, user, ctx), [pinKeys, user, ctx]);
 
   return (
     <>

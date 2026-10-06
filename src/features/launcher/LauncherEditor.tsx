@@ -19,6 +19,7 @@ import {
   MAX_PINS,
 } from './registry';
 import { useLauncherStore } from './store';
+import { useFeatureContext } from './feature-context';
 import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
@@ -63,7 +64,8 @@ export function LauncherEditor({
   const setPins = useLauncherStore((s) => s.setPins);
   const reset = useLauncherStore((s) => s.reset);
 
-  const available = useMemo(() => availableFeatures(user), [user]);
+  const ctx = useFeatureContext();
+  const available = useMemo(() => availableFeatures(user, ctx), [user, ctx]);
   const allowedKeys = useMemo(() => new Set(available.map((f) => f.key)), [available]);
 
   // Ghim hợp lệ (giữ thứ tự, tối đa MAX_PINS) + nhóm "có thể thêm" theo group.
