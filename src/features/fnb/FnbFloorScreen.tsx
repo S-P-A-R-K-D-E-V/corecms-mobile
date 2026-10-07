@@ -8,6 +8,7 @@ import { Text, Icon, Pressable, Chip, Spinner } from 'src/components/ui';
 import { showActionSheet } from 'src/components/overlay';
 import { cn } from 'src/components/ui/utils';
 import { useAuthContext } from 'src/auth/auth-context';
+import { isManagerUser } from 'src/auth/roles';
 import { usesAdminShell } from 'src/auth/roles';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { t } from 'src/i18n';
@@ -22,6 +23,7 @@ import { GRID_GAP, gridColumns, tileWidth } from './fnb-layout';
 import { newId } from './fnb-ids';
 import { useFnbFloor, useFnbMenu, useFnbSync, useNow } from './use-fnb';
 import { useFnbQueue } from './write-queue';
+import { AddTableSheet, SoldOutSheet } from './FnbSetupSheets';
 
 // ----------------------------------------------------------------------
 // Sơ đồ bàn F&B (thay màn Bán hàng khi chi nhánh đang làm việc là F&B và cửa hàng bật commerce.fnb.pos):
@@ -110,13 +112,17 @@ export function FnbFloorScreen() {
   );
 
   const floorQ = useFnbFloor(branchId, focused);
-  useFnbMenu(branchId); // tải sẵn thực đơn cho màn gọi món
+  const menuQ = useFnbMenu(branchId); // tải sẵn thực đơn cho màn gọi món
   useFnbSync(branchId, floorQ.live ? floorQ.floor?.cursor ?? '' : undefined, focused);
   const entries = useFnbQueue((s) => s.entries);
   const now = useNow(15_000);
 
   const [areaId, setAreaId] = useState<string | null>(null);
   const [branchPick, setBranchPick] = useState(false);
+  const [addTable, setAddTable] = useState(false);
+  const [soldOut, setSoldOut] = useState(false);
+  // Thêm bàn: Quản lý / Admin (BE kiểm tra lại). Hết món: mọi nhân viên.
+  const canSetup = isManagerUser(user);
   const [width, setWidth] = useState(0);
 
   const floor = floorQ.floor;
@@ -157,6 +163,8 @@ export function FnbFloorScreen() {
   }
 
   const headerActions: HeaderAction[] = [{ icon: 'shopping-outline', onPress: () => openNew(null) }];
+  headerActions.push({ icon: 'food-off-outline', onPress: () => setSoldOut(true) });
+  if (canSetup) headerActions.push({ icon: 'table-plus', onPress: () => setAddTable(true) });
   if (manyBranches) headerActions.push({ icon: 'store-marker-outline', onPress: () => setBranchPick(true) });
 
   return (
@@ -202,7 +210,13 @@ export function FnbFloorScreen() {
           ) : floorQ.isError && !floor ? (
             <View className="w-full"><EmptyState icon="wifi-off" title={t('fnb.loadFailed')} actionLabel={t('common.retry')} onAction={() => void floorQ.refetch()} /></View>
           ) : tables.length === 0 ? (
-            <View className="w-full"><EmptyState icon="table-furniture" title={t('fnb.noTables')} description={t('fnb.noTablesHint')} /></View>
+            <View className="w-full"><EmptyState
+              icon="table-furniture"
+              title={t('fnb.noTables')}
+              description={canSetup ? t('fnbSetup.noTablesManager') : t('fnb.noTablesHint')}
+              actionLabel={canSetup ? t('fnbSetup.addTable') : undefined}
+              onAction={canSetup ? () => setAddTable(true) : undefined}
+            /></View>
           ) : (
             tables.map((tb) => <TableTile key={tb.id} table={tb} width={tile} now={now} onPress={() => onTable(tb)} />)
           )}
@@ -210,6 +224,17 @@ export function FnbFloorScreen() {
       </ScrollView>
 
       <WorkingBranchSheet visible={focused && branchPick} onClose={() => setBranchPick(false)} />
+      {branchId && canSetup ? (
+        <AddTableSheet
+          visible={focused && addTable}
+          onClose={() => setAddTable(false)}
+          branchId={branchId}
+          areas={areas.map((a) => ({ id: a.id, name: a.name }))}
+        />
+      ) : null}
+      {branchId ? (
+        <SoldOutSheet visible={focused && soldOut} onClose={() => setSoldOut(false)} branchId={branchId} menu={menuQ.data} />
+      ) : null}
     </View>
   );
 }
