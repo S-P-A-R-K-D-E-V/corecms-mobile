@@ -155,7 +155,7 @@ export function SoldOutSheet({
     <Sheet visible={visible} title={t('fnbSetup.soldOutTitle')} onClose={onClose}>
       <Text variant="bodySmall" tone="muted" className="mb-1">{t('fnbSetup.soldOutHint')}</Text>
       {dishes.length === 0 ? (
-        <Text variant="bodySmall" tone="muted" className="py-6 text-center">{t('fnb.noDishes')}</Text>
+        <Text variant="bodySmall" tone="muted" className="py-6 text-center">{t('fnbSetup.emptyMenu')}</Text>
       ) : null}
       {dishes.map((d) => (
         <ToggleRow

@@ -721,6 +721,7 @@ export const vi = {
     soldOutTitle: 'Hết món',
     soldOutHint: 'Đánh dấu món và món thêm đã hết ở chi nhánh này. Tắt khi có lại.',
     toppings: 'Món thêm',
+    emptyMenu: 'Thực đơn chưa có món. Tạo món trên web: Hàng hoá → Loại mặt hàng = Món.',
   },
   fnb: {
     title: 'Sơ đồ bàn',

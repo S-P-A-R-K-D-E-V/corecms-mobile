@@ -720,6 +720,7 @@ export const en: Dict = {
     soldOutTitle: 'Sold out',
     soldOutHint: 'Mark dishes and toppings sold out at this branch. Turn off when they are available again.',
     toppings: 'Toppings',
+    emptyMenu: 'The menu has no dishes yet. Create dishes on the web: Products → Item type = Dish.',
   },
   fnb: {
     title: 'Tables',
