@@ -15,6 +15,7 @@ import { haptics } from 'src/services/haptics';
 import { t } from 'src/i18n';
 
 import { HIDDEN_AMOUNT } from './hooks';
+import { BranchSwitcher } from 'src/features/branch/BranchSwitcher';
 
 // ----------------------------------------------------------------------
 // Đầu trang chủ kiểu MB Bank: khối màu cửa hàng tràn dưới thanh trạng thái, avatar (→ Tài khoản),
@@ -89,6 +90,7 @@ export function HomeHero({ children }: { children: React.ReactNode }) {
             {storeName ?? t('home.hello')}
           </Text>
           <Text variant="headline" tone="inverse" numberOfLines={1}>{fullName || user?.email}</Text>
+          <BranchSwitcher inverse />
         </View>
         <View className="flex-row items-center gap-2">
           <HeaderButton icon="chat-processing-outline" badge={chatUnread} label={t('home.chat')} onPress={() => router.push('/(tabs)/chat' as any)} />

@@ -81,7 +81,8 @@ export const vi = {
   welcome: {
     eyebrow: 'Welcome',
     title: 'Chào mừng đến với {brand}',
-    tagline: 'Quản lý cửa hàng dễ dàng, bắt đầu từ hôm nay.',
+    tagline: 'Quản lý cửa hàng dễ dàng, bắt đầu từ hôm nay.',
+
     feature1Title: 'Chấm công thông minh',
     feature1Desc: 'Khuôn mặt, GPS và lịch sử chấm công.',
     feature2Title: 'Quản lý ca làm linh hoạt',
@@ -700,8 +701,10 @@ export const vi = {
   },
   branch: {
     pickTitle: 'Chọn chi nhánh làm việc',
-    pickHint: 'Máy này đang bán ở chi nhánh nào? Hoá đơn sẽ ghi vào chi nhánh đã chọn.',
+    pickHint: 'Bạn đang làm việc ở chi nhánh nào? Bán hàng, chấm công và tiện ích sẽ theo chi nhánh đã chọn.',
     gone: 'Chi nhánh đã chọn không còn hoạt động. Chọn lại chi nhánh làm việc.',
+    pickShort: 'Chọn chi nhánh',
+    switchA11y: 'Chi nhánh {name}, bấm để đổi',
   },
   fnb: {
     title: 'Sơ đồ bàn',

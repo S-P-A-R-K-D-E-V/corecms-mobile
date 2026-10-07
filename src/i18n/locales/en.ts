@@ -81,7 +81,8 @@ export const en: Dict = {
   welcome: {
     eyebrow: 'Welcome',
     title: 'Say hello to {brand}',
-    tagline: 'Running your store made easy — starting today.',
+    tagline: 'Running your store made easy — starting today.',
+
     feature1Title: 'Smart check-in',
     feature1Desc: 'Face, GPS and your check-in history.',
     feature2Title: 'Flexible shift management',
@@ -699,8 +700,10 @@ export const en: Dict = {
   },
   branch: {
     pickTitle: 'Choose your branch',
-    pickHint: 'Which branch is this device selling at? Invoices are recorded for the selected branch.',
+    pickHint: 'Which branch are you working at? Selling, check-in and tools follow the selected branch.',
     gone: 'The selected branch is no longer active. Choose a branch again.',
+    pickShort: 'Choose branch',
+    switchA11y: 'Branch {name}, tap to switch',
   },
   fnb: {
     title: 'Tables',

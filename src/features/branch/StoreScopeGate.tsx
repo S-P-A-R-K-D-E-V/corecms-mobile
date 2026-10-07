@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
+import { AuthContext } from 'src/auth/auth-context';
 import { Loading } from 'src/components/shared';
 import { getBranchLocations } from 'src/api/attendance';
 import { useCart } from 'src/features/pos/cart-store';
@@ -15,13 +16,20 @@ import { useWorkingBranch } from './working-branch';
 // mạng — mất mạng thì dùng chi nhánh đã lưu.
 // ----------------------------------------------------------------------
 
-/** Hỏi danh sách chi nhánh (dùng chung cache với màn ghép kiosk) và đối chiếu với chi nhánh đã lưu. */
+/**
+ * Hỏi danh sách chi nhánh (dùng chung cache với màn ghép kiosk) và đối chiếu với chi nhánh đã lưu, trong phạm vi chi
+ * nhánh của người dùng — phạm vi đổi (quản lý phân công lại, nạp lại /users/me) thì đối chiếu lại.
+ */
 function WorkingBranchSync() {
   const reconcile = useWorkingBranch((s) => s.reconcile);
+  // Không bắt buộc có AuthProvider (test dựng cổng riêng) — không có thì coi như mọi chi nhánh.
+  const branchScope = useContext(AuthContext)?.user?.branchScope;
+  const scopeKey = branchScope ? `${branchScope.allBranches}:${branchScope.branchIds.join(',')}` : 'all';
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 10 * 60_000 });
   useEffect(() => {
-    if (branchesQ.data) reconcile(branchesQ.data);
-  }, [branchesQ.data, reconcile]);
+    if (branchesQ.data) reconcile(branchesQ.data, branchScope);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- branchScope đổi được nhận qua scopeKey
+  }, [branchesQ.data, reconcile, scopeKey]);
   return null;
 }
 

@@ -39,6 +39,8 @@ import {
   type GpsStatus,
 } from './utils';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
+import { BranchSwitcher } from 'src/features/branch/BranchSwitcher';
+import { useWorkingBranch } from 'src/features/branch/working-branch';
 
 
 // ── Shift row ────────────────────────────────────────────────────────────────
@@ -124,8 +126,16 @@ export function CheckinScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
   // Chi nhánh (cửa hàng) để tính & hiển thị khoảng cách GPS cho người dùng
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
-  const branchDistanceM = coords && branchesQ.data ? nearestBranchDistance(coords, branchesQ.data) : null;
-  const nearestBranch = coords && branchesQ.data ? findNearestBranch(coords, branchesQ.data) : null;
+  // Được phân công chi nhánh (branchScope) → chỉ đo tới chi nhánh đang làm việc; chưa phân công → chi nhánh gần nhất
+  // như trước.
+  const workingBranchId = useWorkingBranch((s) => s.branch?.id ?? null);
+  const scoped = user?.branchScope?.allBranches === false;
+  const geofenceBranches =
+    branchesQ.data && scoped && workingBranchId
+      ? branchesQ.data.filter((b) => b.id === workingBranchId)
+      : branchesQ.data;
+  const branchDistanceM = coords && geofenceBranches ? nearestBranchDistance(coords, geofenceBranches) : null;
+  const nearestBranch = coords && geofenceBranches ? findNearestBranch(coords, geofenceBranches) : null;
 
   // Địa chỉ cụ thể (reverse-geocode như core-fe) để in vào ảnh check-in.
   const [address, setAddress] = useState<string | null>(null);
@@ -369,6 +379,7 @@ export function CheckinScreen() {
         <View>
           <Text variant="bodySmall" tone="muted">{dayjs().format('dddd, DD/MM/YYYY')}</Text>
           <Text variant="title" className="mt-0.5">{t('common.greeting', { name: user?.firstName ?? '' })}</Text>
+          <BranchSwitcher />
         </View>
         <Pressable
           onPress={() => router.push('/notifications' as any)}

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import type { BranchScope } from 'src/auth/auth-context';
 import { prefs, PrefKeys } from 'src/services/storage';
 import type { IBranchLocation } from 'src/types/corecms-api';
 
@@ -8,7 +9,9 @@ import type { IBranchLocation } from 'src/types/corecms-api';
 //   - nạp từ máy trước khi dựng thanh tab (StoreScopeGate) để màn nào cũng đọc được ngay;
 //   - đối chiếu với GET /branches (chỉ chi nhánh đang hoạt động): cửa hàng có đúng 1 chi nhánh → tự chọn;
 //     nhiều chi nhánh mà chưa chọn / chi nhánh đã chọn không còn → `needsPick`, màn Bán hàng mở bảng chọn;
-//   - đổi cửa hàng → quên chi nhánh của cửa hàng cũ (store-scope.ts).
+//   - đổi cửa hàng → quên chi nhánh của cửa hàng cũ (store-scope.ts);
+//   - phạm vi chi nhánh của người dùng (GET /users/me → branchScope): chỉ các chi nhánh được phân công là lựa chọn;
+//     được phân công đúng một chi nhánh (nhân viên) → tự chọn và khoá, không đổi được.
 // Mỗi chi nhánh đúng một loại hình ("retail" | "fnb") — loại hình quyết định màn bán hàng và tiện ích F&B.
 // ----------------------------------------------------------------------
 
@@ -24,10 +27,17 @@ export function branchTypeOf(value: unknown): BranchType {
   return typeof value === 'string' && value.trim().toLowerCase() === 'fnb' ? 'fnb' : 'retail';
 }
 
-/** Các chi nhánh ĐANG HOẠT ĐỘNG của cửa hàng, giữ thứ tự API trả. */
-export function activeBranches(list: readonly IBranchLocation[] | null | undefined): WorkingBranch[] {
+/**
+ * Các chi nhánh ĐANG HOẠT ĐỘNG của cửa hàng mà người dùng được làm, giữ thứ tự API trả. Không có phạm vi / phạm vi
+ * mọi chi nhánh → không lọc.
+ */
+export function activeBranches(
+  list: readonly IBranchLocation[] | null | undefined,
+  scope?: BranchScope | null,
+): WorkingBranch[] {
+  const allowed = scope && !scope.allBranches ? new Set(scope.branchIds) : null;
   return (Array.isArray(list) ? list : [])
-    .filter((b) => !!b && typeof b.id === 'string' && b.isActive)
+    .filter((b) => !!b && typeof b.id === 'string' && b.isActive && (!allowed || allowed.has(b.id)))
     .map((b) => ({ id: b.id, name: b.branchName, type: branchTypeOf(b.businessType) }));
 }
 
@@ -44,8 +54,12 @@ export type BranchSnapshot = {
  *   - nhiều chi nhánh → bỏ chọn, chờ người dùng chọn ('first' / 'gone');
  *   - không có chi nhánh nào đang hoạt động → không có chi nhánh, không hỏi.
  */
-export function reconcileBranches(stored: WorkingBranch | null, list: readonly IBranchLocation[] | null | undefined): BranchSnapshot {
-  const options = activeBranches(list);
+export function reconcileBranches(
+  stored: WorkingBranch | null,
+  list: readonly IBranchLocation[] | null | undefined,
+  scope?: BranchScope | null,
+): BranchSnapshot {
+  const options = activeBranches(list, scope);
   const current = stored ? options.find((b) => b.id === stored.id) : undefined;
   if (current) return { branch: current, options, needsPick: null };
   if (options.length === 1) return { branch: options[0]!, options, needsPick: null };
@@ -78,8 +92,8 @@ type WorkingBranchState = {
   needsPick: BranchPickReason | null;
   /** Đọc chi nhánh đã lưu của cửa hàng `scope` — không bao giờ ném lỗi. */
   hydrate: (scope: string) => Promise<void>;
-  /** Đối chiếu với kết quả GET /branches. */
-  reconcile: (list: readonly IBranchLocation[] | null | undefined) => void;
+  /** Đối chiếu với kết quả GET /branches, trong phạm vi chi nhánh của người dùng. */
+  reconcile: (list: readonly IBranchLocation[] | null | undefined, scope?: BranchScope | null) => void;
   /** Người dùng chọn 1 chi nhánh trong `options`. */
   select: (id: string) => void;
   /** Quên chi nhánh của cửa hàng `scope` (đổi cửa hàng). */
@@ -115,10 +129,10 @@ export const useWorkingBranch = create<WorkingBranchState>((set, get) => ({
     set({ branch: stored, hydrated: true });
   },
 
-  reconcile(list) {
+  reconcile(list, scope) {
     const s = get();
     if (!s.hydrated || !s.scope) return;
-    const next = reconcileBranches(s.branch, list);
+    const next = reconcileBranches(s.branch, list, scope);
     set(next);
     if (!sameBranch(s.branch, next.branch)) persist(s.scope, next.branch);
   },
@@ -136,3 +150,6 @@ export const useWorkingBranch = create<WorkingBranchState>((set, get) => ({
     await prefs.remove(branchKey(scope)).catch(() => {});
   },
 }));
+
+/** Đổi được chi nhánh không: có từ hai chi nhánh để chọn (nhân viên được phân công một chi nhánh → khoá). */
+export const canSwitchBranch = (options: readonly WorkingBranch[] | null | undefined) => (options?.length ?? 0) > 1;

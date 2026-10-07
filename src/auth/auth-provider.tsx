@@ -73,6 +73,13 @@ function buildUserFromMe(data: any, accessToken: string, refreshToken?: string):
     idCardBackUrl: data.idCardBackUrl,
     hasFaceEmbedding: !!data.hasFaceEmbedding,
     enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : undefined,
+    branchScope:
+      data.branchScope && typeof data.branchScope.allBranches === 'boolean'
+        ? {
+            allBranches: data.branchScope.allBranches,
+            branchIds: Array.isArray(data.branchScope.branchIds) ? data.branchScope.branchIds.map(String) : [],
+          }
+        : undefined,
   };
 }
 

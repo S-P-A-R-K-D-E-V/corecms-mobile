@@ -6,6 +6,7 @@ import {
   activeBranches,
   branchKey,
   branchTypeOf,
+  canSwitchBranch,
   parseStoredBranch,
   reconcileBranches,
   useWorkingBranch,
@@ -155,5 +156,47 @@ describe('store chi nhánh đang làm việc', () => {
     expect(store()).toMatchObject({ hydrated: true, branch: null });
     expect(parseStoredBranch('{"name":"thiếu id"}')).toBeNull();
     expect(parseStoredBranch('{"id":"b1"}')).toEqual({ id: 'b1', name: '', type: 'retail' });
+  });
+});
+
+describe('phạm vi chi nhánh được phân công (GET /users/me → branchScope)', () => {
+  const list = [api('b1'), api('b2', { businessType: 'fnb' }), api('b3')];
+
+  it('không có phạm vi / mọi chi nhánh → không lọc', () => {
+    expect(activeBranches(list).map((b) => b.id)).toEqual(['b1', 'b2', 'b3']);
+    expect(activeBranches(list, { allBranches: true, branchIds: ['b2'] }).map((b) => b.id)).toEqual(['b1', 'b2', 'b3']);
+  });
+
+  it('chỉ các chi nhánh được phân công là lựa chọn', () => {
+    expect(activeBranches(list, { allBranches: false, branchIds: ['b3', 'b1'] }).map((b) => b.id)).toEqual(['b1', 'b3']);
+  });
+
+  it('nhân viên được phân công một chi nhánh → tự chọn, không đổi được', () => {
+    const next = reconcileBranches(null, list, { allBranches: false, branchIds: ['b2'] });
+    expect(next).toMatchObject({ branch: { id: 'b2', type: 'fnb' }, needsPick: null });
+    expect(canSwitchBranch(next.options)).toBe(false);
+  });
+
+  it('chi nhánh đã lưu nằm ngoài phạm vi mới (quản lý phân công lại) → chuyển sang chi nhánh được phân công', () => {
+    const stored = { id: 'b1', name: 'Chi nhánh b1', type: 'retail' as const };
+    expect(reconcileBranches(stored, list, { allBranches: false, branchIds: ['b3'] })).toMatchObject({
+      branch: { id: 'b3' },
+      needsPick: null,
+    });
+  });
+
+  it('quản lý được phân công hai chi nhánh → chọn giữa hai chi nhánh đó', () => {
+    const next = reconcileBranches(null, list, { allBranches: false, branchIds: ['b1', 'b2'] });
+    expect(next).toMatchObject({ branch: null, needsPick: 'first' });
+    expect(next.options.map((b) => b.id)).toEqual(['b1', 'b2']);
+    expect(canSwitchBranch(next.options)).toBe(true);
+  });
+
+  it('store: đối chiếu trong phạm vi', async () => {
+    await store().hydrate('shop1');
+    store().reconcile(list, { allBranches: false, branchIds: ['b2'] });
+    await flush();
+    expect(store()).toMatchObject({ branch: { id: 'b2' }, needsPick: null });
+    expect(await saved('shop1')).toMatchObject({ id: 'b2' });
   });
 });
