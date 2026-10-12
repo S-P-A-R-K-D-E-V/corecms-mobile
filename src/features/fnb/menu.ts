@@ -87,5 +87,11 @@ export function quickNotesFor(menu: IFnbMenu | null | undefined, dish: IMenuDish
 
 /** Bấm món mở bảng tuỳ chọn khi có nhiều size hoặc có món thêm; còn lại thêm thẳng. */
 export function dishNeedsOptions(menu: IFnbMenu | null | undefined, dish: IMenuDish): boolean {
+  // Combo có nhóm nhiều lựa chọn thì phải mở bảng chọn; combo toàn thành phần cố định thêm thẳng.
+  if (dish.combo) return dish.combo.groups.some((g) => g.options.length > 1);
   return dish.variants.length > 1 || allowedToppings(menu, dish).length > 0;
 }
+
+/** Tên một thành phần combo: "Cà phê sữa (L)", số lượng lớn hơn 1 thì thêm " ×2". */
+export const componentTitle = (c: { name: string; variantName: string | null; quantity: number }) =>
+  `${c.name}${c.variantName ? ` (${c.variantName})` : ''}${c.quantity > 1 ? ` ×${c.quantity}` : ''}`;

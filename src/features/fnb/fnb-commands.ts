@@ -28,6 +28,8 @@ export type ItemLineInput = {
   toppings: { productId: string; quantity: number }[];
   quickNotes: string[];
   note: string | null;
+  /** Dòng combo: lựa chọn của từng nhóm; nhóm không gửi thì máy chủ lấy mặc định. */
+  components?: { groupId: string; productId: string }[];
 };
 
 export type OpenItemLineInput = {

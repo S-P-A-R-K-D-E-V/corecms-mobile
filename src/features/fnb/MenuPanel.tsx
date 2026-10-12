@@ -116,7 +116,7 @@ export function MenuPanel({
                   <Text variant="callout" className="font-semibold" numberOfLines={2}>{d.name}</Text>
                   <View className="flex-row items-center justify-between mt-1.5">
                     <Text variant="bodySmall" tone={d.isSoldOut ? 'error' : 'muted'} className="font-semibold">
-                      {d.isSoldOut ? t('fnb.soldOut') : money(d.priceFrom)}
+                      {d.isSoldOut ? t('fnb.soldOut') : d.combo ? `${money(d.priceFrom)} · ${t('fnb.combo')}` : money(d.priceFrom)}
                     </Text>
                     {n > 0 ? (
                       <View className="min-w-6 h-6 px-1.5 rounded-full bg-primary items-center justify-center">

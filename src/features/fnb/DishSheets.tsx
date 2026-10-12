@@ -9,9 +9,10 @@ import { t } from 'src/i18n';
 import type { IFnbMenu, IMenuDish } from 'src/types/fnb';
 
 import { money } from 'src/features/erp/shared';
-import { allowedToppings, defaultVariant, quickNotesFor, sortedVariants, variantSoldOut } from './menu';
+import { allowedToppings, componentTitle, defaultVariant, quickNotesFor, sortedVariants, variantSoldOut } from './menu';
 import {
   draftAmount,
+  comboComponents,
   itemDraft,
   openItemDraft,
   MAX_NOTE_LEN,
@@ -55,11 +56,14 @@ export function DishOptionsSheet({
   onAdd: (line: DraftLine) => void;
 }) {
   const variants = useMemo(() => (dish ? sortedVariants(dish) : []), [dish]);
-  const toppings = useMemo(() => (dish ? allowedToppings(menu, dish) : []), [menu, dish]);
+  // Combo không nhận món thêm.
+  const toppings = useMemo(() => (dish && !dish.combo ? allowedToppings(menu, dish) : []), [menu, dish]);
   const notes = useMemo(() => quickNotesFor(menu, dish), [menu, dish]);
 
   const [variantId, setVariantId] = useState<string | null>(null);
   const [topQty, setTopQty] = useState<Record<string, number>>({});
+  // Combo: nhóm → productId đã chọn (nhóm chưa chọn lấy lựa chọn mặc định còn bán).
+  const [choices, setChoices] = useState<Record<string, string>>({});
   const [picked, setPicked] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [qty, setQty] = useState(1);
@@ -68,16 +72,23 @@ export function DishOptionsSheet({
     if (!dish) return;
     setVariantId(defaultVariant(dish)?.productId ?? null);
     setTopQty({});
+    setChoices({});
     setPicked([]);
     setNote('');
     setQty(1);
   }, [dish]);
 
   const variant = variants.find((v) => v.productId === variantId) ?? null;
+  const components = dish ? comboComponents(dish, choices) : [];
+  // Lựa chọn đang giữ đã báo hết (cả nhóm hết): không cho thêm.
+  const comboBlocked = components.some(
+    (c) => dish?.combo?.groups.find((g) => g.id === c.groupId)?.options.find((o) => o.productId === c.productId)?.isSoldOut
+  );
   const preview =
-    dish && variant
+    dish && variant && !comboBlocked
       ? itemDraft(dish, variant, {
           quantity: qty,
+          components,
           toppings: toppings.map((tp) => ({ productId: tp.productId, name: tp.name, unitPrice: tp.price, quantity: topQty[tp.productId] ?? 0 })),
           quickNotes: picked,
           note,
@@ -127,6 +138,39 @@ export function DishOptionsSheet({
             </View>
           </View>
         ) : null}
+
+        {dish?.combo?.groups.map((group) => {
+          const chosen = components.find((c) => c.groupId === group.id)?.productId;
+          return (
+            <View key={group.id} className="gap-2">
+              <Text variant="label" tone="muted">
+                {group.options.length > 1 ? t('fnb.comboPickOne', { group: group.name }) : group.name}
+              </Text>
+              <View className="flex-row flex-wrap gap-2">
+                {group.options.map((o) => {
+                  const on = o.productId === chosen;
+                  return (
+                    <Pressable
+                      key={o.productId}
+                      disabled={o.isSoldOut}
+                      onPress={() => setChoices((m) => ({ ...m, [group.id]: o.productId }))}
+                      className={cn(
+                        'min-w-[88px] px-3 py-2 rounded-2xl border items-center',
+                        on ? 'bg-primary-soft border-primary' : 'border-line dark:border-line-dark',
+                        o.isSoldOut && 'opacity-40'
+                      )}
+                    >
+                      <Text variant="bodySmall" tone={on ? 'primary' : 'default'} className="font-bold">{componentTitle(o)}</Text>
+                      <Text variant="caption" tone={o.isSoldOut ? 'error' : 'muted'}>
+                        {o.isSoldOut ? t('fnb.soldOut') : o.surcharge > 0 ? `+${money(o.surcharge)}` : t('fnb.comboIncluded')}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          );
+        })}
 
         {toppings.length ? (
           <View className="gap-1">

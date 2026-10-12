@@ -11,6 +11,16 @@ import { newId } from './fnb-ids';
 
 export type DraftTopping = { productId: string; name: string; quantity: number; unitPrice: number };
 
+/** Lựa chọn của một nhóm combo; `quantity` là số lượng cho mỗi combo, `surcharge` đã nằm trong `unitPrice` của dòng. */
+export type DraftComponent = {
+  groupId: string;
+  productId: string;
+  name: string;
+  variantName: string | null;
+  quantity: number;
+  surcharge: number;
+};
+
 export type DraftLine = {
   id: string;
   lineType: 'Item' | 'OpenItem';
@@ -22,6 +32,8 @@ export type DraftLine = {
   unitPrice: number;
   quantity: number;
   toppings: DraftTopping[];
+  /** Dòng combo: mỗi nhóm một lựa chọn; rỗng với món thường. */
+  components: DraftComponent[];
   quickNotes: string[];
   note: string | null;
 };
@@ -50,8 +62,16 @@ export function draftCount(lines: readonly DraftLine[]): number {
 export function itemDraft(
   dish: IMenuDish,
   variant: IMenuVariant,
-  opts: { quantity?: number; toppings?: DraftTopping[]; quickNotes?: string[]; note?: string | null } = {}
+  opts: {
+    quantity?: number;
+    toppings?: DraftTopping[];
+    components?: DraftComponent[];
+    quickNotes?: string[];
+    note?: string | null;
+  } = {}
 ): DraftLine {
+  // Combo: mỗi nhóm một lựa chọn (không gửi thì lấy mặc định); giá = giá combo + phụ thu; không có món thêm.
+  const components = dish.combo ? (opts.components ?? comboComponents(dish)) : [];
   return {
     id: newId(),
     lineType: 'Item',
@@ -59,14 +79,39 @@ export function itemDraft(
     productId: variant.productId,
     name: dish.name,
     variantName: variant.name,
-    unitPrice: variant.price,
+    unitPrice: variant.price + components.reduce((s, c) => s + c.surcharge, 0),
     quantity: clamp(opts.quantity ?? 1, 1, MAX_QTY),
-    toppings: (opts.toppings ?? [])
-      .filter((t) => t.quantity > 0)
-      .map((t) => ({ ...t, quantity: clamp(t.quantity, 1, MAX_TOPPING_QTY) })),
+    toppings: dish.combo
+      ? []
+      : (opts.toppings ?? [])
+          .filter((t) => t.quantity > 0)
+          .map((t) => ({ ...t, quantity: clamp(t.quantity, 1, MAX_TOPPING_QTY) })),
+    components,
     quickNotes: (opts.quickNotes ?? []).slice(0, MAX_QUICK_NOTES),
     note: opts.note?.trim().slice(0, MAX_NOTE_LEN) || null,
   };
+}
+
+/** Lựa chọn của combo theo từng nhóm: lựa chọn đã chọn, không thì lựa chọn đầu tiên còn bán (hết cả nhóm: lựa chọn đầu). */
+export function comboComponents(dish: IMenuDish, chosen: Record<string, string> = {}): DraftComponent[] {
+  return (dish.combo?.groups ?? [])
+    .map((group) => {
+      const option =
+        group.options.find((o) => o.productId === chosen[group.id]) ??
+        group.options.find((o) => !o.isSoldOut) ??
+        group.options[0];
+      return option
+        ? {
+            groupId: group.id,
+            productId: option.productId,
+            name: option.name,
+            variantName: option.variantName,
+            quantity: option.quantity,
+            surcharge: option.surcharge,
+          }
+        : null;
+    })
+    .filter((c): c is DraftComponent => !!c);
 }
 
 export function openItemDraft(input: { name: string; unitPrice: number; quantity?: number; note?: string | null }): DraftLine {
@@ -80,10 +125,14 @@ export function openItemDraft(input: { name: string; unitPrice: number; quantity
     unitPrice: clamp(input.unitPrice, 0, 999_999_999),
     quantity: clamp(input.quantity ?? 1, 1, MAX_QTY),
     toppings: [],
+    components: [],
     quickNotes: [],
     note: input.note?.trim().slice(0, MAX_NOTE_LEN) || null,
   };
 }
+
+const componentKey = (l: DraftLine) =>
+  l.components.map((c) => `${c.groupId}:${c.productId}`).sort().join(',');
 
 const toppingKey = (l: DraftLine) =>
   l.toppings.map((t) => `${t.productId}x${t.quantity}`).sort().join(',');
@@ -95,6 +144,7 @@ export function sameDraft(a: DraftLine, b: DraftLine): boolean {
     b.lineType === 'Item' &&
     a.productId === b.productId &&
     toppingKey(a) === toppingKey(b) &&
+    componentKey(a) === componentKey(b) &&
     [...a.quickNotes].sort().join('|') === [...b.quickNotes].sort().join('|') &&
     (a.note ?? '') === (b.note ?? '')
   );
@@ -125,5 +175,9 @@ export function toLineInput(line: DraftLine): LineInput {
     toppings: line.toppings.map((t) => ({ productId: t.productId, quantity: t.quantity })),
     quickNotes: line.quickNotes,
     note: line.note,
+    // Chỉ dòng combo mới gửi lựa chọn (món thường gửi lựa chọn sẽ bị máy chủ từ chối).
+    ...(line.components.length > 0 && {
+      components: line.components.map((c) => ({ groupId: c.groupId, productId: c.productId })),
+    }),
   };
 }

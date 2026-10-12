@@ -54,6 +54,20 @@ export interface IOrderLine {
   createdAt: string;
   createdByName: string;
   flags: string[];
+  /** Dòng combo: các món thành phần đã chọn (rỗng / thiếu với món thường). Huỷ / chuyển đi cả combo. */
+  components?: ILineComponent[];
+}
+
+/** Thành phần đã chọn của dòng combo; `quantity` là số lượng cho MỖI combo. */
+export interface ILineComponent {
+  groupId: string;
+  groupName: string;
+  productId: string;
+  name: string;
+  variantName: string | null;
+  quantity: number;
+  listPrice: number;
+  surcharge: number;
 }
 
 export interface IOrderDiscount {
@@ -157,6 +171,8 @@ export interface IKitchenTicketLine {
   toppings: { name: string; quantity: number }[];
   quickNotes: string[];
   note: string | null;
+  /** Dòng combo: các món quầy bar phải làm, số lượng cho MỖI combo. */
+  components?: { name: string; variantName: string | null; quantity: number }[];
 }
 
 /** Phiếu bar: nội dung chụp lúc tạo (không đổi) + trạng thái in (đổi được). */
@@ -222,6 +238,34 @@ export interface IMenuVariant {
   sortOrder: number;
 }
 
+/** Mỗi nhóm chọn đúng một lựa chọn (nhóm một lựa chọn = thành phần cố định); lựa chọn đầu là mặc định. */
+export interface IMenuCombo {
+  groups: IMenuComboGroup[];
+}
+
+export interface IMenuComboGroup {
+  id: string;
+  name: string;
+  sortOrder: number;
+  options: IMenuComboOption[];
+}
+
+export interface IMenuComboOption {
+  /** Dòng bán được của món thành phần (size hoặc chính món). */
+  productId: string;
+  dishId: string;
+  name: string;
+  variantName: string | null;
+  /** Số lượng cho MỖI combo. */
+  quantity: number;
+  /** Giá bán lẻ của món thành phần. */
+  price: number;
+  /** Phụ thu cộng vào giá combo khi chọn. */
+  surcharge: number;
+  isSoldOut: boolean;
+  sortOrder: number;
+}
+
 export interface IMenuDish {
   id: string;
   categoryId: string;
@@ -235,6 +279,8 @@ export interface IMenuDish {
   variants: IMenuVariant[];
   /** Món thêm được phép của món này, theo thứ tự hiển thị. */
   toppingIds: string[];
+  /** Món là combo: các nhóm thành phần; null / thiếu = món thường. Combo không có size và không nhận món thêm. */
+  combo?: IMenuCombo | null;
 }
 
 export interface IMenuTopping {

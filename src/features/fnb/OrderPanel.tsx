@@ -9,6 +9,7 @@ import type { IOpenOrder, IOrderLine } from 'src/types/fnb';
 import { money } from 'src/features/erp/shared';
 import { QtyStepper } from 'src/features/pos/CartPanel';
 import { draftAmount, type DraftLine } from './draft';
+import { componentTitle } from './menu';
 import { billOutdated, lineTitle, pendingLines, roundsOf } from './order-view';
 import type { QueueEntry } from './write-queue';
 
@@ -17,8 +18,20 @@ import type { QueueEntry } from './write-queue';
 //   lệnh cần xử lý → món đang chọn → món đang gửi → món chưa gửi bar → các lượt đã gửi → tạm tính / tổng.
 // ----------------------------------------------------------------------
 
-function Extras({ toppings, quickNotes, note }: { toppings: { name: string; quantity: number }[]; quickNotes: string[]; note: string | null }) {
+function Extras({
+  toppings,
+  quickNotes,
+  note,
+  components,
+}: {
+  toppings: { name: string; quantity: number }[];
+  quickNotes: string[];
+  note: string | null;
+  components?: { name: string; variantName: string | null; quantity: number }[];
+}) {
   const parts = [
+    // Combo: các món thành phần đã chọn.
+    ...(components ?? []).map(componentTitle),
     ...toppings.map((tp) => (tp.quantity > 1 ? `+ ${tp.name} ×${tp.quantity}` : `+ ${tp.name}`)),
     ...quickNotes,
     ...(note ? [note] : []),
@@ -48,7 +61,7 @@ function ServerLine({ line, onPress, right }: { line: IOrderLine; onPress?: () =
         <Text variant="bodySmall" className={cn('font-semibold', voided && 'line-through')} tone={voided ? 'faint' : 'default'}>
           {lineTitle(line)}
         </Text>
-        <Extras toppings={line.toppings} quickNotes={line.quickNotes} note={line.note} />
+        <Extras toppings={line.toppings} quickNotes={line.quickNotes} note={line.note} components={line.components} />
         {line.voidedQuantity > 0 ? <Text variant="caption" tone="error">{t('fnb.voidedQty', { n: line.voidedQuantity })}</Text> : null}
       </View>
       {right ?? <Text variant="bodySmall" className="font-semibold" tone={voided ? 'faint' : 'default'}>{money(line.amount)}</Text>}
@@ -113,7 +126,7 @@ export function OrderPanel({
               <View className="flex-row items-center gap-2 py-2">
                 <View className="flex-1">
                   <Text variant="bodySmall" className="font-semibold">{lineTitle(d)}</Text>
-                  <Extras toppings={d.toppings} quickNotes={d.quickNotes} note={d.note} />
+                  <Extras toppings={d.toppings} quickNotes={d.quickNotes} note={d.note} components={d.components} />
                   <Text variant="caption" tone="muted">{money(draftAmount(d))}</Text>
                 </View>
                 <QtyStepper value={d.quantity} onChange={(n) => onDraftQty(d.id, n)} />
@@ -131,7 +144,7 @@ export function OrderPanel({
               <Text className="w-8 font-bold">{draft.quantity}×</Text>
               <View className="flex-1">
                 <Text variant="bodySmall" className="font-semibold">{lineTitle(draft)}</Text>
-                <Extras toppings={draft.toppings} quickNotes={draft.quickNotes} note={draft.note} />
+                <Extras toppings={draft.toppings} quickNotes={draft.quickNotes} note={draft.note} components={draft.components} />
               </View>
               {state === 'attention' ? <Icon name="alert-circle-outline" size={18} tone="error" /> : <Spinner size="small" />}
             </View>
