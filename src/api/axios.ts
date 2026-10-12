@@ -380,6 +380,8 @@ export const endpoints = {
   fnb: {
     menu: '/fnb/menu',
     soldOut: '/fnb/menu/sold-out',
+    batchRecipes: '/fnb/batch-recipes',
+    batches: '/fnb/batches',
     areas: '/fnb/areas',
     tables: '/fnb/tables',
     floor: '/fnb/floor',

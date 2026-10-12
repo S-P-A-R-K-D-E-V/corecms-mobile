@@ -28,7 +28,7 @@ import {
 // Bảng món tự do: tên + giá + số lượng + ghi chú (máy chủ lưu vào sản phẩm "Món khác").
 // ----------------------------------------------------------------------
 
-function Stepper({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (n: number) => void }) {
+export function Stepper({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (n: number) => void }) {
   return (
     <View className="flex-row items-center rounded-xl border border-line dark:border-line-dark">
       <Pressable disabled={value <= min} onPress={() => onChange(value - 1)} hitSlop={6} className="w-10 h-10 items-center justify-center">

@@ -24,6 +24,7 @@ import { newId } from './fnb-ids';
 import { useFnbFloor, useFnbMenu, useFnbSync, useNow } from './use-fnb';
 import { useFnbQueue } from './write-queue';
 import { AddTableSheet, SoldOutSheet } from './FnbSetupSheets';
+import { BatchSheet } from './BatchSheet';
 
 // ----------------------------------------------------------------------
 // Sơ đồ bàn F&B (thay màn Bán hàng khi chi nhánh đang làm việc là F&B và cửa hàng bật commerce.fnb.pos):
@@ -121,6 +122,7 @@ export function FnbFloorScreen() {
   const [branchPick, setBranchPick] = useState(false);
   const [addTable, setAddTable] = useState(false);
   const [soldOut, setSoldOut] = useState(false);
+  const [batch, setBatch] = useState(false);
   // Thêm bàn: Quản lý / Admin (BE kiểm tra lại). Hết món: mọi nhân viên.
   const canSetup = isManagerUser(user);
   const [width, setWidth] = useState(0);
@@ -164,6 +166,8 @@ export function FnbFloorScreen() {
 
   const headerActions: HeaderAction[] = [{ icon: 'shopping-outline', onPress: () => openNew(null) }];
   headerActions.push({ icon: 'food-off-outline', onPress: () => setSoldOut(true) });
+  // Việc kho của quầy (pha mẻ bán thành phẩm; xuất huỷ, kiểm kho sẽ thêm vào đây).
+  headerActions.push({ icon: 'beaker-outline', onPress: () => setBatch(true) });
   if (canSetup) headerActions.push({ icon: 'table-plus', onPress: () => setAddTable(true) });
   if (manyBranches) headerActions.push({ icon: 'store-marker-outline', onPress: () => setBranchPick(true) });
 
@@ -235,6 +239,7 @@ export function FnbFloorScreen() {
       {branchId ? (
         <SoldOutSheet visible={focused && soldOut} onClose={() => setSoldOut(false)} branchId={branchId} menu={menuQ.data} />
       ) : null}
+      {branchId ? <BatchSheet visible={focused && batch} onClose={() => setBatch(false)} branchId={branchId} /> : null}
     </View>
   );
 }

@@ -362,3 +362,50 @@ export interface IFnbSync {
   tickets: IKitchenTicket[];
   hasMore: boolean;
 }
+
+// ── Kho nguyên liệu trên app: pha mẻ bán thành phẩm ─────────────────────
+
+export interface IFnbBatchRecipeLine {
+  ingredientId: string;
+  /** Lượng cho MỘT mẻ, đơn vị gốc của nguyên liệu. */
+  quantity: number;
+}
+
+export interface IFnbBatchRecipeItem {
+  productId: string;
+  code: string;
+  name: string;
+  unit: string | null;
+  onHand: number;
+  /** Sản lượng một mẻ (đơn vị gốc); null = chưa có công thức mẻ. */
+  yieldQuantity: number | null;
+  /** Hạn của lô pha = ngày pha + số ngày này; null = không ghi hạn. */
+  shelfLifeDays: number | null;
+  note: string | null;
+  lines: IFnbBatchRecipeLine[];
+}
+
+export interface IFnbIngredientOption {
+  id: string;
+  code: string;
+  name: string;
+  unit: string | null;
+  onHand: number;
+}
+
+export interface IFnbBatchRecipeBook {
+  items: IFnbBatchRecipeItem[];
+  ingredients: IFnbIngredientOption[];
+}
+
+/** Phiếu pha mẻ vừa lập (phần app dùng). */
+export interface IFnbBatch {
+  id: string;
+  code: string;
+  productName: string;
+  unit: string | null;
+  batchCount: number;
+  actualYield: number;
+  expiryDate: string | null;
+  status: 'Completed' | 'Cancelled';
+}

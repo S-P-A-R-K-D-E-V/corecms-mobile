@@ -1,6 +1,6 @@
 import axios, { endpoints } from './axios';
 
-import type { IFnbFloor, IFnbMenu, IFnbSync, IOpenOrder } from 'src/types/fnb';
+import type { IFnbBatch, IFnbBatchRecipeBook, IFnbFloor, IFnbMenu, IFnbSync, IOpenOrder } from 'src/types/fnb';
 
 // ----------------------------------------------------------------------
 // Đọc F&B (contract 3.1, 4.1, 4.3, 5.2, 7). Lệnh ghi của ĐƠN không nằm ở đây — đi qua hàng đợi
@@ -55,4 +55,26 @@ export async function createFnbTable(data: { branchId: string; areaId: string; n
 export async function setFnbSoldOut(branchId: string, productId: string, isSoldOut: boolean) {
   const res = await axios.put(endpoints.fnb.soldOut, { branchId, productId, isSoldOut });
   return res.data as { productId: string; isSoldOut: boolean; menuVersion: string };
+}
+
+// ── Kho nguyên liệu: pha mẻ bán thành phẩm ──────────────────────────────
+
+/** Bán thành phẩm kèm công thức mẻ + nguyên liệu (tên, đơn vị, tồn của chi nhánh). */
+export async function getFnbBatchRecipes(branchId: string): Promise<IFnbBatchRecipeBook> {
+  const res = await axios.get<IFnbBatchRecipeBook>(endpoints.fnb.batchRecipes, { params: { branchId } });
+  return res.data;
+}
+
+/** Lập phiếu pha mẻ — ghi kho ngay. actualYield / expiryDate bỏ trống = theo công thức. Gửi lại cùng clientRequestId chỉ ra một phiếu. */
+export async function createFnbBatch(data: {
+  branchId: string;
+  clientRequestId: string;
+  productId: string;
+  batchCount: number;
+  actualYield?: number | null;
+  expiryDate?: string | null;
+  note?: string | null;
+}): Promise<IFnbBatch> {
+  const res = await axios.post<IFnbBatch>(endpoints.fnb.batches, data);
+  return res.data;
 }
