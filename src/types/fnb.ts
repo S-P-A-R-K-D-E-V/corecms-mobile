@@ -409,3 +409,35 @@ export interface IFnbBatch {
   expiryDate: string | null;
   status: 'Completed' | 'Cancelled';
 }
+
+// ── Kho nguyên liệu trên app: xuất huỷ ──────────────────────────────────
+
+/** Đơn vị quy đổi của một hàng (đơn vị mua): 1 đơn vị = `factor` đơn vị gốc. */
+export interface IFnbUnitOption {
+  unitId: string;
+  name: string;
+  factor: number;
+}
+
+/** Nguyên liệu trong báo cáo tồn của chi nhánh (phần app dùng). */
+export interface IFnbStockIngredient {
+  id: string;
+  code: string;
+  name: string;
+  unit: string | null;
+  onHand: number;
+  units?: IFnbUnitOption[];
+}
+
+export interface IFnbStockReport {
+  ingredients: IFnbStockIngredient[];
+}
+
+export type FnbDisposalReason = 'Expired' | 'Damaged' | 'Spilled' | 'BadMake' | 'Other';
+
+/** Phiếu xuất huỷ vừa lập (phần app dùng). Pending = chờ quản lý duyệt; Completed = đã trừ kho. */
+export interface IFnbDisposal {
+  id: string;
+  code: string;
+  status: 'Draft' | 'Pending' | 'Completed' | 'Cancelled';
+}

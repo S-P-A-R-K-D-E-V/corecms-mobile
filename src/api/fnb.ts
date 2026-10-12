@@ -1,6 +1,18 @@
 import axios, { endpoints } from './axios';
 
-import type { IFnbBatch, IFnbBatchRecipeBook, IFnbFloor, IFnbMenu, IFnbSync, IOpenOrder } from 'src/types/fnb';
+import { putToPresignedUrl, readLocalFile } from './presigned-upload';
+
+import type {
+  FnbDisposalReason,
+  IFnbBatch,
+  IFnbBatchRecipeBook,
+  IFnbDisposal,
+  IFnbFloor,
+  IFnbMenu,
+  IFnbStockReport,
+  IFnbSync,
+  IOpenOrder,
+} from 'src/types/fnb';
 
 // ----------------------------------------------------------------------
 // Đọc F&B (contract 3.1, 4.1, 4.3, 5.2, 7). Lệnh ghi của ĐƠN không nằm ở đây — đi qua hàng đợi
@@ -76,5 +88,43 @@ export async function createFnbBatch(data: {
   note?: string | null;
 }): Promise<IFnbBatch> {
   const res = await axios.post<IFnbBatch>(endpoints.fnb.batches, data);
+  return res.data;
+}
+
+// ── Kho nguyên liệu: xuất huỷ ───────────────────────────────────────────
+
+/** Tồn nguyên liệu của chi nhánh (kèm đơn vị quy đổi) — để chọn nguyên liệu khi xuất huỷ. */
+export async function getFnbStock(branchId: string): Promise<IFnbStockReport> {
+  const res = await axios.get<IFnbStockReport>(endpoints.fnb.stock, { params: { branchId } });
+  return res.data;
+}
+
+/** Ảnh chụp trên máy chờ tải lên. */
+export type DisposalPhoto = { uri: string; contentType: string; fileName: string };
+
+/** Tải ảnh hàng huỷ thẳng lên R2: xin URL ký sẵn rồi PUT từng ảnh; trả khoá ảnh để gửi kèm phiếu. */
+export async function uploadFnbDisposalPhotos(photos: DisposalPhoto[]): Promise<string[]> {
+  if (photos.length === 0) return [];
+  const res = await axios.post<{ objectKey: string; uploadUrl: string }[]>(endpoints.fnb.disposalPhotos, {
+    files: photos.map((p) => ({ fileName: p.fileName, contentType: p.contentType })),
+  });
+  await Promise.all(
+    res.data.map(async (slot, index) => {
+      const photo = photos[index];
+      await putToPresignedUrl(slot, await readLocalFile(photo.uri), photo.contentType);
+    })
+  );
+  return res.data.map((slot) => slot.objectKey);
+}
+
+/** Lập phiếu xuất huỷ. Nhân viên lập → Pending (chờ duyệt); quản lý lập → Completed (trừ kho ngay). */
+export async function createFnbDisposal(data: {
+  branchId: string;
+  clientRequestId: string;
+  note?: string | null;
+  photoKeys: string[];
+  lines: { productId: string; quantity: number; unitId: string | null; reason: FnbDisposalReason }[];
+}): Promise<IFnbDisposal> {
+  const res = await axios.post<IFnbDisposal>(endpoints.fnb.disposals, data);
   return res.data;
 }
