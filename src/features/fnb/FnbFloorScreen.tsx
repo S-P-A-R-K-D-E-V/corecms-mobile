@@ -26,6 +26,7 @@ import { useFnbQueue } from './write-queue';
 import { AddTableSheet, SoldOutSheet } from './FnbSetupSheets';
 import { BatchSheet } from './BatchSheet';
 import { DisposalSheet } from './DisposalSheet';
+import { StockCountSheet } from './StockCountSheet';
 
 // ----------------------------------------------------------------------
 // Sơ đồ bàn F&B (thay màn Bán hàng khi chi nhánh đang làm việc là F&B và cửa hàng bật commerce.fnb.pos):
@@ -125,6 +126,7 @@ export function FnbFloorScreen() {
   const [soldOut, setSoldOut] = useState(false);
   const [batch, setBatch] = useState(false);
   const [disposal, setDisposal] = useState(false);
+  const [stockCount, setStockCount] = useState(false);
   // Thêm bàn: Quản lý / Admin (BE kiểm tra lại). Hết món: mọi nhân viên.
   const canSetup = isManagerUser(user);
   const [width, setWidth] = useState(0);
@@ -168,7 +170,7 @@ export function FnbFloorScreen() {
 
   const headerActions: HeaderAction[] = [{ icon: 'shopping-outline', onPress: () => openNew(null) }];
   headerActions.push({ icon: 'food-off-outline', onPress: () => setSoldOut(true) });
-  // Việc kho của quầy gom vào một nút: pha mẻ bán thành phẩm, xuất huỷ nguyên liệu.
+  // Việc kho của quầy gom vào một nút: pha mẻ bán thành phẩm, xuất huỷ nguyên liệu, kiểm kho.
   headerActions.push({
     icon: 'package-variant-closed',
     onPress: () =>
@@ -177,6 +179,7 @@ export function FnbFloorScreen() {
         options: [
           { label: t('fnbStock.batchTitle'), icon: 'beaker-outline' as const, onPress: () => setBatch(true) },
           { label: t('fnbStock.disposalTitle'), icon: 'trash-can-outline' as const, onPress: () => setDisposal(true) },
+          { label: t('fnbStock.countTitle'), icon: 'clipboard-check-outline' as const, onPress: () => setStockCount(true) },
         ],
       }),
   });
@@ -253,6 +256,7 @@ export function FnbFloorScreen() {
       ) : null}
       {branchId ? <BatchSheet visible={focused && batch} onClose={() => setBatch(false)} branchId={branchId} /> : null}
       {branchId ? <DisposalSheet visible={focused && disposal} onClose={() => setDisposal(false)} branchId={branchId} /> : null}
+      {branchId ? <StockCountSheet visible={focused && stockCount} onClose={() => setStockCount(false)} branchId={branchId} /> : null}
     </View>
   );
 }

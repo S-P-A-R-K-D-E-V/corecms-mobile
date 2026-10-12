@@ -441,3 +441,31 @@ export interface IFnbDisposal {
   code: string;
   status: 'Draft' | 'Pending' | 'Completed' | 'Cancelled';
 }
+
+// ── Kho nguyên liệu trên app: kiểm kho ──────────────────────────────────
+
+export interface IFnbStockCountLine {
+  lineId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  unit: string | null;
+  units: IFnbUnitOption[];
+  isCounted: boolean;
+  /** Số đã đếm theo đơn vị gốc. */
+  countedQuantity: number | null;
+  /** Số hệ thống lúc đếm — null khi đếm mù (nhân viên). */
+  systemQuantity?: number | null;
+}
+
+/** Phiếu kiểm kho (phần app dùng). Draft = đang đếm; Pending = đã nộp, chờ quản lý duyệt. */
+export interface IFnbStockCount {
+  id: string;
+  code: string;
+  status: 'Draft' | 'Pending' | 'Completed' | 'Cancelled';
+  blind?: boolean;
+  totalLines?: number;
+  countedLines?: number;
+  /** Có ở phiếu đọc chi tiết; danh sách phiếu thì null. */
+  lines: IFnbStockCountLine[] | null;
+}

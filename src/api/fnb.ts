@@ -9,6 +9,7 @@ import type {
   IFnbDisposal,
   IFnbFloor,
   IFnbMenu,
+  IFnbStockCount,
   IFnbStockReport,
   IFnbSync,
   IOpenOrder,
@@ -126,5 +127,39 @@ export async function createFnbDisposal(data: {
   lines: { productId: string; quantity: number; unitId: string | null; reason: FnbDisposalReason }[];
 }): Promise<IFnbDisposal> {
   const res = await axios.post<IFnbDisposal>(endpoints.fnb.disposals, data);
+  return res.data;
+}
+
+// ── Kho nguyên liệu: kiểm kho ───────────────────────────────────────────
+
+/** Phiếu kiểm kho của chi nhánh theo trạng thái (mới nhất trước), không kèm dòng. */
+export async function getFnbStockCounts(branchId: string, status?: IFnbStockCount['status']): Promise<IFnbStockCount[]> {
+  const res = await axios.get<IFnbStockCount[]>(endpoints.fnb.stockCounts, { params: { branchId, status } });
+  return res.data;
+}
+
+export async function getFnbStockCount(id: string): Promise<IFnbStockCount> {
+  const res = await axios.get<IFnbStockCount>(endpoints.fnb.stockCount(id));
+  return res.data;
+}
+
+/** Lập phiếu kiểm nháp: Recipe = nguyên liệu có trong định lượng, All = mọi nguyên liệu. */
+export async function createFnbStockCount(data: { branchId: string; scope: 'Recipe' | 'All'; note?: string | null }): Promise<IFnbStockCount> {
+  const res = await axios.post<IFnbStockCount>(endpoints.fnb.stockCounts, data);
+  return res.data;
+}
+
+/** Lưu số đếm: mỗi dòng gồm các phần theo đơn vị (unitId null = đơn vị gốc); parts rỗng = xoá số đếm. */
+export async function saveFnbStockCount(
+  id: string,
+  entries: { lineId: string; parts: { unitId: string | null; quantity: number }[] }[]
+): Promise<IFnbStockCount> {
+  const res = await axios.put<IFnbStockCount>(endpoints.fnb.stockCountEntries(id), { entries });
+  return res.data;
+}
+
+/** Nộp phiếu kiểm để quản lý duyệt. */
+export async function submitFnbStockCount(id: string, note?: string | null): Promise<IFnbStockCount> {
+  const res = await axios.post<IFnbStockCount>(endpoints.fnb.stockCountReview(id), { action: 'submit', note });
   return res.data;
 }
