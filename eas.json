@@ -67,8 +67,8 @@
         "appleTeamId": "FVS6S6U8V4"
       },
       "android": {
-        "track": "internal",
-        "releaseStatus": "draft"
+        "track": "production",
+        "releaseStatus": "completed"
       }
     }
   }

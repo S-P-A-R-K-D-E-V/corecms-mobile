@@ -8,14 +8,17 @@
 // trong eas.json — chủ app tạo app trên App Store Connect rồi điền.
 //
 //   npm run submit:store:ios -- --id <buildId>
-//   npm run submit:store:android -- --id <buildId>   (Google Play: app phải được tạo sẵn trên Play Console, bản AAB
-//     đầu tiên tải lên bằng tay, và EAS có khoá service account của Google Play)
+//   npm run submit:store:android -- --id <buildId>   (Google Play: gửi thẳng vào kênh Phát hành công khai, phát hành đầy
+//     đủ và gửi Google xem xét ngay — xem eas.json; EAS phải có khoá service account được cấp quyền phát hành app này)
+//
+// Giống script build: repo commit sẵn android/ của app CiCi, nên nếu không che thư mục đó thì eas-cli đọc package
+// com.corecms.mobile và dùng nhầm khoá Google Play của CiCi. Script tạm tạo .easignore (/android, /ios) rồi xoá.
 //   (tham số thêm được chuyển thẳng cho eas submit, vd --non-interactive)
 // ----------------------------------------------------------------------
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 
-// Tham số đầu: ios (mặc định) | android. Android gửi vào kênh Internal testing ở dạng nháp (eas.json).
+// Tham số đầu: ios (mặc định) | android.
 const raw = process.argv.slice(2);
 const platform = raw[0] === 'android' || raw[0] === 'ios' ? raw.shift() : 'ios';
 const args = raw;
@@ -37,9 +40,26 @@ if (platform === 'android' && !eas.submit?.['store-production']?.android) {
   process.exit(1);
 }
 
-const result = spawnSync(
-  'npx',
-  ['-y', 'eas-cli@latest', 'submit', '--platform', platform, '--profile', 'store-production', ...args],
-  { stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, APP_VARIANT: 'store' } }
+if (existsSync('.easignore')) {
+  console.error('.easignore đã tồn tại — kiểm tra lại trước khi chạy (script sẽ ghi đè rồi xoá nó).');
+  process.exit(1);
+}
+writeFileSync(
+  '.easignore',
+  `${readFileSync('.gitignore', 'utf8')}
+# Tạm thời (scripts/eas-store-submit.mjs): để eas-cli đọc package của bản cửa hàng từ app.config.ts.
+/android
+/ios
+`
 );
-process.exitCode = result.status ?? 1;
+
+try {
+  const result = spawnSync(
+    'npx',
+    ['-y', 'eas-cli@latest', 'submit', '--platform', platform, '--profile', 'store-production', ...args],
+    { stdio: 'inherit', shell: process.platform === 'win32', env: { ...process.env, APP_VARIANT: 'store' } }
+  );
+  process.exitCode = result.status ?? 1;
+} finally {
+  rmSync('.easignore', { force: true });
+}
