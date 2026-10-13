@@ -34,7 +34,7 @@
         "EXPO_PUBLIC_PRIVACY_URL": "https://auth.devbyspark.com/privacy-policy/",
         "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn",
         "STORE_APP_NAME": "Spark Store",
-        "STORE_APP_VERSION": "1.0.0"
+        "STORE_APP_VERSION": "1.0.1"
       },
       "android": {
         "buildType": "apk"
@@ -50,7 +50,7 @@
         "EXPO_PUBLIC_PRIVACY_URL": "https://auth.devbyspark.com/privacy-policy/",
         "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn",
         "STORE_APP_NAME": "Spark Store",
-        "STORE_APP_VERSION": "1.0.0"
+        "STORE_APP_VERSION": "1.0.1"
       }
     }
   },
