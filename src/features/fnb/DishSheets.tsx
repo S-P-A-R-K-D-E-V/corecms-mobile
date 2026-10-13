@@ -21,10 +21,12 @@ import {
   MAX_QUICK_NOTES,
   MAX_TOPPING_QTY,
   type DraftLine,
+  type LineSeed,
 } from './draft';
 
 // ----------------------------------------------------------------------
-// Bảng chọn món: size, món thêm (số phần cho MỘT ly / phần), ghi chú nhanh, ghi chú tự gõ, số lượng.
+// Bảng chọn món: size, món thêm (số phần cho MỘT ly / phần), ghi chú nhanh, ghi chú tự gõ, số lượng. Cũng dùng để SỬA
+// một dòng chưa gửi (`editing`): mở với đúng lựa chọn của dòng, nút thành "Lưu".
 // Bảng món tự do: tên + giá + số lượng + ghi chú (máy chủ lưu vào sản phẩm "Món khác").
 // ----------------------------------------------------------------------
 
@@ -47,18 +49,28 @@ const inputClass = 'min-h-11 px-3 rounded-2xl border border-line dark:border-lin
 export function DishOptionsSheet({
   menu,
   dish,
+  editing = null,
+  notice = null,
   onClose,
   onAdd,
 }: {
   menu: IFnbMenu | undefined;
   dish: IMenuDish | null;
+  /** Lựa chọn của dòng đang sửa; null = thêm món mới. */
+  editing?: LineSeed | null;
+  /** Dòng nhắc ở đầu bảng (vd dòng đang có giá sửa tay). */
+  notice?: string | null;
   onClose: () => void;
   onAdd: (line: DraftLine) => void;
 }) {
   const variants = useMemo(() => (dish ? sortedVariants(dish) : []), [dish]);
   // Combo không nhận món thêm.
   const toppings = useMemo(() => (dish && !dish.combo ? allowedToppings(menu, dish) : []), [menu, dish]);
-  const notes = useMemo(() => quickNotesFor(menu, dish), [menu, dish]);
+  // Ghi chú nhanh của thực đơn, cộng ghi chú dòng đang giữ mà thực đơn không còn (để không lặng lẽ giữ hay làm mất).
+  const noteTexts = useMemo(() => {
+    const texts = quickNotesFor(menu, dish).map((n) => n.text);
+    return [...texts, ...(editing?.quickNotes ?? []).filter((x) => !texts.includes(x))];
+  }, [menu, dish, editing]);
 
   const [variantId, setVariantId] = useState<string | null>(null);
   const [topQty, setTopQty] = useState<Record<string, number>>({});
@@ -70,13 +82,15 @@ export function DishOptionsSheet({
 
   useEffect(() => {
     if (!dish) return;
-    setVariantId(defaultVariant(dish)?.productId ?? null);
-    setTopQty({});
-    setChoices({});
-    setPicked([]);
-    setNote('');
-    setQty(1);
-  }, [dish]);
+    // Size của dòng đang sửa không còn trên thực đơn thì về size mặc định.
+    const kept = editing && dish.variants.some((v) => v.productId === editing.variantId) ? editing.variantId : null;
+    setVariantId(kept ?? defaultVariant(dish)?.productId ?? null);
+    setTopQty(editing?.toppings ?? {});
+    setChoices(editing?.choices ?? {});
+    setPicked(editing?.quickNotes ?? []);
+    setNote(editing?.note ?? '');
+    setQty(editing?.quantity ?? 1);
+  }, [dish, editing]);
 
   const variant = variants.find((v) => v.productId === variantId) ?? null;
   const components = dish ? comboComponents(dish, choices) : [];
@@ -104,14 +118,16 @@ export function DishOptionsSheet({
         <View className="flex-row items-center gap-3">
           <Stepper value={qty} min={1} max={MAX_QTY} onChange={setQty} />
           <View className="flex-1">
-            <Button icon="plus" disabled={!preview} onPress={() => preview && onAdd(preview)}>
-              {t('fnb.addToOrder', { amount: money(preview ? draftAmount(preview) : 0) })}
+            <Button icon={editing ? 'check' : 'plus'} disabled={!preview} onPress={() => preview && onAdd(preview)}>
+              {t(editing ? 'fnb.saveLine' : 'fnb.addToOrder', { amount: money(preview ? draftAmount(preview) : 0) })}
             </Button>
           </View>
         </View>
       }
     >
       <View className="gap-4">
+        {notice ? <Text variant="caption" tone="warning">{notice}</Text> : null}
+
         {variants.length > 1 ? (
           <View className="gap-2">
             <Text variant="label" tone="muted">{t('fnb.size')}</Text>
@@ -192,20 +208,20 @@ export function DishOptionsSheet({
           </View>
         ) : null}
 
-        {notes.length ? (
+        {noteTexts.length ? (
           <View className="gap-2">
             <Text variant="label" tone="muted">{t('fnb.quickNotes')}</Text>
             <View className="flex-row flex-wrap gap-2">
-              {notes.map((n) => {
-                const on = picked.includes(n.text);
+              {noteTexts.map((text, i) => {
+                const on = picked.includes(text);
                 return (
                   <Chip
-                    key={n.id}
-                    label={n.text}
+                    key={`${i}-${text}`}
+                    label={text}
                     selected={on}
                     color="primary"
                     onPress={() =>
-                      setPicked((p) => (on ? p.filter((x) => x !== n.text) : p.length < MAX_QUICK_NOTES ? [...p, n.text] : p))
+                      setPicked((p) => (on ? p.filter((x) => x !== text) : p.length < MAX_QUICK_NOTES ? [...p, text] : p))
                     }
                   />
                 );

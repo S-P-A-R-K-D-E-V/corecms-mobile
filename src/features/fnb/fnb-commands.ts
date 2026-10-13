@@ -100,6 +100,28 @@ export function removePendingLineCmd(ctx: CommandCtx, orderId: string, line: IOp
   };
 }
 
+/**
+ * 5.6 Sửa một dòng món chưa gửi: thay cả nội dung dòng (cùng món — đổi size, món thêm, lựa chọn combo, ghi chú, số
+ * lượng). Không kiểm phiên bản; máy chủ đọc lại giá từ thực đơn nên giá sửa tay của dòng (nếu có) bị bỏ.
+ */
+export function replaceLineCmd(ctx: CommandCtx, orderId: string, lineId: string, input: ItemLineInput): QueueInput {
+  return {
+    kind: 'replaceLine',
+    orderIds: [orderId],
+    method: 'PUT',
+    path: endpoints.fnb.orderLine(orderId, lineId),
+    body: {
+      ...envelope(ctx),
+      productId: input.productId,
+      quantity: input.quantity,
+      toppings: input.toppings,
+      quickNotes: input.quickNotes,
+      note: input.note,
+      ...(input.components && { components: input.components }),
+    },
+  };
+}
+
 /** 5.7 Gửi bar các dòng đang giữ (`lineIds: null` = tất cả). */
 export function sendCmd(ctx: CommandCtx, orderId: string, ticketId: string, lineIds: string[] | null = null): QueueInput {
   return {

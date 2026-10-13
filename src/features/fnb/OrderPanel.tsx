@@ -50,7 +50,20 @@ function SectionTitle({ icon, label, right, tone = 'muted' }: { icon: any; label
   );
 }
 
-function ServerLine({ line, onPress, right }: { line: IOrderLine; onPress?: () => void; right?: React.ReactNode }) {
+/** Bút chì nhỏ sau tên: dòng này bấm vào để sửa. */
+const EditHint = () => <Icon name="pencil-outline" size={13} tone="faint" />;
+
+function ServerLine({
+  line,
+  onPress,
+  right,
+  editable,
+}: {
+  line: IOrderLine;
+  onPress?: () => void;
+  right?: React.ReactNode;
+  editable?: boolean;
+}) {
   const voided = line.quantity === 0;
   return (
     <Pressable disabled={!onPress} onPress={onPress} className="flex-row items-start gap-2 py-1.5">
@@ -58,9 +71,12 @@ function ServerLine({ line, onPress, right }: { line: IOrderLine; onPress?: () =
         {voided ? line.orderedQuantity : line.quantity}×
       </Text>
       <View className="flex-1">
-        <Text variant="bodySmall" className={cn('font-semibold', voided && 'line-through')} tone={voided ? 'faint' : 'default'}>
-          {lineTitle(line)}
-        </Text>
+        <View className="flex-row items-center gap-1">
+          <Text variant="bodySmall" className={cn('font-semibold shrink', voided && 'line-through')} tone={voided ? 'faint' : 'default'}>
+            {lineTitle(line)}
+          </Text>
+          {editable ? <EditHint /> : null}
+        </View>
         <Extras toppings={line.toppings} quickNotes={line.quickNotes} note={line.note} components={line.components} />
         {line.voidedQuantity > 0 ? <Text variant="caption" tone="error">{t('fnb.voidedQty', { n: line.voidedQuantity })}</Text> : null}
       </View>
@@ -75,6 +91,8 @@ export function OrderPanel({
   outbox,
   attention,
   onDraftQty,
+  onEditDraft,
+  onEditPending,
   onRemovePending,
   onVoidLine,
   onDiscardAttention,
@@ -84,6 +102,9 @@ export function OrderPanel({
   outbox: { draft: DraftLine; state: QueueEntry['state'] }[];
   attention: QueueEntry[];
   onDraftQty: (id: string, qty: number) => void;
+  /** Sửa lựa chọn của một món đang chọn / một dòng chưa gửi bar (chỉ món của thực đơn). */
+  onEditDraft: (line: DraftLine) => void;
+  onEditPending: (line: IOrderLine) => void;
   onRemovePending: (line: IOrderLine) => void;
   onVoidLine: (line: IOrderLine) => void;
   onDiscardAttention: () => void;
@@ -124,11 +145,19 @@ export function OrderPanel({
             <View key={d.id}>
               {i > 0 ? <Divider /> : null}
               <View className="flex-row items-center gap-2 py-2">
-                <View className="flex-1">
-                  <Text variant="bodySmall" className="font-semibold">{lineTitle(d)}</Text>
+                <Pressable
+                  className="flex-1"
+                  disabled={d.lineType !== 'Item'}
+                  onPress={() => onEditDraft(d)}
+                  accessibilityLabel={t('fnb.editLine')}
+                >
+                  <View className="flex-row items-center gap-1">
+                    <Text variant="bodySmall" className="font-semibold shrink">{lineTitle(d)}</Text>
+                    {d.lineType === 'Item' ? <EditHint /> : null}
+                  </View>
                   <Extras toppings={d.toppings} quickNotes={d.quickNotes} note={d.note} components={d.components} />
                   <Text variant="caption" tone="muted">{money(draftAmount(d))}</Text>
-                </View>
+                </Pressable>
                 <QtyStepper value={d.quantity} onChange={(n) => onDraftQty(d.id, n)} />
               </View>
             </View>
@@ -159,6 +188,8 @@ export function OrderPanel({
             <ServerLine
               key={l.id}
               line={l}
+              editable={l.lineType === 'Item'}
+              onPress={l.lineType === 'Item' ? () => onEditPending(l) : undefined}
               right={
                 <Pressable onPress={() => onRemovePending(l)} hitSlop={8} accessibilityLabel={t('fnb.removeLine')}>
                   <Icon name="trash-can-outline" size={18} tone="error" />

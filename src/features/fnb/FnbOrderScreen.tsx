@@ -20,7 +20,18 @@ import { money } from 'src/features/erp/shared';
 import { PaymentPanel, type PaymentState } from 'src/features/pos/PaymentPanel';
 import { checkoutPlan } from './checkout-plan';
 import { DishOptionsSheet, OpenItemSheet } from './DishSheets';
-import { addDraft, draftCount, draftTotal, itemDraft, setDraftQty, toLineInput, type DraftLine } from './draft';
+import {
+  addDraft,
+  draftCount,
+  draftTotal,
+  itemDraft,
+  lineSeed,
+  replaceDraft,
+  setDraftQty,
+  toLineInput,
+  type DraftLine,
+  type LineSeed,
+} from './draft';
 import {
   addLinesCmd,
   billCmd,
@@ -29,6 +40,7 @@ import {
   moveCmd,
   openOrderCmd,
   removePendingLineCmd,
+  replaceLineCmd,
   sendCmd,
   voidCmd,
 } from './fnb-commands';
@@ -68,6 +80,16 @@ import { openOrderScreen, type OrderRouteParams } from './FnbFloorScreen';
 const EMPTY: DraftLine[] = [];
 
 type Panel = 'order' | 'pay' | 'void' | 'move' | 'cancel' | 'discount' | 'price' | 'customer' | null;
+
+/** Dòng đang sửa trong bảng chọn món: một món đang chọn trên máy (`draftId`) hoặc một dòng chưa gửi bar (`line`). */
+type Editing = {
+  dish: IMenuDish;
+  seed: LineSeed;
+  draftId: string | null;
+  line: IOrderLine | null;
+  /** Điện thoại: mở từ bảng đơn thì xong việc mở lại bảng đơn. */
+  backToOrder: boolean;
+};
 
 export function FnbOrderScreen() {
   const params = useLocalSearchParams<OrderRouteParams>();
@@ -127,6 +149,7 @@ export function FnbOrderScreen() {
 
   const [panel, setPanel] = useState<Panel>(null);
   const [optionsOf, setOptionsOf] = useState<IMenuDish | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const [openItem, setOpenItem] = useState(false);
   const [voidLine, setVoidLine] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentState | null>(null);
@@ -151,6 +174,43 @@ export function FnbOrderScreen() {
     if (dishNeedsOptions(menuQ.data, dish)) return setOptionsOf(dish);
     const v = defaultVariant(dish);
     if (v) addLine(itemDraft(dish, v));
+  }
+
+  // ── Sửa dòng chưa gửi ──────────────────────────────────────────────────
+
+  // Mở lại bảng chọn món với đúng lựa chọn của dòng. Trên điện thoại bảng đơn phải đóng trước (hai bảng trượt không
+  // chồng lên nhau được), sửa xong thì mở lại.
+  function startEdit(source: DraftLine | IOrderLine, target: { draftId: string } | { line: IOrderLine }) {
+    if (closed) return;
+    const dish = menuQ.data?.dishes.find((d) => d.id === source.dishId);
+    if (!dish) return toast.info(t('fnb.dishGone'));
+    const backToOrder = !split && panel === 'order';
+    if (backToOrder) setPanel(null);
+    setEditing({
+      dish,
+      seed: lineSeed(source),
+      draftId: 'draftId' in target ? target.draftId : null,
+      line: 'line' in target ? target.line : null,
+      backToOrder,
+    });
+  }
+
+  function closeEdit() {
+    if (editing?.backToOrder) setPanel('order');
+    setEditing(null);
+  }
+
+  async function saveEdit(next: DraftLine) {
+    const target = editing;
+    closeEdit();
+    if (!target) return;
+    if (target.draftId) {
+      setDraft(orderId, replaceDraft(useFnb.getState().drafts[orderId] ?? EMPTY, target.draftId, next));
+    } else if (target.line) {
+      const input = toLineInput(next);
+      if (input.lineType === 'Item') await enqueueFnb(replaceLineCmd(commandCtx(), orderId, target.line.id, input));
+    }
+    haptics.light();
   }
 
   // ── Lệnh ghi ───────────────────────────────────────────────────────────
@@ -298,6 +358,8 @@ export function FnbOrderScreen() {
       outbox={outbox}
       attention={attention}
       onDraftQty={(id, n) => setDraft(orderId, setDraftQty(drafts, id, n))}
+      onEditDraft={(d) => startEdit(d, { draftId: d.id })}
+      onEditPending={(l) => startEdit(l, { line: l })}
       onRemovePending={removePending}
       onVoidLine={(l) => {
         if (!needSynced()) return;
@@ -460,9 +522,12 @@ export function FnbOrderScreen() {
       <CustomerSheet order={order} visible={panel === 'customer'} onClose={() => setPanel(null)} onConfirm={doCustomer} />
       <DishOptionsSheet
         menu={menuQ.data}
-        dish={optionsOf}
-        onClose={() => setOptionsOf(null)}
+        dish={editing?.dish ?? optionsOf}
+        editing={editing?.seed ?? null}
+        notice={editing?.line?.priceOverride ? t('fnb.editResetsPrice') : null}
+        onClose={() => (editing ? closeEdit() : setOptionsOf(null))}
         onAdd={(line) => {
+          if (editing) return void saveEdit(line);
           addLine(line);
           setOptionsOf(null);
         }}

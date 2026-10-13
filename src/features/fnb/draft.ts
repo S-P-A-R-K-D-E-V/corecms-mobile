@@ -156,6 +156,46 @@ export function addDraft(lines: readonly DraftLine[], line: DraftLine): DraftLin
   return lines.map((l) => (l === same ? { ...l, quantity: clamp(l.quantity + line.quantity, 1, MAX_QTY) } : l));
 }
 
+/** Lựa chọn hiện có của một dòng, để mở lại bảng chọn món khi SỬA dòng đó (món đang chọn hoặc dòng chưa gửi bar). */
+export type LineSeed = {
+  variantId: string | null;
+  quantity: number;
+  /** Món thêm: productId → số phần cho một ly. */
+  toppings: Record<string, number>;
+  /** Combo: nhóm → productId đã chọn. */
+  choices: Record<string, string>;
+  quickNotes: string[];
+  note: string;
+};
+
+export function lineSeed(line: {
+  productId: string | null;
+  quantity: number;
+  toppings: readonly { productId: string; quantity: number }[];
+  components?: readonly { groupId: string; productId: string }[];
+  quickNotes: readonly string[];
+  note: string | null;
+}): LineSeed {
+  return {
+    variantId: line.productId,
+    quantity: clamp(line.quantity, 1, MAX_QTY),
+    toppings: Object.fromEntries(line.toppings.map((t) => [t.productId, t.quantity])),
+    choices: Object.fromEntries((line.components ?? []).map((c) => [c.groupId, c.productId])),
+    quickNotes: [...line.quickNotes],
+    note: line.note ?? '',
+  };
+}
+
+/** Thay một món đang chọn bằng bản đã sửa (giữ id và vị trí); trùng hệt một dòng khác thì gộp số lượng vào dòng đó. */
+export function replaceDraft(lines: readonly DraftLine[], id: string, next: DraftLine): DraftLine[] {
+  if (!lines.some((l) => l.id === id)) return [...lines];
+  const same = lines.find((l) => l.id !== id && sameDraft(l, next));
+  if (!same) return lines.map((l) => (l.id === id ? { ...next, id } : l));
+  return lines
+    .filter((l) => l.id !== id)
+    .map((l) => (l === same ? { ...l, quantity: clamp(l.quantity + next.quantity, 1, MAX_QTY) } : l));
+}
+
 /** Đổi số lượng; về 0 thì bỏ dòng. */
 export function setDraftQty(lines: readonly DraftLine[], id: string, quantity: number): DraftLine[] {
   if (quantity <= 0) return lines.filter((l) => l.id !== id);
