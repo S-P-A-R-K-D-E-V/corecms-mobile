@@ -427,6 +427,10 @@ export interface IFnbStockIngredient {
   unit: string | null;
   onHand: number;
   units?: IFnbUnitOption[];
+  /** out = hết, low = sắp hết, ok, idle = không dùng gần đây. */
+  status?: string;
+  /** Số ngày còn đủ theo lượng dùng gần đây; null = không ước được. */
+  daysLeft?: number | null;
 }
 
 export interface IFnbStockReport {
@@ -468,4 +472,26 @@ export interface IFnbStockCount {
   countedLines?: number;
   /** Có ở phiếu đọc chi tiết; danh sách phiếu thì null. */
   lines: IFnbStockCountLine[] | null;
+}
+
+// ── Kho nguyên liệu trên app: hạn dùng theo lô ──────────────────────────
+
+export interface IFnbLot {
+  id: string;
+  productName: string;
+  unit: string | null;
+  /** Nhãn lô (số phiếu nhập / phiếu pha). */
+  label: string | null;
+  /** yyyy-MM-dd; null = lô không ghi hạn. */
+  expiryDate: string | null;
+  /** Số ngày tới hạn (âm = đã quá hạn). */
+  daysLeft: number | null;
+  remaining: number;
+}
+
+export interface IFnbLotsReport {
+  today: string;
+  /** Còn không quá số ngày này thì coi là sắp hết hạn. */
+  expiringDays: number;
+  lots: IFnbLot[];
 }

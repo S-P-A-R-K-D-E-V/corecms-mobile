@@ -8,6 +8,7 @@ import type {
   IFnbBatchRecipeBook,
   IFnbDisposal,
   IFnbFloor,
+  IFnbLotsReport,
   IFnbMenu,
   IFnbStockCount,
   IFnbStockReport,
@@ -161,5 +162,11 @@ export async function saveFnbStockCount(
 /** Nộp phiếu kiểm để quản lý duyệt. */
 export async function submitFnbStockCount(id: string, note?: string | null): Promise<IFnbStockCount> {
   const res = await axios.post<IFnbStockCount>(endpoints.fnb.stockCountReview(id), { action: 'submit', note });
+  return res.data;
+}
+
+/** Lô nguyên liệu còn hàng của chi nhánh kèm hạn dùng. */
+export async function getFnbLots(branchId: string): Promise<IFnbLotsReport> {
+  const res = await axios.get<IFnbLotsReport>(endpoints.fnb.stockLots, { params: { branchId } });
   return res.data;
 }

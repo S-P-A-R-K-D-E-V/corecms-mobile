@@ -27,6 +27,7 @@ import { AddTableSheet, SoldOutSheet } from './FnbSetupSheets';
 import { BatchSheet } from './BatchSheet';
 import { DisposalSheet } from './DisposalSheet';
 import { StockCountSheet } from './StockCountSheet';
+import { StockSheet } from './StockSheet';
 
 // ----------------------------------------------------------------------
 // Sơ đồ bàn F&B (thay màn Bán hàng khi chi nhánh đang làm việc là F&B và cửa hàng bật commerce.fnb.pos):
@@ -127,6 +128,7 @@ export function FnbFloorScreen() {
   const [batch, setBatch] = useState(false);
   const [disposal, setDisposal] = useState(false);
   const [stockCount, setStockCount] = useState(false);
+  const [stockView, setStockView] = useState(false);
   // Thêm bàn: Quản lý / Admin (BE kiểm tra lại). Hết món: mọi nhân viên.
   const canSetup = isManagerUser(user);
   const [width, setWidth] = useState(0);
@@ -177,6 +179,7 @@ export function FnbFloorScreen() {
       void showActionSheet({
         title: t('fnbStock.menuTitle'),
         options: [
+          { label: t('fnbStock.stockTitle'), icon: 'warehouse' as const, onPress: () => setStockView(true) },
           { label: t('fnbStock.batchTitle'), icon: 'beaker-outline' as const, onPress: () => setBatch(true) },
           { label: t('fnbStock.disposalTitle'), icon: 'trash-can-outline' as const, onPress: () => setDisposal(true) },
           { label: t('fnbStock.countTitle'), icon: 'clipboard-check-outline' as const, onPress: () => setStockCount(true) },
@@ -257,6 +260,7 @@ export function FnbFloorScreen() {
       {branchId ? <BatchSheet visible={focused && batch} onClose={() => setBatch(false)} branchId={branchId} /> : null}
       {branchId ? <DisposalSheet visible={focused && disposal} onClose={() => setDisposal(false)} branchId={branchId} /> : null}
       {branchId ? <StockCountSheet visible={focused && stockCount} onClose={() => setStockCount(false)} branchId={branchId} /> : null}
+      {branchId ? <StockSheet visible={focused && stockView} onClose={() => setStockView(false)} branchId={branchId} /> : null}
     </View>
   );
 }

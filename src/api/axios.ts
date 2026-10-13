@@ -383,6 +383,7 @@ export const endpoints = {
     batchRecipes: '/fnb/batch-recipes',
     batches: '/fnb/batches',
     stock: '/fnb/stock',
+    stockLots: '/fnb/stock/lots',
     disposals: '/fnb/disposals',
     disposalPhotos: '/fnb/disposals/photos',
     stockCounts: '/fnb/stock-counts',
