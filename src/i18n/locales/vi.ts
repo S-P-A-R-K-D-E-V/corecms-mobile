@@ -605,6 +605,8 @@ export const vi = {
     addProduct: 'Thêm hàng',
     qty: 'SL',
     unitCost: 'Giá nhập',
+    expiryPlaceholder: 'Hạn dùng (ngày/tháng/năm)',
+    expiryInvalid: 'Hạn dùng chưa đúng, ví dụ 31/12/2026',
     ordered: 'Đặt {n}',
     receivedOf: 'Nhận {received}/{ordered}',
     createPo: 'Lưu phiếu tạm',

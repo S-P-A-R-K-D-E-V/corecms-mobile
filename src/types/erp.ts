@@ -310,5 +310,6 @@ export interface ICreatePurchaseOrderRequest {
   note?: string;
   expectedDate?: string;
   discountAmount: number;
-  items: { productId: string; quantity: number; unitPrice: number; vatRate: number; discountAmount: number; note?: string }[];
+  // unitId null / thiếu = đơn vị gốc; quantity và unitPrice theo đơn vị đã chọn; expiryDate yyyy-MM-dd.
+  items: { unitId?: string | null; expiryDate?: string | null; productId: string; quantity: number; unitPrice: number; vatRate: number; discountAmount: number; note?: string }[];
 }

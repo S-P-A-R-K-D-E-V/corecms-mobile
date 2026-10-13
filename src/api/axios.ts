@@ -358,6 +358,7 @@ export const endpoints = {
     list: '/products',
     details: (id: string) => `/products/${id}`,
     children: (id: string) => `/products/${id}/children`,
+    units: (id: string) => `/products/${id}/units`,
     stockAdjustments: (id: string) => `/products/${id}/stock-adjustments`,
   },
   categories: { list: '/categories' },

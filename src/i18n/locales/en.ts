@@ -604,6 +604,8 @@ export const en: Dict = {
     addProduct: 'Add product',
     qty: 'Qty',
     unitCost: 'Unit cost',
+    expiryPlaceholder: 'Expiry (day/month/year)',
+    expiryInvalid: 'Invalid expiry date, e.g. 31/12/2026',
     ordered: '{n} ordered',
     receivedOf: '{received}/{ordered} received',
     createPo: 'Save draft',

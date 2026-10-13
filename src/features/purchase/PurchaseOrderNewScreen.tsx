@@ -5,24 +5,36 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useColorScheme } from 'nativewind';
 
 import { Screen, AppHeader, SectionCard, Sheet, EmptyState } from 'src/components/shared';
-import { Text, Icon, Pressable, Button, Divider, Chip, Spinner } from 'src/components/ui';
+import { Text, Icon, Pressable, Button, Divider, Chip, Spinner, TextField } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { brand, grey } from 'src/theme';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
-import { createPurchaseOrder, getSuppliers, getWarehouses } from 'src/api/erp';
+import { createPurchaseOrder, getProductUnits, getSuppliers, getWarehouses } from 'src/api/erp';
 import { t } from 'src/i18n';
 import type { IProductListItem, ISupplier } from 'src/types/erp';
 
 import { SearchBar, avgCost, money, useDebounced } from 'src/features/erp/shared';
 import { useProductSearch } from 'src/features/products/hooks';
+import { baseQuantity, defaultUnit, parseDecimal, parseExpiry, unitOptions, type PurchaseUnit } from './purchase-units';
 
 // ----------------------------------------------------------------------
 // Tạo phiếu nhập (lưu phiếu tạm): nhà cung cấp, kho, các mặt hàng + số lượng + giá nhập (gợi ý giá vốn
 // hiện tại). Xác nhận / nhận hàng làm ở trang chi tiết.
 // ----------------------------------------------------------------------
 
-type Line = { productId: string; name: string; code: string; qty: number; cost: number };
+/** qty / cost theo đơn vị đang chọn (`unit` null = đơn vị gốc, chưa tải xong đơn vị của hàng); expiryText: ô hạn dùng. */
+type Line = {
+  productId: string;
+  name: string;
+  code: string;
+  qty: number;
+  qtyText: string;
+  cost: number;
+  unit: PurchaseUnit | null;
+  units: PurchaseUnit[];
+  expiryText: string;
+};
 
 /** Hàng có biến thể → mỗi biến thể là 1 dòng chọn được (nhập kho theo row con). */
 function pickables(items: IProductListItem[]) {
@@ -81,7 +93,8 @@ export function PurchaseOrderNewScreen() {
   const products = useMemo(() => pickables(productsQ.data?.pages.flatMap((p) => p.items) ?? []), [productsQ.data]);
 
   const total = lines.reduce((s, l) => s + l.qty * l.cost, 0);
-  const valid = !!supplier && !!warehouse && lines.length > 0 && lines.every((l) => l.qty > 0);
+  const valid =
+    !!supplier && !!warehouse && lines.length > 0 && lines.every((l) => l.qty > 0 && parseExpiry(l.expiryText) !== undefined);
 
   const save = useMutation({
     mutationFn: () =>
@@ -90,7 +103,15 @@ export function PurchaseOrderNewScreen() {
         warehouseId: warehouse!.id,
         note: note.trim() || undefined,
         discountAmount: 0,
-        items: lines.map((l) => ({ productId: l.productId, quantity: l.qty, unitPrice: l.cost, vatRate: 0, discountAmount: 0 })),
+        items: lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.qty,
+          unitPrice: l.cost,
+          vatRate: 0,
+          discountAmount: 0,
+          unitId: l.unit?.unitId ?? null,
+          expiryDate: parseExpiry(l.expiryText) ?? null,
+        })),
       }),
     onSuccess: (res) => {
       haptics.success();
@@ -103,8 +124,23 @@ export function PurchaseOrderNewScreen() {
 
   function addLine(p: { id: string; name: string; code: string; cost: number }) {
     haptics.light();
-    setLines((ls) => (ls.some((l) => l.productId === p.id) ? ls.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + 1 } : l)) : [...ls, { productId: p.id, name: p.name, code: p.code, qty: 1, cost: Math.round(p.cost) }]));
+    const known = lines.some((l) => l.productId === p.id);
+    setLines((ls) =>
+      known
+        ? ls.map((l) => (l.productId === p.id ? { ...l, qty: l.qty + 1, qtyText: String(l.qty + 1).replace('.', ',') } : l))
+        : [...ls, { productId: p.id, name: p.name, code: p.code, qty: 1, qtyText: '1', cost: Math.round(p.cost), unit: null, units: [], expiryText: '' }]
+    );
     setPicker(null);
+    // Đơn vị mua của hàng (thùng, gói…): tải xong thì chọn sẵn đơn vị nhập mặc định; giá gợi ý (giá vốn một đơn vị gốc)
+    // nhân theo hệ số. Lỗi mạng thì dòng vẫn nhập theo đơn vị gốc.
+    if (!known) {
+      void getProductUnits(p.id)
+        .then((u) => {
+          const unit = defaultUnit(u);
+          update(p.id, { units: unitOptions(u), unit, cost: Math.round(p.cost * unit.factor) });
+        })
+        .catch(() => {});
+    }
   }
 
   const update = (id: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.productId === id ? { ...l, ...patch } : l)));
@@ -163,13 +199,46 @@ export function PurchaseOrderNewScreen() {
                 <View className="flex-row items-end gap-2">
                   <View className="gap-1">
                     <Text variant="caption" tone="muted">{t('erp.qty')}</Text>
-                    <NumberBox value={l.qty} width={72} onChange={(n) => update(l.productId, { qty: n })} />
+                    <View style={{ width: 84 }}>
+                      <TextField
+                        value={l.qtyText}
+                        onChangeText={(v) => update(l.productId, { qtyText: v, qty: parseDecimal(v) ?? 0 })}
+                        keyboardType="decimal-pad"
+                        maxLength={10}
+                      />
+                    </View>
                   </View>
                   <View className="gap-1">
                     <Text variant="caption" tone="muted">{t('erp.unitCost')}</Text>
                     <NumberBox value={l.cost} width={124} onChange={(n) => update(l.productId, { cost: n })} />
                   </View>
                   <Text variant="bodySmall" className="flex-1 text-right font-bold pb-2.5">{money(l.qty * l.cost)}</Text>
+                </View>
+                {l.units.length > 1 ? (
+                  <View className="flex-row flex-wrap items-center gap-2">
+                    {l.units.map((u) => (
+                      <Chip
+                        key={u.unitId ?? 'base'}
+                        label={u.name}
+                        selected={(l.unit?.unitId ?? null) === u.unitId}
+                        color="primary"
+                        onPress={() => update(l.productId, { unit: u, cost: Math.round((l.cost / (l.unit?.factor ?? 1)) * u.factor) })}
+                      />
+                    ))}
+                    {l.unit && l.unit.unitId != null && l.qty > 0 ? (
+                      <Text variant="caption" tone="muted">= {baseQuantity(l.qty, l.unit).toLocaleString('vi-VN')} {l.units[0].name}</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                <View style={{ width: 170 }}>
+                  <TextField
+                    placeholder={t('erp.expiryPlaceholder')}
+                    value={l.expiryText}
+                    onChangeText={(v) => update(l.productId, { expiryText: v })}
+                    keyboardType="numbers-and-punctuation"
+                    maxLength={10}
+                  />
+                  {parseExpiry(l.expiryText) === undefined ? <Text variant="caption" tone="error">{t('erp.expiryInvalid')}</Text> : null}
                 </View>
               </View>
             </View>

@@ -169,3 +169,9 @@ export async function confirmPurchaseOrder(id: string): Promise<void> {
 export async function receivePurchaseOrder(id: string, items: { purchaseOrderItemId: string; receivedQuantity: number }[]): Promise<void> {
   await axios.post(endpoints.purchaseOrders.receive(id), { items });
 }
+
+/** Đơn vị gốc và các đơn vị mua (quy đổi) của một hàng — để nhập hàng theo thùng / gói / hộp. */
+export async function getProductUnits(productId: string): Promise<import('src/features/purchase/purchase-units').ProductUnits> {
+  const res = await axios.get(endpoints.products.units(productId));
+  return res.data;
+}
