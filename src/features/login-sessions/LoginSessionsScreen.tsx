@@ -125,6 +125,7 @@ export function LoginSessionsScreen() {
                       size="sm"
                       variant="soft"
                       action="error"
+                      fullWidth={false}
                       loading={busy === session.id}
                       disabled={busy !== null}
                       onPress={() => signOut(session)}
