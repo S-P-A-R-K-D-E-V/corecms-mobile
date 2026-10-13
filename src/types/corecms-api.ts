@@ -465,6 +465,16 @@ export interface IVerifySelfResponse {
   reason?: string | null;
 }
 
+/** POST /auth/qr/inspect — trình duyệt đang xin đăng nhập bằng mã QR, hiện cho người dùng xem trước khi duyệt
+ *  (POST /auth/qr/approve | /auth/qr/reject). `browser` dạng "Chrome · Windows", null khi không nhận ra. */
+export interface IQrLoginInspectResponse {
+  host: string;
+  browser?: string | null;
+  ipAddress?: string | null;
+  requestedAt: string;
+  expiresInSeconds: number;
+}
+
 /** POST /kiosk-pairing/claim — Admin/Manager xác nhận mã 6 số hiển thị trên màn kiosk
  *  (/kiosk-checkin trên web, app quét QR hoặc gõ tay) để tạo KioskDevice thật + phát key. */
 export interface IKioskClaimRequest {

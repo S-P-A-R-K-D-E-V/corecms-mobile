@@ -147,6 +147,10 @@ export const endpoints = {
     oauthDisconnect: (id: string) => `/auth/oauth-connections/${id}`,
     // Vé liên kết Google/Apple qua trang auth (xem features/auth/web-link.ts).
     oauthLinkStart: '/auth/oauth-link/start',
+    // Duyệt đăng nhập web bằng mã QR quét từ trang đăng nhập (xem features/qr-login).
+    qrInspect: '/auth/qr/inspect',
+    qrApprove: '/auth/qr/approve',
+    qrReject: '/auth/qr/reject',
     deleteAccount: '/auth/account',
   },
   users: {

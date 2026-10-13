@@ -3,7 +3,7 @@
     "NSLocationWhenInUseUsageDescription": "Ứng dụng dùng vị trí để xác nhận bạn đang ở cửa hàng khi chấm công hoặc kiểm tiền quầy.",
     "NSLocationAlwaysAndWhenInUseUsageDescription": "Ứng dụng chỉ dùng vị trí khi đang mở, để xác nhận bạn đang ở cửa hàng khi chấm công hoặc kiểm tiền quầy.",
     "NSLocationAlwaysUsageDescription": "Ứng dụng chỉ dùng vị trí khi đang mở, để xác nhận bạn đang ở cửa hàng khi chấm công hoặc kiểm tiền quầy.",
-    "NSCameraUsageDescription": "Ứng dụng dùng camera để xác thực khuôn mặt khi chấm công, quét mã QR của kiosk và quét mã vạch hàng hoá khi bán hàng.",
+    "NSCameraUsageDescription": "Ứng dụng dùng camera để xác thực khuôn mặt khi chấm công, quét mã QR của kiosk và mã QR đăng nhập web, và quét mã vạch hàng hoá khi bán hàng.",
     "NSMicrophoneUsageDescription": "Micro chỉ cần cho camera khi quay video xác thực khuôn mặt. Không lưu âm thanh.",
     "NSPhotoLibraryUsageDescription": "Ứng dụng cần truy cập ảnh để bạn chọn ảnh đại diện hoặc gửi ảnh trong chat.",
     "NSPhotoLibraryAddUsageDescription": "Cho phép lưu mã QR và hình ảnh vào thư viện ảnh.",
