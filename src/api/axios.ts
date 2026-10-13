@@ -384,6 +384,7 @@ export const endpoints = {
     soldOut: '/fnb/menu/sold-out',
     batchRecipes: '/fnb/batch-recipes',
     batches: '/fnb/batches',
+    batchCancel: (id: string) => `/fnb/batches/${id}/cancel`,
     stock: '/fnb/stock',
     stockLots: '/fnb/stock/lots',
     disposals: '/fnb/disposals',

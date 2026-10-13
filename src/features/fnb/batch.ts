@@ -72,3 +72,19 @@ export function batchRequest(
     expiryDate: input.shelfDays == null ? null : addDays(input.today, input.shelfDays),
   };
 }
+
+/** Nhân viên tự huỷ phiếu pha của mình trong khoảng này (phút); quản lý huỷ được mọi phiếu. */
+export const OWN_CANCEL_MINUTES = 60;
+
+/** Người đang dùng app huỷ được phiếu này không (máy chủ vẫn kiểm tra lại). */
+export function canCancelBatch(
+  batch: { status: string; createdById?: string; createdAt?: string },
+  userId: string | undefined,
+  isManager: boolean,
+  now: number
+): boolean {
+  if (batch.status !== 'Completed') return false;
+  if (isManager) return true;
+  if (!userId || batch.createdById !== userId || !batch.createdAt) return false;
+  return now - Date.parse(batch.createdAt) <= OWN_CANCEL_MINUTES * 60_000;
+}

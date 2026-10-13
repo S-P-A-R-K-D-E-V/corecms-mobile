@@ -266,6 +266,14 @@ export interface IPurchaseOrderItem {
   discountAmount: number;
   totalPrice: number;
   note?: string | null;
+  /** Đơn vị nhập đã chọn (null / thiếu = đơn vị gốc); quantity và unitPrice theo đơn vị này. */
+  unitName?: string | null;
+  /** 1 đơn vị nhập = bao nhiêu đơn vị gốc. */
+  conversionFactor?: number;
+  /** Số lượng quy về đơn vị gốc. */
+  baseQuantity?: number;
+  /** yyyy-MM-dd. */
+  expiryDate?: string | null;
 }
 
 export interface IPurchaseOrder {

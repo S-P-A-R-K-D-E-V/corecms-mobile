@@ -408,6 +408,9 @@ export interface IFnbBatch {
   actualYield: number;
   expiryDate: string | null;
   status: 'Completed' | 'Cancelled';
+  createdAt?: string;
+  createdById?: string;
+  createdByName?: string | null;
 }
 
 // ── Kho nguyên liệu trên app: xuất huỷ ──────────────────────────────────

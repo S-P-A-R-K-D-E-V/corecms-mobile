@@ -147,7 +147,9 @@ export function PurchaseOrderDetailScreen() {
               <View className="flex-1">
                 <Text variant="bodySmall" className="font-semibold">{i.productName}</Text>
                 <Text variant="caption" tone="muted">
-                  {i.productCode}  ·  {i.quantity} × {money(i.unitPrice)}
+                  {i.productCode}  ·  {i.quantity}{i.unitName ? ` ${i.unitName}` : ''} × {money(i.unitPrice)}
+                  {(i.conversionFactor ?? 1) > 1 && i.baseQuantity ? `  ·  = ${i.baseQuantity.toLocaleString('vi-VN')}` : ''}
+                  {i.expiryDate ? `  ·  ${t('erp.expiresOn', { date: i.expiryDate.split('-').reverse().join('/') })}` : ''}
                   {isReceiving(po.status) ? `  ·  ${t('erp.receivedOf', { received: i.receivedQuantity, ordered: i.quantity })}` : ''}
                 </Text>
               </View>

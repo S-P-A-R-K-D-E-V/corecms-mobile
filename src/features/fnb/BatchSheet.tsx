@@ -2,10 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { createFnbBatch, getFnbBatchRecipes } from 'src/api/fnb';
+import { cancelFnbBatch, createFnbBatch, getFnbBatches, getFnbBatchRecipes } from 'src/api/fnb';
+import { useAuthContext } from 'src/auth/auth-context';
+import { isManagerUser } from 'src/auth/roles';
 import { Sheet } from 'src/components/shared';
 import { Button, Chip, Spinner, Text, TextField } from 'src/components/ui';
-import { toast } from 'src/components/overlay';
+import { confirm, toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { t } from 'src/i18n';
 
@@ -16,6 +18,7 @@ import {
   MAX_SHELF_DAYS,
   addDays,
   batchRequest,
+  canCancelBatch,
   brewable,
   fDay,
   fQty,
@@ -31,7 +34,10 @@ import {
 // xem / huỷ phiếu pha ở trang web (Thiết lập F&B → Bán thành phẩm, Kho nguyên liệu → Pha mẻ).
 // ----------------------------------------------------------------------
 
-export const batchKeys = { recipes: (branchId: string) => ['fnb', 'batch-recipes', branchId] as const };
+export const batchKeys = {
+  recipes: (branchId: string) => ['fnb', 'batch-recipes', branchId] as const,
+  today: (branchId: string, day: string) => ['fnb', 'batches', branchId, day] as const,
+};
 
 export function BatchSheet({ visible, onClose, branchId }: { visible: boolean; onClose: () => void; branchId: string }) {
   const qc = useQueryClient();
@@ -68,6 +74,27 @@ export function BatchSheet({ visible, onClose, branchId }: { visible: boolean; o
   }, [visible, item?.productId]);
 
   const today = isoDay(new Date());
+  const { user } = useAuthContext();
+  // Phiếu pha hôm nay của chi nhánh — để xem lại và huỷ khi pha nhầm.
+  const todayQ = useQuery({
+    queryKey: batchKeys.today(branchId, today),
+    queryFn: () => getFnbBatches(branchId, today, today),
+    enabled: visible && !!branchId,
+  });
+
+  async function cancel(batch: { id: string; code: string }) {
+    if (!(await confirm({ title: t('fnbStock.batchCancelTitle', { code: batch.code }), message: t('fnbStock.batchCancelMessage') }))) return;
+    try {
+      await cancelFnbBatch(batch.id, t('fnbStock.batchCancelNote'));
+      toast.success(t('fnbStock.batchCancelled', { code: batch.code }));
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: batchKeys.today(branchId, today) }),
+        qc.invalidateQueries({ queryKey: batchKeys.recipes(branchId) }),
+      ]);
+    } catch (err) {
+      toast.error(extractApiError(err));
+    }
+  }
   const lines = item ? scaleLines(item.lines, count) : [];
   const missing = shortages(lines, onHand);
   const planned = item ? plannedYield(item, count) : null;
@@ -79,7 +106,10 @@ export function BatchSheet({ visible, onClose, branchId }: { visible: boolean; o
     try {
       const batch = await createFnbBatch({ branchId, clientRequestId: requestId, ...request, note: note.trim() || null });
       toast.success(t('fnbStock.batchDone', { code: batch.code, quantity: fQty(batch.actualYield), unit: batch.unit ?? '' }));
-      await qc.invalidateQueries({ queryKey: batchKeys.recipes(branchId) });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: batchKeys.recipes(branchId) }),
+        qc.invalidateQueries({ queryKey: batchKeys.today(branchId, today) }),
+      ]);
       onClose();
     } catch (err) {
       toast.error(extractApiError(err));
@@ -175,6 +205,25 @@ export function BatchSheet({ visible, onClose, branchId }: { visible: boolean; o
 
           <TextField label={t('fnbStock.note')} value={note} onChangeText={setNote} maxLength={500} />
           <Text variant="caption" tone="muted">{t('fnbStock.batchHint')}</Text>
+
+          {(todayQ.data ?? []).length > 0 ? (
+            <View className="gap-1">
+              <Text variant="label" tone="muted">{t('fnbStock.batchToday2')}</Text>
+              {(todayQ.data ?? []).map((b) => (
+                <View key={b.id} className="flex-row items-center gap-2 py-1.5">
+                  <View className="flex-1">
+                    <Text variant="bodySmall" className="font-semibold">{b.productName} · {fQty(b.actualYield)} {b.unit ?? ''}</Text>
+                    <Text variant="caption" tone={b.status === 'Cancelled' ? 'error' : 'muted'}>
+                      {b.code}{b.createdByName ? ` · ${b.createdByName}` : ''}{b.status === 'Cancelled' ? ` · ${t('fnbStock.batchCancelledTag')}` : ''}
+                    </Text>
+                  </View>
+                  {canCancelBatch(b, user?.id, isManagerUser(user), Date.now()) ? (
+                    <Button variant="outline" size="sm" onPress={() => void cancel(b)}>{t('fnbStock.batchCancel')}</Button>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       )}
     </Sheet>

@@ -85,3 +85,17 @@ describe('dữ liệu gửi lập phiếu pha', () => {
     expect(batchRequest(coldBrew, { count: 1, actualYield: 'x', shelfDays: 3, today })).toBeNull();
   });
 });
+
+describe('huỷ phiếu pha', () => {
+  const { canCancelBatch } = require('../batch');
+  const now = Date.parse('2026-10-13T04:00:00Z');
+  const mine = { status: 'Completed', createdById: 'u1', createdAt: '2026-10-13T03:30:00Z' };
+
+  it('quản lý huỷ mọi phiếu còn hiệu lực; nhân viên chỉ phiếu của mình trong 60 phút', () => {
+    expect(canCancelBatch(mine, 'u2', true, now)).toBe(true);
+    expect(canCancelBatch(mine, 'u1', false, now)).toBe(true);
+    expect(canCancelBatch(mine, 'u2', false, now)).toBe(false);
+    expect(canCancelBatch({ ...mine, createdAt: '2026-10-13T02:30:00Z' }, 'u1', false, now)).toBe(false);
+    expect(canCancelBatch({ ...mine, status: 'Cancelled' }, 'u1', true, now)).toBe(false);
+  });
+});

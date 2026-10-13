@@ -177,3 +177,15 @@ export async function searchFnbCustomers(keyword: string): Promise<IFnbCustomer[
   const res = await axios.get<IFnbCustomer[]>(endpoints.fnb.customers, { params: { keyword, isActive: true } });
   return res.data;
 }
+
+/** Phiếu pha mẻ của chi nhánh trong khoảng ngày (yyyy-MM-dd, tính cả hai đầu), mới nhất trước. */
+export async function getFnbBatches(branchId: string, from: string, to: string): Promise<IFnbBatch[]> {
+  const res = await axios.get<IFnbBatch[]>(endpoints.fnb.batches, { params: { branchId, from, to } });
+  return res.data;
+}
+
+/** Huỷ phiếu pha: hoàn nguyên liệu, trừ bán thành phẩm của phiếu. Quản lý bắt buộc ghi lý do. */
+export async function cancelFnbBatch(id: string, note?: string | null): Promise<IFnbBatch> {
+  const res = await axios.post<IFnbBatch>(endpoints.fnb.batchCancel(id), { note });
+  return res.data;
+}
