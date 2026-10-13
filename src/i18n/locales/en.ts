@@ -723,6 +723,12 @@ export const en: Dict = {
     emptyMenu: 'The menu has no dishes yet. Create dishes on the web: Products → Item type = Dish.',
   },
   fnbExtras: {
+    customerTitle: 'Customer',
+    customerOf: 'Customer: {name}',
+    customerSearch: 'Search by name or phone',
+    customerHint: 'Type at least 2 characters. Add new customers on the web.',
+    customerEmpty: 'No customer found.',
+    customerClear: 'Remove customer {name}',
     discountTitle: 'Order discount',
     discountClear: 'Remove discount',
     percent: 'Percent',

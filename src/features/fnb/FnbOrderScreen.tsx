@@ -40,7 +40,8 @@ import { defaultVariant, dishNeedsOptions } from './menu';
 import { MenuPanel } from './MenuPanel';
 import { CancelOrderSheet, MoveSheet, VoidSheet } from './OrderActionSheets';
 import { DiscountSheet, PriceSheet } from './OrderExtraSheets';
-import { discountCmd, priceCmd } from './fnb-commands';
+import { discountCmd, infoCmd, priceCmd } from './fnb-commands';
+import { CustomerSheet } from './CustomerSheet';
 import { OrderPanel } from './OrderPanel';
 import {
   canRunVersioned,
@@ -66,7 +67,7 @@ import { openOrderScreen, type OrderRouteParams } from './FnbFloorScreen';
 
 const EMPTY: DraftLine[] = [];
 
-type Panel = 'order' | 'pay' | 'void' | 'move' | 'cancel' | 'discount' | 'price' | null;
+type Panel = 'order' | 'pay' | 'void' | 'move' | 'cancel' | 'discount' | 'price' | 'customer' | null;
 
 export function FnbOrderScreen() {
   const params = useLocalSearchParams<OrderRouteParams>();
@@ -247,6 +248,12 @@ export function FnbOrderScreen() {
     setPanel(null);
   }
 
+  async function doCustomer(customerId: string | null) {
+    if (!order || !needSynced()) return;
+    await enqueueFnb(infoCmd(commandCtx(), order, { customerId }));
+    setPanel(null);
+  }
+
   async function doCancel(input: { reason: string | null; alreadyMade: boolean }) {
     if (!order || !needSynced()) return;
     await enqueueFnb(cancelCmd(commandCtx(), order, { hasSentLines: voidableLines(order).length > 0, ...input }));
@@ -260,6 +267,11 @@ export function FnbOrderScreen() {
       options: [
         { label: t('fnb.voidItems'), icon: 'close-circle-outline', onPress: () => needSynced() && (setVoidLine(null), setPanel('void')) },
         { label: t('fnb.moveItems'), icon: 'swap-horizontal', onPress: () => needSynced() && setPanel('move') },
+        {
+          label: order.customerName ? t('fnbExtras.customerOf', { name: order.customerName }) : t('fnbExtras.customerTitle'),
+          icon: 'account-outline' as const,
+          onPress: () => needSynced() && setPanel('customer'),
+        },
         // Giảm giá và sửa giá là việc của quản lý (máy chủ cũng kiểm tra quyền).
         ...(isManager
           ? [
@@ -445,6 +457,7 @@ export function FnbOrderScreen() {
       />
       <DiscountSheet order={order} visible={panel === 'discount'} onClose={() => setPanel(null)} onConfirm={doDiscount} />
       <PriceSheet order={order} visible={panel === 'price'} onClose={() => setPanel(null)} onConfirm={doPrice} />
+      <CustomerSheet order={order} visible={panel === 'customer'} onClose={() => setPanel(null)} onConfirm={doCustomer} />
       <DishOptionsSheet
         menu={menuQ.data}
         dish={optionsOf}

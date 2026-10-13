@@ -2,14 +2,14 @@ jest.mock('expo-crypto', () => ({ randomUUID: () => 'ID-1' }));
 jest.mock('src/api/axios', () => ({
   __esModule: true,
   default: {},
-  endpoints: { fnb: { orderDiscount: (id: string) => `/fnb/orders/${id}/discount`, orderLinePrice: (id: string, l: string) => `/fnb/orders/${id}/lines/${l}/price` } },
+  endpoints: { fnb: { orderInfo: (id: string) => `/fnb/orders/${id}/info`, orderDiscount: (id: string) => `/fnb/orders/${id}/discount`, orderLinePrice: (id: string, l: string) => `/fnb/orders/${id}/lines/${l}/price` } },
 }));
 jest.mock('src/api/fnb', () => ({ getFnbOrder: jest.fn() }));
 
 import type { IOpenOrder, IOrderLine } from 'src/types/fnb';
 
-import { discountCmd, priceCmd } from '../fnb-commands';
-import { discountAmount, discountInput, parseDong, priceableLines, priceInput } from '../order-extras';
+import { discountCmd, infoCmd, priceCmd } from '../fnb-commands';
+import { customerLabel, discountAmount, discountInput, parseDong, priceableLines, priceInput } from '../order-extras';
 
 // Giảm giá đơn và sửa giá món trên app (quản lý).
 
@@ -74,5 +74,19 @@ describe('sửa giá một dòng', () => {
     expect([set.kind, set.method, set.path]).toEqual(['price', 'PUT', '/fnb/orders/o1/lines/l1/price']);
     expect(set.body).toMatchObject({ baseVersion: 5, unitPrice: 30_000, reason: 'Ly bị đổ' });
     expect(priceCmd(ctx, order, 'l1', null).body).toMatchObject({ unitPrice: null, reason: null });
+  });
+});
+
+describe('gắn khách hàng vào đơn', () => {
+  it('đổi khách hàng vẫn gửi lại số khách và ghi chú đang có của đơn', () => {
+    const cmd = infoCmd(ctx, { id: 'o1', guestCount: 3, note: 'Sinh nhật' }, { customerId: 'c1' });
+    expect([cmd.kind, cmd.method, cmd.path]).toEqual(['info', 'PUT', '/fnb/orders/o1/info']);
+    expect(cmd.body).toMatchObject({ guestCount: 3, customerId: 'c1', note: 'Sinh nhật' });
+    expect(infoCmd(ctx, { id: 'o1', guestCount: null, note: null }, { customerId: null }).body).toMatchObject({ customerId: null });
+  });
+
+  it('hiện tên kèm số điện thoại khi có', () => {
+    expect(customerLabel({ name: 'Chị Lan', contactNumber: '0901234567' })).toBe('Chị Lan · 0901234567');
+    expect(customerLabel({ name: 'Anh Minh', contactNumber: null })).toBe('Anh Minh');
   });
 });

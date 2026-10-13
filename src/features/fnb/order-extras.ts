@@ -52,3 +52,7 @@ export function priceInput(
   if (!reason.trim() || reason.trim().length > MAX_REASON) return null;
   return { unitPrice, reason: reason.trim() };
 }
+
+/** Dòng hiển thị một khách hàng: "Tên · số điện thoại". */
+export const customerLabel = (c: { name: string; contactNumber?: string | null }) =>
+  c.contactNumber ? `${c.name} · ${c.contactNumber}` : c.name;

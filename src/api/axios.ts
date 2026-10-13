@@ -379,6 +379,7 @@ export const endpoints = {
   // ── F&B: thực đơn, sơ đồ bàn, đơn mở, phiếu bar (contract F&B POS v1) ──
   fnb: {
     menu: '/fnb/menu',
+    customers: '/customers',
     soldOut: '/fnb/menu/sold-out',
     batchRecipes: '/fnb/batch-recipes',
     batches: '/fnb/batches',

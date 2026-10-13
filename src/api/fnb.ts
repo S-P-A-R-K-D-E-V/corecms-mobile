@@ -6,6 +6,7 @@ import type {
   FnbDisposalReason,
   IFnbBatch,
   IFnbBatchRecipeBook,
+  IFnbCustomer,
   IFnbDisposal,
   IFnbFloor,
   IFnbLotsReport,
@@ -168,5 +169,11 @@ export async function submitFnbStockCount(id: string, note?: string | null): Pro
 /** Lô nguyên liệu còn hàng của chi nhánh kèm hạn dùng. */
 export async function getFnbLots(branchId: string): Promise<IFnbLotsReport> {
   const res = await axios.get<IFnbLotsReport>(endpoints.fnb.stockLots, { params: { branchId } });
+  return res.data;
+}
+
+/** Tìm khách hàng đang hoạt động theo tên / số điện thoại / mã (khách hàng dùng chung cả cửa hàng). */
+export async function searchFnbCustomers(keyword: string): Promise<IFnbCustomer[]> {
+  const res = await axios.get<IFnbCustomer[]>(endpoints.fnb.customers, { params: { keyword, isActive: true } });
   return res.data;
 }

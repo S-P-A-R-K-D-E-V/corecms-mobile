@@ -724,6 +724,12 @@ export const vi = {
     emptyMenu: 'Thực đơn chưa có món. Tạo món trên web: Hàng hoá → Loại mặt hàng = Món.',
   },
   fnbExtras: {
+    customerTitle: 'Khách hàng',
+    customerOf: 'Khách hàng: {name}',
+    customerSearch: 'Tìm theo tên hoặc số điện thoại',
+    customerHint: 'Gõ ít nhất 2 ký tự để tìm. Thêm khách mới ở trang web.',
+    customerEmpty: 'Không tìm thấy khách hàng.',
+    customerClear: 'Bỏ khách hàng {name}',
     discountTitle: 'Giảm giá đơn',
     discountClear: 'Bỏ giảm giá',
     percent: 'Phần trăm',

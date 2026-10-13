@@ -280,3 +280,21 @@ export function priceCmd(
     },
   };
 }
+
+/**
+ * 5.4 Cập nhật thông tin đơn (không kiểm tra phiên bản). Máy chủ thay cả ba trường, nên luôn gửi lại số khách và ghi chú
+ * đang có của đơn khi chỉ đổi khách hàng.
+ */
+export function infoCmd(
+  ctx: CommandCtx,
+  order: Pick<IOpenOrder, 'id' | 'guestCount' | 'note'>,
+  change: { customerId: string | null }
+): QueueInput {
+  return {
+    kind: 'info',
+    orderIds: [order.id],
+    method: 'PUT',
+    path: endpoints.fnb.orderInfo(order.id),
+    body: { ...envelope(ctx), guestCount: order.guestCount, customerId: change.customerId, note: order.note },
+  };
+}

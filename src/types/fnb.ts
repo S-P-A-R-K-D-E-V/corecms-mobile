@@ -495,3 +495,11 @@ export interface IFnbLotsReport {
   expiringDays: number;
   lots: IFnbLot[];
 }
+
+/** Khách hàng của cửa hàng (phần app dùng khi gắn vào đơn F&B). */
+export interface IFnbCustomer {
+  id: string;
+  code: string | null;
+  name: string;
+  contactNumber: string | null;
+}
