@@ -33,6 +33,8 @@ export type FnbCommandKind =
   | 'bill'
   | 'checkout'
   | 'cancel'
+  | 'discount'
+  | 'price'
   | 'printResult';
 
 export type QueueInput = {

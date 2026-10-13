@@ -39,6 +39,8 @@ import { findTable, type MoveOption } from './floor';
 import { defaultVariant, dishNeedsOptions } from './menu';
 import { MenuPanel } from './MenuPanel';
 import { CancelOrderSheet, MoveSheet, VoidSheet } from './OrderActionSheets';
+import { DiscountSheet, PriceSheet } from './OrderExtraSheets';
+import { discountCmd, priceCmd } from './fnb-commands';
 import { OrderPanel } from './OrderPanel';
 import {
   canRunVersioned,
@@ -64,7 +66,7 @@ import { openOrderScreen, type OrderRouteParams } from './FnbFloorScreen';
 
 const EMPTY: DraftLine[] = [];
 
-type Panel = 'order' | 'pay' | 'void' | 'move' | 'cancel' | null;
+type Panel = 'order' | 'pay' | 'void' | 'move' | 'cancel' | 'discount' | 'price' | null;
 
 export function FnbOrderScreen() {
   const params = useLocalSearchParams<OrderRouteParams>();
@@ -233,6 +235,18 @@ export function FnbOrderScreen() {
     if (all) openOrderScreen({ id: targetId }, true);
   }
 
+  async function doDiscount(input: { type: 'Percent' | 'Amount'; value: number; reason: string } | null) {
+    if (!order || !needSynced()) return;
+    await enqueueFnb(discountCmd(commandCtx(), order, input));
+    setPanel(null);
+  }
+
+  async function doPrice(lineId: string, input: { unitPrice: number; reason: string } | null) {
+    if (!order || !needSynced()) return;
+    await enqueueFnb(priceCmd(commandCtx(), order, lineId, input));
+    setPanel(null);
+  }
+
   async function doCancel(input: { reason: string | null; alreadyMade: boolean }) {
     if (!order || !needSynced()) return;
     await enqueueFnb(cancelCmd(commandCtx(), order, { hasSentLines: voidableLines(order).length > 0, ...input }));
@@ -246,6 +260,13 @@ export function FnbOrderScreen() {
       options: [
         { label: t('fnb.voidItems'), icon: 'close-circle-outline', onPress: () => needSynced() && (setVoidLine(null), setPanel('void')) },
         { label: t('fnb.moveItems'), icon: 'swap-horizontal', onPress: () => needSynced() && setPanel('move') },
+        // Giảm giá và sửa giá là việc của quản lý (máy chủ cũng kiểm tra quyền).
+        ...(isManager
+          ? [
+              { label: t('fnbExtras.discountTitle'), icon: 'percent' as const, onPress: () => needSynced() && setPanel('discount') },
+              { label: t('fnbExtras.priceTitle'), icon: 'pencil-outline' as const, onPress: () => needSynced() && setPanel('price') },
+            ]
+          : []),
         { label: t('fnb.cancelOrder'), icon: 'delete-outline', destructive: true, onPress: () => needSynced() && setPanel('cancel') },
       ],
     });
@@ -422,6 +443,8 @@ export function FnbOrderScreen() {
         onClose={() => setPanel(null)}
         onConfirm={doCancel}
       />
+      <DiscountSheet order={order} visible={panel === 'discount'} onClose={() => setPanel(null)} onConfirm={doDiscount} />
+      <PriceSheet order={order} visible={panel === 'price'} onClose={() => setPanel(null)} onConfirm={doPrice} />
       <DishOptionsSheet
         menu={menuQ.data}
         dish={optionsOf}

@@ -238,3 +238,45 @@ export function printResultCmd(
     },
   };
 }
+
+/** 5.11 Giảm giá toàn đơn (quản lý); `input` null = bỏ giảm giá. */
+export function discountCmd(
+  ctx: CommandCtx,
+  order: Pick<IOpenOrder, 'id' | 'version'>,
+  input: { type: 'Percent' | 'Amount'; value: number; reason: string } | null
+): QueueInput {
+  return {
+    kind: 'discount',
+    orderIds: [order.id],
+    method: 'PUT',
+    path: endpoints.fnb.orderDiscount(order.id),
+    body: {
+      ...envelope(ctx),
+      baseVersion: order.version,
+      type: input?.type ?? null,
+      value: input?.value ?? null,
+      reason: input?.reason.trim() ?? null,
+    },
+  };
+}
+
+/** 5.10 Sửa giá một dòng (quản lý); `input` null = trả về giá niêm yết. */
+export function priceCmd(
+  ctx: CommandCtx,
+  order: Pick<IOpenOrder, 'id' | 'version'>,
+  lineId: string,
+  input: { unitPrice: number; reason: string } | null
+): QueueInput {
+  return {
+    kind: 'price',
+    orderIds: [order.id],
+    method: 'PUT',
+    path: endpoints.fnb.orderLinePrice(order.id, lineId),
+    body: {
+      ...envelope(ctx),
+      baseVersion: order.version,
+      unitPrice: input?.unitPrice ?? null,
+      reason: input?.reason.trim() ?? null,
+    },
+  };
+}
