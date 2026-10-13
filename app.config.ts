@@ -1,4 +1,5 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
+import { withAndroidManifest, type ConfigPlugin } from 'expo/config-plugins';
 
 import enLocale from './locales/en.json';
 
@@ -57,6 +58,36 @@ const STORE_SPLASH = {
   dark: { image: `${STORE_ASSETS}/splash-icon.png`, backgroundColor: STORE_BRAND_COLOR },
 } as const;
 
+/**
+ * Phần cứng app dùng được nhưng KHÔNG bắt buộc. Không khai báo thì CH Play tự suy ra là bắt buộc — từ quyền
+ * (CAMERA → camera sau, RECORD_AUDIO → micro, vị trí) và từ màn quét mã của Google bị khoá dọc
+ * (screen.portrait) — rồi ẩn app với máy thiếu một trong số đó, vd. máy POS để bàn màn hình ngang, không camera sau.
+ */
+const OPTIONAL_ANDROID_FEATURES = [
+  'android.hardware.camera',
+  'android.hardware.camera.autofocus',
+  'android.hardware.camera.front',
+  'android.hardware.microphone',
+  'android.hardware.location',
+  'android.hardware.location.gps',
+  'android.hardware.location.network',
+  'android.hardware.screen.portrait',
+];
+
+const withOptionalHardware: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (mod) => {
+    const manifest = mod.modResults.manifest;
+    const declared = manifest['uses-feature'] ?? [];
+    const names = new Set(declared.map((feature) => feature.$['android:name']));
+    manifest['uses-feature'] = [
+      ...declared,
+      ...OPTIONAL_ANDROID_FEATURES.filter((name) => !names.has(name)).map((name) => ({
+        $: { 'android:name': name, 'android:required': 'false' as const },
+      })),
+    ];
+    return mod;
+  });
+
 function storePlugins(plugins: ExpoConfig['plugins'] = []): Plugin[] {
   return plugins.map((plugin) => {
     if (!Array.isArray(plugin) || plugin.length < 2) return plugin;
@@ -101,7 +132,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       package: STORE_BUNDLE_ID,
       adaptiveIcon: { foregroundImage: `${STORE_ASSETS}/adaptive-icon.png`, backgroundColor: STORE_BRAND_COLOR },
     },
-    plugins: [...storePlugins(base.plugins), 'expo-apple-authentication', ['expo-splash-screen', STORE_SPLASH]],
+    plugins: [
+      ...storePlugins(base.plugins),
+      'expo-apple-authentication',
+      ['expo-splash-screen', STORE_SPLASH],
+      withOptionalHardware as unknown as Plugin,
+    ],
     extra: {
       ...base.extra,
       appVariant: 'store',
