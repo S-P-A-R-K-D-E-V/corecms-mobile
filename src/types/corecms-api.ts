@@ -475,6 +475,22 @@ export interface IQrLoginInspectResponse {
   expiresInSeconds: number;
 }
 
+/** GET /auth/sessions — một phiên đăng nhập còn mở của chính tài khoản này (mọi cửa hàng). Thời điểm là ISO UTC. */
+export interface ILoginSession {
+  id: string;
+  /** Dạng "Chrome · Windows" / "App · Android"; null khi không nhận ra. */
+  device?: string | null;
+  ipAddress?: string | null;
+  signedInAt: string;
+  /** Lần gần nhất thiết bị đăng nhập / khôi phục phiên. */
+  lastActiveAt?: string | null;
+  expiresAt: string;
+  /** Chính máy đang gọi. */
+  isCurrent: boolean;
+  /** Phiên web tạo bằng mã QR: tự hết lúc expiresAt, không gia hạn. */
+  signedInWithQr: boolean;
+}
+
 /** POST /kiosk-pairing/claim — Admin/Manager xác nhận mã 6 số hiển thị trên màn kiosk
  *  (/kiosk-checkin trên web, app quét QR hoặc gõ tay) để tạo KioskDevice thật + phát key. */
 export interface IKioskClaimRequest {

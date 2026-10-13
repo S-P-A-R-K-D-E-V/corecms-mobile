@@ -241,6 +241,15 @@ export function ProfileScreen() {
           onPress={() => router.push('/qr-login')}
           showChevron
         />
+        <Divider className="ml-12" />
+        <ListItem
+          icon="devices"
+          iconTone="secondary"
+          title={t('profile.loginSessions')}
+          subtitle={t('profile.loginSessionsDesc')}
+          onPress={() => router.push('/login-sessions')}
+          showChevron
+        />
         {isAdminOrManager ? (
           <>
             <Divider className="ml-12" />

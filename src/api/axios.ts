@@ -151,6 +151,10 @@ export const endpoints = {
     qrInspect: '/auth/qr/inspect',
     qrApprove: '/auth/qr/approve',
     qrReject: '/auth/qr/reject',
+    // Thiết bị đang đăng nhập: xem các phiên còn mở của mình, đăng xuất từng thiết bị / mọi thiết bị khác từ xa.
+    sessions: '/auth/sessions',
+    sessionRevoke: (sessionId: string) => `/auth/sessions/${sessionId}`,
+    sessionsRevokeOthers: '/auth/sessions/revoke-others',
     deleteAccount: '/auth/account',
   },
   users: {
