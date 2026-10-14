@@ -355,7 +355,7 @@ export const vi = {
     staffQ3: 'Vì sao tôi bị phạt?',
     error: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.',
     notEnabledTitle: 'Trợ lý AI chưa bật',
-    notEnabledDesc: 'Trợ lý AI chưa được bật cho cửa hàng này. Chủ cửa hàng có thể bật trong gói dịch vụ.',
+    notEnabledDesc: 'Trợ lý AI chưa được bật cho cửa hàng này. Vui lòng liên hệ chủ cửa hàng hoặc quản trị viên.',
     thinking: 'Đang suy nghĩ…',
     stillWorking: 'Vẫn đang xử lý…',
     composing: 'Đang tổng hợp câu trả lời…',

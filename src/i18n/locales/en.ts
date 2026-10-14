@@ -354,7 +354,7 @@ export const en: Dict = {
     staffQ3: 'Why was I penalized?',
     error: 'Sorry, something went wrong. Please try again.',
     notEnabledTitle: 'AI assistant is off',
-    notEnabledDesc: "The AI assistant isn't enabled for this store yet. The store owner can turn it on in the plan settings.",
+    notEnabledDesc: "The AI assistant isn't enabled for this store yet. Please contact your store owner or administrator.",
     thinking: 'Thinking…',
     stillWorking: 'Still working…',
     composing: 'Putting the answer together…',
