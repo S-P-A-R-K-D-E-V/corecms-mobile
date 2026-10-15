@@ -93,8 +93,6 @@ type Mode = 'status' | 'capture';
 
 export function FaceEnrollmentScreen() {
   const { user, refreshUser } = useAuthContext();
-  const isAdminOrManager =
-    user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
 
   const [mode, setMode] = useState<Mode>(user?.hasFaceEmbedding ? 'status' : 'capture');
   const manualCaptureRef = useRef(false);
@@ -210,14 +208,13 @@ export function FaceEnrollmentScreen() {
             <Button icon="face-recognition" onPress={() => setVerifyOpen(true)}>
               Kiểm tra so khớp
             </Button>
-            <Button variant="outline" action="neutral" icon="camera-retake" disabled={!isAdminOrManager} onPress={startReenroll}>
+            {/* Nhân viên tự đăng ký lại được (chủ đã chốt 2026-10-15; Core-be không còn chặn). */}
+            <Button variant="outline" action="neutral" icon="camera-retake" onPress={startReenroll}>
               Đăng ký lại
             </Button>
-            {!isAdminOrManager ? (
-              <Text tone="muted" className="text-center text-[12px]">
-                Cần Admin hoặc Quản lý thực hiện đăng ký lại — liên hệ quản lý nếu khuôn mặt thay đổi nhiều.
-              </Text>
-            ) : null}
+            <Text tone="muted" className="text-center text-[12px]">
+              Chấm công hay không nhận ra bạn? Đăng ký lại — hoặc trên web bằng camera chấm công ở quầy cho kết quả chính xác hơn.
+            </Text>
           </View>
         </View>
 
