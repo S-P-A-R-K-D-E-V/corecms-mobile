@@ -1,10 +1,15 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, SectionCard, ErrorView } from 'src/components/shared';
-import { Text, Divider, Skeleton, Badge } from 'src/components/ui';
+import { Text, Divider, Skeleton, Badge, Button } from 'src/components/ui';
+import { useAuthContext } from 'src/auth/auth-context';
+import { isManagerUser } from 'src/auth/roles';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
+import { ReturnSheet } from './ReturnSheet';
 import { getSalesOrder } from 'src/api/erp';
 import { t } from 'src/i18n';
 
@@ -23,6 +28,9 @@ const paymentLabel = (m: string) => {
 
 export function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuthContext();
+  const counterSession = useCounterSession();
+  const [returning, setReturning] = useState(false);
   const { data: o, isLoading, isError, refetch } = useQuery({
     queryKey: ['erp', 'invoice', id],
     queryFn: () => getSalesOrder(id!),
@@ -47,6 +55,8 @@ export function InvoiceDetailScreen() {
   }
 
   const cancelled = isCancelledStatus(o.status);
+  // Trả hàng: máy quầy (ai đứng quầy cũng làm được — server kiểm theo hoá đơn) hoặc chủ / quản lý.
+  const canReturn = !cancelled && (counterSession || isManagerUser(user));
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -99,6 +109,13 @@ export function InvoiceDetailScreen() {
         {o.warehouseName ? <InfoRow label={t('erp.branch')} value={o.warehouseName} /> : null}
         {o.note ? <InfoRow label={t('erp.note')} value={o.note} /> : null}
       </SectionCard>
+
+      {canReturn ? (
+        <Button variant="outline" action="neutral" icon="keyboard-return" onPress={() => setReturning(true)}>
+          {t('erp.return.action')}
+        </Button>
+      ) : null}
+      {canReturn ? <ReturnSheet order={o} visible={returning} onClose={() => setReturning(false)} /> : null}
     </Screen>
   );
 }

@@ -10,6 +10,7 @@ import { cn } from 'src/components/ui/utils';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser } from 'src/auth/roles';
 import { usesAdminShell } from 'src/auth/roles';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { t } from 'src/i18n';
 import type { IFloorTable, IOrderSummary } from 'src/types/fnb';
@@ -130,7 +131,9 @@ export function FnbFloorScreen() {
   const [stockCount, setStockCount] = useState(false);
   const [stockView, setStockView] = useState(false);
   // Thêm bàn: Quản lý / Admin (BE kiểm tra lại). Hết món: mọi nhân viên.
-  const canSetup = isManagerUser(user);
+  const counterSession = useCounterSession();
+  // Sắp xếp bàn là việc quản trị — làm trên điện thoại / web cá nhân, không ở máy quầy.
+  const canSetup = isManagerUser(user) && !counterSession;
   const [width, setWidth] = useState(0);
 
   const floor = floorQ.floor;
@@ -180,9 +183,13 @@ export function FnbFloorScreen() {
         title: t('fnbStock.menuTitle'),
         options: [
           { label: t('fnbStock.stockTitle'), icon: 'warehouse' as const, onPress: () => setStockView(true) },
-          { label: t('fnbStock.batchTitle'), icon: 'beaker-outline' as const, onPress: () => setBatch(true) },
-          { label: t('fnbStock.disposalTitle'), icon: 'trash-can-outline' as const, onPress: () => setDisposal(true) },
-          { label: t('fnbStock.countTitle'), icon: 'clipboard-check-outline' as const, onPress: () => setStockCount(true) },
+          ...(counterSession
+            ? []
+            : [
+                { label: t('fnbStock.batchTitle'), icon: 'beaker-outline' as const, onPress: () => setBatch(true) },
+                { label: t('fnbStock.disposalTitle'), icon: 'trash-can-outline' as const, onPress: () => setDisposal(true) },
+                { label: t('fnbStock.countTitle'), icon: 'clipboard-check-outline' as const, onPress: () => setStockCount(true) },
+              ]),
         ],
       }),
   });
@@ -192,7 +199,7 @@ export function FnbFloorScreen() {
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }}>
       <View className="px-4">
-        <AppHeader back={split || !usesAdminShell(user)} title={t('fnb.title')} subtitle={branch?.name} actions={headerActions} />
+        <AppHeader back={split || !(usesAdminShell(user) || counterSession)} title={t('fnb.title')} subtitle={branch?.name} actions={headerActions} />
       </View>
       <ScrollView
         className="flex-1"

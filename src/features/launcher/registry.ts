@@ -4,6 +4,7 @@ import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES, SHIFT_CASH_ROLES, canUseAssista
 import { hasAllPermissions, PERMISSIONS, REPORT_SCREEN_PERMISSIONS } from 'src/auth/permissions';
 import type { BranchType } from 'src/features/branch/working-branch';
 import { t } from 'src/i18n';
+import { COUNTER_FEATURE_KEYS, COUNTER_OPEN_TO_ALL } from 'src/features/counter/counter-scope';
 
 // ----------------------------------------------------------------------
 // Danh mục tiện ích cho feature-grid (kiểu lưới tiện ích MB Bank). Thêm tính
@@ -25,11 +26,18 @@ export type FeatureContext = {
   branchType: BranchType | null;
   /** Tính năng cửa hàng đang bật (GET /users/me → enabledFeatures); null = chưa biết. */
   enabledFeatures: readonly string[] | null;
+  /** Đang đăng nhập ở máy quầy: chỉ tiện ích bán hàng (src/features/counter/counter-scope.ts). */
+  counter?: boolean;
 };
 
 /** Ngữ cảnh của người dùng này; không truyền loại hình chi nhánh = chưa biết. */
-export function featureContext(user: AuthUser | null | undefined, branchType: BranchType | null = null): FeatureContext {
-  return { branchType, enabledFeatures: user?.enabledFeatures ?? null };
+export function featureContext(
+  user: AuthUser | null | undefined,
+  branchType: BranchType | null = null,
+  counter = false
+): FeatureContext {
+  const ctx: FeatureContext = { branchType, enabledFeatures: user?.enabledFeatures ?? null };
+  return counter ? { ...ctx, counter: true } : ctx;
 }
 
 /**
@@ -147,6 +155,11 @@ export function getFeature(key: string): FeatureItem | undefined {
 
 /** Tiện ích này có hiện với người dùng + ngữ cảnh này không (vai trò và điều kiện `visible`). */
 export function isFeatureVisible(item: FeatureItem, user: AuthUser | null | undefined, ctx: FeatureContext = featureContext(user)): boolean {
+  if (ctx.counter) {
+    // Máy quầy: chỉ tiện ích bán hàng; hoá đơn mở cho mọi người đứng quầy (in lại, trả hàng).
+    if (!COUNTER_FEATURE_KEYS.has(item.key)) return false;
+    if (COUNTER_OPEN_TO_ALL.has(item.key)) return item.visible?.(user, ctx) ?? true;
+  }
   return (
     hasAnyRole(user, item.roles) && hasAllPermissions(user, item.allPermissions) && (item.visible?.(user, ctx) ?? true)
   );

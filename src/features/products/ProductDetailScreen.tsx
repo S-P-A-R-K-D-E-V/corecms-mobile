@@ -8,6 +8,7 @@ import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isAdminUser, isManagerUser } from 'src/auth/roles';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { t } from 'src/i18n';
 import type { IProductChild, IProductInventory } from 'src/types/erp';
 
@@ -100,7 +101,9 @@ export function ProductDetailScreen() {
   const { user } = useAuthContext();
   const { data: p, isLoading, isError, refetch } = useProduct(id);
   const add = useCart((s) => s.add);
-  const isManager = isManagerUser(user);
+  const counterSession = useCounterSession();
+  // Máy quầy: chỉ xem tồn — không chỉnh tồn, không giá vốn / lịch sử điều chỉnh (kể cả quản lý đăng nhập ở quầy).
+  const isManager = isManagerUser(user) && !counterSession;
   const seeCost = isManager;
   const isAdmin = isAdminUser(user);
   const [adjust, setAdjust] = useState<{ target: StockTarget; branchId?: number } | null>(null);
@@ -144,7 +147,7 @@ export function ProductDetailScreen() {
   // Chỉ hàng có tồn (không phải combo / dịch vụ) mới sửa tồn; lịch sử chỉnh tồn: chủ + quản lý. Loại hàng đồng
   // bộ từ KiotViet có thể chưa có (0) — coi là hàng thường.
   const stocked = p.productType !== 1 && p.productType !== 3;
-  const canAdjust = isAdmin && stocked;
+  const canAdjust = isAdmin && stocked && !counterSession;
   const editChild = (c: IProductChild) =>
     canAdjust && adjustableInventories(c.inventories).length > 0
       ? () => setAdjust({ target: { productId: c.id, name: variantName(p.name, c), inventories: c.inventories ?? [] } })

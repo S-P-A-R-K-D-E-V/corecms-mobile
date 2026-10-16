@@ -13,6 +13,7 @@ import { useT } from 'src/i18n';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { StoreScopeGate } from 'src/features/branch/StoreScopeGate';
 import { hidesTabBar } from 'src/features/pos/pos-layout';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { MessengerProvider } from 'src/components/messenger/messenger-provider';
 import { InAppNotificationHost } from 'src/components/messenger/InAppNotificationHost';
 import { AssistantProvider } from 'src/components/assistant/assistant-provider';
@@ -45,6 +46,14 @@ const STAFF_TABS: TabDef[] = [
 // Chủ cửa hàng (Admin thuần): nút giữa = bán hàng.
 const OWNER_TABS: TabDef[] = [
   { name: 'home', off: 'tab-home-off', on: 'tab-home-on', labelKey: 'tabs.home' },
+  { name: 'products', off: 'tab-products-off', on: 'tab-products-on', labelKey: 'tabs.products' },
+  { name: 'pos', on: 'tab-pos-on', labelKey: 'tabs.pos', center: true },
+  { name: 'invoices', off: 'tab-invoices-off', on: 'tab-invoices-on', labelKey: 'tabs.invoices' },
+  { name: 'features', off: 'tab-apps-off', on: 'tab-apps-on', labelKey: 'tabs.features' },
+];
+
+// Máy quầy (ai đăng nhập cũng vậy): chỉ bán hàng — Hàng hoá | [Bán hàng] | Hoá đơn | Tiện ích (kiểm tiền ca, hồ sơ).
+const COUNTER_TABS: TabDef[] = [
   { name: 'products', off: 'tab-products-off', on: 'tab-products-on', labelKey: 'tabs.products' },
   { name: 'pos', on: 'tab-pos-on', labelKey: 'tabs.pos', center: true },
   { name: 'invoices', off: 'tab-invoices-off', on: 'tab-invoices-on', labelKey: 'tabs.invoices' },
@@ -280,37 +289,47 @@ export default function TabsLayout() {
   //   Staff / Manager / Admin-kiêm-ca → nhân viên:    Trang chủ | Lịch làm | [Chấm công] | Lương | Tiện ích
   // Tính năng còn lại nằm ở Tiện ích (ghim tối đa 8 ra "Dùng nhanh" trang chủ). Navigator đăng ký đủ
   // screen; tab bar tra route theo tên.
-  const tabs = usesAdminShell(user) ? OWNER_TABS : STAFF_TABS;
+  const counterSession = useCounterSession();
+  const tabs = counterSession ? COUNTER_TABS : usesAdminShell(user) ? OWNER_TABS : STAFF_TABS;
+
+  const navigator = (
+    <Tabs
+      screenOptions={{ headerShown: false }}
+      // Quay lại theo lịch sử tab: mở Tin nhắn từ trang chủ rồi bấm quay lại → về trang chủ.
+      backBehavior="history"
+      tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
+    >
+      <Tabs.Screen name="home" />
+      <Tabs.Screen name="products" />
+      <Tabs.Screen name="pos" />
+      <Tabs.Screen name="invoices" />
+      <Tabs.Screen name="schedule" />
+      <Tabs.Screen name="payroll" />
+      <Tabs.Screen name="checkin" />
+      <Tabs.Screen name="chat" />
+      <Tabs.Screen name="assistant" />
+      <Tabs.Screen name="profile" />
+      <Tabs.Screen name="admin" />
+      <Tabs.Screen name="features" />
+    </Tabs>
+  );
 
   // Cổng chặn cấp app: chỉ Staff/Manager/Admin mới vào được dữ liệu hệ thống. StoreScopeGate: nạp chi nhánh
   // đang làm việc + giỏ hàng của cửa hàng này từ máy trước khi dựng tab.
   return (
     <InternalAppGuard>
       <StoreScopeGate>
-      <MessengerProvider>
-        <AssistantProvider>
-          <Tabs
-            screenOptions={{ headerShown: false }}
-            // Quay lại theo lịch sử tab: mở Tin nhắn từ trang chủ rồi bấm quay lại → về trang chủ.
-            backBehavior="history"
-            tabBar={(props) => <CiCiTabBar {...props} tabs={tabs} />}
-          >
-            <Tabs.Screen name="home" />
-            <Tabs.Screen name="products" />
-            <Tabs.Screen name="pos" />
-            <Tabs.Screen name="invoices" />
-            <Tabs.Screen name="schedule" />
-            <Tabs.Screen name="payroll" />
-            <Tabs.Screen name="checkin" />
-            <Tabs.Screen name="chat" />
-            <Tabs.Screen name="assistant" />
-            <Tabs.Screen name="profile" />
-            <Tabs.Screen name="admin" />
-            <Tabs.Screen name="features" />
-          </Tabs>
-          <InAppNotificationHost />
-        </AssistantProvider>
-      </MessengerProvider>
+      {counterSession ? (
+        // Máy quầy: không tin nhắn / trợ lý (server cũng chặn) — không mở kết nối SignalR của chúng.
+        navigator
+      ) : (
+        <MessengerProvider>
+          <AssistantProvider>
+            {navigator}
+            <InAppNotificationHost />
+          </AssistantProvider>
+        </MessengerProvider>
+      )}
       </StoreScopeGate>
     </InternalAppGuard>
   );
