@@ -31,9 +31,14 @@ export function CustomerDisplayHost() {
   }, [authenticated]);
 
   useEffect(() => {
-    if (!available || (!counter && !authenticated)) return undefined;
-    let cancelled = false;
+    if (!available) return undefined;
     const storeName = getStore()?.name ?? APP_DISPLAY_NAME;
+    // Máy thường chưa ai đăng nhập: chỉ hiện tên cửa hàng (quảng cáo cần đăng nhập để đọc).
+    if (!counter && !authenticated) {
+      customerDisplay.setAds(null, storeName);
+      return undefined;
+    }
+    let cancelled = false;
     const load = async () => {
       try {
         const config: DisplayConfigDto = counter ? await getCounterDisplayConfig() : await getDisplayConfig(branchId);
