@@ -1,10 +1,12 @@
 import { useMemo, useState } from 'react';
 import { View, FlatList, ScrollView } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import Svg, { Path } from 'react-native-svg';
 
 import { EmptyState } from 'src/components/shared';
 import { Text, Icon, Pressable, Skeleton, Chip } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
+import { brand } from 'src/theme';
 import { getCategories } from 'src/api/erp';
 import { t } from 'src/i18n';
 import type { IProductListItem } from 'src/types/erp';
@@ -39,8 +41,13 @@ export function ProductPickRow({ item, inCart, onPress }: { item: IProductListIt
       >
         {inCart ? (
           <Text tone="inverse" className="font-bold text-[14px]">{inCart}</Text>
+        ) : item.hasVariants && (item.childProducts ?? []).filter((c) => c.isActive).length > 1 ? (
+          <Icon name="chevron-down" size={22} tone="primary" />
         ) : (
-          <Icon name={item.hasVariants && (item.childProducts ?? []).filter((c) => c.isActive).length > 1 ? 'chevron-down' : 'plus'} size={24} tone="primary" />
+          // Dấu cộng trơn (icon "plus" của bộ Solar có sẵn vòng tròn nền → thành hình tròn lồng trong ô).
+          <Svg width={18} height={18} viewBox="0 0 24 24">
+            <Path d="M12 5v14M5 12h14" stroke={brand.primary} strokeWidth={2.8} strokeLinecap="round" />
+          </Svg>
         )}
       </View>
     </Pressable>
@@ -84,8 +91,9 @@ export function ProductPicker({ header, inCart, onPick, onScan, bottomInset = 0 
           horizontal
           showsHorizontalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          // ScrollView ngang trong cột sẽ tự giãn hết chiều cao còn lại nếu không chặn.
-          style={{ flexGrow: 0 }}
+          // ScrollView ngang trong cột sẽ tự giãn hết chiều cao còn lại nếu không chặn — và mặc định co được
+          // (flexShrink 1) nên bị bóp thấp hơn chip, cắt mép dưới.
+          style={{ flexGrow: 0, flexShrink: 0 }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 2, gap: 8 }}
         >
           <Chip label={t('erp.categoryAll')} selected={categoryId === null} color="primary" onPress={() => setPickedCategory(null)} />
