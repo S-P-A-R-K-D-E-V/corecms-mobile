@@ -1,10 +1,10 @@
 import { RoleGuard } from 'src/auth/role-guard';
-import { ADMIN_ROLES } from 'src/auth/roles';
+import { PERMISSIONS } from 'src/auth/permissions';
 import { PayrollCycleDetailScreen } from 'src/features/admin-payroll/PayrollCycleDetailScreen';
 
 export default function AdminPayrollDetail() {
   return (
-    <RoleGuard roles={ADMIN_ROLES}>
+    <RoleGuard permissions={[PERMISSIONS.payroll.recordsRead]}>
       <PayrollCycleDetailScreen />
     </RoleGuard>
   );

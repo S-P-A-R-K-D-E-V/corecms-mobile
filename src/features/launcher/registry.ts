@@ -1,7 +1,7 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
 import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES, SHIFT_CASH_ROLES, canUseAssistant, assistantEnabled } from 'src/auth/roles';
-import { hasAllPermissions, REPORT_SCREEN_PERMISSIONS } from 'src/auth/permissions';
+import { hasAllPermissions, PERMISSIONS, REPORT_SCREEN_PERMISSIONS } from 'src/auth/permissions';
 import type { BranchType } from 'src/features/branch/working-branch';
 import { t } from 'src/i18n';
 import { COUNTER_FEATURE_KEYS, COUNTER_OPEN_TO_ALL } from 'src/features/counter/counter-scope';
@@ -143,7 +143,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.financialOverview },
   { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.breakEven },
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead] },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', roles: ADMIN_ROLES },
 ];
 

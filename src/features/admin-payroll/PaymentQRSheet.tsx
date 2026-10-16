@@ -43,10 +43,13 @@ export function PaymentQRSheet({
   recordId,
   visible,
   onClose,
+  canMarkPaid = true,
 }: {
   recordId: string;
   visible: boolean;
   onClose: () => void;
+  /** payroll.mark-paid (mặc định chỉ Admin): không có thì chỉ xem / chia sẻ QR, không đánh dấu đã trả. */
+  canMarkPaid?: boolean;
 }) {
   const prepareM = usePreparePayment();
   const markM = useMarkPaid();
@@ -146,7 +149,7 @@ export function PaymentQRSheet({
               fullWidth
               action={confirmArm ? 'error' : 'primary'}
               icon={confirmArm ? 'alert-circle-outline' : 'check-decagram-outline'}
-              disabled={!prep?.canPay}
+              disabled={!prep?.canPay || !canMarkPaid}
               loading={markM.isPending}
               onPress={markPaid}
             >
