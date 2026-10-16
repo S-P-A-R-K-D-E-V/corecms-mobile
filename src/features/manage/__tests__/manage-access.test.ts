@@ -1,8 +1,8 @@
 import { MANAGE_SCREEN_PERMISSIONS, hasAllPermissions, hasAnyPermission } from 'src/auth/permissions';
 import { getFeature, isFeatureVisible } from 'src/features/launcher/registry';
 
-// Khu "Quản lý" (ca làm / chấm công) theo quyền shift.* / attendance.* thay vì vai trò Manager / Admin: Manager có quyền
-// mặc định nên như cũ; vai trò tuỳ chỉnh (vd Trưởng ca) thấy đúng tiện ích được cấp; vệ sinh vẫn theo vai trò.
+// Khu "Quản lý" (ca làm / chấm công / vệ sinh) theo quyền shift.* / attendance.* / cleaning.* thay vì vai trò Manager /
+// Admin: Manager có quyền mặc định nên như cũ; vai trò tuỳ chỉnh (vd Trưởng ca) thấy đúng tiện ích được cấp.
 
 const MANAGER_DEFAULTS = [
   'shift.assignment.read',
@@ -35,9 +35,12 @@ describe('tiện ích khu Quản lý theo quyền', () => {
     expect(visible('assign-shift', lead)).toBe(false);
   });
 
-  it('vệ sinh vẫn theo vai trò Manager / Admin', () => {
+  it('vệ sinh theo quyền cleaning.*, không theo vai trò Manager', () => {
+    // Quyền ca làm không kéo theo vệ sinh; Manager bị bỏ hết quyền (chỉ còn vai trò) cũng không thấy.
     expect(visible('cleaning-week', user({ role: 'Staff', roles: ['Staff'], permissions: MANAGER_DEFAULTS }))).toBe(false);
-    expect(visible('cleaning-week', user({ role: 'Manager', roles: ['Manager'] }))).toBe(true);
+    expect(visible('cleaning-week', user({ role: 'Manager', roles: ['Manager'] }))).toBe(false);
+    expect(visible('cleaning-week', user({ role: 'Staff', roles: ['Staff'], permissions: ['cleaning.read'] }))).toBe(true);
+    expect(visible('cleaning-week', user({ role: 'Admin', roles: ['Admin'] }))).toBe(true);
   });
 
   it('quyền màn hình: xếp ca cần cả xem lẫn xếp; duyệt cần MỘT trong hai', () => {

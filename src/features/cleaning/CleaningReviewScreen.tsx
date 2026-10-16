@@ -9,6 +9,8 @@ import { Text, Button, Badge, TextField, Icon, Pressable } from 'src/components/
 import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { getStorageUrl } from 'src/api/axios';
+import { useAuthContext } from 'src/auth/auth-context';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import {
   createCleaningPenalty,
   getCleaningChecklist,
@@ -50,7 +52,10 @@ const formatVnd = (amount: number) => `${amount.toLocaleString('vi-VN')}đ`;
 
 // ----------------------------------------------------------------------
 
-function TaskRow({ task, onPass, onFail, onPenalty, onViewPhoto }: {
+function TaskRow({ task, mayReview, mayPenalize, onPass, onFail, onPenalty, onViewPhoto }: {
+  /** Core-be cleaning.review / cleaning.penalty.manage — chỉ có quyền xem thì không có nút. */
+  mayReview: boolean;
+  mayPenalize: boolean;
   task: ICleaningTaskInstance;
   onPass: (task: ICleaningTaskInstance) => void;
   onFail: (task: ICleaningTaskInstance) => void;
@@ -58,7 +63,7 @@ function TaskRow({ task, onPass, onFail, onPenalty, onViewPhoto }: {
   onViewPhoto: (uri: string) => void;
 }) {
   const activePenalties = task.penalties.filter((p) => !p.voidedAt);
-  const canReview = task.status === 'Done' || task.status === 'Pending';
+  const canReview = mayReview && (task.status === 'Done' || task.status === 'Pending');
 
   return (
     <View className="py-2.5 gap-1.5">
@@ -111,7 +116,7 @@ function TaskRow({ task, onPass, onFail, onPenalty, onViewPhoto }: {
             </View>
           </>
         ) : null}
-        {task.status === 'Failed' ? (
+        {mayPenalize && task.status === 'Failed' ? (
           <View className="flex-1">
             <Button size="sm" variant="outline" icon="cash-remove" onPress={() => onPenalty(task)}>
               Phạt
@@ -127,6 +132,9 @@ function TaskRow({ task, onPass, onFail, onPenalty, onViewPhoto }: {
 
 export function CleaningReviewScreen() {
   const qc = useQueryClient();
+  const { user } = useAuthContext();
+  const mayReview = hasPermission(user, PERMISSIONS.cleaning.review);
+  const mayPenalize = hasPermission(user, PERMISSIONS.cleaning.penaltyManage);
   const params = useLocalSearchParams<{ date?: string; block?: string }>();
 
   const [date, setDate] = useState(() =>
@@ -294,6 +302,8 @@ export function CleaningReviewScreen() {
                 {i > 0 ? <View className="h-px bg-line/50 dark:bg-line-dark/50" /> : null}
                 <TaskRow
                   task={task}
+                  mayReview={mayReview}
+                  mayPenalize={mayPenalize}
                   onPass={handlePass}
                   onFail={openFail}
                   onPenalty={openPenalty}

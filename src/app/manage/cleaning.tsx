@@ -1,11 +1,11 @@
 import { RoleGuard } from 'src/auth/role-guard';
-import { MANAGER_ROLES } from 'src/auth/roles';
+import { MANAGE_SCREEN_PERMISSIONS } from 'src/auth/permissions';
 import { CleaningWeekOverviewScreen } from 'src/features/cleaning/CleaningWeekOverviewScreen';
 
-// Vệ sinh chưa chuyển sang quyền: chỉ Manager / Admin (stack Quản lý giờ mở cho cả vai trò có quyền ca làm).
+// Vệ sinh theo quyền cleaning.* (Core-be; mặc định Manager / Admin, vai trò tuỳ chỉnh được cấp thêm).
 export default function ManageCleaning() {
   return (
-    <RoleGuard roles={MANAGER_ROLES}>
+    <RoleGuard permissions={MANAGE_SCREEN_PERMISSIONS.cleaningReview}>
       <CleaningWeekOverviewScreen />
     </RoleGuard>
   );
