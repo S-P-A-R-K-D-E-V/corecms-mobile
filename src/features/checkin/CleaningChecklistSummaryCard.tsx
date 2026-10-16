@@ -6,15 +6,20 @@ import { useQuery } from '@tanstack/react-query';
 import { Text, Icon, Pressable } from 'src/components/ui';
 import { getMyCleaningChecklist } from 'src/api/cleaning';
 import { extractApiError } from 'src/services/error';
+import { PLATFORM_FEATURES } from 'src/auth/platform-features';
+import { usePlatformFeatureAllowed } from 'src/auth/use-platform-feature';
 
 // ── Cleaning checklist summary (thẻ tóm tắt + link, không nhúng cả checklist) ─
 // Tách thành file riêng (thay vì khai báo trong CheckinScreen.tsx) để test được
 // độc lập mà không phải kéo theo toàn bộ cây import của màn check-in.
 export function CleaningChecklistSummaryCard() {
   const today = dayjs().format('YYYY-MM-DD');
+  // Chủ cửa hàng tắt làm việc vệ sinh trên app với người này → không gọi API, thẻ không hiện.
+  const enabled = usePlatformFeatureAllowed(PLATFORM_FEATURES.cleaningTasks);
   const { data, isError, error } = useQuery({
     queryKey: ['cleaning', 'my-checklist', today],
     queryFn: () => getMyCleaningChecklist(today),
+    enabled,
   });
 
   if (isError) {

@@ -8,10 +8,13 @@ import {
   getPaymentMethodReport,
   getAttendanceReport,
 } from 'src/api/reports';
+import { PLATFORM_FEATURES } from 'src/auth/platform-features';
+import { usePlatformFeatureAllowed } from 'src/auth/use-platform-feature';
 
 // ----------------------------------------------------------------------
 // Hooks React Query cho dashboard Quản trị. staleTime 60s để tránh gọi lại
-// liên tục khi chuyển tab; refetch bằng pull-to-refresh trên màn hình.
+// liên tục khi chuyển tab; refetch bằng pull-to-refresh trên màn hình. Chủ cửa hàng tắt xem báo cáo trên app với người
+// này → không gọi /reports/* (thẻ doanh thu ở trang chủ tự ẩn).
 // ----------------------------------------------------------------------
 
 const MINUTE = 60_000;
@@ -24,28 +27,34 @@ export function rangeLastDays(days: number) {
 }
 
 export function useDashboardSummary() {
+  const enabled = usePlatformFeatureAllowed(PLATFORM_FEATURES.reports);
   return useQuery({
     queryKey: ['admin', 'dashboard-summary'],
     queryFn: getDashboardSummary,
     staleTime: MINUTE,
+    enabled,
   });
 }
 
 export function useRevenueReport(days: number) {
   const range = rangeLastDays(days);
+  const enabled = usePlatformFeatureAllowed(PLATFORM_FEATURES.reports);
   return useQuery({
     queryKey: ['admin', 'revenue', days],
     queryFn: () => getRevenueReport({ ...range, groupBy: 'day' }),
     staleTime: MINUTE,
+    enabled,
   });
 }
 
 export function usePaymentMix(days: number) {
   const range = rangeLastDays(days);
+  const enabled = usePlatformFeatureAllowed(PLATFORM_FEATURES.reports);
   return useQuery({
     queryKey: ['admin', 'payment-mix', days],
     queryFn: () => getPaymentMethodReport(range),
     staleTime: MINUTE,
+    enabled,
   });
 }
 

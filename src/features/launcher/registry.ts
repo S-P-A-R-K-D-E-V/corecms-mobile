@@ -11,6 +11,7 @@ import {
 import type { BranchType } from 'src/features/branch/working-branch';
 import { t } from 'src/i18n';
 import { COUNTER_FEATURE_KEYS, COUNTER_OPEN_TO_ALL } from 'src/features/counter/counter-scope';
+import { PLATFORM_FEATURES, isPlatformFeatureBlocked } from 'src/auth/platform-features';
 
 // ----------------------------------------------------------------------
 // Danh mục tiện ích cho feature-grid (kiểu lưới tiện ích MB Bank). Thêm tính
@@ -84,6 +85,8 @@ export type FeatureItem = {
    * tính năng cửa hàng bật — tiện ích theo loại hình (F&B) dùng fnbVisible(ctx).
    */
   visible?: (user: AuthUser | null | undefined, ctx: FeatureContext) => boolean;
+  /** Tính năng chủ cửa hàng tắt được trên app theo vai trò (src/auth/platform-features.ts) — bị tắt thì ẩn ô. */
+  platformFeature?: string;
 };
 
 const GROUP_KEYS: Record<LauncherGroup, string> = {
@@ -107,7 +110,7 @@ export function featureLabel(item: FeatureItem): string {
 export const FEATURE_REGISTRY: FeatureItem[] = [
   // ── Bán hàng (ERP trên app — KiotViet vẫn là hệ thống chính, đơn app đồng bộ sang) ──
   // Nhân viên bán được; Hoá đơn (cả cửa hàng) cho quản lý trở lên.
-  { key: 'pos', label: 'Bán hàng', icon: 'cart-outline', href: '/(tabs)/pos', tone: 'primary', group: 'sales' },
+  { key: 'pos', label: 'Bán hàng', icon: 'cart-outline', href: '/(tabs)/pos', tone: 'primary', group: 'sales', platformFeature: PLATFORM_FEATURES.posSale },
   { key: 'products', label: 'Hàng hoá', icon: 'package-variant-closed', href: '/(tabs)/products', tone: 'info', group: 'sales' },
   { key: 'invoices', label: 'Hoá đơn', icon: 'receipt', href: '/(tabs)/invoices', tone: 'success', group: 'sales', allPermissions: [PERMISSIONS.sales.orderRead] },
   { key: 'purchase-orders', label: 'Nhập hàng', icon: 'truck-delivery-outline', href: '/purchase-orders', tone: 'warning', group: 'sales', allPermissions: [PERMISSIONS.purchase.read] },
@@ -121,7 +124,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'shift-pool', label: 'Nhận ca', icon: 'hand-heart', href: '/shift-pool', tone: 'secondary', group: 'personal' },
   // Kiểm quầy: ô hiện cho mọi nhân viên nội bộ; vào được hay không do cổng trong màn quyết định — Admin vào
   // thẳng, Staff/Manager phải có ca hôm nay + đang ở cửa hàng (BE chặn cùng luật).
-  { key: 'shift-cash', label: 'Kiểm quầy', icon: 'cash-register', href: '/shift-cash', tone: 'success', group: 'personal', roles: SHIFT_CASH_ROLES },
+  { key: 'shift-cash', label: 'Kiểm quầy', icon: 'cash-register', href: '/shift-cash', tone: 'success', group: 'personal', roles: SHIFT_CASH_ROLES, platformFeature: PLATFORM_FEATURES.shiftCash },
   // Bảng công đang làm lại — tạm đánh dấu "Sắp có" để không điều hướng vào màn dở dang.
   { key: 'attendance', label: 'Bảng công', icon: 'clipboard-text-clock', href: '/attendance', tone: 'primary', group: 'personal', comingSoon: true },
   { key: 'notifications', label: 'Thông báo', icon: 'bell-outline', href: '/notifications', tone: 'warning', group: 'personal' },
@@ -146,9 +149,9 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
 
   // ── Quản trị (Admin) — báo cáo theo quyền analytics.* (vai trò tuỳ chỉnh "Kế toán" thấy được) ─────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.revenue },
-  { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.financialOverview },
-  { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.breakEven },
+  { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.revenue, platformFeature: PLATFORM_FEATURES.reports },
+  { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.financialOverview, platformFeature: PLATFORM_FEATURES.reports },
+  { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.breakEven, platformFeature: PLATFORM_FEATURES.reports },
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', allPermissions: [PERMISSIONS.attendance.read] },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead] },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', allPermissions: [PERMISSIONS.user.read] },
@@ -168,7 +171,10 @@ export function isFeatureVisible(item: FeatureItem, user: AuthUser | null | unde
     if (COUNTER_OPEN_TO_ALL.has(item.key)) return item.visible?.(user, ctx) ?? true;
   }
   return (
-    hasAnyRole(user, item.roles) && hasAllPermissions(user, item.allPermissions) && (item.visible?.(user, ctx) ?? true)
+    hasAnyRole(user, item.roles) &&
+    hasAllPermissions(user, item.allPermissions) &&
+    !(item.platformFeature && isPlatformFeatureBlocked(user, item.platformFeature)) &&
+    (item.visible?.(user, ctx) ?? true)
   );
 }
 
