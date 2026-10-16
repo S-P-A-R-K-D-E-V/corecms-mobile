@@ -34,7 +34,8 @@ import type { IAuthResponse } from 'src/types/corecms-api';
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
-const GROUP_ORDER = ['working', 'upcoming', 'manager', 'ended'] as const;
+// Ca chưa gắn chi nhánh vẫn là người đứng quầy hôm nay → ngay sau người của chi nhánh, trước quản lý / người hết ca.
+const GROUP_ORDER = ['working', 'upcoming', 'otherBranch', 'manager', 'ended'] as const;
 
 function roleLabel(p: CounterPerson): string {
   if (p.role === 'Admin') return t('counter.roleOwner');
@@ -46,11 +47,13 @@ function mmss(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** Cùng chi nhánh theo trạng thái ca; ca chưa gắn chi nhánh (atThisBranch = false) gom riêng ở cuối. */
+/** Cùng chi nhánh theo trạng thái ca; ca chưa gắn chi nhánh (atThisBranch = false) gom riêng, trước quản lý. */
 export function groupRoster(people: CounterPerson[]): [string, CounterPerson[]][] {
   const here = people.filter((p) => p.atThisBranch !== false);
-  const groups: [string, CounterPerson[]][] = GROUP_ORDER.map((status) => [status, here.filter((p) => p.status === status)]);
-  groups.push(['otherBranch', people.filter((p) => p.atThisBranch === false)]);
+  const groups: [string, CounterPerson[]][] = GROUP_ORDER.map((key) => [
+    key,
+    key === 'otherBranch' ? people.filter((p) => p.atThisBranch === false) : here.filter((p) => p.status === key),
+  ]);
   return groups.filter(([, list]) => list.length > 0);
 }
 
@@ -200,12 +203,17 @@ export function CounterLockScreen() {
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, alignSelf: 'center', width: '100%', maxWidth: 1280 }}
           refreshControl={<RefreshControl refreshing={rosterQ.isRefetching} onRefresh={() => rosterQ.refetch()} />}
         >
-          <View className="flex-row items-start justify-between mb-4 gap-3">
-            <View className="flex-1">
+          {/* Màn hẹp (điện thoại dọc): chữ trên, nút dưới — xếp ngang thì nút chiếm gần hết hàng, chữ mỗi dòng một từ. */}
+          <View className={cn('mb-4 gap-3', width >= 600 && 'flex-row items-start justify-between')}>
+            <View className={width >= 600 ? 'flex-1' : undefined}>
               <Text variant="headline" className="mb-1">{tr('counter.pickTitle')}</Text>
               <Text tone="muted">{tr('counter.pickHint')}</Text>
             </View>
-            <Button variant="soft" size="sm" onPress={() => setQrMode(true)}>{tr('counter.scanQr')}</Button>
+            <View className={width >= 600 ? undefined : 'self-start'}>
+              <Button variant="soft" size="sm" fullWidth={false} onPress={() => setQrMode(true)}>
+                {tr('counter.scanQr')}
+              </Button>
+            </View>
           </View>
 
           {rosterQ.isLoading ? (
@@ -488,14 +496,14 @@ function PasswordEntry({
           />
         </View>
         {error ? <Text tone="error" className="text-center">{error}</Text> : null}
-        <Button className="w-full" loading={checking} disabled={!password} onPress={submit}>
-          {tr('counter.signIn')}
-        </Button>
-        <View className="flex-row gap-2">
-          <Button variant="outline" action="neutral" onPress={onCancel}>{tr('counter.pickOther')}</Button>
+        <View className="w-full gap-2">
+          <Button loading={checking} disabled={!password} onPress={submit}>
+            {tr('counter.signIn')}
+          </Button>
           {person.hasApp ? (
             <Button variant="soft" onPress={onUseCode}>{tr('counter.useCode')}</Button>
           ) : null}
+          <Button variant="outline" action="neutral" onPress={onCancel}>{tr('counter.pickOther')}</Button>
         </View>
       </View>
     </ScrollView>

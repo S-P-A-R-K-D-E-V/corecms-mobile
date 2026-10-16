@@ -4,7 +4,7 @@ import axiosInstance from './axios';
 import { getHostApi } from 'src/services/store-config';
 import { getCounterKey } from 'src/services/counter-mode';
 import type { IAuthResponse } from 'src/types/corecms-api';
-import { t } from 'src/i18n';
+import { getLocale, t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Máy quầy (core-be CounterController / CounterDevicesController):
@@ -57,6 +57,18 @@ export async function provisionCounterDevice(branchId: string, deviceName: strin
 
 const counterAxios = axios.create({ timeout: 20_000 });
 
+/**
+ * Câu lỗi Counter.* của server chỉ có tiếng Việt: app không ở tiếng Việt thì dịch theo mã, lấy số (lần thử còn lại,
+ * số giây chờ) từ câu gốc. Mã lạ → null (giữ câu của server).
+ */
+export function localizedServerError(code: string, serverMessage: string): string | null {
+  if (getLocale() === 'vi' || !code.startsWith('Counter.')) return null;
+  const key = `counter.serverErrors.${code.slice('Counter.'.length)}`;
+  const n = serverMessage.match(/\d+/)?.[0] ?? '';
+  const text = t(key, { n });
+  return text === key ? null : text;
+}
+
 counterAxios.interceptors.request.use(async (config) => {
   config.baseURL = getHostApi();
   const key = await getCounterKey();
@@ -69,9 +81,12 @@ counterAxios.interceptors.response.use(
   (error) => {
     const data = error?.response?.data ?? {};
     const status: number | undefined = error?.response?.status;
+    const code: string =
+      typeof data.type === 'string' && data.type.includes('.') ? data.type : status === 401 ? 'Counter.Unauthorized' : 'Network';
     const err: CounterError = {
-      code: typeof data.type === 'string' && data.type.includes('.') ? data.type : status === 401 ? 'Counter.Unauthorized' : 'Network',
+      code,
       message:
+        localizedServerError(code, typeof data.title === 'string' ? data.title : '') ||
         (typeof data.title === 'string' && data.title) ||
         (status === 401 ? t('counter.errors.revoked') : status === 429 ? t('counter.errors.tooFast') : t('common.network')),
       status,

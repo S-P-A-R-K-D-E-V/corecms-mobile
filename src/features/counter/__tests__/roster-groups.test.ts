@@ -24,7 +24,7 @@ const person = (userId: string, status: string, atThisBranch?: boolean): Counter
 });
 
 describe('groupRoster', () => {
-  it('xếp theo trạng thái, ca chưa gắn chi nhánh để cuối', () => {
+  it('xếp theo trạng thái, ca chưa gắn chi nhánh ngay sau người của chi nhánh', () => {
     const groups = groupRoster([
       person('a', 'ended'),
       person('b', 'working', false),
@@ -35,9 +35,9 @@ describe('groupRoster', () => {
     expect(groups.map(([k, list]) => [k, list.map((p) => p.userId)])).toEqual([
       ['working', ['c']],
       ['upcoming', ['e']],
+      ['otherBranch', ['b']],
       ['manager', ['d']],
       ['ended', ['a']],
-      ['otherBranch', ['b']],
     ]);
   });
 
