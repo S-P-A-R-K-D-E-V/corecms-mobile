@@ -14,6 +14,7 @@ import { usesAdminShell } from 'src/auth/roles';
 import { getSalesOrders } from 'src/api/erp';
 import { getRevenueReport } from 'src/api/reports';
 import { t } from 'src/i18n';
+import { useResponsive } from 'src/hooks/use-responsive';
 import type { ISalesOrder } from 'src/types/erp';
 
 import { SearchBar, ListFooter, SyncBadge, isCancelledStatus, money, useDebounced } from 'src/features/erp/shared';
@@ -74,6 +75,9 @@ function InvoiceRow({ o }: { o: ISalesOrder }) {
 
 export function InvoicesScreen() {
   const insets = useSafeAreaInsets();
+  // Tablet / POS màn ngang: danh sách hai cột, đọc nhiều hoá đơn một lúc không phải cuộn dài.
+  const { width } = useResponsive();
+  const columns = width >= 900 ? 2 : 1;
   const { user } = useAuthContext();
   const [range, setRange] = useState<Range>('today');
   const [keyword, setKeyword] = useState('');
@@ -128,9 +132,20 @@ export function InvoicesScreen() {
         </View>
       ) : (
         <FlatList
+          key={`cols-${columns}`}
           data={items}
           keyExtractor={(o) => o.id}
-          renderItem={({ item }) => <InvoiceRow o={item} />}
+          numColumns={columns}
+          columnWrapperStyle={columns > 1 ? { gap: 12 } : undefined}
+          renderItem={({ item }) =>
+            columns > 1 ? (
+              <View style={{ flex: 1 }}>
+                <InvoiceRow o={item} />
+              </View>
+            ) : (
+              <InvoiceRow o={item} />
+            )
+          }
           ItemSeparatorComponent={() => <View className="h-px bg-line/60 dark:bg-line-dark ml-4" />}
           contentContainerStyle={{ paddingTop: 6, paddingBottom: TAB_CLEARANCE + insets.bottom }}
           onEndReached={() => list.hasNextPage && !list.isFetchingNextPage && list.fetchNextPage()}
