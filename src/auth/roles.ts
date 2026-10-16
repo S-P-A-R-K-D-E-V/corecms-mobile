@@ -82,11 +82,27 @@ export function homeHref(_user?: AuthUser | null): string {
 }
 
 /**
+ * Quyền mở được công cụ đọc của trợ lý cửa hàng cho người không phải chủ / quản lý — vai trò tuỳ chỉnh (vd "Kế toán" được
+ * cấp báo cáo doanh thu). Core-be StoreAssistantToolset quyết định đúng tool nào; đây chỉ để hiện ô / tab.
+ */
+const ASSISTANT_PERMISSION_PREFIXES = [
+  'analytics.',
+  'payroll.',
+  'expense.',
+  'cash-fund.',
+  'cash-voucher.',
+  'cash-flow-category.',
+  'partner-voucher.',
+];
+
+/**
  * Có thấy tab Trợ lý AI không. Bản CiCi: mọi người (trợ lý nhân viên tự tra lương/lịch). Bản cửa hàng:
- * chủ/quản lý — trợ lý cửa hàng (core-be StoreAssistant) chưa có chế độ cho nhân viên.
+ * chủ/quản lý, hoặc vai trò tuỳ chỉnh được cấp báo cáo / tiền (trợ lý chỉ có tool đúng quyền đó — core-be
+ * StoreAssistant; server không cho thì màn trợ lý báo không dùng được).
  */
 export function canUseAssistant(user: AuthUser | null | undefined): boolean {
-  return !isMultiStore || isManagerUser(user);
+  if (!isMultiStore || isManagerUser(user)) return true;
+  return (user?.permissions ?? []).some((code) => ASSISTANT_PERMISSION_PREFIXES.some((prefix) => code.startsWith(prefix)));
 }
 
 /** Cửa hàng đã bật trợ lý AI chưa (GET /users/me → enabledFeatures). Không có danh sách = chưa biết. */
