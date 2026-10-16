@@ -8,6 +8,7 @@ import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser } from 'src/auth/roles';
+import { PLATFORM_FEATURES, isPlatformFeatureBlocked } from 'src/auth/platform-features';
 import { unpairCounter } from 'src/api/counter';
 import { leaveCounterMode, useCounterMode } from 'src/services/counter-mode';
 import { track, AnalyticsEvent } from 'src/services/analytics';
@@ -33,7 +34,7 @@ const ROLE: Record<string, { key: string; tone: 'error' | 'secondary' | 'primary
 };
 
 const TOOLS = [
-  { icon: 'cash-register' as const, iconTone: 'success' as const, titleKey: 'profile.toolCash', subtitleKey: 'profile.toolCashDesc', route: '/shift-cash' },
+  { icon: 'cash-register' as const, iconTone: 'success' as const, titleKey: 'profile.toolCash', subtitleKey: 'profile.toolCashDesc', route: '/shift-cash', platformFeature: PLATFORM_FEATURES.shiftCash },
   { icon: 'bell-outline' as const, iconTone: 'error' as const, titleKey: 'profile.toolNotifications', subtitleKey: 'profile.toolNotificationsDesc', route: '/notifications' },
   { icon: 'calendar-sync-outline' as const, iconTone: 'secondary' as const, titleKey: 'profile.toolSchedule', subtitleKey: 'profile.toolScheduleDesc', route: '/(tabs)/schedule' },
   { icon: 'swap-horizontal' as const, iconTone: 'warning' as const, titleKey: 'profile.toolSwap', subtitleKey: 'profile.toolSwapDesc', route: '/shift-swap' },
@@ -364,7 +365,7 @@ export function ProfileScreen() {
 
       {/* Tools */}
       <SectionCard title={t('profile.tools')} bodyClassName="pt-0">
-        {TOOLS.map((tool, i) => (
+        {TOOLS.filter((tool) => !('platformFeature' in tool && tool.platformFeature && isPlatformFeatureBlocked(user, tool.platformFeature))).map((tool, i) => (
           <View key={tool.route}>
             {i > 0 ? <Divider className="ml-12" /> : null}
             <ListItem

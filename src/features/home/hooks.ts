@@ -8,6 +8,8 @@ import { getMySchedule } from 'src/api/schedule';
 import { getMyAttendanceReport } from 'src/api/attendance';
 import { getMyCleaningChecklist } from 'src/api/cleaning';
 import { t } from 'src/i18n';
+import { PLATFORM_FEATURES } from 'src/auth/platform-features';
+import { usePlatformFeatureAllowed } from 'src/auth/use-platform-feature';
 
 // ----------------------------------------------------------------------
 // Dữ liệu trang chủ. API mới (today-board, my-current-estimate) có thể chưa có trên core-be đang chạy
@@ -39,22 +41,24 @@ export const HIDDEN_AMOUNT = '••••••';
 export function useMonthProfit(enabled = true) {
   const from = ymd(dayjs().startOf('month'));
   const to = ymd(dayjs());
+  const reportsAllowed = usePlatformFeatureAllowed(PLATFORM_FEATURES.reports);
   return useQuery({
     queryKey: ['home', 'month-profit', from, to],
     queryFn: () => getRevenueReport({ fromDate: from, toDate: to, groupBy: 'day' }),
     staleTime: MINUTE,
-    enabled,
+    enabled: enabled && reportsAllowed,
   });
 }
 
 export function useBreakEvenToday(enabled = true) {
   const today = ymd(dayjs());
+  const reportsAllowed = usePlatformFeatureAllowed(PLATFORM_FEATURES.reports);
   return useQuery({
     queryKey: ['home', 'break-even', today],
     queryFn: () => getBreakEvenAnalysis({ period: 'day', targetDate: today }),
     staleTime: MINUTE,
     retry: retryUnless404,
-    enabled,
+    enabled: enabled && reportsAllowed,
   });
 }
 
@@ -120,11 +124,13 @@ export function usePeriodReport(from: string, enabled: boolean) {
 
 export function useTodayCleaning() {
   const today = ymd(dayjs());
+  const enabled = usePlatformFeatureAllowed(PLATFORM_FEATURES.cleaningTasks);
   return useQuery({
     // Cùng key với thẻ checklist ở màn điểm danh → dùng chung cache.
     queryKey: ['cleaning', 'my-checklist', today],
     queryFn: () => getMyCleaningChecklist(today),
     staleTime: MINUTE,
+    enabled,
   });
 }
 

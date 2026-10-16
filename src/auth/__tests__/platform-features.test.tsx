@@ -6,11 +6,19 @@ jest.mock('src/features/checkin/CheckinScreen', () => {
   const { Text } = require('react-native');
   return { CheckinScreen: () => <Text>màn chấm công</Text> };
 });
+jest.mock('src/features/shift-cash/ShiftCashScreen', () => {
+  const { Text } = require('react-native');
+  return { ShiftCashScreen: () => <Text>màn kiểm quầy</Text> };
+});
+jest.mock('src/features/shift-cash/AccessGate', () => ({
+  ShiftCashAccessGate: ({ children }: any) => children,
+}));
 
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import Checkin from 'src/app/(tabs)/checkin';
+import ShiftCash from 'src/app/shift-cash';
 
 import {
   CLIENT_PLATFORM,
@@ -61,5 +69,22 @@ describe('tab Chấm công', () => {
     render(<Checkin />);
 
     expect(screen.getByText('màn chấm công')).toBeTruthy();
+  });
+});
+
+describe('màn Kiểm quầy', () => {
+  it('bị tắt trên app → báo đã tắt, không mở màn kiểm quầy', () => {
+    mockUser = { role: 'Staff', roles: ['Staff'], blockedFeatures: [PLATFORM_FEATURES.shiftCash] };
+    render(<ShiftCash />);
+
+    expect(screen.getByText('Kiểm quầy trên app đã tắt')).toBeTruthy();
+    expect(screen.queryByText('màn kiểm quầy')).toBeNull();
+  });
+
+  it('không bị tắt → màn kiểm quầy như cũ', () => {
+    mockUser = { role: 'Staff', roles: ['Staff'], blockedFeatures: [] };
+    render(<ShiftCash />);
+
+    expect(screen.getByText('màn kiểm quầy')).toBeTruthy();
   });
 });

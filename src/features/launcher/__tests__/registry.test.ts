@@ -168,3 +168,25 @@ describe('báo cáo theo quyền', () => {
     expect(keys(accountant)).not.toContain('break-even-report');
   });
 });
+
+describe('Tính năng tắt trên app theo vai trò (blockedFeatures)', () => {
+  const keys = (user: any) => availableFeatures(user, featureContext(user)).map((f) => f.key);
+
+  it('ẩn Bán hàng, Kiểm quầy, báo cáo khi bị tắt; tiện ích khác giữ nguyên', () => {
+    const blockedOwner = {
+      ...owner,
+      blockedFeatures: ['sales.pos', 'shift-cash.counter', 'analytics.reports'],
+    };
+
+    expect(keys(owner)).toEqual(expect.arrayContaining(['pos', 'shift-cash', 'revenue-report', 'break-even-report']));
+    const visible = keys(blockedOwner);
+    ['pos', 'shift-cash', 'revenue-report', 'financial-overview', 'break-even-report'].forEach((k) =>
+      expect(visible).not.toContain(k)
+    );
+    expect(visible).toEqual(expect.arrayContaining(['products', 'attendance-report', 'checkin']));
+  });
+
+  it('không bị tắt (hoặc chưa nạp) thì vẫn hiện', () => {
+    expect(keys({ ...staff, blockedFeatures: [] })).toEqual(expect.arrayContaining(['pos', 'shift-cash']));
+  });
+});

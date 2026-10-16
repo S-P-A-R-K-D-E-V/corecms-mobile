@@ -10,6 +10,11 @@ jest.mock('src/api/cleaning', () => ({
   getMyCleaningChecklist: jest.fn(),
 }));
 
+let mockBlockedFeatures: string[] = [];
+jest.mock('src/auth/auth-context', () => ({
+  useAuthContext: () => ({ user: { roles: ['Staff'], blockedFeatures: mockBlockedFeatures } }),
+}));
+
 const mockedGetMyCleaningChecklist = getMyCleaningChecklist as jest.MockedFunction<
   typeof getMyCleaningChecklist
 >;
@@ -88,5 +93,21 @@ describe('CleaningChecklistSummaryCard', () => {
 
     expect(await screen.findByText('Checklist vệ sinh ca này')).toBeTruthy();
     expect(screen.getByText('1/2 đầu việc đã xong')).toBeTruthy();
+  });
+});
+
+describe('CleaningChecklistSummaryCard — tắt trên app', () => {
+  afterEach(() => {
+    mockBlockedFeatures = [];
+  });
+
+  it('chủ cửa hàng tắt làm việc vệ sinh trên app → không gọi API, không hiện', () => {
+    mockBlockedFeatures = ['cleaning.tasks'];
+    mockedGetMyCleaningChecklist.mockClear();
+
+    const { toJSON } = renderWithClient(<CleaningChecklistSummaryCard />);
+
+    expect(toJSON()).toBeNull();
+    expect(mockedGetMyCleaningChecklist).not.toHaveBeenCalled();
   });
 });
