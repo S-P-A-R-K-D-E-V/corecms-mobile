@@ -107,11 +107,21 @@ export function Screen({
         {header ?? hoisted}
         {onRefresh ? (
           <PullRefresh refreshing={refreshing} onRefresh={onRefresh}>
-            {(pull) => (
-              <Animated.ScrollView {...scrollProps} {...pull} contentContainerClassName={contentClass}>
-                {content}
-              </Animated.ScrollView>
-            )}
+            {({ scroll, top, contentStyle }) =>
+              top ? (
+                // Android: vùng kéo nằm trên cùng, ngoài phần đệm → đệm / khoảng cách chuyển vào khung bên trong.
+                <Animated.ScrollView {...scrollProps} {...scroll} contentContainerStyle={[{ paddingBottom: tabPadBottom }, contentStyle]}>
+                  {top}
+                  <View className={contentClass} style={[hoisted && padded ? { paddingTop: 10 } : null, contentContainerStyle]}>
+                    {content}
+                  </View>
+                </Animated.ScrollView>
+              ) : (
+                <Animated.ScrollView {...scrollProps} {...scroll} contentContainerClassName={contentClass}>
+                  {content}
+                </Animated.ScrollView>
+              )
+            }
           </PullRefresh>
         ) : (
           <ScrollView {...scrollProps} contentContainerClassName={contentClass}>

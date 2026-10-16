@@ -1,12 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, PanResponder, Platform, RefreshControl, View, type FlatListProps, type RefreshControlProps, type ScrollViewProps } from 'react-native';
+import { createContext, isValidElement, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Dimensions, Platform, RefreshControl, View, type FlatListProps, type LayoutChangeEvent, type RefreshControlProps, type ScrollViewProps } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
   cancelAnimation,
   interpolate,
   runOnJS,
+  runOnUI,
+  scrollTo,
   useAnimatedReaction,
+  useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useReducedMotion,
@@ -14,6 +17,7 @@ import Animated, {
   withRepeat,
   withSpring,
   withTiming,
+  type AnimatedRef,
   type SharedValue,
 } from 'react-native-reanimated';
 import { cssInterop, useColorScheme } from 'nativewind';
@@ -44,7 +48,6 @@ cssInterop(Animated.FlatList, {
 export const PULL_THRESHOLD = 72;
 /** Chiều cao khe lúc đang tải (Android). iOS do UIRefreshControl giữ ~60. */
 const HOLD = 64;
-const MAX_PULL = 150;
 const MIN_SHOW_MS = 700;
 const SLOW_MS = 2000;
 const SLOW_NOTE_MS = 4500;
@@ -210,7 +213,20 @@ function moodOf(phase: RefreshPhase, reduce: boolean): MascotMood {
   }
 }
 
-function RefreshIndicator({ pull, phase, slowNote, doneAt }: { pull: SharedValue<number>; phase: RefreshPhase; slowNote: boolean; doneAt: number }) {
+function RefreshIndicator({
+  pull,
+  phase,
+  slowNote,
+  doneAt,
+  anchor,
+}: {
+  pull: SharedValue<number>;
+  phase: RefreshPhase;
+  slowNote: boolean;
+  doneAt: number;
+  /** 'top': nằm sau vùng cuộn, mép trên (iOS). 'bottom': nằm trong vùng kéo phía trên nội dung, sát mép dưới (Android). */
+  anchor: 'top' | 'bottom';
+}) {
   const tr = useT();
   const reduce = useReducedMotion();
   const { colorScheme } = useColorScheme();
@@ -283,7 +299,7 @@ function RefreshIndicator({ pull, phase, slowNote, doneAt }: { pull: SharedValue
           position: 'absolute',
           left: 0,
           right: 0,
-          top: 0,
+          ...(anchor === 'top' ? { top: 0 } : { bottom: 0 }),
           overflow: 'hidden',
           alignItems: 'center',
           justifyContent: 'center',
@@ -325,20 +341,35 @@ function RefreshIndicator({ pull, phase, slowNote, doneAt }: { pull: SharedValue
 }
 
 // ── Vùng cuộn có kéo-làm-mới ─────────────────────────────────────────
+//
+// Android không có "kéo quá đầu" và ScrollView gốc giành mọi cử chỉ dọc trước JS — nên không bắt cử chỉ bằng JS.
+// Thay vào đó: một vùng kéo cao PULL_ZONE nằm sẵn phía trên nội dung, danh sách mở ra đã cuộn qua vùng đó. Kéo xuống
+// ở đầu danh sách = cuộn gốc (mượt) vào vùng kéo — linh vật nằm trong đó. Thả tay: đủ ngưỡng thì giữ khe HOLD và làm
+// mới, chưa đủ thì bật về.
 
-/** Props cần gắn lên Animated.ScrollView / Animated.FlatList bên trong PullRefresh. */
+const PULL_ZONE = 150;
+
+/** Props gắn lên Animated.ScrollView / Animated.FlatList bên trong PullRefresh. */
 export type PullScrollProps = {
+  ref: AnimatedRef<Animated.ScrollView>;
   onScroll: ReturnType<typeof useAnimatedScrollHandler>;
   scrollEventThrottle: number;
   refreshControl?: React.ReactElement<RefreshControlProps>;
   overScrollMode?: 'never';
   alwaysBounceVertical?: boolean;
+  contentOffset?: { x: number; y: number };
+  onLayout?: (e: LayoutChangeEvent) => void;
+  onContentSizeChange?: (w: number, h: number) => void;
   style: { flex: number; backgroundColor: string };
 };
 
-function rubber(raw: number) {
-  return MAX_PULL * (1 - Math.exp((-raw * 0.7) / MAX_PULL));
-}
+export type PullRenderArgs = {
+  scroll: PullScrollProps;
+  /** Đặt ở ĐẦU nội dung cuộn (Android: vùng kéo; iOS: null). */
+  top: React.ReactNode;
+  /** Gộp vào contentContainerStyle (Android: đủ cao để luôn cuộn qua được vùng kéo). */
+  contentStyle: { minHeight: number } | null;
+};
 
 export function PullRefresh({
   onRefresh,
@@ -347,19 +378,29 @@ export function PullRefresh({
 }: {
   onRefresh?: () => unknown;
   refreshing?: boolean;
-  children: (scroll: PullScrollProps) => React.ReactNode;
+  children: (args: PullRenderArgs) => React.ReactNode;
 }) {
   const ios = Platform.OS === 'ios';
+  const ref = useAnimatedRef<Animated.ScrollView>();
   const pull = useSharedValue(0);
-  const scrollY = useSharedValue(0);
+  const scrollY = useSharedValue(ios ? 0 : PULL_ZONE);
   const busySV = useSharedValue(0);
-  const dragSV = useSharedValue(0); // iOS: 0 nghỉ · 1 kéo · 2 đủ ngưỡng (để chỉ báo JS khi đổi)
+  const dragging = useSharedValue(0);
+  const level = useSharedValue(0); // 0 nghỉ · 1 kéo · 2 đủ ngưỡng (chỉ báo JS khi đổi)
   const [held, setHeld] = useState(false); // iOS: RefreshControl đang giữ chỗ
+  const [viewportH, setViewportH] = useState(() => Dimensions.get('window').height);
+  const placed = useRef(false);
 
   const close = useCallback(() => {
-    if (ios) setHeld(false);
-    else pull.value = withTiming(0, { duration: CLOSE_MS, easing: Easing.out(Easing.cubic) });
-  }, [ios, pull]);
+    if (ios) {
+      setHeld(false);
+      return;
+    }
+    runOnUI(() => {
+      'worklet';
+      if (scrollY.value < PULL_ZONE) scrollTo(ref, 0, PULL_ZONE, true);
+    })();
+  }, [ios, ref, scrollY]);
 
   const m = useRefreshMachine({ onRefresh, refreshing, close });
   const machine = useRef(m);
@@ -368,86 +409,130 @@ export function PullRefresh({
     busySV.value = m.busy ? 1 : 0;
   }, [m.busy, busySV]);
 
+  const startFromUI = useCallback(() => {
+    machine.current.start();
+  }, []);
+
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
-      scrollY.value = e.contentOffset.y;
-      if (ios) pull.value = Math.max(0, -e.contentOffset.y);
+      const y = e.contentOffset.y;
+      scrollY.value = y;
+      pull.value = ios ? Math.max(0, -y) : Math.max(0, PULL_ZONE - y);
+    },
+    onBeginDrag: () => {
+      dragging.value = 1;
+    },
+    onEndDrag: (e) => {
+      dragging.value = 0;
+      if (ios) return;
+      const y = e.contentOffset.y;
+      if (busySV.value === 0 && PULL_ZONE - y >= PULL_THRESHOLD) {
+        busySV.value = 1;
+        scrollTo(ref, 0, PULL_ZONE - HOLD, true);
+        runOnJS(startFromUI)();
+      } else if (busySV.value === 0 && y < PULL_ZONE) {
+        scrollTo(ref, 0, PULL_ZONE, true);
+      } else if (busySV.value === 1 && y < PULL_ZONE - HOLD) {
+        scrollTo(ref, 0, PULL_ZONE - HOLD, true);
+      }
+    },
+    onMomentumEnd: (e) => {
+      if (ios) return;
+      // Vuốt mạnh lên đầu: quán tính trôi vào vùng kéo → bật về (không tính là kéo làm mới).
+      const y = e.contentOffset.y;
+      if (busySV.value === 0 && y < PULL_ZONE) scrollTo(ref, 0, PULL_ZONE, true);
+      else if (busySV.value === 1 && y < PULL_ZONE - HOLD) scrollTo(ref, 0, PULL_ZONE - HOLD, true);
     },
   });
 
-  // iOS: độ kéo do UIKit tính → báo trạng thái kéo / đủ ngưỡng cho linh vật (chỉ khi đổi mức).
+  // Trạng thái kéo (nhìn xuống / nheo mắt + rung) — chỉ khi đang kéo tay (Android) và không bận.
   const setDragFromUI = useCallback((n: number) => {
     machine.current.setDrag(n === 2 ? 'armed' : n === 1 ? 'pull' : 'rest');
   }, []);
   useAnimatedReaction(
-    () => (ios && busySV.value === 0 ? (pull.value >= PULL_THRESHOLD ? 2 : pull.value > 2 ? 1 : 0) : -1),
+    () => {
+      if (busySV.value === 1) return -1;
+      if (!ios && dragging.value === 0) return 0;
+      return pull.value >= PULL_THRESHOLD ? 2 : pull.value > 2 ? 1 : 0;
+    },
     (next) => {
-      if (next < 0 || next === dragSV.value) return;
-      dragSV.value = next;
+      if (next < 0 || next === level.value) return;
+      level.value = next;
       runOnJS(setDragFromUI)(next);
     },
     [ios, setDragFromUI]
   );
 
-  // Android: bắt cử chỉ kéo xuống khi danh sách đang ở đầu.
-  const responder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponderCapture: (_, g) =>
-          !machine.current.busy && scrollY.value <= 0.5 && g.dy > 8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.4,
-        onPanResponderMove: (_, g) => {
-          const d = rubber(Math.max(0, g.dy));
-          pull.value = d;
-          machine.current.setDrag(d >= PULL_THRESHOLD ? 'armed' : d > 2 ? 'pull' : 'rest');
-        },
-        onPanResponderTerminationRequest: () => false,
-        onPanResponderRelease: () => release(),
-        onPanResponderTerminate: () => release(),
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
+  const indicator = (anchor: 'top' | 'bottom') => (
+    <RefreshIndicator pull={pull} phase={m.phase} slowNote={m.slowNote} doneAt={m.doneAt} anchor={anchor} />
   );
-  function release() {
-    if (pull.value >= PULL_THRESHOLD && machine.current.start()) {
-      pull.value = withSpring(HOLD, { damping: 18, stiffness: 180 });
-    } else {
-      pull.value = withTiming(0, { duration: CLOSE_MS, easing: Easing.out(Easing.cubic) });
-      machine.current.setDrag('rest');
-    }
+
+  if (ios) {
+    const scroll: PullScrollProps = {
+      ref,
+      onScroll,
+      scrollEventThrottle: 16,
+      alwaysBounceVertical: true,
+      style: { flex: 1, backgroundColor: 'transparent' },
+      refreshControl: (
+        <RefreshControl
+          refreshing={held}
+          onRefresh={() => {
+            setHeld(true);
+            if (!machine.current.start()) setHeld(false);
+          }}
+          tintColor="transparent"
+          style={{ backgroundColor: 'transparent' }}
+        />
+      ),
+    };
+    return (
+      <PullContext.Provider value={pull}>
+        <View style={{ flex: 1 }}>
+          {indicator('top')}
+          {children({ scroll, top: null, contentStyle: null })}
+        </View>
+      </PullContext.Provider>
+    );
   }
 
-  const contentStyle = useAnimatedStyle(() => (ios ? {} : { transform: [{ translateY: pull.value }] }));
-
-  const scrollProps: PullScrollProps = ios
-    ? {
-        onScroll,
-        scrollEventThrottle: 16,
-        alwaysBounceVertical: true,
-        style: { flex: 1, backgroundColor: 'transparent' },
-        refreshControl: (
-          <RefreshControl
-            refreshing={held}
-            onRefresh={() => {
-              setHeld(true);
-              if (!machine.current.start()) setHeld(false);
-            }}
-            tintColor="transparent"
-            style={{ backgroundColor: 'transparent' }}
-          />
-        ),
-      }
-    : { onScroll, scrollEventThrottle: 16, overScrollMode: 'never', style: { flex: 1, backgroundColor: 'transparent' } };
-
+  const scroll: PullScrollProps = {
+    ref,
+    onScroll,
+    scrollEventThrottle: 16,
+    overScrollMode: 'never',
+    contentOffset: { x: 0, y: PULL_ZONE },
+    style: { flex: 1, backgroundColor: 'transparent' },
+    onLayout: (e) => {
+      const h = Math.round(e.nativeEvent.layout.height);
+      if (h > 0 && h !== viewportH) setViewportH(h);
+    },
+    onContentSizeChange: () => {
+      // contentOffset ban đầu có máy không áp — đặt lại một lần cho chắc.
+      if (placed.current) return;
+      placed.current = true;
+      runOnUI(() => {
+        'worklet';
+        if (scrollY.value < PULL_ZONE) scrollTo(ref, 0, PULL_ZONE, false);
+      })();
+    },
+  };
   return (
     <PullContext.Provider value={pull}>
-      <View style={{ flex: 1 }}>
-        <RefreshIndicator pull={pull} phase={m.phase} slowNote={m.slowNote} doneAt={m.doneAt} />
-        <Animated.View style={[{ flex: 1 }, contentStyle]} {...(ios ? {} : responder.panHandlers)}>
-          {children(scrollProps)}
-        </Animated.View>
-      </View>
+      {children({
+        scroll,
+        top: <View style={{ height: PULL_ZONE }}>{indicator('bottom')}</View>,
+        contentStyle: { minHeight: viewportH + PULL_ZONE },
+      })}
     </PullContext.Provider>
   );
+}
+
+function renderListHeader(header: FlatListProps<unknown>['ListHeaderComponent']) {
+  if (!header) return null;
+  if (isValidElement(header)) return header;
+  const Header = header as React.ComponentType;
+  return <Header />;
 }
 
 /** FlatList có kéo-làm-mới kiểu Spark (thay cho refreshControl={<RefreshControl …/>}). */
@@ -456,11 +541,28 @@ export function RefreshFlatList<T>({
   onRefresh,
   ...rest
 }: Omit<FlatListProps<T>, 'refreshing' | 'onRefresh' | 'refreshControl'> & { refreshing?: boolean; onRefresh?: () => unknown }) {
-  const List = Animated.FlatList as unknown as React.ComponentType<FlatListProps<T>>;
+  const List = Animated.FlatList as unknown as React.ComponentType<FlatListProps<T> & { ref?: unknown }>;
   if (!onRefresh) return <List {...rest} />;
   return (
     <PullRefresh refreshing={refreshing} onRefresh={onRefresh}>
-      {(scroll) => <List {...rest} {...(scroll as object)} style={[scroll.style, rest.style]} />}
+      {({ scroll, top, contentStyle }) => (
+        <List
+          {...rest}
+          {...(scroll as object)}
+          style={[scroll.style, rest.style]}
+          contentContainerStyle={[rest.contentContainerStyle, contentStyle]}
+          ListHeaderComponent={
+            top ? (
+              <>
+                {top}
+                {renderListHeader(rest.ListHeaderComponent as FlatListProps<unknown>['ListHeaderComponent'])}
+              </>
+            ) : (
+              rest.ListHeaderComponent
+            )
+          }
+        />
+      )}
     </PullRefresh>
   );
 }
@@ -469,13 +571,42 @@ export function RefreshFlatList<T>({
 export function RefreshScrollView({
   refreshing,
   onRefresh,
+  children,
+  contentContainerStyle,
+  contentContainerClassName,
   ...rest
-}: Omit<ScrollViewProps, 'refreshControl'> & { refreshing?: boolean; onRefresh?: () => unknown }) {
-  const Scroll = Animated.ScrollView as unknown as React.ComponentType<ScrollViewProps>;
-  if (!onRefresh) return <Scroll {...rest} />;
+}: Omit<ScrollViewProps, 'refreshControl'> & { refreshing?: boolean; onRefresh?: () => unknown; contentContainerClassName?: string }) {
+  const Scroll = Animated.ScrollView as unknown as React.ComponentType<ScrollViewProps & { ref?: unknown; contentContainerClassName?: string }>;
+  if (!onRefresh) {
+    return (
+      <Scroll {...rest} contentContainerStyle={contentContainerStyle} contentContainerClassName={contentContainerClassName}>
+        {children}
+      </Scroll>
+    );
+  }
   return (
     <PullRefresh refreshing={refreshing} onRefresh={onRefresh}>
-      {(scroll) => <Scroll {...rest} {...(scroll as object)} style={[scroll.style, rest.style]} />}
+      {({ scroll, top, contentStyle }) =>
+        top ? (
+          // Android: vùng kéo nằm ngoài phần đệm của nội dung → đệm / khoảng cách chuyển vào khung bên trong.
+          <Scroll {...rest} {...(scroll as object)} style={[scroll.style, rest.style]} contentContainerStyle={contentStyle}>
+            {top}
+            <View style={contentContainerStyle} className={contentContainerClassName}>
+              {children}
+            </View>
+          </Scroll>
+        ) : (
+          <Scroll
+            {...rest}
+            {...(scroll as object)}
+            style={[scroll.style, rest.style]}
+            contentContainerStyle={contentContainerStyle}
+            contentContainerClassName={contentContainerClassName}
+          >
+            {children}
+          </Scroll>
+        )
+      }
     </PullRefresh>
   );
 }
