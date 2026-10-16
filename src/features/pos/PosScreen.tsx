@@ -11,7 +11,8 @@ import { brand, grey, softShadow } from 'src/theme';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isManagerUser, usesAdminShell } from 'src/auth/roles';
+import { usesAdminShell } from 'src/auth/roles';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { getProducts, getWarehouses } from 'src/api/erp';
@@ -83,7 +84,8 @@ export function PosScreen() {
   const { user } = useAuthContext();
   const { width, isTablet, isLandscape } = useResponsive();
   const split = isSplitPos({ isTablet, isLandscape });
-  const canEditPrice = isManagerUser(user);
+  // Sửa giá / giảm giá tay theo quyền sales.price.override (mặc định chủ, quản lý) — server kiểm giá niêm yết như vậy.
+  const canEditPrice = hasPermission(user, PERMISSIONS.sales.priceOverride);
   const counterSession = useCounterSession();
 
   const lines = useCart((s) => s.lines);

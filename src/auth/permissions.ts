@@ -92,6 +92,17 @@ export const PERMISSIONS = {
     paymentManage: 'purchase.payment.manage',
   },
   supplier: { read: 'supplier.read', manage: 'supplier.manage' },
+  /** Hoá đơn bán — bán theo giá niêm yết, xem hoá đơn mình bán hôm nay không cần quyền. Máy quầy xem mọi hoá đơn. */
+  sales: {
+    orderRead: 'sales.order.read',
+    orderUpdate: 'sales.order.update',
+    orderCancel: 'sales.order.cancel',
+    paymentAdd: 'sales.order.payment.add',
+    /** Bán khác giá niêm yết, giảm giá tay, chọn người bán. */
+    priceOverride: 'sales.price.override',
+  },
+  salesReturn: { read: 'sales-return.read', create: 'sales-return.create', complete: 'sales-return.complete' },
+  customer: { read: 'customer.read', manage: 'customer.manage' },
 } as const;
 
 const A = PERMISSIONS.analytics;

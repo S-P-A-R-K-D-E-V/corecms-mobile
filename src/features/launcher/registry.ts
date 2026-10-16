@@ -109,7 +109,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   // Nhân viên bán được; Hoá đơn (cả cửa hàng) cho quản lý trở lên.
   { key: 'pos', label: 'Bán hàng', icon: 'cart-outline', href: '/(tabs)/pos', tone: 'primary', group: 'sales' },
   { key: 'products', label: 'Hàng hoá', icon: 'package-variant-closed', href: '/(tabs)/products', tone: 'info', group: 'sales' },
-  { key: 'invoices', label: 'Hoá đơn', icon: 'receipt', href: '/(tabs)/invoices', tone: 'success', group: 'sales', roles: MANAGER_ROLES },
+  { key: 'invoices', label: 'Hoá đơn', icon: 'receipt', href: '/(tabs)/invoices', tone: 'success', group: 'sales', allPermissions: [PERMISSIONS.sales.orderRead] },
   { key: 'purchase-orders', label: 'Nhập hàng', icon: 'truck-delivery-outline', href: '/purchase-orders', tone: 'warning', group: 'sales', allPermissions: [PERMISSIONS.purchase.read] },
 
   // ── Cá nhân (mọi nhân viên) ────────────────────────────────────────
