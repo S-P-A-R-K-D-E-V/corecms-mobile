@@ -26,6 +26,8 @@ export type AuthUser = {
   hasFaceEmbedding?: boolean;
   /** Tính năng cửa hàng đang bật (GET /users/me → enabledFeatures), vd "ai.assistant". */
   enabledFeatures?: string[];
+  /** Tính năng chủ cửa hàng tắt trên app với người này (GET /users/me → blockedFeatures, src/auth/platform-features.ts). */
+  blockedFeatures?: string[];
   /**
    * Phạm vi chi nhánh ở cửa hàng này (GET /users/me → branchScope). Không có (core-be cũ) = mọi chi nhánh.
    * allBranches=false: chỉ làm ở các chi nhánh trong branchIds (nhân viên được phân công → khoá một chi nhánh).
