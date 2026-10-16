@@ -17,7 +17,17 @@ const staff = { role: 'Staff', roles: ['Staff'] } as any;
 const manager = {
   role: 'Manager',
   roles: ['Manager'],
-  permissions: ['shift.assignment.read', 'shift.assignment.manage', 'shift.request.review', 'attendance.read', 'attendance.request.process'],
+  permissions: [
+    'shift.assignment.read',
+    'shift.assignment.manage',
+    'shift.request.review',
+    'attendance.read',
+    'attendance.request.process',
+    'purchase.read',
+    'purchase.create',
+    'supplier.read',
+    'products.cost.read',
+  ],
 } as any;
 const owner = { role: 'Admin', roles: ['Admin'] } as any;
 
@@ -45,6 +55,14 @@ describe('Dùng nhanh — tối đa 8 ghim', () => {
     expect(keys(staff)).toEqual(expect.arrayContaining(['pos', 'products']));
     expect(keys(staff)).not.toContain('invoices');
     expect(keys(manager)).toContain('invoices');
+  });
+
+  it('Nhập hàng theo quyền purchase.read: Manager, Admin mặc định; "Thủ kho" được cấp thì thấy, nhân viên thường không', () => {
+    const keys = (u: any) => availableFeatures(u).map((f) => f.key);
+    expect(keys(manager)).toContain('purchase-orders');
+    expect(keys(owner)).toContain('purchase-orders');
+    expect(keys(staff)).not.toContain('purchase-orders');
+    expect(keys({ ...staff, permissions: ['purchase.read', 'purchase.receive'] })).toContain('purchase-orders');
   });
 });
 

@@ -14,6 +14,8 @@ import { t } from 'src/i18n';
 import type { IPurchaseOrder } from 'src/types/erp';
 
 import { InfoRow, money } from 'src/features/erp/shared';
+import { useAuthContext } from 'src/auth/auth-context';
+import { purchaseAccessFor } from './access';
 import { PoStatusBadge, isReceiving } from './shared';
 
 // ----------------------------------------------------------------------
@@ -93,6 +95,7 @@ function ReceiveSheet({ po, visible, onClose, onDone }: { po: IPurchaseOrder; vi
 
 export function PurchaseOrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuthContext();
   const qc = useQueryClient();
   const [receiving, setReceiving] = useState(false);
   const { data: po, isLoading, isError, refetch } = useQuery({
@@ -132,7 +135,8 @@ export function PurchaseOrderDetailScreen() {
     );
   }
 
-  const canReceive = isReceiving(po.status);
+  const access = purchaseAccessFor(user);
+  const canReceive = isReceiving(po.status) && access.canReceive;
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -171,7 +175,7 @@ export function PurchaseOrderDetailScreen() {
         {po.note ? <InfoRow label={t('erp.note')} value={po.note} /> : null}
       </SectionCard>
 
-      {po.status === 'Draft' ? (
+      {po.status === 'Draft' && access.canConfirm ? (
         <Button
           icon="check-circle-outline"
           loading={confirmPo.isPending}
