@@ -8,6 +8,7 @@ import { cn } from 'src/components/ui/utils';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
+import { ADMIN_ROLES, hasAnyRole } from 'src/auth/roles';
 import { canOverseeShiftCash, canManageShiftCashOversight } from 'src/auth/permissions';
 import { extractApiError } from 'src/services/error';
 import {
@@ -147,6 +148,7 @@ export function ShiftCashScreen() {
   const date = todayOnly ? vnToday() : pickedDate;
   const isToday = date === vnToday();
   const canEdit = canManageOversight || (isToday && !viewOnly);
+  const isOwner = hasAnyRole(user, ADMIN_ROLES);
 
   const { summary, kiot, loading, kiotLoading, kiotError, refreshing, refetch, denied } = useShiftCash(date, geo);
 
@@ -422,7 +424,8 @@ export function ShiftCashScreen() {
                     {t.note || '—'}{t.createdByName ? `  ·  ${t.createdByName}` : ''}
                   </Text>
                 </View>
-                {canEdit ? (
+                {/* Khoản gắn cổ đông vào chốt sổ cổ đông — chỉ chủ cửa hàng sửa / xoá (BE Till.ShareholderOwnerOnly). */}
+                {canEdit && (isOwner || !t.shareholderId) ? (
                   <View className="flex-row">
                     <Pressable onPress={() => setTx({ visible: true, mode: 'edit', type: t.type, editing: t })} className="w-9 h-9 items-center justify-center">
                       <Icon name="pencil-outline" size={18} tone="muted" />
