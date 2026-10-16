@@ -195,6 +195,10 @@ export const endpoints = {
     list: '/roles',
     assign: '/roles/assign',
   },
+  customRoles: {
+    list: '/custom-roles',
+    userAssignment: (userId: string) => `/custom-roles/users/${userId}`,
+  },
   shifts: {
     list: '/shifts',
     details: (id: string) => `/shifts/${id}`,

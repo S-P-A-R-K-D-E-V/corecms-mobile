@@ -102,3 +102,22 @@ describe('vệ sinh — khớp quyền core-be', () => {
     expect(keys(staff)).not.toContain('cleaning-builder');
   });
 });
+
+// Báo cáo trong stack Quản trị theo quyền analytics.* (Core-be /reports/*): chủ cửa hàng thấy hết; vai trò tuỳ chỉnh
+// ("Kế toán") thấy đúng màn mà mình có đủ quyền của các API màn đó gọi.
+describe('báo cáo theo quyền', () => {
+  const keys = (u: any) => availableFeatures(u).map((f) => f.key);
+  const reportKeys = ['revenue-report', 'financial-overview', 'break-even-report'];
+
+  it('Admin thấy mọi báo cáo; nhân viên thường không thấy', () => {
+    expect(keys(owner)).toEqual(expect.arrayContaining(reportKeys));
+    reportKeys.forEach((k) => expect(keys(staff)).not.toContain(k));
+  });
+
+  it('"Kế toán" có quyền doanh thu + phương thức thanh toán chỉ thấy Doanh thu', () => {
+    const accountant = { ...staff, permissions: ['analytics.revenue.read', 'analytics.payment-method.read'] };
+    expect(keys(accountant)).toContain('revenue-report');
+    expect(keys(accountant)).not.toContain('financial-overview');
+    expect(keys(accountant)).not.toContain('break-even-report');
+  });
+});

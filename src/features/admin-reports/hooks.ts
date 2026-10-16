@@ -3,7 +3,7 @@ import dayjs from 'dayjs';
 
 import { getAttendanceReport, getRevenueReport, getExpenseReport, getBreakEvenAnalysis } from 'src/api/reports';
 import { getAllUsers, getUserById, changeUserStatus } from 'src/api/users';
-import { getAllRoles, assignRoles } from 'src/api/roles';
+import { getAllRoles, assignRoles, getCustomRoles, getUserRoleAssignment, setUserCustomRoles } from 'src/api/roles';
 import { rangeLastDays } from 'src/features/admin-dashboard/hooks';
 import type {
   IAssignRoleRequest,
@@ -72,7 +72,41 @@ export function useAssignRoles() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: IAssignRoleRequest) => assignRoles(data),
-    onSuccess: (_r, data) => invalidateUser(qc, data.userId),
+    onSuccess: (_r, data) => {
+      invalidateUser(qc, data.userId);
+      qc.invalidateQueries({ queryKey: ['admin', 'role-assignment', data.userId] });
+    },
+  });
+}
+
+export function useCustomRoles() {
+  return useQuery({
+    queryKey: ['admin', 'custom-roles'],
+    queryFn: getCustomRoles,
+    staleTime: MINUTE,
+  });
+}
+
+/** Vai trò ĐƯỢC GÁN (hệ thống + tuỳ chỉnh) — user.roles có cả vai trò gốc của vai trò tuỳ chỉnh, không dùng để tích ô. */
+export function useUserRoleAssignment(userId?: string) {
+  return useQuery({
+    queryKey: ['admin', 'role-assignment', userId],
+    queryFn: () => getUserRoleAssignment(userId!),
+    enabled: !!userId,
+    staleTime: MINUTE,
+  });
+}
+
+export function useSetUserCustomRoles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, customRoleIds }: { userId: string; customRoleIds: string[] }) =>
+      setUserCustomRoles(userId, customRoleIds),
+    onSuccess: (_r, { userId }) => {
+      invalidateUser(qc, userId);
+      qc.invalidateQueries({ queryKey: ['admin', 'role-assignment', userId] });
+      qc.invalidateQueries({ queryKey: ['admin', 'custom-roles'] });
+    },
   });
 }
 

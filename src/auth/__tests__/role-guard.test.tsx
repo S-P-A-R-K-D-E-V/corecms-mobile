@@ -59,4 +59,24 @@ describe('RoleGuard', () => {
     fireEvent.press(screen.getByText('Quay lại'));
     expect(mockRouter.replace).toHaveBeenCalledWith('/(tabs)/home');
   });
+
+  it('allPermissions: thiếu một quyền → 403; Admin luôn qua', () => {
+    mockUser = { role: 'Staff', roles: ['Staff'], permissions: ['analytics.revenue.read'] };
+    const view = render(
+      <RoleGuard allPermissions={['analytics.revenue.read', 'analytics.payment-method.read']}>
+        <Text>doanh thu</Text>
+      </RoleGuard>
+    );
+    expect(screen.queryByText('doanh thu')).toBeNull();
+    view.unmount();
+
+    mockUser = { role: 'Admin', roles: ['Admin'], permissions: [] };
+    render(
+      <RoleGuard allPermissions={['analytics.revenue.read', 'analytics.payment-method.read']}>
+        <Text>doanh thu</Text>
+      </RoleGuard>
+    );
+    expect(screen.getByText('doanh thu')).toBeTruthy();
+  });
 });
+
