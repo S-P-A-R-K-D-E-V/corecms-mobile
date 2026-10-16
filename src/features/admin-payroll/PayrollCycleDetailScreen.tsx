@@ -14,6 +14,7 @@ import type { IPayrollRecord } from 'src/types/corecms-api';
 
 import { usePayrollByCycle, useBulkFinalize, useSetCycleVisibility } from './hooks';
 import { RecalcConfirmSheet, type RecalcTarget } from './RecalcConfirmSheet';
+import { usePayrollAccess } from './access';
 
 // ----------------------------------------------------------------------
 // Chi tiết chu kỳ lương (Admin): tổng quan (tự tính từ records) + bảng lương
@@ -112,6 +113,8 @@ export function PayrollCycleDetailScreen() {
   const { data, isLoading, isError, refetch, isFetching } = usePayrollByCycle(cycleId);
   const bulkM = useBulkFinalize();
   const visibilityM = useSetCycleVisibility();
+  // Công bố kỳ / tính lại / chốt theo quyền payroll.* (mặc định chỉ Admin như API).
+  const access = usePayrollAccess();
   const [recalcOpen, setRecalcOpen] = useState(false);
   const [q, setQ] = useState('');
 
@@ -205,19 +208,19 @@ export function PayrollCycleDetailScreen() {
               }
               value={data.isVisibleToStaff}
               onToggle={toggleVisibility}
-              disabled={visibilityM.isPending}
+              disabled={visibilityM.isPending || !access.canPublishCycle}
             />
           </Card>
 
           {!data.isLocked ? (
             <View className="flex-row gap-2">
               <View className="flex-1">
-                <Button variant="soft" action="neutral" icon="calculator-variant-outline" disabled={pendingIds.length === 0} onPress={() => setRecalcOpen(true)}>
+                <Button variant="soft" action="neutral" icon="calculator-variant-outline" disabled={pendingIds.length === 0 || !access.canRecalculate} onPress={() => setRecalcOpen(true)}>
                   Tính lại{pendingIds.length ? ` ${pendingIds.length}` : ''}
                 </Button>
               </View>
               <View className="flex-1">
-                <Button action="primary" icon="lock-check-outline" disabled={pendingIds.length === 0} loading={bulkM.isPending} onPress={finalizeAll}>
+                <Button action="primary" icon="lock-check-outline" disabled={pendingIds.length === 0 || !access.canFinalize} loading={bulkM.isPending} onPress={finalizeAll}>
                   Chốt kỳ{pendingIds.length ? ` ${pendingIds.length}` : ''}
                 </Button>
               </View>

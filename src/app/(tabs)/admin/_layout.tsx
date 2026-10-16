@@ -1,12 +1,15 @@
 import { Stack } from 'expo-router';
 import { RoleGuard } from 'src/auth/role-guard';
-import { ANY_REPORT_PERMISSION } from 'src/auth/permissions';
+import { ANY_REPORT_PERMISSION, PERMISSIONS } from 'src/auth/permissions';
 
-// Stack Quản trị: Admin vào mọi màn; vai trò tuỳ chỉnh có quyền báo cáo (vd "Kế toán", Core-be analytics.*) vào được các
-// màn báo cáo. Mỗi màn con tự chặn thêm: báo cáo theo quyền của API nó gọi, còn lại chỉ Admin — kể cả khi deep-link.
+// Stack Quản trị: Admin vào mọi màn; người có quyền báo cáo (analytics.*) hoặc xem bảng lương (payroll.records.read —
+// Manager mặc định, vai trò tuỳ chỉnh được cấp) vào được các màn tương ứng. Mỗi màn con tự chặn thêm theo quyền của API
+// nó gọi, màn còn lại chỉ Admin — kể cả khi deep-link.
+const ADMIN_STACK_PERMISSIONS: readonly string[] = [...ANY_REPORT_PERMISSION, PERMISSIONS.payroll.recordsRead];
+
 export default function AdminLayout() {
   return (
-    <RoleGuard permissions={ANY_REPORT_PERMISSION}>
+    <RoleGuard permissions={ADMIN_STACK_PERMISSIONS}>
       <Stack screenOptions={{ headerShown: false }} />
     </RoleGuard>
   );

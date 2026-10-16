@@ -9,6 +9,7 @@ import type { IPayrollCycle } from 'src/types/corecms-api';
 
 import { usePayrollCycles } from './hooks';
 import { CreateCycleSheet } from './CreateCycleSheet';
+import { usePayrollAccess } from './access';
 
 // ----------------------------------------------------------------------
 // Danh sách chu kỳ lương (Admin). Nút "Tạo chu kỳ" mở sheet (tạo trống hoặc
@@ -50,6 +51,8 @@ function CycleCard({ cycle }: { cycle: IPayrollCycle }) {
 
 export function PayrollCyclesScreen() {
   const { data, isLoading, isError, refetch, isFetching } = usePayrollCycles();
+  // Tạo kỳ kèm tạo bảng lương hàng loạt: payroll.cycle.manage + payroll.recalculate (mặc định chỉ Admin).
+  const { canCreateCycle } = usePayrollAccess();
   const [creating, setCreating] = useState(false);
 
   return (
@@ -58,10 +61,10 @@ export function PayrollCyclesScreen() {
         title="Chu kỳ lương"
         subtitle="Tạo chu kỳ & tính lương nhân viên"
         back
-        actions={[{ icon: 'plus', onPress: () => setCreating(true) }]}
+        actions={canCreateCycle ? [{ icon: 'plus', onPress: () => setCreating(true) }] : []}
       />
 
-      <Button fullWidth icon="plus" onPress={() => setCreating(true)}>Tạo chu kỳ lương</Button>
+      {canCreateCycle ? <Button fullWidth icon="plus" onPress={() => setCreating(true)}>Tạo chu kỳ lương</Button> : null}
 
       {isLoading ? (
         <View className="gap-3">

@@ -17,6 +17,7 @@ import { SalaryConfigSheet } from './SalaryConfigSheet';
 import { RecalcConfirmSheet } from './RecalcConfirmSheet';
 import { PaymentQRSheet } from './PaymentQRSheet';
 import { WaivePenaltySheet, waivableViolation } from './WaivePenaltySheet';
+import { usePayrollAccess } from './access';
 import { PenaltyDetailSheet } from '../payroll/PenaltyDetailSheet';
 
 // ----------------------------------------------------------------------
@@ -71,11 +72,13 @@ function MoneyRow({ label, value, tone }: { label: string; value: string; tone?:
   );
 }
 
-function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onRemoveWaive }: {
+function ShiftItem({ item, staffId, staffName, finalized, canManagePenalty, onAdjust, onWaive, onRemoveWaive }: {
   item: IPayrollShiftItem;
   staffId: string;
   staffName: string;
   finalized: boolean;
+  /** payroll.penalty.manage — bỏ qua lỗi / huỷ bỏ qua. */
+  canManagePenalty: boolean;
   onAdjust: (t: AdjustTarget) => void;
   onWaive: (s: IPayrollShiftItem) => void;
   onRemoveWaive: (s: IPayrollShiftItem) => void;
@@ -83,7 +86,7 @@ function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onR
   const meta = item.waivers.length > 0
     ? { tone: 'info' as const, label: 'Đã bỏ qua lỗi' }
     : STATUS_META[item.status] ?? { tone: 'info' as const, label: item.status };
-  const canWaive = !finalized && waivableViolation(item) != null;
+  const canWaive = !finalized && canManagePenalty && waivableViolation(item) != null;
 
   return (
     <View className="py-2.5 gap-1.5">
@@ -145,7 +148,7 @@ function ShiftItem({ item, staffId, staffName, finalized, onAdjust, onWaive, onR
           <Text variant="caption" className="flex-1 text-info" numberOfLines={1}>
             Đã bỏ qua lỗi · {item.waivers.map((w) => w.reason || w.violationType).join('; ')}
           </Text>
-          {!finalized ? (
+          {!finalized && canManagePenalty ? (
             <Pressable onPress={() => onRemoveWaive(item)} hitSlop={6}>
               <Text variant="caption" tone="error" className="font-semibold">Huỷ bỏ qua</Text>
             </Pressable>
@@ -177,6 +180,8 @@ export function PayrollRecordDetailScreen() {
   );
   const salaryQ = useUserSalaryConfigs(data?.userId);
   const finalizeM = useFinalizePayroll();
+  // Nút theo quyền payroll.* — Manager mặc định không chốt / không tính lại (như API).
+  const access = usePayrollAccess();
   const removeWaiverM = useRemoveWaiver();
   const paymentQ = usePayrollPayment(recordId);
 
@@ -294,25 +299,25 @@ export function PayrollRecordDetailScreen() {
             <Text variant="bodySmall" tone="warning">Chưa có cấu hình lương — hãy đặt mức trước khi tính.</Text>
           )}
 
-          <Button variant="soft" size="sm" icon="cog-outline" disabled={finalized} onPress={() => setConfigOpen(true)}>
+          <Button variant="soft" size="sm" icon="cog-outline" disabled={finalized || !access.canManageSalaryConfig} onPress={() => setConfigOpen(true)}>
             {config ? 'Sửa cấu hình lương' : 'Đặt cấu hình lương'}
           </Button>
 
           <View className="flex-row gap-2">
             <View className="flex-1">
-              <Button variant="soft" action="neutral" size="sm" icon="calculator-variant-outline" disabled={finalized} onPress={() => setRecalcOpen(true)}>
+              <Button variant="soft" action="neutral" size="sm" icon="calculator-variant-outline" disabled={finalized || !access.canRecalculate} onPress={() => setRecalcOpen(true)}>
                 Tính lại lương
               </Button>
             </View>
             <View className="flex-1">
-              <Button size="sm" action={finalized ? 'error' : 'primary'} variant={finalized ? 'soft' : 'solid'} icon={finalized ? 'lock-open-variant-outline' : 'lock-check-outline'} loading={finalizeM.isPending} onPress={toggleFinalize}>
+              <Button size="sm" action={finalized ? 'error' : 'primary'} variant={finalized ? 'soft' : 'solid'} icon={finalized ? 'lock-open-variant-outline' : 'lock-check-outline'} disabled={!access.canFinalize} loading={finalizeM.isPending} onPress={toggleFinalize}>
                 {finalized ? 'Bỏ chốt' : 'Chốt lương'}
               </Button>
             </View>
           </View>
 
           {/* Thanh toán chỉ sau khi đã chốt lương */}
-          {finalized ? (
+          {finalized && access.canPreparePayment ? (
             <Button
               size="sm"
               action={paid ? 'neutral' : 'primary'}
@@ -349,6 +354,7 @@ export function PayrollRecordDetailScreen() {
                 staffId={data.userId}
                 staffName={data.userName}
                 finalized={finalized}
+                canManagePenalty={access.canManagePenalty}
                 onAdjust={setAdjust}
                 onWaive={setWaiveShift}
                 onRemoveWaive={handleRemoveWaive}
@@ -390,7 +396,7 @@ export function PayrollRecordDetailScreen() {
         />
       ) : null}
 
-      <PaymentQRSheet recordId={recordId} visible={payOpen} onClose={() => setPayOpen(false)} />
+      <PaymentQRSheet recordId={recordId} visible={payOpen} canMarkPaid={access.canMarkPaid} onClose={() => setPayOpen(false)} />
 
       {recordId ? (
         <PenaltyDetailSheet
