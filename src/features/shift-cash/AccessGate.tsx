@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Screen, AppHeader } from 'src/components/shared';
 import { Text, Button, Icon, BrandGradient, type IconName } from 'src/components/ui';
 import { useAuthContext } from 'src/auth/auth-context';
-import { bypassesShiftCashGate } from 'src/auth/roles';
+import { canOverseeShiftCash } from 'src/auth/permissions';
 import { getMySchedule } from 'src/api/schedule';
 import { useGpsGate, type Coords } from 'src/hooks/use-gps-gate';
 import { formatDistance } from 'src/services/geo';
@@ -31,23 +31,24 @@ import { vnToday } from './utils';
 // ----------------------------------------------------------------------
 
 export type ShiftCashAccess = {
-  /** Toạ độ đã xác minh ở cổng — null với Admin (vào thẳng, không lấy GPS). */
+  /** Toạ độ đã xác minh ở cổng — null với người giám sát (vào thẳng, không lấy GPS). */
   geo: Coords | null;
-  /** Chỉ được xem/làm ngày hôm nay (mọi người trừ Admin). */
+  /** Chỉ được xem/làm ngày hôm nay (mọi người trừ người giám sát Kiểm quầy). */
   todayOnly: boolean;
   /** Lỗi 403 ShiftCash.* từ BE → đưa về cổng hiện lý do. Trả true nếu đã xử lý (màn con khỏi báo lỗi). */
   handleDenied: (err: unknown) => boolean;
 };
 
-const ADMIN_ACCESS: ShiftCashAccess = { geo: null, todayOnly: false, handleDenied: () => false };
+const OVERSIGHT_ACCESS: ShiftCashAccess = { geo: null, todayOnly: false, handleDenied: () => false };
 
 const ShiftCashAccessContext = createContext<ShiftCashAccess>({ geo: null, todayOnly: true, handleDenied: () => false });
 export const useShiftCashAccess = () => useContext(ShiftCashAccessContext);
 
 export function ShiftCashAccessGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuthContext();
-  if (bypassesShiftCashGate(user)) {
-    return <ShiftCashAccessContext.Provider value={ADMIN_ACCESS}>{children}</ShiftCashAccessContext.Provider>;
+  // Người giám sát Kiểm quầy (shift-cash.oversight.read — Admin, hoặc vai trò được cấp) vào thẳng, như BE.
+  if (canOverseeShiftCash(user)) {
+    return <ShiftCashAccessContext.Provider value={OVERSIGHT_ACCESS}>{children}</ShiftCashAccessContext.Provider>;
   }
   return <StaffAccessGate>{children}</StaffAccessGate>;
 }

@@ -23,6 +23,14 @@ export const PERMISSIONS = {
     saleChannel: 'analytics.sale-channel.read',
     export: 'analytics.export',
   },
+  /**
+   * Giám sát Kiểm quầy (trước đây cứng "chỉ Admin"). Xem: vào không cần ca / GPS, xem ngày cũ. Sửa (cần kèm xem): ghi
+   * ngày cũ, sửa / xoá khoản của người khác, ghi khi không có ca.
+   */
+  shiftCash: {
+    oversightRead: 'shift-cash.oversight.read',
+    oversightManage: 'shift-cash.oversight.manage',
+  },
 } as const;
 
 const A = PERMISSIONS.analytics;
@@ -55,4 +63,14 @@ export function hasAnyPermission(user: AuthUser | null | undefined, codes?: read
 export function hasAllPermissions(user: AuthUser | null | undefined, codes?: readonly string[]): boolean {
   if (!codes || codes.length === 0) return true;
   return codes.every((c) => hasPermission(user, c));
+}
+
+/** Vào thẳng Kiểm quầy (không cần ca hôm nay / GPS), xem ngày cũ — khớp BE RequireShiftCashAccess. Mặc định chỉ Admin. */
+export function canOverseeShiftCash(user: AuthUser | null | undefined): boolean {
+  return hasPermission(user, PERMISSIONS.shiftCash.oversightRead);
+}
+
+/** Ghi ngày cũ, sửa / xoá khoản thu chi của người khác. */
+export function canManageShiftCashOversight(user: AuthUser | null | undefined): boolean {
+  return hasPermission(user, PERMISSIONS.shiftCash.oversightManage);
 }

@@ -8,7 +8,7 @@ import { cn } from 'src/components/ui/utils';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
-import { bypassesShiftCashGate } from 'src/auth/roles';
+import { canOverseeShiftCash, canManageShiftCashOversight } from 'src/auth/permissions';
 import { extractApiError } from 'src/services/error';
 import {
   openCounter,
@@ -132,11 +132,13 @@ export function ShiftCashScreen() {
   const { isTablet, isLandscape, width } = useResponsive();
   const wide = (isTablet && isLandscape) || width >= 900;
   const { user } = useAuthContext();
-  // Cùng luật với cổng (SHIFT_CASH_BYPASS_ROLES, khớp BE RequireShiftCashAccess) — sửa ngày cũ được.
-  const isAdmin = bypassesShiftCashGate(user);
+  // Cùng luật với BE RequireShiftCashAccess: quyền sửa giám sát mới ghi ngày cũ / khoản của người khác. Người chỉ có
+  // quyền xem vào thẳng (không qua kiểm ca) nên chỉ xem — ghi sẽ bị BE chặn vì không có ca.
+  const canManageOversight = canManageShiftCashOversight(user);
+  const viewOnly = canOverseeShiftCash(user) && !canManageOversight;
 
   // Toạ độ đã xác minh ở cổng — gửi kèm MỌI lệnh (header X-Geo-* cho BE gác cổng + body để lưu audit).
-  // todayOnly: không phải Admin thì chỉ ngày hôm nay (BE cũng chặn ngày khác bằng 403).
+  // todayOnly: không phải người giám sát thì chỉ ngày hôm nay (BE cũng chặn ngày khác bằng 403).
   const { geo, todayOnly, handleDenied } = useShiftCashAccess();
   const geoStamp = geo ?? {};
 
@@ -144,7 +146,7 @@ export function ShiftCashScreen() {
   // Ghim hôm nay theo giờ VN (để màn mở qua nửa đêm cũng chuyển sang ngày mới).
   const date = todayOnly ? vnToday() : pickedDate;
   const isToday = date === vnToday();
-  const canEdit = isToday || isAdmin;
+  const canEdit = canManageOversight || (isToday && !viewOnly);
 
   const { summary, kiot, loading, kiotLoading, kiotError, refreshing, refetch, denied } = useShiftCash(date, geo);
 
@@ -467,7 +469,7 @@ export function ShiftCashScreen() {
         actions={[{ icon: 'refresh', onPress: refetch }]}
       />
 
-      {/* Date nav — chỉ Admin được lùi xem ngày cũ; Staff/Manager ghim hôm nay. */}
+      {/* Date nav — chỉ người giám sát Kiểm quầy được lùi xem ngày cũ; Staff/Manager ghim hôm nay. */}
       <Card className="p-2.5">
         {todayOnly ? (
           <View className="items-center py-1">

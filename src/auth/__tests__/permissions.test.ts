@@ -1,4 +1,13 @@
-import { PERMISSIONS, REPORT_SCREEN_PERMISSIONS, ANY_REPORT_PERMISSION, hasPermission, hasAllPermissions, hasAnyPermission } from '../permissions';
+import {
+  PERMISSIONS,
+  REPORT_SCREEN_PERMISSIONS,
+  ANY_REPORT_PERMISSION,
+  hasPermission,
+  hasAllPermissions,
+  hasAnyPermission,
+  canOverseeShiftCash,
+  canManageShiftCashOversight,
+} from '../permissions';
 
 // Quyền hiệu lực lấy từ GET /users/me → permissions; Admin có mọi quyền như API ("*").
 
@@ -29,5 +38,32 @@ describe('permissions', () => {
   it('màn báo cáo đòi đủ quyền của các API nó gọi; mã trùng Core-be', () => {
     expect(REPORT_SCREEN_PERMISSIONS.revenue).toEqual(['analytics.revenue.read', 'analytics.payment-method.read']);
     expect(ANY_REPORT_PERMISSION).not.toContain(A.export);
+  });
+});
+
+const user = (u: Record<string, unknown>) => ({ permissions: [], ...u }) as any;
+
+// Kiểm quầy: "vào thẳng / xem ngày cũ" trước đây cứng là Admin — giờ theo quyền giám sát (mặc định chỉ Admin, khớp BE).
+describe('giám sát Kiểm quầy', () => {
+  it('mặc định chỉ Admin; Manager theo luật của Staff', () => {
+    expect(canOverseeShiftCash(user({ role: 'Admin', roles: ['Admin'] }))).toBe(true);
+    expect(canManageShiftCashOversight(user({ role: 'Admin', roles: ['Admin'] }))).toBe(true);
+    expect(canOverseeShiftCash(user({ role: 'Manager', roles: ['Manager'] }))).toBe(false);
+    expect(canOverseeShiftCash(null)).toBe(false);
+  });
+
+  it('vai trò tuỳ chỉnh được cấp quyền xem / sửa giám sát', () => {
+    const viewer = user({ role: 'Staff', roles: ['Staff'], permissions: [PERMISSIONS.shiftCash.oversightRead] });
+    expect(canOverseeShiftCash(viewer)).toBe(true);
+    expect(canManageShiftCashOversight(viewer)).toBe(false);
+    expect(
+      canManageShiftCashOversight(
+        user({
+          role: 'Staff',
+          roles: ['Staff'],
+          permissions: [PERMISSIONS.shiftCash.oversightRead, PERMISSIONS.shiftCash.oversightManage],
+        })
+      )
+    ).toBe(true);
   });
 });
