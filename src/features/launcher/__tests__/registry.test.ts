@@ -28,6 +28,7 @@ const manager = {
     'supplier.read',
     'products.cost.read',
     'sales.order.read',
+    'user.read',
   ],
 } as any;
 const owner = { role: 'Admin', roles: ['Admin'] } as any;
@@ -58,6 +59,14 @@ describe('Dùng nhanh — tối đa 8 ghim', () => {
     expect(keys(manager)).toContain('invoices');
     // Vai trò tuỳ chỉnh "Thu ngân trưởng" được cấp xem hoá đơn thì thấy.
     expect(keys({ ...staff, permissions: ['sales.order.read'] })).toContain('invoices');
+  });
+
+  it('Người dùng theo quyền user.read: Manager mặc định và vai trò "Nhân sự" thấy, nhân viên thường không', () => {
+    const keys = (u: any) => availableFeatures(u).map((f) => f.key);
+    expect(keys(manager)).toContain('users');
+    expect(keys(owner)).toContain('users');
+    expect(keys(staff)).not.toContain('users');
+    expect(keys({ ...staff, permissions: ['user.read'] })).toContain('users');
   });
 
   it('Nhập hàng theo quyền purchase.read: Manager, Admin mặc định; "Thủ kho" được cấp thì thấy, nhân viên thường không', () => {

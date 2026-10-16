@@ -1,10 +1,10 @@
 import { RoleGuard } from 'src/auth/role-guard';
-import { ADMIN_ROLES } from 'src/auth/roles';
+import { PERMISSIONS } from 'src/auth/permissions';
 import { UserDetailScreen } from 'src/features/admin-reports/UserDetailScreen';
 
 export default function AdminUserDetail() {
   return (
-    <RoleGuard roles={ADMIN_ROLES}>
+    <RoleGuard allPermissions={[PERMISSIONS.user.read]}>
       <UserDetailScreen />
     </RoleGuard>
   );
