@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 import { withAndroidManifest, type ConfigPlugin } from 'expo/config-plugins';
 
@@ -23,6 +24,11 @@ const STORE_APP_NAME = process.env.STORE_APP_NAME ?? 'Spark Store';
 const STORE_BUNDLE_ID = process.env.STORE_BUNDLE_ID ?? 'com.devbyspark.store';
 const STORE_APP_SCHEME = process.env.STORE_APP_SCHEME ?? 'sparkstore';
 const STORE_APP_VERSION = process.env.STORE_APP_VERSION ?? '1.0.0';
+// Firebase (FCM) cho thông báo đẩy Android của bản cửa hàng (app com.devbyspark.store trong Firebase console). EAS: biến
+// môi trường kiểu file GOOGLE_SERVICES_JSON; máy local: ./google-services.store.json. Không có → Android không có push
+// (mã máy quầy vẫn hiện trong app khi mở — CounterApprovalWatcher).
+const STORE_GOOGLE_SERVICES =
+  process.env.GOOGLE_SERVICES_JSON ?? (existsSync('./google-services.store.json') ? './google-services.store.json' : undefined);
 /** Ảnh thương hiệu của bản cửa hàng (assets/store/: icon.svg là bản gốc vector — tia chớp trắng trên nền hồng). */
 const STORE_ASSETS = './assets/store';
 /** Màu thương hiệu Spark Store: nền icon, splash, màu icon thông báo. Sau đăng nhập app vẫn đổi theo màu cửa hàng. */
@@ -131,6 +137,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       ...base.android,
       package: STORE_BUNDLE_ID,
       adaptiveIcon: { foregroundImage: `${STORE_ASSETS}/adaptive-icon.png`, backgroundColor: STORE_BRAND_COLOR },
+      ...(STORE_GOOGLE_SERVICES ? { googleServicesFile: STORE_GOOGLE_SERVICES } : {}),
     },
     plugins: [
       ...storePlugins(base.plugins),
