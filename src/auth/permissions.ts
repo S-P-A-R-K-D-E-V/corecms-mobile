@@ -53,6 +53,13 @@ export const PERMISSIONS = {
     adjust: 'attendance.adjust',
     requestProcess: 'attendance.request.process',
   },
+  /** Vệ sinh — checklist của mình, chụp ảnh, đánh dấu xong không cần quyền. Chấm điểm / phạt cần kèm quyền xem. */
+  cleaning: {
+    read: 'cleaning.read',
+    templateManage: 'cleaning.template.manage',
+    review: 'cleaning.review',
+    penaltyManage: 'cleaning.penalty.manage',
+  },
   /** Ca làm — lịch của mình, đăng ký / nhường / đổi ca của mình không cần quyền. */
   shift: {
     templateManage: 'shift.template.manage',
@@ -158,11 +165,15 @@ export function canManageShiftCashOversight(user: AuthUser | null | undefined): 
 const SHIFT = PERMISSIONS.shift;
 const ATTENDANCE = PERMISSIONS.attendance;
 
-/** Quyền của từng màn trong stack "Quản lý" = quyền của API màn đó gọi (Core-be shift.* / attendance.*). */
+/** Quyền của từng màn trong stack "Quản lý" = quyền của API màn đó gọi (Core-be shift.* / attendance.* / cleaning.*). */
 export const MANAGE_SCREEN_PERMISSIONS = {
   teamSchedule: [SHIFT.assignmentRead],
   assignShift: [SHIFT.assignmentRead, SHIFT.assignmentManage],
   coverShift: [SHIFT.assignmentRead, SHIFT.assignmentManage],
   /** Duyệt yêu cầu: có MỘT trong hai là vào được, mỗi tab theo quyền của nó. */
   approvals: [ATTENDANCE.requestProcess, SHIFT.requestReview],
+  /** Theo dõi tuần / chấm vệ sinh: xem checklist; nút chấm, phạt theo quyền riêng trong màn. */
+  cleaningReview: [PERMISSIONS.cleaning.read],
+  /** Thư viện đầu việc, xây checklist tuần. */
+  cleaningTemplates: [PERMISSIONS.cleaning.templateManage],
 } as const satisfies Record<string, readonly string[]>;

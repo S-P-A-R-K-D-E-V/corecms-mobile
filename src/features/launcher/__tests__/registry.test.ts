@@ -29,6 +29,10 @@ const manager = {
     'products.cost.read',
     'sales.order.read',
     'user.read',
+    'cleaning.read',
+    'cleaning.template.manage',
+    'cleaning.review',
+    'cleaning.penalty.manage',
   ],
 } as any;
 const owner = { role: 'Admin', roles: ['Admin'] } as any;
@@ -125,16 +129,24 @@ describe('ngữ cảnh hiện tiện ích: loại hình chi nhánh + tính năng
   });
 });
 
-// Thư viện đầu việc / xây checklist vệ sinh: core-be (CleaningController) và core-fe cho cả quản lý — trước đây ô chỉ
-// hiện với Admin trong khi route /manage/* vẫn mở cho quản lý (vào được bằng link nhưng không thấy ô).
+// Vệ sinh theo quyền cleaning.* (Core-be CleaningController; mặc định Manager, Admin).
 describe('vệ sinh — khớp quyền core-be', () => {
-  it('quản lý và Admin thấy thư viện đầu việc và xây checklist, nhân viên thì không', () => {
-    const keys = (u: any) => availableFeatures(u).map((f) => f.key);
+  const keys = (u: any) => availableFeatures(u).map((f) => f.key);
+  const CLEANING_KEYS = ['cleaning-week', 'cleaning-review', 'cleaning-tasks', 'cleaning-builder'];
+
+  it('quản lý và Admin thấy cả 4 ô, nhân viên thường không', () => {
     for (const user of [manager, owner]) {
-      expect(keys(user)).toEqual(expect.arrayContaining(['cleaning-tasks', 'cleaning-builder']));
+      expect(keys(user)).toEqual(expect.arrayContaining(CLEANING_KEYS));
     }
-    expect(keys(staff)).not.toContain('cleaning-tasks');
-    expect(keys(staff)).not.toContain('cleaning-builder');
+    CLEANING_KEYS.forEach((key) => expect(keys(staff)).not.toContain(key));
+  });
+
+  it('vai trò tuỳ chỉnh "Tổ trưởng vệ sinh" chỉ có cleaning.read + review: thấy theo dõi / chấm, không thấy đầu việc', () => {
+    const lead = { ...staff, permissions: ['cleaning.read', 'cleaning.review'] };
+
+    expect(keys(lead)).toEqual(expect.arrayContaining(['cleaning-week', 'cleaning-review']));
+    expect(keys(lead)).not.toContain('cleaning-tasks');
+    expect(keys(lead)).not.toContain('cleaning-builder');
   });
 });
 
