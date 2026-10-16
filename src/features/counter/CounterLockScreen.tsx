@@ -12,6 +12,7 @@ import { getStorageUrl } from 'src/api/axios';
 import {
   counterPasswordLogin,
   getCounterRoster,
+  pollCounterLogin,
   requestCounterLogin,
   verifyCounterLogin,
   type CounterError,
@@ -321,6 +322,38 @@ function CodeEntry({
     submitted.current = null;
   }, [pending.requestId]);
 
+  // Người được gửi mã có thể bấm Đồng ý trong app thay vì đọc mã: hỏi trạng thái vài giây một lần.
+  useEffect(() => {
+    let stopped = false;
+    let busy = false;
+    const id = setInterval(async () => {
+      if (busy || stopped) return;
+      busy = true;
+      try {
+        const res = await pollCounterLogin(pending.requestId);
+        if (stopped) return;
+        if (res.status === 'approved' && res.auth) {
+          stopped = true;
+          clearInterval(id);
+          setChecking(true);
+          await onSignedIn(res.auth);
+        } else if (res.status === 'rejected') {
+          stopped = true;
+          clearInterval(id);
+          setError(tr('counter.rejectedOnPhone'));
+        }
+      } catch {
+        // Lỗi mạng / server cũ — vẫn gõ mã được.
+      } finally {
+        busy = false;
+      }
+    }, 2000);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+    };
+  }, [pending.requestId, onSignedIn, tr]);
+
   const secondsLeft = Math.max(0, Math.ceil((pending.expiresAt - tick) / 1000));
   const resendIn = Math.max(0, Math.ceil((pending.resendAt - tick) / 1000));
   const expired = secondsLeft === 0;
@@ -365,7 +398,11 @@ function CodeEntry({
       <Avatar name={pending.person.fullName} uri={pending.person.avatarUrl ? getStorageUrl(pending.person.avatarUrl) : undefined} size={wide ? 96 : 72} />
       <Text variant="title2" className="text-center">{pending.person.fullName}</Text>
       <Text tone="muted" className="text-center">
-        {pending.sentTo > 1 ? tr('counter.sentToDevices', { n: pending.sentTo }) : tr('counter.sentToPhone')}
+        {pending.sentTo > 1
+          ? tr('counter.sentToDevices', { n: pending.sentTo })
+          : pending.sentTo === 1
+            ? tr('counter.sentToPhone')
+            : tr('counter.openApp')}
       </Text>
       <Text tone={expired ? 'error' : 'muted'} className="text-center">
         {expired ? tr('counter.codeExpired') : tr('counter.expiresIn', { time: mmss(secondsLeft) })}
