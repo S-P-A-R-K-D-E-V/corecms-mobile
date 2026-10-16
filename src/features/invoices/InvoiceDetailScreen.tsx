@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import { Screen, AppHeader, SectionCard, ErrorView } from 'src/components/shared';
 import { Text, Divider, Skeleton, Badge, Button } from 'src/components/ui';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isManagerUser } from 'src/auth/roles';
+import { PERMISSIONS, hasAllPermissions } from 'src/auth/permissions';
 import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { ReturnSheet } from './ReturnSheet';
 import { getSalesOrder } from 'src/api/erp';
@@ -55,8 +55,9 @@ export function InvoiceDetailScreen() {
   }
 
   const cancelled = isCancelledStatus(o.status);
-  // Trả hàng: máy quầy (ai đứng quầy cũng làm được — server kiểm theo hoá đơn) hoặc chủ / quản lý.
-  const canReturn = !cancelled && (counterSession || isManagerUser(user));
+  // Trả hàng: máy quầy (ai đứng quầy cũng làm được — server kiểm theo hoá đơn) hoặc quyền lập + hoàn tất phiếu trả.
+  const R = PERMISSIONS.salesReturn;
+  const canReturn = !cancelled && (counterSession || hasAllPermissions(user, [R.read, R.create, R.complete]));
 
   return (
     <Screen scroll tabBarInset={false}>
