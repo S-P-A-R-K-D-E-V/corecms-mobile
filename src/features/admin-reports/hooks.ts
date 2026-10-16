@@ -47,11 +47,13 @@ export function useUser(id?: string) {
   });
 }
 
-export function useRoles() {
+/** Danh mục vai trò — chỉ Admin đọc được (Core-be RolesController); người khác truyền enabled = false. */
+export function useRoles(enabled = true) {
   return useQuery({
     queryKey: ['admin', 'roles'],
     queryFn: getAllRoles,
     staleTime: 5 * MINUTE,
+    enabled,
   });
 }
 
@@ -79,20 +81,21 @@ export function useAssignRoles() {
   });
 }
 
-export function useCustomRoles() {
+export function useCustomRoles(enabled = true) {
   return useQuery({
     queryKey: ['admin', 'custom-roles'],
     queryFn: getCustomRoles,
     staleTime: MINUTE,
+    enabled,
   });
 }
 
 /** Vai trò ĐƯỢC GÁN (hệ thống + tuỳ chỉnh) — user.roles có cả vai trò gốc của vai trò tuỳ chỉnh, không dùng để tích ô. */
-export function useUserRoleAssignment(userId?: string) {
+export function useUserRoleAssignment(userId?: string, enabled = true) {
   return useQuery({
     queryKey: ['admin', 'role-assignment', userId],
     queryFn: () => getUserRoleAssignment(userId!),
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     staleTime: MINUTE,
   });
 }

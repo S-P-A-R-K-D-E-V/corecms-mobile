@@ -11,6 +11,8 @@ import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { getStorageUrl } from 'src/api/axios';
 import { useAuthContext } from 'src/auth/auth-context';
+import { getUserRoles } from 'src/auth/roles';
+import { PERMISSIONS, hasAllPermissions } from 'src/auth/permissions';
 import type { UserStatus } from 'src/types/corecms-api';
 
 import {
@@ -40,17 +42,23 @@ const STATUSES: { key: UserStatus; label: string; tone: 'success' | 'warning' | 
 export function UserDetailScreen() {
   const params = useLocalSearchParams<{ userId: string; name?: string }>();
   const userId = params.userId;
+  const { user: me } = useAuthContext();
+  // Gán vai trò chỉ chủ cửa hàng (Core-be RolesController / custom-roles: Admin) — người khác không tải, không thấy mục này.
+  const isOwner = getUserRoles(me).includes('Admin');
   const userQ = useUser(userId);
-  const rolesQ = useRoles();
-  const customRolesQ = useCustomRoles();
-  const assignmentQ = useUserRoleAssignment(userId);
+  const rolesQ = useRoles(isOwner);
+  const customRolesQ = useCustomRoles(isOwner);
+  const assignmentQ = useUserRoleAssignment(userId, isOwner);
   const statusM = useChangeUserStatus();
   const assignM = useAssignRoles();
   const customM = useSetUserCustomRoles();
 
   const user = userQ.data;
+  // Đổi trạng thái theo quyền user.status; tài khoản Admin chỉ Admin đụng được (Core-be trả 403).
+  const targetIsAdmin = [...(user?.roles ?? []), user?.role].includes('Admin');
+  const canChangeStatus =
+    hasAllPermissions(me, [PERMISSIONS.user.read, PERMISSIONS.user.status]) && (isOwner || !targetIsAdmin);
   // Core-be chặn Admin tự khoá tài khoản / tự gỡ Admin của chính mình (có thể là Admin cuối cùng) — khoá luôn trên UI.
-  const { user: me } = useAuthContext();
   const isSelf = !!me?.id && me.id === userId;
   const currentStatus: UserStatus = user?.status ?? (user?.isActive ? 'Active' : 'Banned');
 
@@ -168,7 +176,7 @@ export function UserDetailScreen() {
             <View className="flex-row flex-wrap gap-2">
               {STATUSES.map((s) => {
                 const active = s.key === currentStatus;
-                const locked = isSelf && s.key !== 'Active';
+                const locked = !canChangeStatus || (isSelf && s.key !== 'Active');
                 return (
                   <Pressable
                     key={s.key}
@@ -188,7 +196,8 @@ export function UserDetailScreen() {
             ) : null}
           </Card>
 
-          {/* Vai trò */}
+          {/* Vai trò — chỉ chủ cửa hàng */}
+          {isOwner ? (
           <Card className="p-4">
             <View className="flex-row items-center gap-2 mb-2">
               <Icon name="shield-account-outline" size={18} tone="primary" />
@@ -249,6 +258,7 @@ export function UserDetailScreen() {
               </>
             )}
           </Card>
+          ) : null}
         </>
       )}
     </Screen>

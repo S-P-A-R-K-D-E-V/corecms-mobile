@@ -103,6 +103,14 @@ export const PERMISSIONS = {
   },
   salesReturn: { read: 'sales-return.read', create: 'sales-return.create', complete: 'sales-return.complete' },
   customer: { read: 'customer.read', manage: 'customer.manage' },
+  /** Nhân viên — tài khoản Admin chỉ Admin đụng được, gán vai trò chỉ Admin (luật theo vai trò). */
+  user: {
+    read: 'user.read',
+    update: 'user.update',
+    status: 'user.status',
+    passwordReset: 'user.password.reset',
+    delete: 'user.delete',
+  },
 } as const;
 
 const A = PERMISSIONS.analytics;
