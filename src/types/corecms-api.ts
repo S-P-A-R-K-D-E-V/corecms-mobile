@@ -519,6 +519,8 @@ export interface IKioskClaimRequest {
 export interface IKioskClaimResponse {
   deviceId: string;
   deviceName: string;
+  /** "counter" = máy quầy; null = kiosk chấm công. */
+  deviceType?: string | null;
 }
 
 export interface IKioskDeviceItem {

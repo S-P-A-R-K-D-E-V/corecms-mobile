@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
 import axiosInstance from './axios';
 import { getHostApi } from 'src/services/store-config';
@@ -51,7 +52,8 @@ export type CounterLoginRequested = { requestId: string; expiresInSeconds: numbe
 export type CounterError = { code: string; message: string; status?: number };
 
 export async function provisionCounterDevice(branchId: string, deviceName: string): Promise<CounterProvisionResult> {
-  const res = await axiosInstance.post<CounterProvisionResult>('/counter-devices', { branchId, deviceName });
+  const platform = Platform.OS === 'ios' ? 'ios' : 'android';
+  const res = await axiosInstance.post<CounterProvisionResult>('/counter-devices', { branchId, deviceName, platform });
   return res.data;
 }
 
@@ -94,6 +96,31 @@ counterAxios.interceptors.response.use(
     return Promise.reject(err);
   }
 );
+
+// ── Ghép máy quầy bằng mã (máy chưa ai đăng nhập): máy hiện 6 số, chủ cửa hàng / quản lý duyệt trên web hoặc app ──
+
+export type CounterPairingStart = { pairingId: string; code: string; expiresAt: string };
+
+export type CounterPairingStatus = {
+  status: 'pending' | 'expired' | 'claimed';
+  /** Chỉ có ở lần hỏi đầu tiên sau khi được duyệt — lưu ngay. */
+  kioskKey?: string | null;
+  deviceId?: string | null;
+  deviceName?: string | null;
+  deviceType?: string | null;
+  branchId?: string | null;
+  branchName?: string | null;
+};
+
+export async function requestCounterPairing(platform: 'android' | 'ios'): Promise<CounterPairingStart> {
+  const res = await counterAxios.post<CounterPairingStart>('/kiosk-pairing/request', { deviceType: 'counter', platform });
+  return res.data;
+}
+
+export async function getCounterPairingStatus(pairingId: string): Promise<CounterPairingStatus> {
+  const res = await counterAxios.get<CounterPairingStatus>(`/kiosk-pairing/${encodeURIComponent(pairingId)}/status`);
+  return res.data;
+}
 
 export async function getCounterRoster(): Promise<CounterRoster> {
   const res = await counterAxios.get<CounterRoster>('/counter/roster');
