@@ -54,7 +54,11 @@ export function priceLabel(p: IProductListItem): string {
   return money(prices[0] ?? p.basePrice);
 }
 
-function stockBadge(stock: number, min: number, productType: number) {
+/** Món F&B làm theo đơn: tồn trừ vào nguyên liệu lúc gửi bar — không có "tồn" riêng để báo hết / còn. */
+export const isMadeToOrder = (itemKind?: string | null) => itemKind === 'Dish';
+
+function stockBadge(stock: number, min: number, productType: number, itemKind?: string | null) {
+  if (isMadeToOrder(itemKind)) return null;
   if (productType === 3) return <Badge tone="info">{t('erp.service')}</Badge>;
   if (productType === 1) return <Badge tone="secondary">{t('erp.combo')}</Badge>;
   if (stock <= 0) return <Badge tone="error">{t('erp.outOfStock')}</Badge>;
@@ -66,8 +70,22 @@ function stockBadge(stock: number, min: number, productType: number) {
  * Nhãn tồn kho. `alignEnd` khi nằm trong cột canh phải (dưới giá): Badge có sẵn `self-start` nên tự canh
  * trái theo dòng giá rộng nhất ("90.000đ – 200.000đ") — bọc hàng ngang canh phải để cột tồn thẳng hàng.
  */
-export function StockBadge({ stock, min = 0, productType = 2, alignEnd }: { stock: number; min?: number; productType?: number; alignEnd?: boolean }) {
-  const badge = stockBadge(stock, min, productType);
+export function StockBadge({
+  stock,
+  min = 0,
+  productType = 2,
+  itemKind,
+  alignEnd,
+}: {
+  stock: number;
+  min?: number;
+  productType?: number;
+  /** 'Dish' (món làm theo đơn) → không hiện nhãn tồn. */
+  itemKind?: string | null;
+  alignEnd?: boolean;
+}) {
+  const badge = stockBadge(stock, min, productType, itemKind);
+  if (!badge) return null;
   return alignEnd ? <View className="flex-row justify-end">{badge}</View> : badge;
 }
 

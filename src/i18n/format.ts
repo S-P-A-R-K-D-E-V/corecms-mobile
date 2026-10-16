@@ -46,17 +46,24 @@ export function formatNumber(value?: number | null, maximumFractionDigits = 0): 
   }
 }
 
-/** Rút gọn số lớn: 4.8Tr / 950K (vi) · 4.8M / 950K (en). Không kèm ký hiệu tiền. */
+/**
+ * Rút gọn số lớn: 4,9tr / 411k / 1,2 tỷ (vi — dấu phẩy thập phân như tiền Việt) · 4.9M / 411K (en). Hàng nghìn làm
+ * tròn số nguyên (411k, không phải 410,6k). Không kèm ký hiệu tiền.
+ */
 export function formatCompact(value?: number | null): string {
   const n = Number(value ?? 0);
   const abs = Math.abs(n);
-  const unit = (div: number, suffix: string) => {
-    // Làm tròn 1 chữ số thập phân (4.85 → 4.9; toFixed cho 4.8 vì sai số dấu phẩy động).
-    const v = Math.round((n / div) * 10) / 10;
-    return `${v}${suffix}`;
+  const decimal = getLocale() === 'vi' ? ',' : '.';
+  const unit = (div: number, suffix: string, digits: number) => {
+    // Làm tròn (4.85 → 4.9; toFixed cho 4.8 vì sai số dấu phẩy động).
+    const f = 10 ** digits;
+    const v = Math.round((n / div) * f) / f;
+    return `${String(v).replace('.', decimal)}${suffix}`;
   };
-  if (abs >= 1_000_000_000) return unit(1_000_000_000, t('format.billion'));
-  if (abs >= 1_000_000) return unit(1_000_000, t('format.million'));
-  if (abs >= 1_000) return unit(1_000, t('format.thousand'));
+  if (abs >= 1_000_000_000) return unit(1_000_000_000, t('format.billion'), 1);
+  if (abs >= 1_000_000) return unit(1_000_000, t('format.million'), 1);
+  // 999.600 làm tròn thành "1000k" → đưa lên hàng triệu.
+  if (abs >= 999_500) return unit(1_000_000, t('format.million'), 1);
+  if (abs >= 1_000) return unit(1_000, t('format.thousand'), 0);
   return `${n}`;
 }

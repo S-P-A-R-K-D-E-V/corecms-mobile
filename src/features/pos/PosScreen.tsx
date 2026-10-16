@@ -375,7 +375,7 @@ export function PosScreen() {
                 <Text variant="bodySmall" className="font-semibold">{(c.attributes ?? []).map((a) => a.attributeValue).join(' · ') || c.name}</Text>
                 <Text variant="caption" tone="muted">{c.code}</Text>
               </View>
-              <StockBadge stock={childStock(c)} />
+              <StockBadge stock={childStock(c)} itemKind={variantOf?.itemKind} />
               <Text variant="bodySmall" className="font-bold w-[90px] text-right">{money(c.basePrice)}</Text>
             </Pressable>
           </View>

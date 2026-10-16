@@ -61,6 +61,10 @@ export interface IProductListItem {
   inventories?: IProductInventory[] | null;
   childProducts?: IProductChild[] | null;
   coverImageUrl?: string | null;
+  /** Loại mặt hàng của Spark: Goods (hàng thường) | Ingredient | SemiFinished | Dish (món F&B — làm theo đơn, không giữ tồn riêng). */
+  itemKind?: string;
+  /** Món thêm (topping) của F&B. */
+  isTopping?: boolean;
 }
 
 export interface IProductDetail extends Omit<IProductListItem, 'coverImageUrl'> {

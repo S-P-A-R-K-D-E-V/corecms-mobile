@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { View, Pressable, Text, Keyboard, Platform } from 'react-native';
-import { MotiView, MotiText, AnimatePresence } from 'moti';
+import { MotiView } from 'moti';
 import { SvgXml } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -227,53 +227,34 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
               );
             }
 
-            // ── Side tabs — floating pill that expands to icon+label on focus ──
+            // ── Tab bên: rộng bằng nhau, nhãn luôn nằm dưới icon (đổi tab không xô nút Bán hàng ở giữa).
+            //    Tab đang mở: nền màu quanh icon + icon đặc + chữ đậm.
             return (
-              <MotiView
+              <Pressable
                 key={tab.name}
-                animate={{ flexGrow: isFocused ? 2.6 : 1 }}
-                transition={{ type: 'spring', ...spring.soft }}
-                style={{ flexBasis: 0, height: '100%', justifyContent: 'center' }}
+                onPress={onPress}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: isFocused }}
+                accessibilityLabel={t(tab.labelKey)}
+                style={{ flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center', gap: 3 }}
               >
-                <Pressable onPress={onPress} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                  <MotiView
-                    animate={{
-                      backgroundColor: isFocused ? withAlpha(palette.main, dark ? 0.22 : 0.12) : withAlpha(palette.main, 0),
-                      paddingHorizontal: isFocused ? 14 : 0,
-                    }}
-                    transition={{ type: 'spring', ...spring.soft }}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      height: 46,
-                      borderRadius: 16,
-                      gap: 7,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <TabIcon
-                      xmlKey={isFocused ? tab.on : tab.off}
-                      size={24}
-                      color={isFocused ? activeColor : idleColor}
-                    />
-                    <AnimatePresence>
-                      {isFocused ? (
-                        <MotiText
-                          key="label"
-                          from={{ opacity: 0, translateX: -6 }}
-                          animate={{ opacity: 1, translateX: 0 }}
-                          exit={{ opacity: 0, translateX: -6 }}
-                          transition={{ type: 'timing', duration: 200 }}
-                          numberOfLines={1}
-                          style={{ color: activeColor, fontSize: 13, fontWeight: '700', letterSpacing: 0.1 }}
-                        >
-                          {t(tab.labelKey)}
-                        </MotiText>
-                      ) : null}
-                    </AnimatePresence>
-                  </MotiView>
-                </Pressable>
-              </MotiView>
+                <MotiView
+                  animate={{
+                    backgroundColor: isFocused ? withAlpha(palette.main, dark ? 0.22 : 0.12) : withAlpha(palette.main, 0),
+                    scale: isFocused ? 1 : 0.94,
+                  }}
+                  transition={{ type: 'spring', ...spring.soft }}
+                  style={{ width: 54, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <TabIcon xmlKey={isFocused ? tab.on : tab.off} size={22} color={isFocused ? activeColor : idleColor} />
+                </MotiView>
+                <Text
+                  numberOfLines={1}
+                  style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: isFocused ? '700' : '600', letterSpacing: 0.1 }}
+                >
+                  {t(tab.labelKey)}
+                </Text>
+              </Pressable>
             );
           })}
         </View>

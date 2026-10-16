@@ -1137,9 +1137,9 @@ export const vi = {
     peak: 'Cao nhất: {v}',
   },
   format: {
-    thousand: 'K',
-    million: 'Tr',
-    billion: 'Tỷ',
+    thousand: 'k',
+    million: 'tr',
+    billion: ' tỷ',
   },
 } as const;
 

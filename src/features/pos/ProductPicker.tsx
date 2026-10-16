@@ -27,15 +27,20 @@ export function ProductPickRow({ item, inCart, onPress }: { item: IProductListIt
         <Text variant="bodySmall" className="font-semibold" numberOfLines={2}>{item.name}</Text>
         <View className="flex-row items-center gap-1.5 mt-0.5">
           <Text variant="caption" tone="muted" numberOfLines={1}>{item.code}</Text>
-          <StockBadge stock={stockOf(item)} min={item.minQuantity} productType={item.productType} />
+          <StockBadge stock={stockOf(item)} min={item.minQuantity} productType={item.productType} itemKind={item.itemKind} />
         </View>
       </View>
       <Text variant="bodySmall" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>{priceLabel(item)}</Text>
-      <View className={cn('w-9 h-9 rounded-xl items-center justify-center', inCart ? 'bg-primary' : 'bg-primary-soft')}>
+      <View
+        className={cn(
+          'w-10 h-10 rounded-xl items-center justify-center',
+          inCart ? 'bg-primary' : 'bg-primary-soft border border-primary/25'
+        )}
+      >
         {inCart ? (
-          <Text tone="inverse" className="font-bold text-[13px]">{inCart}</Text>
+          <Text tone="inverse" className="font-bold text-[14px]">{inCart}</Text>
         ) : (
-          <Icon name={item.hasVariants && (item.childProducts ?? []).filter((c) => c.isActive).length > 1 ? 'chevron-down' : 'plus'} size={20} tone="primary" />
+          <Icon name={item.hasVariants && (item.childProducts ?? []).filter((c) => c.isActive).length > 1 ? 'chevron-down' : 'plus'} size={24} tone="primary" />
         )}
       </View>
     </Pressable>

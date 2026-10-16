@@ -59,9 +59,11 @@ function VariantRow({
   onSell,
   seeCost,
   onEditStock,
+  itemKind,
 }: {
   child: IProductChild;
   onSell: () => void;
+  itemKind?: string;
   seeCost: boolean;
   onEditStock?: () => void;
 }) {
@@ -79,7 +81,7 @@ function VariantRow({
       </View>
       <View className="items-end gap-1">
         <Text variant="bodySmall" className="font-bold">{money(child.basePrice)}</Text>
-        <StockBadge alignEnd stock={stock} />
+        <StockBadge alignEnd stock={stock} itemKind={itemKind} />
       </View>
       {onEditStock ? <EditStockButton onPress={onEditStock} /> : null}
       <Pressable onPress={onSell} accessibilityLabel={t('erp.sellThis')} className="w-9 h-9 rounded-xl bg-primary-soft items-center justify-center">
@@ -160,7 +162,7 @@ export function ProductDetailScreen() {
         <View className="flex-1 gap-1">
           <Text variant="title2" numberOfLines={3}>{p.name}</Text>
           <Text variant="bodySmall" tone="muted">{p.categoryName}</Text>
-          <View className="flex-row"><StockBadge stock={stock} min={p.minQuantity} productType={p.productType} /></View>
+          <View className="flex-row"><StockBadge stock={stock} min={p.minQuantity} productType={p.productType} itemKind={p.itemKind} /></View>
         </View>
       </View>
 
@@ -186,7 +188,7 @@ export function ProductDetailScreen() {
           {children.map((c, i) => (
             <View key={c.id}>
               {i > 0 ? <Divider /> : null}
-              <VariantRow child={c} seeCost={seeCost} onSell={() => sell(lineFromVariant(p, c))} onEditStock={editChild(c)} />
+              <VariantRow child={c} itemKind={p.itemKind} seeCost={seeCost} onSell={() => sell(lineFromVariant(p, c))} onEditStock={editChild(c)} />
             </View>
           ))}
         </SectionCard>

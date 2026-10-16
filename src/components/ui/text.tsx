@@ -43,13 +43,30 @@ const TINY_MAX_FONT_MULTIPLIER = 1.3;
 // Cỡ chữ / dòng ghi thẳng trong className (vd "text-[9px]", "leading-[13px]").
 const PX_SIZE = /(?:^|\s)text-\[(\d+(?:\.\d+)?)px\]/;
 const PX_LEADING = /(?:^|\s)leading-\[(\d+(?:\.\d+)?)px\]/;
+const SIZE_CLASS = /(?:^|\s)text-\[\d+(?:\.\d+)?px\]/g;
+const LEADING_CLASS = /(?:^|\s)leading-\[\d+(?:\.\d+)?px\]/g;
 
-/** [fontSize, lineHeight] gốc để nhân tỉ lệ: ưu tiên cỡ ghi thẳng trong className, không thì theo variant. */
-export function baseTypoSize(variant: Variant, className?: string): [number, number] {
+/**
+ * [fontSize, lineHeight] gốc để nhân tỉ lệ: ưu tiên cỡ ghi thẳng trong className, không thì theo variant. Ghi cỡ mà
+ * không ghi dòng → lineHeight null (chiều cao dòng tự nhiên của cỡ đó, không mang dòng 22px của body).
+ */
+export function baseTypoSize(variant: Variant, className?: string): [number, number | null] {
   const [sz, lh] = variantSize[variant];
   const px = className?.match(PX_SIZE);
   const lead = className?.match(PX_LEADING);
-  return [px ? Number(px[1]) : sz, lead ? Number(lead[1]) : lh];
+  return [px ? Number(px[1]) : sz, lead ? Number(lead[1]) : px ? null : lh];
+}
+
+/**
+ * Class của variant, bỏ cỡ / dòng khi className đã ghi thẳng. cn() chỉ nối chuỗi (không gộp class trùng) và NativeWind
+ * xếp class theo chữ cái — "text-[16px]" của body đứng sau "text-[12px]" nên đè lên: mọi chữ ghi cỡ 10–15px trên
+ * variant mặc định (huy hiệu "Hết hàng", chip danh mục…) từng hiện thành 16px, dòng 22px.
+ */
+export function variantClassFor(variant: Variant, className?: string): string {
+  const v = variantClass[variant];
+  if (className && PX_SIZE.test(className)) return v.replace(SIZE_CLASS, '').replace(LEADING_CLASS, '').trim();
+  if (className && PX_LEADING.test(className)) return v.replace(LEADING_CLASS, '').trim();
+  return v;
 }
 
 const toneClass: Record<Tone, string> = {
@@ -76,7 +93,7 @@ function useTypoStyle(variant: Variant, className?: string) {
   const { family, scale } = useFontSettings();
   const fam = resolveFontFamily(family);
   const [sz, lh] = baseTypoSize(variant, className);
-  const sized = scale !== 1 ? { fontSize: Math.round(sz * scale), lineHeight: Math.round(lh * scale) } : null;
+  const sized = scale !== 1 ? { fontSize: Math.round(sz * scale), ...(lh != null ? { lineHeight: Math.round(lh * scale) } : null) } : null;
   return [fam ? { fontFamily: fam } : null, sized] as const;
 }
 
@@ -86,7 +103,7 @@ export function Text({ className, variant = 'body', tone = 'default', bold, styl
   return (
     <RNText
       maxFontSizeMultiplier={tiny ? TINY_MAX_FONT_MULTIPLIER : undefined}
-      className={cn(variantClass[variant], toneClass[tone], bold && 'font-bold', className)}
+      className={cn(variantClassFor(variant, className), toneClass[tone], bold && 'font-bold', className)}
       style={[typo[0], typo[1], style]}
       {...props}
     />
@@ -97,7 +114,7 @@ export function Heading({ className, tone = 'default', style, ...props }: Omit<T
   const typo = useTypoStyle('largeTitle', className);
   return (
     <RNText
-      className={cn(variantClass.largeTitle, toneClass[tone], className)}
+      className={cn(variantClassFor('largeTitle', className), toneClass[tone], className)}
       style={[typo[0], typo[1], style]}
       {...props}
     />

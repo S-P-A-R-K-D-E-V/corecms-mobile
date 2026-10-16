@@ -56,11 +56,15 @@ describe('định dạng tiền', () => {
     await i18n.useLocaleStore.getState().setPreference('vi');
     format.setStoreCurrency('VND');
     expect(format.formatMoney(6400000)).toBe('6.400.000đ');
-    expect(format.formatCompact(4850000)).toBe('4.9Tr');
+    expect(format.formatCompact(4850000)).toBe('4,9tr');
+    expect(format.formatCompact(410600)).toBe('411k');
+    expect(format.formatCompact(999600)).toBe('1tr');
+    expect(format.formatCompact(1_250_000_000)).toBe('1,3 tỷ');
 
     await i18n.useLocaleStore.getState().setPreference('en');
     format.setStoreCurrency('USD');
     expect(format.formatMoney(1234.5)).toBe('$1,234.50');
     expect(format.formatCompact(4850000)).toBe('4.9M');
+    expect(format.formatCompact(410600)).toBe('411K');
   });
 });
