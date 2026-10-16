@@ -3,12 +3,14 @@ import { RefreshControl, ScrollView, View, useWindowDimensions } from 'react-nat
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
+import dayjs from 'dayjs';
 
 import { Avatar, Button, Icon, Pressable, Spinner, Text, cn } from 'src/components/ui';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { getStorageUrl } from 'src/api/axios';
 import {
+  counterPasswordLogin,
   getCounterRoster,
   requestCounterLogin,
   verifyCounterLogin,
@@ -18,26 +20,38 @@ import {
 import { leaveCounterMode, useCounterMode } from 'src/services/counter-mode';
 import { CounterQrPanel } from './CounterQrPanel';
 import { getStore } from 'src/services/store-config';
+import { PasswordField } from 'src/features/auth/SignInControls';
+import { t, useT } from 'src/i18n';
+import type { IAuthResponse } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
 // Màn khoá máy quầy: người có ca hôm nay ở chi nhánh (+ chủ cửa hàng / quản lý). Bấm tên → mã 6 số gửi về app
 // điện thoại của người đó → nhập mã trên bàn phím số → vào app. Thiết kế cho POS / tablet ngang (lưới nhiều cột,
-// bàn phím lớn) nhưng vẫn dùng được trên màn dọc.
+// bàn phím lớn) nhưng vẫn dùng được trên màn dọc. Người không có app trên điện thoại: chọn tên rồi nhập mật khẩu tài
+// khoản (sai 5 lần khoá 15 phút trên máy này — server đếm). Ca chưa gắn chi nhánh (cửa hàng nhiều chi nhánh) xếp
+// riêng cuối danh sách để người khác chi nhánh không lẫn vào.
 
 const CODE_LENGTH = 6;
 const RESEND_SECONDS = 30;
 
-const STATUS_LABEL: Record<string, string> = {
-  working: 'Đang trong ca',
-  upcoming: 'Sắp vào ca',
-  ended: 'Đã hết ca',
-  manager: 'Quản lý',
-};
+const GROUP_ORDER = ['working', 'upcoming', 'manager', 'ended'] as const;
 
 function roleLabel(p: CounterPerson): string {
-  if (p.role === 'Admin') return 'Chủ cửa hàng';
-  if (p.role === 'Manager') return 'Quản lý';
-  return p.startTime && p.endTime ? `${p.shiftName ? `${p.shiftName} · ` : ''}${p.startTime}–${p.endTime}` : 'Nhân viên';
+  if (p.role === 'Admin') return t('counter.roleOwner');
+  if (p.role === 'Manager') return t('counter.roleManager');
+  return p.startTime && p.endTime ? `${p.shiftName ? `${p.shiftName} · ` : ''}${p.startTime}–${p.endTime}` : t('counter.roleStaff');
+}
+
+function mmss(seconds: number): string {
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+/** Cùng chi nhánh theo trạng thái ca; ca chưa gắn chi nhánh (atThisBranch = false) gom riêng ở cuối. */
+export function groupRoster(people: CounterPerson[]): [string, CounterPerson[]][] {
+  const here = people.filter((p) => p.atThisBranch !== false);
+  const groups: [string, CounterPerson[]][] = GROUP_ORDER.map((status) => [status, here.filter((p) => p.status === status)]);
+  groups.push(['otherBranch', people.filter((p) => p.atThisBranch === false)]);
+  return groups.filter(([, list]) => list.length > 0);
 }
 
 function useClock() {
@@ -52,6 +66,7 @@ function useClock() {
 type Pending = { person: CounterPerson; requestId: string; expiresAt: number; sentTo: number; resendAt: number };
 
 export function CounterLockScreen() {
+  const tr = useT();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const device = useCounterMode((s) => s.device);
@@ -72,44 +87,48 @@ export function CounterLockScreen() {
   const [sending, setSending] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [qrMode, setQrMode] = useState(false);
+  const [passwordFor, setPasswordFor] = useState<CounterPerson | null>(null);
 
-  const people = rosterQ.data?.people ?? [];
-  const groups = useMemo(() => {
-    const order: [string, CounterPerson[]][] = [
-      ['working', people.filter((p) => p.status === 'working')],
-      ['upcoming', people.filter((p) => p.status === 'upcoming')],
-      ['manager', people.filter((p) => p.status === 'manager')],
-      ['ended', people.filter((p) => p.status === 'ended')],
-    ];
-    return order.filter(([, list]) => list.length > 0);
-  }, [people]);
+  const people = rosterQ.data?.people;
+  const groups = useMemo(() => groupRoster(people ?? []), [people]);
 
   const columns = width >= 1100 ? 5 : width >= 840 ? 4 : width >= 600 ? 3 : 2;
   const gap = 12;
   const cardWidth = Math.floor((Math.min(width, 1280) - 32 - gap * (columns - 1)) / columns);
 
+  async function signedIn(auth: IAuthResponse) {
+    await loginWithAuthResponse(auth);
+    setPending(null);
+    setPasswordFor(null);
+    setQrMode(false);
+    router.replace('/');
+  }
+
   async function choose(person: CounterPerson) {
     if (!person.canSignIn) {
-      toast.info(person.status === 'ended' ? 'Ca của bạn đã kết thúc.' : 'Chưa tới giờ đăng nhập (sớm nhất 2 giờ trước ca).');
+      toast.info(person.status === 'ended' ? t('counter.shiftEnded') : t('counter.tooEarly'));
       return;
     }
+    // Không có app trên điện thoại (không nhận được mã) → mật khẩu tài khoản.
     if (!person.hasApp) {
-      toast.warning('Đăng nhập app trên điện thoại của bạn (và bật thông báo) để nhận mã.', 'Chưa nhận được mã');
+      setPending(null);
+      setPasswordFor(person);
       return;
     }
     setSending(person.userId);
     try {
       const res = await requestCounterLogin(person.userId);
-      const t = Date.now();
+      const at = Date.now();
+      setPasswordFor(null);
       setPending({
         person,
         requestId: res.requestId,
-        expiresAt: t + res.expiresInSeconds * 1000,
+        expiresAt: at + res.expiresInSeconds * 1000,
         sentTo: res.sentToDevices,
-        resendAt: t + RESEND_SECONDS * 1000,
+        resendAt: at + RESEND_SECONDS * 1000,
       });
     } catch (err) {
-      toast.error((err as CounterError).message ?? 'Không gửi được mã.');
+      toast.error((err as CounterError).message ?? t('counter.sendFailed'));
     } finally {
       setSending(null);
     }
@@ -117,9 +136,9 @@ export function CounterLockScreen() {
 
   async function leave() {
     const ok = await confirm({
-      title: 'Máy quầy đã bị thu hồi',
-      message: 'Thoát chế độ máy quầy trên máy này? Sau đó chủ cửa hàng / quản lý đăng nhập để đặt lại.',
-      confirmText: 'Thoát',
+      title: t('counter.revokedTitle'),
+      message: t('counter.revokedConfirm'),
+      confirmText: t('counter.leaveShort'),
       destructive: true,
     });
     if (!ok) return;
@@ -129,15 +148,15 @@ export function CounterLockScreen() {
 
   if (!device) return null;
 
-  const dateLabel = now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' });
-  const timeLabel = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const dateLabel = dayjs(now).format('dddd, DD/MM');
+  const timeLabel = dayjs(now).format('HH:mm');
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top + 8 }}>
       {/* Đầu màn: cửa hàng, máy quầy, giờ */}
       <View className="flex-row items-center justify-between px-4 pb-3">
         <View className="flex-1 pr-3">
-          <Text variant="title2" numberOfLines={1}>{store?.name ?? 'Máy quầy'}</Text>
+          <Text variant="title2" numberOfLines={1}>{store?.name ?? tr('counter.fallbackTitle')}</Text>
           <Text tone="muted" numberOfLines={1}>{device.deviceName} · {rosterQ.data?.branchName || device.branchName}</Text>
         </View>
         <View className="items-end">
@@ -148,33 +167,33 @@ export function CounterLockScreen() {
 
       {qrMode ? (
         <ScrollView contentContainerStyle={{ padding: 16, flexGrow: 1, justifyContent: 'center' }}>
-          <CounterQrPanel
-            onCancel={() => setQrMode(false)}
-            onSignedIn={async (auth) => {
-              await loginWithAuthResponse(auth);
-              setQrMode(false);
-              router.replace('/');
-            }}
-          />
+          <CounterQrPanel onCancel={() => setQrMode(false)} onSignedIn={signedIn} />
         </ScrollView>
+      ) : passwordFor ? (
+        <PasswordEntry
+          person={passwordFor}
+          onCancel={() => setPasswordFor(null)}
+          onUseCode={() => choose(passwordFor)}
+          onSignedIn={signedIn}
+        />
       ) : pending ? (
         <CodeEntry
           pending={pending}
           wide={width >= 720}
           onCancel={() => setPending(null)}
           onResend={() => choose(pending.person)}
-          onSignedIn={async (auth) => {
-            await loginWithAuthResponse(auth);
+          onUsePassword={() => {
             setPending(null);
-            router.replace('/');
+            setPasswordFor(pending.person);
           }}
+          onSignedIn={signedIn}
         />
       ) : revoked ? (
         <View className="flex-1 items-center justify-center gap-3 px-8">
           <Icon name="lock-alert-outline" size={56} tone="error" />
-          <Text variant="headline" className="text-center">Máy quầy đã bị thu hồi</Text>
-          <Text tone="muted" className="text-center">Chủ cửa hàng / quản lý đã gỡ máy này trên trang quản trị.</Text>
-          <Button action="neutral" variant="outline" onPress={leave}>Thoát chế độ máy quầy</Button>
+          <Text variant="headline" className="text-center">{tr('counter.revokedTitle')}</Text>
+          <Text tone="muted" className="text-center">{tr('counter.revokedDesc')}</Text>
+          <Button action="neutral" variant="outline" onPress={leave}>{tr('counter.leave')}</Button>
         </View>
       ) : (
         <ScrollView
@@ -183,10 +202,10 @@ export function CounterLockScreen() {
         >
           <View className="flex-row items-start justify-between mb-4 gap-3">
             <View className="flex-1">
-              <Text variant="headline" className="mb-1">Chọn tên của bạn để đăng nhập</Text>
-              <Text tone="muted">Mã 6 số sẽ gửi về app trên điện thoại của bạn.</Text>
+              <Text variant="headline" className="mb-1">{tr('counter.pickTitle')}</Text>
+              <Text tone="muted">{tr('counter.pickHint')}</Text>
             </View>
-            <Button variant="soft" size="sm" onPress={() => setQrMode(true)}>Quét QR bằng điện thoại</Button>
+            <Button variant="soft" size="sm" onPress={() => setQrMode(true)}>{tr('counter.scanQr')}</Button>
           </View>
 
           {rosterQ.isLoading ? (
@@ -194,17 +213,17 @@ export function CounterLockScreen() {
           ) : rosterQ.isError ? (
             <View className="py-16 items-center gap-3">
               <Text tone="muted" className="text-center">{rosterError?.message}</Text>
-              <Button variant="outline" onPress={() => rosterQ.refetch()}>Thử lại</Button>
+              <Button variant="outline" onPress={() => rosterQ.refetch()}>{tr('common.retry')}</Button>
             </View>
           ) : groups.length === 0 ? (
             <View className="py-16 items-center gap-2">
               <Icon name="calendar-blank-outline" size={48} tone="muted" />
-              <Text tone="muted" className="text-center">Chưa có ai có ca hôm nay ở chi nhánh này.</Text>
+              <Text tone="muted" className="text-center">{tr('counter.nobody')}</Text>
             </View>
           ) : (
             groups.map(([status, list]) => (
               <View key={status} className="mb-5">
-                <Text variant="footnote" tone="muted" className="uppercase mb-2">{STATUS_LABEL[status]} · {list.length}</Text>
+                <Text variant="footnote" tone="muted" className="uppercase mb-2">{tr(`counter.status.${status}`)} · {list.length}</Text>
                 <View className="flex-row flex-wrap" style={{ gap }}>
                   {list.map((p) => (
                     <PersonCard
@@ -256,7 +275,7 @@ function PersonCard({
       {busy ? (
         <Spinner />
       ) : !person.hasApp && person.canSignIn ? (
-        <Text variant="caption" tone="warning" className="text-center">Chưa có app trên điện thoại</Text>
+        <Text variant="caption" tone="warning" className="text-center">{t('counter.noAppPassword')}</Text>
       ) : null}
     </Pressable>
   );
@@ -267,14 +286,17 @@ function CodeEntry({
   wide,
   onCancel,
   onResend,
+  onUsePassword,
   onSignedIn,
 }: {
   pending: Pending;
   wide: boolean;
   onCancel: () => void;
   onResend: () => void;
-  onSignedIn: (auth: Awaited<ReturnType<typeof verifyCounterLogin>>) => Promise<void>;
+  onUsePassword: () => void;
+  onSignedIn: (auth: IAuthResponse) => Promise<void>;
 }) {
+  const tr = useT();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -335,17 +357,20 @@ function CodeEntry({
       <Avatar name={pending.person.fullName} uri={pending.person.avatarUrl ? getStorageUrl(pending.person.avatarUrl) : undefined} size={wide ? 96 : 72} />
       <Text variant="title2" className="text-center">{pending.person.fullName}</Text>
       <Text tone="muted" className="text-center">
-        Mã đã gửi tới app trên {pending.sentTo > 1 ? `${pending.sentTo} thiết bị` : 'điện thoại'} của bạn.
+        {pending.sentTo > 1 ? tr('counter.sentToDevices', { n: pending.sentTo }) : tr('counter.sentToPhone')}
       </Text>
       <Text tone={expired ? 'error' : 'muted'} className="text-center">
-        {expired ? 'Mã đã hết hạn.' : `Hết hạn sau ${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, '0')}`}
+        {expired ? tr('counter.codeExpired') : tr('counter.expiresIn', { time: mmss(secondsLeft) })}
       </Text>
       <View className="flex-row gap-2 mt-2">
-        <Button variant="outline" action="neutral" onPress={onCancel}>Chọn người khác</Button>
+        <Button variant="outline" action="neutral" onPress={onCancel}>{tr('counter.pickOther')}</Button>
         <Button variant="soft" disabled={resendIn > 0} onPress={onResend}>
-          {resendIn > 0 ? `Gửi lại (${resendIn}s)` : 'Gửi lại mã'}
+          {resendIn > 0 ? tr('counter.resendIn', { s: resendIn }) : tr('counter.resend')}
         </Button>
       </View>
+      <Pressable onPress={onUsePassword} hitSlop={8} className="py-2">
+        <Text tone="primary" className="text-center">{tr('counter.usePassword')}</Text>
+      </Pressable>
     </View>
   );
 
@@ -396,6 +421,82 @@ function CodeEntry({
       <View className={cn(wide ? 'flex-row items-center' : '')} style={{ alignSelf: 'center', width: '100%', maxWidth: 980 }}>
         {info}
         {pad}
+      </View>
+    </ScrollView>
+  );
+}
+
+function PasswordEntry({
+  person,
+  onCancel,
+  onUseCode,
+  onSignedIn,
+}: {
+  person: CounterPerson;
+  onCancel: () => void;
+  onUseCode: () => void;
+  onSignedIn: (auth: IAuthResponse) => Promise<void>;
+}) {
+  const tr = useT();
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    setPassword('');
+    setError(null);
+  }, [person.userId]);
+
+  async function submit() {
+    if (!password || checking) return;
+    setChecking(true);
+    setError(null);
+    try {
+      const auth = await counterPasswordLogin(person.userId, password);
+      await onSignedIn(auth);
+    } catch (err) {
+      // Counter.WrongPassword (kèm số lần còn lại) / Counter.PasswordLocked / Counter.NoPassword: server ghi sẵn câu hiển thị.
+      setError((err as CounterError).message);
+      setPassword('');
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  return (
+    <ScrollView
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ padding: 16, paddingBottom: 32, flexGrow: 1, justifyContent: 'center' }}
+    >
+      <View className="items-center gap-3" style={{ alignSelf: 'center', width: '100%', maxWidth: 440 }}>
+        <Avatar name={person.fullName} uri={person.avatarUrl ? getStorageUrl(person.avatarUrl) : undefined} size={80} />
+        <Text variant="title2" className="text-center">{person.fullName}</Text>
+        <Text variant="headline" className="text-center">{tr('counter.passwordTitle')}</Text>
+        <Text tone="muted" className="text-center">{tr('counter.passwordHint')}</Text>
+        <View className="w-full">
+          <PasswordField
+            label={tr('counter.password')}
+            value={password}
+            onChangeText={setPassword}
+            autoFocus
+            returnKeyType="go"
+            onSubmitEditing={submit}
+            // Máy quầy dùng chung: không để trình quản lý mật khẩu lưu / gợi ý mật khẩu của từng người.
+            autoComplete="off"
+            textContentType="none"
+            importantForAutofill="no"
+          />
+        </View>
+        {error ? <Text tone="error" className="text-center">{error}</Text> : null}
+        <Button className="w-full" loading={checking} disabled={!password} onPress={submit}>
+          {tr('counter.signIn')}
+        </Button>
+        <View className="flex-row gap-2">
+          <Button variant="outline" action="neutral" onPress={onCancel}>{tr('counter.pickOther')}</Button>
+          {person.hasApp ? (
+            <Button variant="soft" onPress={onUseCode}>{tr('counter.useCode')}</Button>
+          ) : null}
+        </View>
       </View>
     </ScrollView>
   );

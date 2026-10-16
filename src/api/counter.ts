@@ -4,6 +4,7 @@ import axiosInstance from './axios';
 import { getHostApi } from 'src/services/store-config';
 import { getCounterKey } from 'src/services/counter-mode';
 import type { IAuthResponse } from 'src/types/corecms-api';
+import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Máy quầy (core-be CounterController / CounterDevicesController):
@@ -33,6 +34,8 @@ export type CounterPerson = {
   canSignIn: boolean;
   hasApp: boolean;
   sessionEndsAt?: string | null;
+  /** false: ca hôm nay chưa gắn chi nhánh này (cửa hàng nhiều chi nhánh) — xếp riêng cuối danh sách. */
+  atThisBranch?: boolean;
 };
 
 export type CounterRoster = {
@@ -70,11 +73,7 @@ counterAxios.interceptors.response.use(
       code: typeof data.type === 'string' && data.type.includes('.') ? data.type : status === 401 ? 'Counter.Unauthorized' : 'Network',
       message:
         (typeof data.title === 'string' && data.title) ||
-        (status === 401
-          ? 'Máy quầy đã bị thu hồi — chủ cửa hàng / quản lý đăng nhập lại để đặt máy quầy.'
-          : status === 429
-            ? 'Thao tác quá nhanh — đợi ít phút rồi thử lại.'
-            : 'Không kết nối được máy chủ — kiểm tra mạng rồi thử lại.'),
+        (status === 401 ? t('counter.errors.revoked') : status === 429 ? t('counter.errors.tooFast') : t('common.network')),
       status,
     };
     return Promise.reject(err);
@@ -96,9 +95,16 @@ export async function verifyCounterLogin(requestId: string, code: string): Promi
   return res.data;
 }
 
+/** Người không có app trên điện thoại: chọn tên rồi nhập mật khẩu tài khoản (sai 5 lần khoá 15 phút trên máy này). */
+export async function counterPasswordLogin(userId: string, password: string): Promise<IAuthResponse> {
+  const res = await counterAxios.post<IAuthResponse>('/counter/password-login', { userId, password });
+  return res.data;
+}
+
 export type DisplayConfigDto = {
   intervalSeconds: number;
-  slides: { key: string; kind: 'image' | 'video'; title?: string | null }[];
+  /** url: link tải có chữ ký (hạn 24h, hỗ trợ Range — video phát được trên iPad / Safari); thiếu thì ghép từ key. */
+  slides: { key: string; kind: 'image' | 'video'; title?: string | null; url?: string | null }[];
 };
 
 /** Quảng cáo màn hình khách của chi nhánh máy quầy (đọc bằng key máy quầy — chạy cả lúc chưa ai đăng nhập). */

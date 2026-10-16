@@ -5,6 +5,7 @@ import * as Crypto from 'expo-crypto';
 import { Button, Spinner, Text } from 'src/components/ui';
 import { counterQrStatus, exchangeCounterQr, startCounterQr, type CounterError } from 'src/api/counter';
 import type { IAuthResponse } from 'src/types/corecms-api';
+import { t, useT } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Dự phòng trên máy quầy: hiện mã QR, nhân viên mở app trên điện thoại → Hồ sơ → Đăng nhập web bằng QR → quét và
@@ -45,10 +46,10 @@ export function CounterQrPanel({ onSignedIn, onCancel }: { onSignedIn: (auth: IA
       setImage(res.qrImage ?? null);
       setExpiresAt(Date.now() + res.expiresInSeconds * 1000);
       setPhase(res.qrImage ? 'showing' : 'error');
-      if (!res.qrImage) setError('Máy chủ chưa hỗ trợ QR cho máy quầy.');
+      if (!res.qrImage) setError(t('counter.qr.unsupported'));
     } catch (err) {
       if (!alive.current) return;
-      setError((err as CounterError).message ?? 'Không tạo được mã QR.');
+      setError((err as CounterError).message ?? t('counter.qr.startFailed'));
       setPhase('error');
     }
   }, []);
@@ -77,14 +78,14 @@ export function CounterQrPanel({ onSignedIn, onCancel }: { onSignedIn: (auth: IA
         if (!alive.current || session.current !== current) return;
         if (status === 'scanned') setPhase('scanned');
         else if (status === 'rejected') {
-          setError('Đã từ chối trên điện thoại.');
+          setError(t('counter.qr.rejected'));
           setPhase('error');
         } else if (status === 'expired') {
           if (renewals.current < MAX_RENEWALS) {
             renewals.current += 1;
             void start();
           } else {
-            setError('Mã QR đã hết hạn.');
+            setError(t('counter.qr.expired'));
             setPhase('error');
           }
         } else if (status === 'approved') {
@@ -94,21 +95,20 @@ export function CounterQrPanel({ onSignedIn, onCancel }: { onSignedIn: (auth: IA
         }
       } catch (err) {
         if (!alive.current) return;
-        setError((err as CounterError).message ?? 'Không đăng nhập được.');
+        setError((err as CounterError).message ?? t('counter.qr.signInFailed'));
         setPhase('error');
       }
     }, current.poll * 1000);
     return () => clearInterval(id);
   }, [phase, start, onSignedIn]);
 
+  const tr = useT();
   const left = Math.max(0, Math.ceil((expiresAt - now) / 1000));
 
   return (
     <View className="items-center gap-3 py-4">
-      <Text variant="headline" className="text-center">Quét bằng app trên điện thoại</Text>
-      <Text tone="muted" className="text-center" style={{ maxWidth: 420 }}>
-        Mở app → Hồ sơ → Đăng nhập web bằng mã QR, quét mã dưới đây rồi bấm Đồng ý.
-      </Text>
+      <Text variant="headline" className="text-center">{tr('counter.qr.title')}</Text>
+      <Text tone="muted" className="text-center" style={{ maxWidth: 420 }}>{tr('counter.qr.hint')}</Text>
       <View className="items-center justify-center rounded-2xl bg-white p-3" style={{ width: 280, height: 280 }}>
         {phase === 'loading' || !image ? (
           <Spinner />
@@ -116,14 +116,16 @@ export function CounterQrPanel({ onSignedIn, onCancel }: { onSignedIn: (auth: IA
           <Image source={{ uri: image }} style={{ width: 254, height: 254, opacity: phase === 'showing' ? 1 : 0.25 }} resizeMode="contain" />
         )}
       </View>
-      {phase === 'scanned' ? <Text tone="primary">Đã quét — chờ bấm Đồng ý trên điện thoại…</Text> : null}
+      {phase === 'scanned' ? <Text tone="primary">{tr('counter.qr.scanned')}</Text> : null}
       {phase === 'signing-in' ? <Spinner /> : null}
       {phase === 'showing' ? (
-        <Text tone="muted" variant="caption">Mã tự đổi sau {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</Text>
+        <Text tone="muted" variant="caption">
+          {tr('counter.qr.renewsIn', { time: `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}` })}
+        </Text>
       ) : null}
       {phase === 'error' && error ? <Text tone="error" className="text-center">{error}</Text> : null}
       <View className="flex-row gap-2">
-        <Button variant="outline" action="neutral" onPress={onCancel}>Quay lại</Button>
+        <Button variant="outline" action="neutral" onPress={onCancel}>{tr('common.back')}</Button>
         {phase === 'error' ? (
           <Button
             variant="soft"
@@ -132,7 +134,7 @@ export function CounterQrPanel({ onSignedIn, onCancel }: { onSignedIn: (auth: IA
               void start();
             }}
           >
-            Tạo mã mới
+            {tr('counter.qr.newCode')}
           </Button>
         ) : null}
       </View>

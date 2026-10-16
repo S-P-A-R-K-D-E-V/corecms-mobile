@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { CustomerDisplayModule } from '../../modules/customer-display';
+import { t } from 'src/i18n';
 import { formatMoney } from 'src/i18n/format';
 
 // ----------------------------------------------------------------------
@@ -53,7 +54,10 @@ export function buildPayload(s: State, now: number = Date.now()): Record<string,
     return {
       ...base,
       mode: 'paid',
-      paid: { title: 'Cảm ơn quý khách!', amount: s.paid.amount > 0 ? `Đã thanh toán ${formatMoney(s.paid.amount)}` : '' },
+      paid: {
+        title: t('customerDisplay.thanks'),
+        amount: s.paid.amount > 0 ? t('customerDisplay.paid', { amount: formatMoney(s.paid.amount) }) : '',
+      },
     };
   }
   if (s.qr) {
@@ -62,9 +66,9 @@ export function buildPayload(s: State, now: number = Date.now()): Record<string,
       mode: 'qr',
       qr: {
         imageUrl: s.qr.imageUrl,
-        title: 'Quét mã để thanh toán',
+        title: t('customerDisplay.scanToPay'),
         amount: formatMoney(s.qr.amount),
-        lines: [s.qr.bankLine, s.qr.note ? `Nội dung: ${s.qr.note}` : null].filter(Boolean),
+        lines: [s.qr.bankLine, s.qr.note ? t('customerDisplay.transferNote', { note: s.qr.note }) : null].filter(Boolean),
       },
     };
   }
@@ -72,16 +76,16 @@ export function buildPayload(s: State, now: number = Date.now()): Record<string,
     const count = s.cart.lines.reduce((n, l) => n + l.qty, 0);
     const subtotal = s.cart.lines.reduce((n, l) => n + l.amount, 0);
     const totals: { label: string; value: string; strong?: boolean }[] = [
-      { label: `Tạm tính (${count} món)`, value: formatMoney(subtotal) },
+      { label: t('customerDisplay.subtotal', { n: count }), value: formatMoney(subtotal) },
     ];
-    if (s.cart.discount) totals.push({ label: 'Giảm giá', value: `-${formatMoney(s.cart.discount)}` });
-    totals.push({ label: 'Tổng thanh toán', value: formatMoney(Math.max(0, s.cart.total)), strong: true });
+    if (s.cart.discount) totals.push({ label: t('customerDisplay.discount'), value: `-${formatMoney(s.cart.discount)}` });
+    totals.push({ label: t('customerDisplay.total'), value: formatMoney(Math.max(0, s.cart.total)), strong: true });
     return {
       ...base,
       mode: 'cart',
       cart: {
-        title: s.storeName ?? 'Đơn hàng của quý khách',
-        customer: s.cart.customerName ? `Khách hàng: ${s.cart.customerName}` : null,
+        title: s.storeName ?? t('customerDisplay.yourOrder'),
+        customer: s.cart.customerName ? t('customerDisplay.customer', { name: s.cart.customerName }) : null,
         lines: s.cart.lines.map((l) => ({
           name: l.name,
           detail: l.detail ?? null,

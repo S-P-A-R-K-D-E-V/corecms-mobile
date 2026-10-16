@@ -88,9 +88,9 @@ export function ProfileScreen() {
   async function handleLeaveCounter() {
     if (!counter) return;
     const ok = await confirm({
-      title: 'Thoát chế độ máy quầy?',
-      message: `Gỡ ${counter.deviceName} khỏi ${counter.branchName}. Máy trở lại đăng nhập bình thường; bạn sẽ được đăng xuất.`,
-      confirmText: 'Thoát chế độ máy quầy',
+      title: t('counter.profile.leaveTitle'),
+      message: t('counter.profile.leaveMessage', { device: counter.deviceName, branch: counter.branchName }),
+      confirmText: t('counter.leave'),
       destructive: true,
     });
     if (!ok) return;
@@ -290,7 +290,7 @@ export function ProfileScreen() {
                   <ListItem
                     icon="cash-register"
                     iconTone="error"
-                    title="Thoát chế độ máy quầy"
+                    title={t('counter.leave')}
                     subtitle={`${counter.deviceName} · ${counter.branchName}`}
                     onPress={handleLeaveCounter}
                   />
@@ -298,8 +298,8 @@ export function ProfileScreen() {
                   <ListItem
                     icon="cash-register"
                     iconTone="secondary"
-                    title="Đặt máy này làm máy quầy"
-                    subtitle="POS / tablet ở quầy: nhân viên có ca đăng nhập bằng mã gửi về điện thoại"
+                    title={t('counter.profile.setup')}
+                    subtitle={t('counter.profile.setupHint')}
                     onPress={() => router.push('/counter-setup' as any)}
                     showChevron
                   />

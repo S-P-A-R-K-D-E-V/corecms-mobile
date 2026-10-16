@@ -6,6 +6,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { ACCESS_TOKEN_KEY } from 'src/api/session';
 import { toast } from 'src/components/overlay';
 import { tokenExpiresAt, useCounterMode } from 'src/services/counter-mode';
+import { t } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Máy quầy: phiên của người đang dùng máy có hạn cố định (hết ca + 30 phút, tối đa 12 giờ — token không gia hạn
@@ -27,7 +28,7 @@ export function CounterSessionGuard() {
       if (cancelled || exp == null) return;
       const left = exp - Date.now();
       const fire = () => {
-        toast.info('Đã hết phiên trên máy quầy — người tiếp theo chọn tên để đăng nhập.', 'Hết ca');
+        toast.info(t('counter.sessionEnded'), t('counter.sessionEndedTitle'));
         void logout().catch(() => {});
       };
       if (left <= 0) fire();

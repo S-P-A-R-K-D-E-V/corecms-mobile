@@ -12,6 +12,7 @@ import { provisionCounterDevice } from 'src/api/counter';
 import { enterCounterMode } from 'src/services/counter-mode';
 import { getStoreCode } from 'src/services/store-config';
 import { extractApiError } from 'src/services/error';
+import { useT } from 'src/i18n';
 
 // ----------------------------------------------------------------------
 // Đặt máy này làm máy quầy (chủ cửa hàng / quản lý, trên chính POS/tablet ở quầy): chọn chi nhánh + đặt tên →
@@ -19,11 +20,12 @@ import { extractApiError } from 'src/services/error';
 // chung, không giữ phiên 30 ngày của quản lý) và có thể đăng nhập lại bằng mã như mọi người.
 
 export function CounterSetupScreen() {
+  const t = useT();
   const { user, logout } = useAuthContext();
   const isManager =
     user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
 
-  const [name, setName] = useState('Quầy 1');
+  const [name, setName] = useState(() => t('counter.setup.defaultName'));
   const [branchId, setBranchId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,11 +42,9 @@ export function CounterSetupScreen() {
   async function handleSubmit() {
     if (!branchId || !name.trim()) return;
     const ok = await confirm({
-      title: 'Đặt làm máy quầy?',
-      message:
-        `Máy này sẽ thành máy quầy của ${branchName}. Bạn sẽ được đăng xuất; nhân viên có ca chọn tên và nhập mã gửi về ` +
-        'app điện thoại của họ để đăng nhập. Muốn thôi, chủ cửa hàng / quản lý đăng nhập trên máy rồi vào Hồ sơ → Thoát chế độ máy quầy.',
-      confirmText: 'Đặt làm máy quầy',
+      title: t('counter.setup.confirmTitle'),
+      message: t('counter.setup.confirmMessage', { branch: branchName }),
+      confirmText: t('counter.setup.submit'),
     });
     if (!ok) return;
     setSaving(true);
@@ -57,7 +57,7 @@ export function CounterSetupScreen() {
         { deviceId: res.deviceId, deviceName: res.deviceName, branchId: res.branchId, branchName: res.branchName, storeCode: getStoreCode() },
         res.deviceKey
       );
-      toast.success(`${res.deviceName} · ${res.branchName}`, 'Đã đặt máy quầy');
+      toast.success(`${res.deviceName} · ${res.branchName}`, t('counter.setup.done'));
       router.replace('/counter' as any);
     } catch (err) {
       setError(extractApiError(err));
@@ -71,7 +71,7 @@ export function CounterSetupScreen() {
       <Screen tabBarInset={false}>
         <View className="flex-1 items-center justify-center gap-3 px-8">
           <Icon name="lock-outline" size={48} tone="muted" />
-          <Text tone="muted" className="text-center">Cần quyền chủ cửa hàng hoặc quản lý để đặt máy quầy.</Text>
+          <Text tone="muted" className="text-center">{t('counter.setup.needManager')}</Text>
         </View>
       </Screen>
     );
@@ -79,15 +79,18 @@ export function CounterSetupScreen() {
 
   return (
     <Screen scroll tabBarInset={false}>
-      <SectionCard title="Đặt máy này làm máy quầy" bodyClassName="gap-3">
-        <Text tone="muted">
-          Dùng cho POS / tablet đặt cố định ở quầy. Mở app là danh sách nhân viên có ca hôm nay; bấm tên → mã 6 số gửi về
-          app điện thoại của người đó → nhập mã để đăng nhập. Tự đăng xuất khi hết ca (thêm 30 phút).
-        </Text>
-        <TextField label="Tên máy quầy" value={name} onChangeText={setName} placeholder="VD: Quầy thu ngân" maxLength={100} />
+      <SectionCard title={t('counter.setup.title')} bodyClassName="gap-3">
+        <Text tone="muted">{t('counter.setup.intro')}</Text>
+        <TextField
+          label={t('counter.setup.name')}
+          value={name}
+          onChangeText={setName}
+          placeholder={t('counter.setup.namePlaceholder')}
+          maxLength={100}
+        />
       </SectionCard>
 
-      <SectionCard title="Chi nhánh" bodyClassName="pt-0">
+      <SectionCard title={t('counter.setup.branch')} bodyClassName="pt-0">
         {branchesQ.isLoading ? (
           <View className="py-4 items-center"><Spinner /></View>
         ) : (
@@ -108,9 +111,9 @@ export function CounterSetupScreen() {
 
       <View className="gap-2 px-1">
         <Button disabled={!branchId || !name.trim()} loading={saving} onPress={handleSubmit}>
-          Đặt làm máy quầy
+          {t('counter.setup.submit')}
         </Button>
-        <Button variant="outline" action="neutral" onPress={() => router.back()}>Huỷ</Button>
+        <Button variant="outline" action="neutral" onPress={() => router.back()}>{t('common.cancel')}</Button>
       </View>
     </Screen>
   );

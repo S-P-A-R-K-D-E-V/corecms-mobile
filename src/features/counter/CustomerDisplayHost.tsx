@@ -14,6 +14,9 @@ import { APP_DISPLAY_NAME, getStore } from 'src/services/store-config';
 // ----------------------------------------------------------------------
 
 const REFRESH_MS = 10 * 60_000;
+// Link slide có chữ ký (hạn 24h) đổi mỗi lần đọc: nội dung không đổi thì giữ link cũ (không phát lại từ đầu mỗi
+// 10 phút), chỉ thay link sau khoảng này.
+const RESIGN_MS = 12 * 60 * 60_000;
 
 export function CustomerDisplayHost() {
   const available = useCustomerDisplayAvailable();
@@ -39,19 +42,27 @@ export function CustomerDisplayHost() {
       return undefined;
     }
     let cancelled = false;
+    let lastSignature = '';
+    let lastSetAt = 0;
     const load = async () => {
       try {
         const config: DisplayConfigDto = counter ? await getCounterDisplayConfig() : await getDisplayConfig(branchId);
         if (cancelled) return;
+        const signature = JSON.stringify([config.intervalSeconds, config.slides.map((s) => [s.key, s.kind, s.title ?? ''])]);
+        if (signature === lastSignature && Date.now() - lastSetAt < RESIGN_MS) return;
+        lastSignature = signature;
+        lastSetAt = Date.now();
         customerDisplay.setAds(
           {
             intervalSeconds: config.intervalSeconds,
-            slides: config.slides.map((s) => ({ url: getStorageUrl(s.key), kind: s.kind, title: s.title ?? null })),
+            slides: config.slides.map((s) => ({ url: s.url || getStorageUrl(s.key), kind: s.kind, title: s.title ?? null })),
           },
           storeName
         );
       } catch {
-        if (!cancelled) customerDisplay.setAds(null, storeName);
+        if (cancelled) return;
+        lastSignature = '';
+        customerDisplay.setAds(null, storeName);
       }
     };
     void load();

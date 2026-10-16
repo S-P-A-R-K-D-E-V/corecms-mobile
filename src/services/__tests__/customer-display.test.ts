@@ -12,7 +12,10 @@ jest.mock('../../../modules/customer-display', () => ({
 }));
 jest.mock('src/i18n/format', () => ({ formatMoney: (v: number) => `${v}đ` }));
 
+import { setLocale } from 'src/i18n';
 import { buildPayload, customerDisplay } from '../customer-display';
+
+beforeAll(() => setLocale('vi'));
 
 const cart = {
   lines: [
