@@ -47,6 +47,25 @@ export const PERMISSIONS = {
     salaryConfigRead: 'payroll.salary-config.read',
     salaryConfigManage: 'payroll.salary-config.manage',
   },
+  /** Chấm công — tự chấm công, việc của chính mình không cần quyền. */
+  attendance: {
+    read: 'attendance.read',
+    adjust: 'attendance.adjust',
+    requestProcess: 'attendance.request.process',
+  },
+  /** Ca làm — lịch của mình, đăng ký / nhường / đổi ca của mình không cần quyền. */
+  shift: {
+    templateManage: 'shift.template.manage',
+    scheduleManage: 'shift.schedule.manage',
+    assignmentRead: 'shift.assignment.read',
+    assignmentManage: 'shift.assignment.manage',
+    registrationManage: 'shift.registration.manage',
+    requestReview: 'shift.request.review',
+    /** Sửa ca đã chấm công / đã bắt đầu, duyệt muộn, huỷ yêu cầu sớm — mặc định chỉ Admin. */
+    override: 'shift.override',
+    auditRead: 'shift.audit.read',
+    reminderManage: 'shift.reminder.manage',
+  },
 } as const;
 
 const A = PERMISSIONS.analytics;
@@ -90,3 +109,15 @@ export function canOverseeShiftCash(user: AuthUser | null | undefined): boolean 
 export function canManageShiftCashOversight(user: AuthUser | null | undefined): boolean {
   return hasPermission(user, PERMISSIONS.shiftCash.oversightManage);
 }
+
+const SHIFT = PERMISSIONS.shift;
+const ATTENDANCE = PERMISSIONS.attendance;
+
+/** Quyền của từng màn trong stack "Quản lý" = quyền của API màn đó gọi (Core-be shift.* / attendance.*). */
+export const MANAGE_SCREEN_PERMISSIONS = {
+  teamSchedule: [SHIFT.assignmentRead],
+  assignShift: [SHIFT.assignmentRead, SHIFT.assignmentManage],
+  coverShift: [SHIFT.assignmentRead, SHIFT.assignmentManage],
+  /** Duyệt yêu cầu: có MỘT trong hai là vào được, mỗi tab theo quyền của nó. */
+  approvals: [ATTENDANCE.requestProcess, SHIFT.requestReview],
+} as const satisfies Record<string, readonly string[]>;

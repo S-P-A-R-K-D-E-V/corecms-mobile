@@ -9,7 +9,7 @@ import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { NEED_TYPE_LABEL, fmtMoney } from 'src/features/schedule/constants';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isAdminUser } from 'src/auth/roles';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import type { AttendanceRequestType, IAttendanceRequest,IShiftPoolPost, ILateCoverRequest, IShiftSwapRequest } from 'src/types/corecms-api';
 
 import {
@@ -124,7 +124,8 @@ function AttendanceCard({ item }: { item: IAttendanceRequest }) {
 
 function SwapCard({ item }: { item: IShiftSwapRequest }) {
   const { user } = useAuthContext();
-  const isAdmin = isAdminUser(user);
+  // Huỷ sớm yêu cầu đang chờ người được nhờ xác nhận: shift.override (mặc định chỉ Admin, như API).
+  const isAdmin = hasPermission(user, PERMISSIONS.shift.override);
   const mutation = useReviewSwapRequest();
   const decide = useDecide();
 
@@ -248,18 +249,26 @@ function ListSkeleton() {
 }
 
 export function ApprovalsScreen() {
-  const [tab, setTab] = useState<Tab>('attendance');
+  const { user } = useAuthContext();
+  // Mỗi tab theo quyền của API nó gọi — vai trò tuỳ chỉnh chỉ có một quyền thì chỉ thấy tab đó, không gọi API 403.
+  const canAttendance = hasPermission(user, PERMISSIONS.attendance.requestProcess);
+  const canShift = hasPermission(user, PERMISSIONS.shift.requestReview);
+  const tabs: Tab[] = [...(canAttendance ? (['attendance'] as const) : []), ...(canShift ? (['swap', 'pool'] as const) : [])];
+  const [pickedTab, setTab] = useState<Tab>(tabs[0] ?? 'attendance');
+  const tab = tabs.includes(pickedTab) ? pickedTab : tabs[0] ?? 'attendance';
 
-  const att = usePendingAttendanceRequests();
-  const swap = usePendingSwapRequests();
-  const pool = usePendingShiftPoolPosts();
+  const att = usePendingAttendanceRequests(canAttendance);
+  const swap = usePendingSwapRequests(canShift);
+  const pool = usePendingShiftPoolPosts(canShift);
 
   const current = { attendance: att, swap, pool }[tab];
   const refreshing = att.isFetching || swap.isFetching || pool.isFetching;
   const onRefresh = () => {
-    att.refetch();
-    swap.refetch();
-    pool.refetch();
+    if (canAttendance) att.refetch();
+    if (canShift) {
+      swap.refetch();
+      pool.refetch();
+    }
   };
 
   const label = (base: string, n?: number) => (n ? `${base} (${n})` : base);
@@ -273,7 +282,7 @@ export function ApprovalsScreen() {
           { key: 'attendance', label: label('Chấm công', att.data?.length) },
           { key: 'swap', label: label('Đổi ca', swap.data?.length) },
           { key: 'pool', label: label('Chợ ca', pool.data?.length) },
-        ]}
+        ].filter((s) => tabs.includes(s.key as Tab))}
         value={tab}
         onChange={(k) => setTab(k as Tab)}
       />

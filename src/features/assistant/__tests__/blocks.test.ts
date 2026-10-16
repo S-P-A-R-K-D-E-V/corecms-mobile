@@ -17,7 +17,11 @@ function user(roles: string[]): AuthUser {
 }
 
 const staff = user(['Staff']);
-const manager = user(['Manager']);
+// Quyền mặc định của Manager (Core-be) — response đăng nhập / GET /users/me luôn kèm.
+const manager = {
+  ...user(['Manager']),
+  permissions: ['shift.assignment.read', 'shift.assignment.manage', 'shift.request.review', 'attendance.read', 'attendance.request.process'],
+};
 const admin = user(['Admin']);
 
 describe('resolveRoute', () => {

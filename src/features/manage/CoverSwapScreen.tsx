@@ -9,7 +9,7 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isAdminUser } from 'src/auth/roles';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import type { IShiftAssignment } from 'src/types/corecms-api';
 
 import { useSwapShiftAssignments, useTeamAssignments } from './hooks';
@@ -58,7 +58,8 @@ function SlotSummary({
 
 export function CoverSwapScreen() {
   const { user } = useAuthContext();
-  const isAdmin = isAdminUser(user);
+  // Đổi ca đã chấm công / đã bắt đầu: shift.override (mặc định chỉ Admin, như API).
+  const isAdmin = hasPermission(user, PERMISSIONS.shift.override);
 
   const [weekStart, setWeekStart] = useState(() => dayjs().startOf('week'));
   const [selected, setSelected] = useState(() => dayjs().format('YYYY-MM-DD'));

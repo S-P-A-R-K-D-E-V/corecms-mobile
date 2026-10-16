@@ -137,17 +137,19 @@ export function useSwapShiftAssignments() {
 
 // ── Duyệt yêu cầu ──────────────────────────────────────────────────────
 
-export function usePendingAttendanceRequests() {
+export function usePendingAttendanceRequests(enabled = true) {
   return useQuery({
     queryKey: ['manage', 'attendance-requests', 'pending'],
+    enabled,
     queryFn: () => getAttendanceRequests('Pending'),
     staleTime: MINUTE,
   });
 }
 
-export function usePendingSwapRequests() {
+export function usePendingSwapRequests(enabled = true) {
   return useQuery({
     queryKey: ['manage', 'swap-requests', 'pending'],
+    enabled,
     queryFn: getPendingShiftSwapRequests,
     staleTime: MINUTE,
   });
@@ -156,9 +158,10 @@ export function usePendingSwapRequests() {
 /** Bài đăng ShiftPool (đổi ca/làm hộ cả ca/làm hộ 1 phần) đã có người nhận,
  *  đang chờ Admin/Manager duyệt — đây là tính năng "Chợ ca" thật sự đang dùng
  *  (thay cho LateCoverRequest cũ, feature đã ngừng tạo request mới). */
-export function usePendingShiftPoolPosts() {
+export function usePendingShiftPoolPosts(enabled = true) {
   return useQuery({
     queryKey: ['manage', 'shift-pool', 'pending'],
+    enabled,
     queryFn: getPendingShiftPoolPosts,
     staleTime: MINUTE,
   });
