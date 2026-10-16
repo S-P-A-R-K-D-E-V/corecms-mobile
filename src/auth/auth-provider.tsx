@@ -18,6 +18,9 @@ const STORAGE_KEY = ACCESS_TOKEN_KEY;
 const REFRESH_KEY = REFRESH_TOKEN_KEY;
 const SESSION_KEY = SESSION_TOKEN_KEY;
 
+/** Khoảng tối thiểu giữa hai lần tự nạp lại /users/me khi app quay lại foreground. */
+export const USER_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
 // ----------------------------------------------------------------------
 
 enum Types {
@@ -298,14 +301,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await axiosInstance.post(endpoints.auth.resendOtp, data);
   }, []);
 
+  const lastRefreshAt = useRef(0);
+
   const refreshUser = useCallback(async () => {
+    lastRefreshAt.current = Date.now();
     try {
       const meRes = await axiosInstance.get(endpoints.users.me);
       const accessToken = (await SecureStore.getItemAsync(STORAGE_KEY)) ?? '';
-      const user = buildUserFromMe(meRes.data, accessToken);
+      // Giữ refreshToken đang lưu — trước đây dựng lại user không có nó.
+      const refreshToken = (await SecureStore.getItemAsync(REFRESH_KEY)) ?? undefined;
+      const user = buildUserFromMe(meRes.data, accessToken, refreshToken);
       dispatch({ type: Types.LOGIN, payload: { user } });
     } catch {}
   }, []);
+
+  // Vai trò / tính năng bật / phạm vi chi nhánh có thể đổi khi app nằm nền (chủ cửa hàng đổi gói, phân công chi
+  // nhánh…): quay lại app thì nạp lại /users/me, tối đa mỗi USER_REFRESH_INTERVAL_MS một lần.
+  useEffect(() => {
+    if (!state.user) {
+      lastRefreshAt.current = 0;
+      return undefined;
+    }
+    // Vừa đăng nhập / mở app là đã nạp /users/me — tính mốc từ đây.
+    if (!lastRefreshAt.current) lastRefreshAt.current = Date.now();
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next === 'active' && Date.now() - lastRefreshAt.current >= USER_REFRESH_INTERVAL_MS) void refreshUser();
+    });
+    return () => sub.remove();
+  }, [state.user, refreshUser]);
 
   // Đăng xuất MÁY NÀY: gửi sessionToken để server chỉ tắt phiên của máy này (thiết bị khác, web vẫn đăng
   // nhập). Server lấy người dùng từ JWT; userId trong body chỉ để bản server cũ còn nhận. Cửa hàng vẫn nhớ.

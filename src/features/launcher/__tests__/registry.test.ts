@@ -89,3 +89,16 @@ describe('ngữ cảnh hiện tiện ích: loại hình chi nhánh + tính năng
     );
   });
 });
+
+// Thư viện đầu việc / xây checklist vệ sinh: core-be (CleaningController) và core-fe cho cả quản lý — trước đây ô chỉ
+// hiện với Admin trong khi route /manage/* vẫn mở cho quản lý (vào được bằng link nhưng không thấy ô).
+describe('vệ sinh — khớp quyền core-be', () => {
+  it('quản lý và Admin thấy thư viện đầu việc và xây checklist, nhân viên thì không', () => {
+    const keys = (u: any) => availableFeatures(u).map((f) => f.key);
+    for (const user of [manager, owner]) {
+      expect(keys(user)).toEqual(expect.arrayContaining(['cleaning-tasks', 'cleaning-builder']));
+    }
+    expect(keys(staff)).not.toContain('cleaning-tasks');
+    expect(keys(staff)).not.toContain('cleaning-builder');
+  });
+});

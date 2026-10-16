@@ -8,7 +8,7 @@ import { cn } from 'src/components/ui/utils';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
-import { getUserRoles } from 'src/auth/roles';
+import { bypassesShiftCashGate } from 'src/auth/roles';
 import { extractApiError } from 'src/services/error';
 import {
   openCounter,
@@ -129,7 +129,8 @@ function SummaryRow({
 
 export function ShiftCashScreen() {
   const { user } = useAuthContext();
-  const isAdmin = getUserRoles(user).includes('Admin');
+  // Cùng luật với cổng (SHIFT_CASH_BYPASS_ROLES, khớp BE RequireShiftCashAccess) — sửa ngày cũ được.
+  const isAdmin = bypassesShiftCashGate(user);
 
   // Toạ độ đã xác minh ở cổng — gửi kèm MỌI lệnh (header X-Geo-* cho BE gác cổng + body để lưu audit).
   // todayOnly: không phải Admin thì chỉ ngày hôm nay (BE cũng chặn ngày khác bằng 403).

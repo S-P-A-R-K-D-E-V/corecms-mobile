@@ -10,6 +10,7 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { getStorageUrl } from 'src/api/axios';
+import { useAuthContext } from 'src/auth/auth-context';
 import type { UserStatus } from 'src/types/corecms-api';
 
 import { useUser, useRoles, useChangeUserStatus, useAssignRoles } from './hooks';
@@ -36,6 +37,9 @@ export function UserDetailScreen() {
   const assignM = useAssignRoles();
 
   const user = userQ.data;
+  // Core-be chặn Admin tự khoá tài khoản / tự gỡ Admin của chính mình (có thể là Admin cuối cùng) — khoá luôn trên UI.
+  const { user: me } = useAuthContext();
+  const isSelf = !!me?.id && me.id === userId;
   const currentStatus: UserStatus = user?.status ?? (user?.isActive ? 'Active' : 'Banned');
 
   // Vai trò được chọn (roleIds). Khởi tạo từ tên vai trò của user khớp danh mục.
@@ -137,11 +141,12 @@ export function UserDetailScreen() {
             <View className="flex-row flex-wrap gap-2">
               {STATUSES.map((s) => {
                 const active = s.key === currentStatus;
+                const locked = isSelf && s.key !== 'Active';
                 return (
                   <Pressable
                     key={s.key}
                     onPress={() => changeStatus(s.key)}
-                    disabled={statusM.isPending}
+                    disabled={statusM.isPending || locked}
                     className={cn('px-3.5 py-2 rounded-full border', active ? 'bg-primary border-primary' : 'bg-surface dark:bg-surface-dark border-line/60 dark:border-line-dark')}
                   >
                     <Text variant="bodySmall" className={cn('font-semibold', active ? 'text-white' : 'text-muted')}>{s.label}</Text>
@@ -149,6 +154,11 @@ export function UserDetailScreen() {
                 );
               })}
             </View>
+            {isSelf ? (
+              <Text variant="caption" tone="muted" className="mt-2">
+                Không tự khoá tài khoản của chính mình — nhờ một Admin khác nếu cần.
+              </Text>
+            ) : null}
           </Card>
 
           {/* Vai trò */}
@@ -166,13 +176,18 @@ export function UserDetailScreen() {
               <>
                 {(rolesQ.data ?? []).map((r, i) => {
                   const on = roleIds?.has(r.id) ?? false;
+                  const locked = isSelf && r.name === 'Admin' && on;
                   return (
                     <View key={r.id}>
                       {i > 0 ? <Divider /> : null}
-                      <Pressable onPress={() => toggleRole(r.id)} className="flex-row items-center gap-3 py-2.5">
+                      <Pressable onPress={() => toggleRole(r.id)} disabled={locked} className="flex-row items-center gap-3 py-2.5">
                         <View className="flex-1">
                           <Text variant="bodySmall" className="font-medium">{r.name}</Text>
-                          {r.description ? <Text variant="caption" tone="muted" numberOfLines={1}>{r.description}</Text> : null}
+                          {locked ? (
+                            <Text variant="caption" tone="muted" numberOfLines={1}>Không tự gỡ vai trò Admin của chính mình</Text>
+                          ) : r.description ? (
+                            <Text variant="caption" tone="muted" numberOfLines={1}>{r.description}</Text>
+                          ) : null}
                         </View>
                         <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} tone={on ? 'primary' : 'faint'} />
                       </Pressable>

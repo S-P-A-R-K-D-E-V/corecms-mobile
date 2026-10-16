@@ -7,6 +7,7 @@ import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
 import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
+import { isManagerUser } from 'src/auth/roles';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { useLocaleStore, useT } from 'src/i18n';
 import { extractApiError } from 'src/services/error';
@@ -47,8 +48,7 @@ export function ProfileScreen() {
   const t = useT();
   const { user, logout, deleteAccount } = useAuthContext();
   const role = ROLE[user?.role ?? ''];
-  const isAdminOrManager =
-    user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
+  const isAdminOrManager = isManagerUser(user);
   const store = isMultiStore ? getStore() : null;
   const storeName = store?.name ?? store?.code ?? '';
 

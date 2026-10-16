@@ -1,8 +1,9 @@
 import React from 'react';
+import { router, type Href } from 'expo-router';
 
 import { Forbidden403 } from 'src/components/shared';
 import { useAuthContext } from './auth-context';
-import { hasAnyRole, hasAnyPermission } from './roles';
+import { homeHref, hasAnyRole, hasAnyPermission } from './roles';
 
 // ----------------------------------------------------------------------
 // Cổng phân quyền cấp màn hình. Tương đương RoleBasedGuard bên core-fe:
@@ -17,13 +18,25 @@ export type RoleGuardProps = {
   fallback?: React.ReactNode;
 };
 
+/** Màn 403 mặc định có nút quay lại — trong Stack (/manage, /purchase-orders) trước đây người dùng bị kẹt. */
+export function RoleGuardFallback() {
+  const { user } = useAuthContext();
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace(homeHref(user) as Href);
+  };
+
+  return <Forbidden403 actionLabel="Quay lại" onAction={goBack} />;
+}
+
 export function RoleGuard({ roles, permissions, children, fallback }: RoleGuardProps) {
   const { user } = useAuthContext();
 
   const allowed = hasAnyRole(user, roles) && hasAnyPermission(user, permissions);
 
   if (!allowed) {
-    return <>{fallback ?? <Forbidden403 />}</>;
+    return <>{fallback ?? <RoleGuardFallback />}</>;
   }
 
   return <>{children}</>;

@@ -106,6 +106,28 @@ async function recoverFrom401(config: AuthRetryConfig) {
   }
 }
 
+export const FORBIDDEN_MESSAGE = 'Bạn không có quyền thực hiện thao tác này.';
+
+/**
+ * Lỗi mà axiosInstance reject: BODY của response (xem services/error), kèm `status` HTTP khi body là object — trước
+ * đây mất hẳn mã HTTP nên màn hình không phân biệt được 403 với lỗi khác. 403 body rỗng (API cũ) thành
+ * { status, error: 'forbidden', message } tiếng Việt thay vì chuỗi tiếng Anh chung chung.
+ */
+export function toApiError(error: any): any {
+  const status: number | undefined = error?.response?.status;
+  const data = error?.response?.data;
+
+  // Chỉ gắn status vào object JSON thường — Blob/ArrayBuffer giữ nguyên để nơi gọi tự đọc.
+  if (data && Object.prototype.toString.call(data) === '[object Object]') {
+    return status && data.status === undefined ? { ...data, status } : data;
+  }
+  if (data) return data;
+  if (status === 403) {
+    return { status, error: 'forbidden', title: FORBIDDEN_MESSAGE, message: FORBIDDEN_MESSAGE };
+  }
+  return 'Something went wrong';
+}
+
 axiosInstance.interceptors.response.use(
   (res) => res,
   async (error) => {
@@ -114,7 +136,7 @@ axiosInstance.interceptors.response.use(
       const retried = await recoverFrom401(config);
       if (retried) return retried;
     }
-    return Promise.reject((error.response && error.response.data) || 'Something went wrong');
+    return Promise.reject(toApiError(error));
   }
 );
 

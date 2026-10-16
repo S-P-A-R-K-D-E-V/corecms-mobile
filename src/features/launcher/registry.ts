@@ -121,6 +121,10 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cleaning-week', label: 'Theo dõi vệ sinh', icon: 'broom', href: '/manage/cleaning', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cleaning-review', label: 'Đánh giá vệ sinh', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
+  // Thư viện đầu việc / xây checklist: core-be (CleaningController) và core-fe cho cả quản lý — trước đây ô chỉ hiện với
+  // Admin trong khi route /manage/* vẫn mở cho quản lý.
+  { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
+  { key: 'cleaning-builder', label: 'Xây dựng checklist', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
 
   // ── Quản trị (Admin) ───────────────────────────────────────────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
@@ -130,8 +134,6 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', roles: ADMIN_ROLES },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', tone: 'warning', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'cleaning-builder', label: 'Xây dựng checklist', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'admin', roles: ADMIN_ROLES },
 ];
 
 const BY_KEY = new Map(FEATURE_REGISTRY.map((f) => [f.key, f]));
