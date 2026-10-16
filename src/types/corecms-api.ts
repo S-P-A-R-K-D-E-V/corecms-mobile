@@ -1013,6 +1013,8 @@ export interface IShiftCashTransaction {
   type: 'Thu' | 'Chi';
   amount: number;
   note?: string;
+  /** Cổ đông gắn với khoản (vốn góp / rút — vào chốt sổ cổ đông). Chỉ chủ cửa hàng sửa / xoá được khoản đã gắn. */
+  shareholderId?: string | null;
   isDeleted: boolean;
   createdByName?: string;
   createdAt: string;
