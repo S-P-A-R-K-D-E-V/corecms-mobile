@@ -18,7 +18,7 @@ import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
-import { HomeHero, HeroLabel, HeroAmount, HeroStats, HeroChip, HERO_OVERLAP } from './HomeHero';
+import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, HERO_OVERLAP } from './HomeHero';
 import { TeamTodayCard } from './TeamTodayCard';
 import {
   useAmountVisibility,
@@ -317,12 +317,13 @@ export function StaffHome() {
   const { refreshing } = useCheckinData();
 
   const onRefresh = () =>
-    qc.invalidateQueries({
-      predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'admin', 'notifications'].includes(q.queryKey[0] as string),
-    });
+    qc.invalidateQueries(
+      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'admin', 'notifications'].includes(q.queryKey[0] as string) },
+      { throwOnError: true }
+    );
 
   return (
-    <Screen scroll padded={false} edges={['left', 'right']} refreshing={refreshing} onRefresh={onRefresh}>
+    <Screen scroll padded={false} edges={['left', 'right']} header={<HomeTopBar />} refreshing={refreshing} onRefresh={onRefresh}>
       <HomeHero>
         <StaffBalance />
       </HomeHero>

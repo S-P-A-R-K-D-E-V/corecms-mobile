@@ -14,7 +14,7 @@ import { RevenueChart } from 'src/features/admin-dashboard/RevenueChart';
 import { isCancelledStatus } from 'src/features/erp/shared';
 import { useDashboardSummary, useRevenueReport, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
-import { HomeHero, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
+import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
 import { TeamTodayCard } from './TeamTodayCard';
 import { useAmountVisibility, useBreakEvenToday, useMonthProfit, percentChange, timeAgo, HIDDEN_AMOUNT } from './hooks';
 
@@ -241,10 +241,11 @@ export function OwnerHome() {
   const summary = useDashboardSummary();
 
   const onRefresh = () =>
-    qc.invalidateQueries({ predicate: (q) => ['admin', 'home', 'notifications'].includes(q.queryKey[0] as string) });
+    // throwOnError: lỗi tải lại → linh vật báo "Không tải được" thay vì "Đã cập nhật".
+    qc.invalidateQueries({ predicate: (q) => ['admin', 'home', 'notifications'].includes(q.queryKey[0] as string) }, { throwOnError: true });
 
   return (
-    <Screen scroll padded={false} edges={['left', 'right']} refreshing={summary.isRefetching} onRefresh={onRefresh}>
+    <Screen scroll padded={false} edges={['left', 'right']} header={<HomeTopBar />} refreshing={summary.isRefetching} onRefresh={onRefresh}>
       <HomeHero>
         <OwnerBalance />
       </HomeHero>

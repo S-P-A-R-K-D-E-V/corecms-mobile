@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, EmptyState, BarcodeScannerModal } from 'src/components/shared';
+import { AppHeader, EmptyState, BarcodeScannerModal, RefreshFlatList } from 'src/components/shared';
 import { Text, Pressable, Skeleton } from 'src/components/ui';
 import { brand } from 'src/theme';
 import { useAuthContext } from 'src/auth/auth-context';
@@ -82,7 +82,7 @@ export function ProductsScreen() {
           ))}
         </View>
       ) : (
-        <FlatList
+        <RefreshFlatList
           data={items}
           keyExtractor={(p) => p.id}
           renderItem={({ item }) => <ProductRow item={item} />}
@@ -92,7 +92,8 @@ export function ProductsScreen() {
           onEndReachedThreshold={0.4}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          refreshControl={<RefreshControl refreshing={query.isRefetching && !query.isFetchingNextPage} onRefresh={() => query.refetch()} colors={[brand.primary]} tintColor={brand.primary} />}
+          refreshing={query.isRefetching && !query.isFetchingNextPage}
+          onRefresh={() => query.refetch()}
           ListEmptyComponent={<EmptyState icon="package-variant" title={t('erp.noResults')} />}
           ListFooterComponent={<ListFooter loading={query.isFetchingNextPage} />}
         />

@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { AppHeader, EmptyState } from 'src/components/shared';
+import { AppHeader, EmptyState, RefreshFlatList } from 'src/components/shared';
 import { Text, Pressable, Skeleton, SegmentedControl, Badge } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
@@ -136,7 +136,7 @@ export function InvoicesScreen() {
           ))}
         </View>
       ) : (
-        <FlatList
+        <RefreshFlatList
           key={`cols-${columns}`}
           data={items}
           keyExtractor={(o) => o.id}
@@ -157,17 +157,11 @@ export function InvoicesScreen() {
           onEndReachedThreshold={0.4}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          refreshControl={
-            <RefreshControl
-              refreshing={list.isRefetching && !list.isFetchingNextPage}
-              onRefresh={() => {
+          refreshing={list.isRefetching && !list.isFetchingNextPage}
+          onRefresh={() => {
                 list.refetch();
                 summary.refetch();
               }}
-              colors={[brand.primary]}
-              tintColor={brand.primary}
-            />
-          }
           ListEmptyComponent={<EmptyState icon="receipt" title={t('erp.noInvoices')} />}
           ListFooterComponent={<ListFooter loading={list.isFetchingNextPage} />}
         />

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
 
-import { AppHeader, EmptyState, Loading } from 'src/components/shared';
+import { AppHeader, EmptyState, Loading, RefreshFlatList } from 'src/components/shared';
 import { Text, Pressable, Icon, Appear, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
@@ -156,11 +156,12 @@ export function NotificationsScreen() {
       {loading ? (
         <Loading />
       ) : (
-        <FlatList
+        <RefreshFlatList
           data={items}
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-4 pb-10 gap-2"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brand.primary]} tintColor={brand.primary} />}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           ListHeaderComponent={
             <View className={cn('flex-row items-center gap-1.5 rounded-xl p-2.5 mb-1', unread > 0 ? 'bg-primary-50 dark:bg-primary/15' : 'bg-success-soft')}>
               <Icon name={unread > 0 ? 'bell-badge-outline' : 'check-all'} size={16} tone={unread > 0 ? 'primary' : 'success'} />

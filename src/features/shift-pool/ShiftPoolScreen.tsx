@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 
-import { AppHeader, EmptyState, Loading } from 'src/components/shared';
+import { AppHeader, EmptyState, Loading, RefreshFlatList } from 'src/components/shared';
 import { Card, Text, Badge, Button, Divider, SegmentedControl, Appear } from 'src/components/ui';
 import { brand, softShadow } from 'src/theme';
 import { toast, confirm, showActionSheet } from 'src/components/overlay';
@@ -110,11 +110,12 @@ export function ShiftPoolScreen() {
       {loading ? (
         <Loading />
       ) : (
-        <FlatList
+        <RefreshFlatList
           data={data}
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-4 pb-24 gap-3"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[brand.primary]} tintColor={brand.primary} />}
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); fetchData(); }}
           renderItem={({ item, index }) => {
             // Ca đã bắt đầu/kết thúc → hết hạn nhận (BE cũng chặn, nhưng disable
             // trước để không bấm nhầm). Mốc = giờ BẮT ĐẦU ca theo ngày ca.

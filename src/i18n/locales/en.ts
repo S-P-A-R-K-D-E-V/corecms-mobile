@@ -23,6 +23,14 @@ export const en: Dict = {
     hour: 'h',
     minute: 'min',
   },
+  refresh: {
+    pull: 'Pull to refresh',
+    release: 'Release to refresh',
+    loading: 'Updating…',
+    slow: 'Slow network, still loading…',
+    done: 'Updated · {time}',
+    error: "Couldn't load. Pull to retry",
+  },
   tabs: {
     checkin: 'Check in',
     schedule: 'Schedule',

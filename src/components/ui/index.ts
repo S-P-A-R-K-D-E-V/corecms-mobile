@@ -28,3 +28,4 @@ export type { DonutSegment } from './donut';
 export { SuccessOverlay } from './success-overlay';
 export { cn } from './utils';
 export { SparkStoreIcon, SparkStoreBolt, SparkStoreWordmark, SPARK_STORE_BRAND, SPARK_STORE_PLUM } from './spark-store-logo';
+export { SparkMascot, MascotGlow, MascotRings, MascotSpeedLines, MascotShadow, MASCOT_ASPECT, type MascotMood } from './spark-mascot';

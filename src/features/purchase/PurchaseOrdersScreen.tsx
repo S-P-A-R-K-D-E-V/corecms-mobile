@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { View, FlatList, RefreshControl, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { AppHeader, EmptyState } from 'src/components/shared';
+import { AppHeader, EmptyState, RefreshFlatList } from 'src/components/shared';
 import { Text, Pressable, Skeleton, Chip, Icon } from 'src/components/ui';
 import { brand, softShadow } from 'src/theme';
 import { getPurchaseOrders } from 'src/api/erp';
@@ -78,7 +78,7 @@ export function PurchaseOrdersScreen() {
           ))}
         </View>
       ) : (
-        <FlatList
+        <RefreshFlatList
           data={items}
           keyExtractor={(o) => o.id}
           renderItem={({ item }) => <PoRow po={item} />}
@@ -86,7 +86,8 @@ export function PurchaseOrdersScreen() {
           contentContainerStyle={{ paddingTop: 6, paddingBottom: 110 + insets.bottom }}
           onEndReached={() => list.hasNextPage && !list.isFetchingNextPage && list.fetchNextPage()}
           onEndReachedThreshold={0.4}
-          refreshControl={<RefreshControl refreshing={list.isRefetching && !list.isFetchingNextPage} onRefresh={() => list.refetch()} colors={[brand.primary]} tintColor={brand.primary} />}
+          refreshing={list.isRefetching && !list.isFetchingNextPage}
+          onRefresh={() => list.refetch()}
           ListEmptyComponent={<EmptyState icon="truck-delivery-outline" title={t('erp.noPurchases')} />}
           ListFooterComponent={<ListFooter loading={list.isFetchingNextPage} />}
         />

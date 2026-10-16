@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, RefreshControl } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppHeader, EmptyState, type HeaderAction } from 'src/components/shared';
+import { AppHeader, EmptyState, type HeaderAction, RefreshScrollView } from 'src/components/shared';
 import { Text, Icon, Pressable, Chip, Spinner } from 'src/components/ui';
 import { showActionSheet } from 'src/components/overlay';
 import { cn } from 'src/components/ui/utils';
@@ -201,10 +201,11 @@ export function FnbFloorScreen() {
       <View className="px-4">
         <AppHeader back={split || !(usesAdminShell(user) || counterSession)} title={t('fnb.title')} subtitle={branch?.name} actions={headerActions} />
       </View>
-      <ScrollView
+      <RefreshScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: split ? Math.max(insets.bottom, 12) + 16 : TAB_CLEARANCE + insets.bottom }}
-        refreshControl={<RefreshControl refreshing={floorQ.isRefetching} onRefresh={() => void floorQ.refetch()} />}
+        refreshing={floorQ.isRefetching}
+        onRefresh={() => void floorQ.refetch()}
       >
         <View className="gap-2 mb-3">
           {unprinted ? <Banner icon="printer-alert" tone="warning" text={t('fnb.unprinted', { n: unprinted })} /> : null}
@@ -250,7 +251,7 @@ export function FnbFloorScreen() {
             tables.map((tb) => <TableTile key={tb.id} table={tb} width={tile} now={now} onPress={() => onTable(tb)} />)
           )}
         </View>
-      </ScrollView>
+      </RefreshScrollView>
 
       <WorkingBranchSheet visible={focused && branchPick} onClose={() => setBranchPick(false)} />
       {branchId && canSetup ? (

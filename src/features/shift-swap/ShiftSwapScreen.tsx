@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
-import { View, FlatList, RefreshControl } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 
-import { AppHeader, EmptyState, Loading, Sheet } from 'src/components/shared';
+import { AppHeader, EmptyState, Loading, Sheet, RefreshFlatList } from 'src/components/shared';
 import { Card, Text, Badge, Button, Icon, Divider, TextField, SegmentedControl, Appear } from 'src/components/ui';
 import { brand, softShadow } from 'src/theme';
 import { toast, confirm } from 'src/components/overlay';
@@ -136,11 +136,12 @@ export function ShiftSwapScreen() {
       {loading ? (
         <Loading />
       ) : (
-        <FlatList
+        <RefreshFlatList
           data={data}
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-4 pb-24 gap-3"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={[brand.primary]} tintColor={brand.primary} />}
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); fetchData(); }}
           renderItem={({ item, index }) => (
             <Appear index={Math.min(index, 8)}>
               <SwapCard item={item} mode={tab} onConfirm={handleConfirm} />

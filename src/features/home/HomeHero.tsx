@@ -1,11 +1,13 @@
 import { useCallback, useState } from 'react';
 import { View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 
 import { Text, Icon, Pressable, Avatar, BrandGradient, CountBadge, type IconName } from 'src/components/ui';
+import { usePullDistance } from 'src/components/shared';
 import { useAuthContext } from 'src/auth/auth-context';
 import { canUseAssistant, assistantEnabled } from 'src/auth/roles';
 import { getStore } from 'src/services/store-config';
@@ -18,9 +20,11 @@ import { HIDDEN_AMOUNT } from './hooks';
 import { BranchSwitcher } from 'src/features/branch/BranchSwitcher';
 
 // ----------------------------------------------------------------------
-// Đầu trang chủ kiểu MB Bank: khối màu cửa hàng tràn dưới thanh trạng thái, avatar (→ Tài khoản),
-// lời chào, nút Tin nhắn / Trợ lý AI / Thông báo (đã rời thanh tab), và "thẻ số dư" do màn truyền vào.
-// Phần dưới chừa chỗ để thẻ Dùng nhanh đè lên mép.
+// Đầu trang chủ kiểu MB Bank, hai mảnh cùng màu cửa hàng ghép liền:
+//   - HomeTopBar: tràn dưới thanh trạng thái, avatar (→ Tài khoản), lời chào, nút Tin nhắn / Trợ lý AI / Thông báo.
+//     Đứng yên (Screen `header`) — cuộn hay kéo làm mới không kéo theo.
+//   - HomeHero: "thẻ số dư" do màn truyền vào, nằm trong vùng cuộn; kéo làm mới thì tách khỏi thanh đầu (bo góc trên,
+//     linh vật hiện ở khe). Phần dưới chừa chỗ để thẻ Dùng nhanh đè lên mép.
 // ----------------------------------------------------------------------
 
 export const HERO_OVERLAP = 52;
@@ -45,7 +49,7 @@ function HeaderButton({ icon, badge, label, onPress }: { icon: IconName; badge?:
   );
 }
 
-export function HomeHero({ children }: { children: React.ReactNode }) {
+export function HomeTopBar() {
   const insets = useSafeAreaInsets();
   const [focused, setFocused] = useState(true);
   useFocusEffect(
@@ -63,21 +67,9 @@ export function HomeHero({ children }: { children: React.ReactNode }) {
   const showAssistant = canUseAssistant(user) && assistantEnabled(user);
 
   return (
-    <BrandGradient
-      style={{
-        paddingTop: insets.top + 10,
-        paddingBottom: HERO_OVERLAP + 18,
-        paddingHorizontal: 16,
-        borderBottomLeftRadius: 28,
-        borderBottomRightRadius: 28,
-      }}
-    >
+    <BrandGradient horizontal style={{ paddingTop: insets.top + 10, paddingBottom: 12, paddingHorizontal: 16 }}>
       {/* Chữ trắng trên nền màu → thanh trạng thái sáng khi đang ở trang chủ. */}
       {focused ? <StatusBar style="light" /> : null}
-
-      {/* Vòng trang trí mờ như thẻ ngân hàng */}
-      <View pointerEvents="none" style={{ position: 'absolute', right: -60, top: -40, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.07)' }} />
-      <View pointerEvents="none" style={{ position: 'absolute', left: -70, bottom: -90, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.05)' }} />
 
       <View className="flex-row items-center gap-3">
         <Pressable onPress={() => router.push('/(tabs)/profile' as any)} accessibilityLabel={t('home.profile')}>
@@ -100,9 +92,26 @@ export function HomeHero({ children }: { children: React.ReactNode }) {
           <HeaderButton icon="bell-outline" badge={notifQ.data} label={t('home.notifications')} onPress={() => router.push('/notifications' as any)} />
         </View>
       </View>
-
-      <View style={{ marginTop: 18 }}>{children}</View>
     </BrandGradient>
+  );
+}
+
+/** Khối màu chứa thẻ số dư (trong vùng cuộn) — bo góc trên theo độ tách khi kéo làm mới. */
+export function HomeHero({ children }: { children: React.ReactNode }) {
+  const pull = usePullDistance();
+  const detach = useAnimatedStyle(() => {
+    const r = pull ? Math.min(18, pull.value / 3) : 0;
+    return { borderTopLeftRadius: r, borderTopRightRadius: r };
+  });
+  return (
+    <Animated.View style={[{ overflow: 'hidden', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 }, detach]}>
+      <BrandGradient horizontal style={{ paddingTop: 6, paddingBottom: HERO_OVERLAP + 18, paddingHorizontal: 16 }}>
+        {/* Vòng trang trí mờ như thẻ ngân hàng */}
+        <View pointerEvents="none" style={{ position: 'absolute', right: -60, top: -70, width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.07)' }} />
+        <View pointerEvents="none" style={{ position: 'absolute', left: -70, bottom: -90, width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.05)' }} />
+        {children}
+      </BrandGradient>
+    </Animated.View>
   );
 }
 

@@ -23,6 +23,14 @@ export const vi = {
     hour: 'giờ',
     minute: 'phút',
   },
+  refresh: {
+    pull: 'Kéo xuống để làm mới',
+    release: 'Thả tay để làm mới',
+    loading: 'Đang cập nhật…',
+    slow: 'Mạng chậm, vẫn đang tải…',
+    done: 'Đã cập nhật · {time}',
+    error: 'Không tải được. Kéo để thử lại',
+  },
   tabs: {
     checkin: 'Điểm danh',
     schedule: 'Lịch làm',

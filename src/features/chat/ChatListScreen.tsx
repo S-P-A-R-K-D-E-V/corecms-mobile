@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, FlatList, RefreshControl, ScrollView } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
 import isYesterday from 'dayjs/plugin/isYesterday';
 
-import { AppHeader, EmptyState, Loading } from 'src/components/shared';
+import { AppHeader, EmptyState, Loading, RefreshFlatList } from 'src/components/shared';
 import { Text, TextField, Divider, Pressable, CountBadge } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
@@ -158,14 +158,15 @@ export function ChatListScreen() {
       {loading ? (
         <Loading />
       ) : (
-        <FlatList
+        <RefreshFlatList
           data={filtered}
           keyExtractor={(i) => i.id}
           // Chừa chỗ cho tab bar nổi (PILL 72 + safe-area + đệm) — trước chỉ pb-4
           // nên các mục cuối bị tab bar che.
           contentContainerStyle={{ paddingBottom: 72 + Math.max(insets.bottom, 8) + 16 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[brand.primary]} tintColor={brand.primary} />}
+          refreshing={refreshing}
+          onRefresh={onRefresh}
           ListHeaderComponent={!search ? <OnlineRow onOpen={goToConversation} /> : null}
           ItemSeparatorComponent={() => <Divider className="ml-[72px]" />}
           ListEmptyComponent={<EmptyState icon="message-outline" title={search ? 'Không tìm thấy cuộc trò chuyện' : 'Chưa có tin nhắn nào'} />}
