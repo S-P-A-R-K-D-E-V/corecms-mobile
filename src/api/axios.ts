@@ -4,11 +4,15 @@ import * as SecureStore from 'expo-secure-store';
 // ----------------------------------------------------------------------
 
 import { getHostApi } from 'src/services/store-config';
+import { CLIENT_PLATFORM, CLIENT_PLATFORM_HEADER } from 'src/auth/platform-features';
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, restoreSession, type RestoreOutcome } from './session';
 
 export { getHostApi };
 
 const axiosInstance = axios.create({ baseURL: getHostApi() });
+
+// Nền tảng của client — Core-be chặn / ẩn tính năng chủ cửa hàng đã tắt trên app (src/auth/platform-features.ts).
+axiosInstance.defaults.headers.common[CLIENT_PLATFORM_HEADER] = CLIENT_PLATFORM;
 
 type AuthRetryConfig = InternalAxiosRequestConfig & {
   /** Token đã gắn khi gửi (để biết 401 là do token cũ hay token hiện tại). */

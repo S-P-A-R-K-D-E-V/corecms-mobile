@@ -13,6 +13,7 @@ import { brand, softShadow } from 'src/theme';
 import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
+import { isPlatformFeatureDisabledError } from 'src/auth/platform-features';
 import { useQuery } from '@tanstack/react-query';
 
 import { smartCheckIn, smartCheckOut, checkIn, checkinFace, getBranchLocations } from 'src/api/attendance';
@@ -81,7 +82,7 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 export function CheckinScreen() {
-  const { user } = useAuthContext();
+  const { user, refreshUser } = useAuthContext();
   const { logs, shifts, report, activeLog, refreshing, refetch } = useCheckinData();
 
   // Live clock (1s) for countdown + hero clock.
@@ -300,6 +301,11 @@ export function CheckinScreen() {
     } catch (err: any) {
       haptics.error();
       toast.error(extractApiError(err), t('checkin.checkInFailed'));
+      // Chủ cửa hàng vừa tắt chấm công trên app với người này: nạp lại /users/me để tab chuyển sang báo đã tắt.
+      if (isPlatformFeatureDisabledError(err)) {
+        setModalOpen(false);
+        refreshUser();
+      }
     } finally {
       setSubmitting(false);
     }
@@ -355,6 +361,11 @@ export function CheckinScreen() {
     } catch (err: any) {
       haptics.error();
       toast.error(extractApiError(err), t('checkin.checkOutFailed'));
+      // Chủ cửa hàng vừa tắt chấm công trên app với người này: nạp lại /users/me để tab chuyển sang báo đã tắt.
+      if (isPlatformFeatureDisabledError(err)) {
+        setModalOpen(false);
+        refreshUser();
+      }
     } finally {
       setSubmitting(false);
     }

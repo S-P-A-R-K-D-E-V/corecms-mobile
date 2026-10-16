@@ -76,6 +76,7 @@ function buildUserFromMe(data: any, accessToken: string, refreshToken?: string):
     idCardBackUrl: data.idCardBackUrl,
     hasFaceEmbedding: !!data.hasFaceEmbedding,
     enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : undefined,
+    blockedFeatures: Array.isArray(data.blockedFeatures) ? data.blockedFeatures : [],
     branchScope:
       data.branchScope && typeof data.branchScope.allBranches === 'boolean'
         ? {
