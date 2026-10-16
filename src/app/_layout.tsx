@@ -30,6 +30,7 @@ import { OverlayHost } from 'src/components/overlay';
 import { loadStore } from 'src/services/store-config';
 import { hydrateCounterMode } from 'src/services/counter-mode';
 import { CounterSessionGuard } from 'src/features/counter/CounterSessionGuard';
+import { CustomerDisplayHost } from 'src/features/counter/CustomerDisplayHost';
 import { hydrateLocale, useLocaleStore } from 'src/i18n';
 
 // Keep the native splash up until the Minimal font is ready.
@@ -115,6 +116,7 @@ export default function RootLayout() {
                 <OrientationGuard />
                 <PushRegistrationWrapper />
                 <CounterSessionGuard />
+                <CustomerDisplayHost />
                 <LauncherHydrator />
                 <StatusBar style="auto" />
                 <Stack key={`${locale}-${palette.main}`} screenOptions={{ headerShown: false }} />

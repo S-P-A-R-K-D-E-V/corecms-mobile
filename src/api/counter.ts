@@ -96,6 +96,23 @@ export async function verifyCounterLogin(requestId: string, code: string): Promi
   return res.data;
 }
 
+export type DisplayConfigDto = {
+  intervalSeconds: number;
+  slides: { key: string; kind: 'image' | 'video'; title?: string | null }[];
+};
+
+/** Quảng cáo màn hình khách của chi nhánh máy quầy (đọc bằng key máy quầy — chạy cả lúc chưa ai đăng nhập). */
+export async function getCounterDisplayConfig(): Promise<DisplayConfigDto> {
+  const res = await counterAxios.get<DisplayConfigDto>('/counter/display-config');
+  return res.data;
+}
+
+/** Như trên nhưng cho máy thường (người đang đăng nhập), theo chi nhánh đang làm việc. */
+export async function getDisplayConfig(branchId?: string | null): Promise<DisplayConfigDto> {
+  const res = await axiosInstance.get<DisplayConfigDto>('/pos-display/config', { params: branchId ? { branchId } : undefined });
+  return res.data;
+}
+
 export async function unpairCounter(): Promise<void> {
   await counterAxios.post('/counter/unpair');
 }
