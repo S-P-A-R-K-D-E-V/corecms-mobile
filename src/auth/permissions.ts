@@ -80,6 +80,18 @@ export const PERMISSIONS = {
     adjustmentRead: 'inventory.adjustment.read',
     adjust: 'inventory.adjust',
   },
+  /** Nhập hàng — thao tác cần kèm quyền xem. Trả nhà cung cấp từ quầy không cần quyền. */
+  purchase: {
+    read: 'purchase.read',
+    create: 'purchase.create',
+    update: 'purchase.update',
+    confirm: 'purchase.confirm',
+    receive: 'purchase.receive',
+    cancel: 'purchase.cancel',
+    paidBySet: 'purchase.paid-by.set',
+    paymentManage: 'purchase.payment.manage',
+  },
+  supplier: { read: 'supplier.read', manage: 'supplier.manage' },
 } as const;
 
 const A = PERMISSIONS.analytics;

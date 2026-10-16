@@ -7,7 +7,8 @@ import { AppHeader, EmptyState, BarcodeScannerModal } from 'src/components/share
 import { Text, Pressable, Skeleton } from 'src/components/ui';
 import { brand } from 'src/theme';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isManagerUser, usesAdminShell } from 'src/auth/roles';
+import { usesAdminShell } from 'src/auth/roles';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { t } from 'src/i18n';
 import type { IProductListItem } from 'src/types/erp';
@@ -63,7 +64,7 @@ export function ProductsScreen() {
           back={!(usesAdminShell(user) || counterSession)}
           title={t('tabs.products')}
           subtitle={query.data ? t('erp.productsCount', { n: total }) : undefined}
-          actions={isManagerUser(user) && !counterSession ? [{ icon: 'truck-delivery-outline', onPress: () => router.push('/purchase-orders' as any) }] : undefined}
+          actions={hasPermission(user, PERMISSIONS.purchase.read) && !counterSession ? [{ icon: 'truck-delivery-outline', onPress: () => router.push('/purchase-orders' as any) }] : undefined}
         />
         <SearchBar
           value={keyword}

@@ -13,6 +13,8 @@ import { t } from 'src/i18n';
 import type { IPurchaseOrder } from 'src/types/erp';
 
 import { ListFooter, money } from 'src/features/erp/shared';
+import { useAuthContext } from 'src/auth/auth-context';
+import { purchaseAccessFor } from './access';
 import { PoStatusBadge, PO_FILTERS, isReceiving } from './shared';
 
 // ----------------------------------------------------------------------
@@ -44,6 +46,8 @@ function PoRow({ po }: { po: IPurchaseOrder }) {
 
 export function PurchaseOrdersScreen() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuthContext();
+  const { canCreate } = purchaseAccessFor(user);
   const [filter, setFilter] = useState('all');
   const status = PO_FILTERS.find((f) => f.key === filter)?.status;
 
@@ -88,6 +92,7 @@ export function PurchaseOrdersScreen() {
         />
       )}
 
+      {canCreate ? (
       <Pressable
         onPress={() => router.push('/purchase-orders/new' as any)}
         className="absolute right-4 flex-row items-center gap-2 px-5 h-14 rounded-full bg-primary"
@@ -96,6 +101,7 @@ export function PurchaseOrdersScreen() {
         <Icon name="plus" size={22} color="#FFFFFF" />
         <Text tone="inverse" className="font-bold">{t('erp.newPurchase')}</Text>
       </Pressable>
+      ) : null}
     </View>
   );
 }
