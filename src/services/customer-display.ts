@@ -49,6 +49,7 @@ export function buildPayload(s: State, now: number = Date.now()): Record<string,
   const base = {
     storeName: s.storeName,
     ads: s.ads ? { interval: s.ads.intervalSeconds, slides: s.ads.slides } : null,
+    idle: { greeting: t('customerDisplay.greeting'), thanks: t('customerDisplay.visitThanks') },
   };
   if (s.paid && s.paid.until > now) {
     return {

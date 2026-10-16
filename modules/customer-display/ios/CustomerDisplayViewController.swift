@@ -63,7 +63,9 @@ final class CustomerDisplayViewController: UIViewController {
     let mode = state["mode"] as? String ?? "idle"
     if mode == "idle" {
       let adsData = (state["ads"]).flatMap { try? JSONSerialization.data(withJSONObject: $0) }
+      let idle = state["idle"] as? [String: Any]
       let adsKey = (adsData.flatMap { String(data: $0, encoding: .utf8) } ?? "") + "|" + (state["storeName"] as? String ?? "")
+        + "|" + (idle?["greeting"] as? String ?? "") + "|" + (idle?["thanks"] as? String ?? "")
       if lastMode == "idle" && adsKey == lastAdsKey { return }
       lastAdsKey = adsKey
     }
@@ -101,9 +103,13 @@ final class CustomerDisplayViewController: UIViewController {
     if slides.isEmpty {
       let stack = column()
       stack.alignment = .center
-      let name = (state["storeName"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Xin chào quý khách"
+      // Chữ màn chờ theo ngôn ngữ app (JS gửi kèm "idle"); bản JS cũ không gửi thì dùng tiếng Việt.
+      let idle = state["idle"] as? [String: Any]
+      let greeting = (idle?["greeting"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Xin chào quý khách"
+      let thanks = (idle?["thanks"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Cảm ơn quý khách đã ghé cửa hàng"
+      let name = (state["storeName"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? greeting
       stack.addArrangedSubview(label(name, scale: 2.2, bold: true, center: true))
-      stack.addArrangedSubview(label("Cảm ơn quý khách đã ghé cửa hàng", scale: 1, color: Self.muted, center: true))
+      stack.addArrangedSubview(label(thanks, scale: 1, color: Self.muted, center: true))
       pin(stack, centered: true)
       return
     }

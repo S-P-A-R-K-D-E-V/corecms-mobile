@@ -61,7 +61,7 @@ internal class CustomerPresentation(outer: Context, display: Display) : Presenta
     val mode = state.optString("mode", "idle")
     if (mode == "idle") {
       // Quảng cáo đang chạy, nội dung không đổi → không dựng lại (slideshow không bị quay về đầu).
-      val adsKey = state.optJSONObject("ads")?.toString() + "|" + state.optString("storeName")
+      val adsKey = state.optJSONObject("ads")?.toString() + "|" + state.optString("storeName") + "|" + state.optJSONObject("idle")?.toString()
       if (lastMode == "idle" && adsKey == lastAdsKey) return
       lastAdsKey = adsKey
     }
@@ -94,8 +94,12 @@ internal class CustomerPresentation(outer: Context, display: Display) : Presenta
     val interval = (ads?.optInt("interval", 8) ?: 8).coerceIn(3, 120) * 1000L
     if (slides.length() == 0) {
       val box = column(Gravity.CENTER)
-      box.addView(text(state.optString("storeName").ifBlank { "Xin chào quý khách" }, 2.2f, bold = true, center = true))
-      box.addView(text("Cảm ơn quý khách đã ghé cửa hàng", 1f, color = MUTED, center = true).apply { setPadding(0, (unit * 0.6f).toInt(), 0, 0) })
+      // Chữ màn chờ theo ngôn ngữ app (JS gửi kèm "idle"); bản JS cũ không gửi thì dùng tiếng Việt.
+      val idle = state.optJSONObject("idle")
+      val greeting = idle?.optString("greeting").orEmpty().ifBlank { "Xin chào quý khách" }
+      val thanks = idle?.optString("thanks").orEmpty().ifBlank { "Cảm ơn quý khách đã ghé cửa hàng" }
+      box.addView(text(state.optString("storeName").ifBlank { greeting }, 2.2f, bold = true, center = true))
+      box.addView(text(thanks, 1f, color = MUTED, center = true).apply { setPadding(0, (unit * 0.6f).toInt(), 0, 0) })
       root.addView(box, matchParent())
       return
     }

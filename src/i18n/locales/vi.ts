@@ -1043,6 +1043,8 @@ export const vi = {
     },
   },
   customerDisplay: {
+    greeting: 'Xin chào quý khách',
+    visitThanks: 'Cảm ơn quý khách đã ghé cửa hàng',
     thanks: 'Cảm ơn quý khách!',
     paid: 'Đã thanh toán {amount}',
     scanToPay: 'Quét mã để thanh toán',

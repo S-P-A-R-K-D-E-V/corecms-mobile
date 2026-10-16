@@ -1042,6 +1042,8 @@ export const en: Dict = {
     },
   },
   customerDisplay: {
+    greeting: 'Welcome',
+    visitThanks: 'Thanks for visiting us',
     thanks: 'Thank you!',
     paid: 'Paid {amount}',
     scanToPay: 'Scan to pay',
