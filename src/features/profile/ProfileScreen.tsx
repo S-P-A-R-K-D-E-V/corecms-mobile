@@ -7,6 +7,7 @@ import { Text, Button, Badge, Avatar, Divider } from 'src/components/ui';
 import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
+import { isManagerUser } from 'src/auth/roles';
 import { unpairCounter } from 'src/api/counter';
 import { leaveCounterMode, useCounterMode } from 'src/services/counter-mode';
 import { track, AnalyticsEvent } from 'src/services/analytics';
@@ -50,8 +51,7 @@ export function ProfileScreen() {
   const { user, logout, deleteAccount } = useAuthContext();
   const counter = useCounterMode((s) => s.device);
   const role = ROLE[user?.role ?? ''];
-  const isAdminOrManager =
-    user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
+  const isAdminOrManager = isManagerUser(user);
   const store = isMultiStore ? getStore() : null;
   const storeName = store?.name ?? store?.code ?? '';
 

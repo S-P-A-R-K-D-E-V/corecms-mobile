@@ -111,7 +111,7 @@ describe('401 giữa phiên', () => {
         ? { status: 200, data: { token: 'new', refreshToken: 'r2' } }
         : { status: 401, data: { title: 'Unauthorized' } };
 
-    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized' });
+    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized', status: 401 });
     expect(restoreCalls()).toHaveLength(1);
     expect(calls.filter((c) => c.path === '/users/me')).toHaveLength(2);
   });
@@ -120,7 +120,7 @@ describe('401 giữa phiên', () => {
     server = (call) =>
       call.path === '/auth/restore-session' ? { status: 401, data: { errors: { 'User.InvalidSession': ['x'] } } } : guarded('new')(call);
 
-    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized' });
+    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized', status: 401 });
     expect(mockSecure.has('accessToken')).toBe(false);
     expect(mockSecure.has('refreshToken')).toBe(false);
     expect(mockSecure.has('sessionToken')).toBe(false);
@@ -135,7 +135,7 @@ describe('401 giữa phiên', () => {
   ])('%s lúc khôi phục → giữ nguyên mọi token, không đăng xuất', async (_label, restoreReply) => {
     server = (call) => (call.path === '/auth/restore-session' ? restoreReply : guarded('new')(call));
 
-    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized' });
+    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized', status: 401 });
     expect(mockSecure.get('accessToken')).toBe('old');
     expect(mockSecure.get('refreshToken')).toBe('r1');
     expect(mockSecure.get('sessionToken')).toBe('s1');
@@ -150,7 +150,7 @@ describe('401 giữa phiên', () => {
   ])('401 từ %s (gọi khi chưa đăng nhập) → không khôi phục phiên', async (url) => {
     server = () => ({ status: 401, data: { title: 'Bad credentials' } });
 
-    await expect(axiosInstance.post(url, {})).rejects.toEqual({ title: 'Bad credentials' });
+    await expect(axiosInstance.post(url, {})).rejects.toEqual({ title: 'Bad credentials', status: 401 });
     expect(calls).toHaveLength(1);
     expect(mockSecure.get('sessionToken')).toBe('s1');
     expect(onExpired).not.toHaveBeenCalled();
@@ -181,7 +181,7 @@ describe('401 giữa phiên', () => {
       return guarded('new')(call);
     };
 
-    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized' });
+    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized', status: 401 });
     expect(mockSecure.has('accessToken')).toBe(false);
     expect(mockSecure.has('sessionToken')).toBe(false);
     expect(onExpired).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ describe('401 giữa phiên', () => {
     mockSecure.delete('sessionToken');
     server = guarded('new');
 
-    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized' });
+    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized', status: 401 });
     expect(restoreCalls()).toHaveLength(0);
     expect(mockSecure.has('accessToken')).toBe(false);
     expect(mockSecure.get('storeProfile')).toContain('shop1');
@@ -202,7 +202,7 @@ describe('401 giữa phiên', () => {
     mockSecure.clear();
     server = guarded('new');
 
-    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized' });
+    await expect(axiosInstance.get('/users/me')).rejects.toEqual({ title: 'Unauthorized', status: 401 });
     expect(calls).toHaveLength(1);
     expect(calls[0]!.auth).toBeNull();
     expect(onExpired).not.toHaveBeenCalled();

@@ -6,6 +6,7 @@ import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'ex
 import { Screen, SectionCard, ListItem } from 'src/components/shared';
 import { Text, Button, Icon, TextField, Spinner } from 'src/components/ui';
 import { useAuthContext } from 'src/auth/auth-context';
+import { isManagerUser } from 'src/auth/roles';
 import { useQuery } from '@tanstack/react-query';
 import { getBranchLocations } from 'src/api/attendance';
 import { claimKioskPairing } from 'src/api/kiosk';
@@ -31,8 +32,7 @@ function parseQrPayload(data: string): string | null {
 
 export function KioskPairingScreen() {
   const { user } = useAuthContext();
-  const isAdminOrManager =
-    user?.role === 'Admin' || user?.role === 'Manager' || (user?.roles ?? []).some((r) => r === 'Admin' || r === 'Manager');
+  const isAdminOrManager = isManagerUser(user);
 
   const [permission, requestPermission] = useCameraPermissions();
   const [mode, setMode] = useState<Mode>('scan');

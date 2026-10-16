@@ -1,6 +1,7 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
 import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES, SHIFT_CASH_ROLES, canUseAssistant, assistantEnabled } from 'src/auth/roles';
+import { hasAllPermissions, REPORT_SCREEN_PERMISSIONS } from 'src/auth/permissions';
 import type { BranchType } from 'src/features/branch/working-branch';
 import { t } from 'src/i18n';
 
@@ -60,6 +61,8 @@ export type FeatureItem = {
   tone?: FeatureTone;
   /** Vai trò yêu cầu để THẤY tiện ích (rỗng = mọi nhân viên nội bộ). */
   roles?: readonly string[];
+  /** Phải có ĐỦ các quyền (mã Core-be, src/auth/permissions.ts) — Admin luôn đủ. */
+  allPermissions?: readonly string[];
   /** Route chưa triển khai — hiển thị mờ + nhãn "Sắp có". */
   comingSoon?: boolean;
   /**
@@ -121,17 +124,19 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cleaning-week', label: 'Theo dõi vệ sinh', icon: 'broom', href: '/manage/cleaning', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cleaning-review', label: 'Đánh giá vệ sinh', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
+  // Thư viện đầu việc / xây checklist: core-be (CleaningController) và core-fe cho cả quản lý — trước đây ô chỉ hiện với
+  // Admin trong khi route /manage/* vẫn mở cho quản lý.
+  { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
+  { key: 'cleaning-builder', label: 'Xây dựng checklist', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
 
-  // ── Quản trị (Admin) ───────────────────────────────────────────────
+  // ── Quản trị (Admin) — báo cáo theo quyền analytics.* (vai trò tuỳ chỉnh "Kế toán" thấy được) ─────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', tone: 'success', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', tone: 'success', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.revenue },
+  { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.financialOverview },
+  { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.breakEven },
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', roles: ADMIN_ROLES },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', tone: 'warning', group: 'admin', roles: ADMIN_ROLES },
-  { key: 'cleaning-builder', label: 'Xây dựng checklist', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'admin', roles: ADMIN_ROLES },
 ];
 
 const BY_KEY = new Map(FEATURE_REGISTRY.map((f) => [f.key, f]));
@@ -142,7 +147,9 @@ export function getFeature(key: string): FeatureItem | undefined {
 
 /** Tiện ích này có hiện với người dùng + ngữ cảnh này không (vai trò và điều kiện `visible`). */
 export function isFeatureVisible(item: FeatureItem, user: AuthUser | null | undefined, ctx: FeatureContext = featureContext(user)): boolean {
-  return hasAnyRole(user, item.roles) && (item.visible?.(user, ctx) ?? true);
+  return (
+    hasAnyRole(user, item.roles) && hasAllPermissions(user, item.allPermissions) && (item.visible?.(user, ctx) ?? true)
+  );
 }
 
 /**

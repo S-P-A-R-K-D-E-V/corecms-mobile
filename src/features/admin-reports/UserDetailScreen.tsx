@@ -10,14 +10,24 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { getStorageUrl } from 'src/api/axios';
+import { useAuthContext } from 'src/auth/auth-context';
 import type { UserStatus } from 'src/types/corecms-api';
 
-import { useUser, useRoles, useChangeUserStatus, useAssignRoles } from './hooks';
+import {
+  useUser,
+  useRoles,
+  useCustomRoles,
+  useAssignRoles,
+  useChangeUserStatus,
+  useSetUserCustomRoles,
+  useUserRoleAssignment,
+} from './hooks';
 
 // ----------------------------------------------------------------------
 // Chi tiết người dùng (Admin): xem hồ sơ, đổi trạng thái (Active/Pending/
-// Banned/Rejected), gán vai trò (đổi loại quyền). Ghi qua PATCH status &
-// POST roles/assign.
+// Banned/Rejected), gán vai trò hệ thống (POST roles/assign) và vai trò tuỳ chỉnh của cửa hàng
+// (PUT custom-roles/users/{id}). Vai trò ĐƯỢC GÁN đọc từ GET custom-roles/users/{id} — user.roles có cả vai trò gốc
+// của vai trò tuỳ chỉnh, tích theo đó là lưu nhầm "Thu ngân" thành Staff hệ thống.
 // ----------------------------------------------------------------------
 
 const STATUSES: { key: UserStatus; label: string; tone: 'success' | 'warning' | 'error' | 'info' }[] = [
@@ -32,39 +42,58 @@ export function UserDetailScreen() {
   const userId = params.userId;
   const userQ = useUser(userId);
   const rolesQ = useRoles();
+  const customRolesQ = useCustomRoles();
+  const assignmentQ = useUserRoleAssignment(userId);
   const statusM = useChangeUserStatus();
   const assignM = useAssignRoles();
+  const customM = useSetUserCustomRoles();
 
   const user = userQ.data;
+  // Core-be chặn Admin tự khoá tài khoản / tự gỡ Admin của chính mình (có thể là Admin cuối cùng) — khoá luôn trên UI.
+  const { user: me } = useAuthContext();
+  const isSelf = !!me?.id && me.id === userId;
   const currentStatus: UserStatus = user?.status ?? (user?.isActive ? 'Active' : 'Banned');
 
   // Vai trò được chọn (roleIds). Khởi tạo từ tên vai trò của user khớp danh mục.
   const [roleIds, setRoleIds] = useState<Set<string> | null>(null);
+  // Server chưa có /custom-roles (bản cũ) → đọc vai trò như trước từ user.roles, không có vai trò tuỳ chỉnh.
+  const assignment = useMemo(() => {
+    if (assignmentQ.data) return assignmentQ.data;
+    if (assignmentQ.isError && user) {
+      return { systemRoles: [...(user.roles ?? []), user.role].filter(Boolean) as string[], customRoleIds: [] };
+    }
+    return undefined;
+  }, [assignmentQ.data, assignmentQ.isError, user]);
+
   const initialRoleIds = useMemo(() => {
-    if (!user || !rolesQ.data) return null;
-    const names = new Set([...(user.roles ?? []), user.role].filter(Boolean));
+    if (!assignment || !rolesQ.data) return null;
+    const names = new Set(assignment.systemRoles);
     return new Set(rolesQ.data.filter((r) => names.has(r.name)).map((r) => r.id));
-  }, [user, rolesQ.data]);
+  }, [assignment, rolesQ.data]);
+  const initialCustomIds = useMemo(() => (assignment ? new Set(assignment.customRoleIds) : null), [assignment]);
+  const [customIds, setCustomIds] = useState<Set<string> | null>(null);
 
   useEffect(() => {
     if (initialRoleIds && roleIds === null) setRoleIds(new Set(initialRoleIds));
   }, [initialRoleIds, roleIds]);
+  useEffect(() => {
+    if (initialCustomIds && customIds === null) setCustomIds(new Set(initialCustomIds));
+  }, [initialCustomIds, customIds]);
 
-  const rolesDirty = useMemo(() => {
-    if (!roleIds || !initialRoleIds) return false;
-    if (roleIds.size !== initialRoleIds.size) return true;
-    for (const id of roleIds) if (!initialRoleIds.has(id)) return true;
-    return false;
-  }, [roleIds, initialRoleIds]);
+  const systemDirty = useMemo(() => differs(roleIds, initialRoleIds), [roleIds, initialRoleIds]);
+  const customDirty = useMemo(() => differs(customIds, initialCustomIds), [customIds, initialCustomIds]);
+  const rolesDirty = systemDirty || customDirty;
 
-  function toggleRole(id: string) {
+  function toggleIn(setter: typeof setRoleIds, id: string) {
     haptics.selection();
-    setRoleIds((prev) => {
+    setter((prev) => {
       const next = new Set(prev ?? []);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   }
+  const toggleRole = (id: string) => toggleIn(setRoleIds, id);
+  const toggleCustom = (id: string) => toggleIn(setCustomIds, id);
 
   async function changeStatus(next: UserStatus) {
     if (!userId || next === currentStatus) return;
@@ -87,15 +116,17 @@ export function UserDetailScreen() {
   }
 
   async function saveRoles() {
-    if (!userId || !roleIds) return;
+    if (!userId || !roleIds || !customIds) return;
     const ok = await confirm({
       title: 'Cập nhật vai trò',
-      message: `Lưu ${roleIds.size} vai trò cho "${user?.fullName}"?`,
+      message: `Lưu ${roleIds.size + customIds.size} vai trò cho "${user?.fullName}"?`,
       confirmText: 'Lưu',
     });
     if (!ok) return;
     try {
-      await assignM.mutateAsync({ userId, roleIds: [...roleIds] });
+      // Phần nào không đổi thì không gửi — mỗi lệnh có thể buộc người đó đăng nhập lại.
+      if (systemDirty) await assignM.mutateAsync({ userId, roleIds: [...roleIds] });
+      if (customDirty) await customM.mutateAsync({ userId, customRoleIds: [...customIds] });
       haptics.success();
       toast.success('Đã cập nhật vai trò.', 'Phân quyền');
     } catch (e) {
@@ -137,11 +168,12 @@ export function UserDetailScreen() {
             <View className="flex-row flex-wrap gap-2">
               {STATUSES.map((s) => {
                 const active = s.key === currentStatus;
+                const locked = isSelf && s.key !== 'Active';
                 return (
                   <Pressable
                     key={s.key}
                     onPress={() => changeStatus(s.key)}
-                    disabled={statusM.isPending}
+                    disabled={statusM.isPending || locked}
                     className={cn('px-3.5 py-2 rounded-full border', active ? 'bg-primary border-primary' : 'bg-surface dark:bg-surface-dark border-line/60 dark:border-line-dark')}
                   >
                     <Text variant="bodySmall" className={cn('font-semibold', active ? 'text-white' : 'text-muted')}>{s.label}</Text>
@@ -149,6 +181,11 @@ export function UserDetailScreen() {
                 );
               })}
             </View>
+            {isSelf ? (
+              <Text variant="caption" tone="muted" className="mt-2">
+                Không tự khoá tài khoản của chính mình — nhờ một Admin khác nếu cần.
+              </Text>
+            ) : null}
           </Card>
 
           {/* Vai trò */}
@@ -158,7 +195,7 @@ export function UserDetailScreen() {
               <Text variant="subtitle" className="flex-1">Vai trò</Text>
               {rolesDirty ? <Badge tone="warning">Chưa lưu</Badge> : null}
             </View>
-            {rolesQ.isLoading ? (
+            {rolesQ.isLoading || assignmentQ.isLoading ? (
               <Skeleton width="100%" height={80} radius={12} />
             ) : rolesQ.isError ? (
               <ErrorView onRetry={rolesQ.refetch} />
@@ -166,20 +203,47 @@ export function UserDetailScreen() {
               <>
                 {(rolesQ.data ?? []).map((r, i) => {
                   const on = roleIds?.has(r.id) ?? false;
+                  const locked = isSelf && r.name === 'Admin' && on;
                   return (
                     <View key={r.id}>
                       {i > 0 ? <Divider /> : null}
-                      <Pressable onPress={() => toggleRole(r.id)} className="flex-row items-center gap-3 py-2.5">
+                      <Pressable onPress={() => toggleRole(r.id)} disabled={locked} className="flex-row items-center gap-3 py-2.5">
                         <View className="flex-1">
                           <Text variant="bodySmall" className="font-medium">{r.name}</Text>
-                          {r.description ? <Text variant="caption" tone="muted" numberOfLines={1}>{r.description}</Text> : null}
+                          {locked ? (
+                            <Text variant="caption" tone="muted" numberOfLines={1}>Không tự gỡ vai trò Admin của chính mình</Text>
+                          ) : r.description ? (
+                            <Text variant="caption" tone="muted" numberOfLines={1}>{r.description}</Text>
+                          ) : null}
                         </View>
                         <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} tone={on ? 'primary' : 'faint'} />
                       </Pressable>
                     </View>
                   );
                 })}
-                <Button fullWidth className="mt-2" disabled={!rolesDirty} loading={assignM.isPending} onPress={saveRoles} icon="content-save-outline">
+                {!assignmentQ.isError && (customRolesQ.data ?? []).length > 0 ? (
+                  <>
+                    <Text variant="caption" tone="muted" className="mt-3 mb-1">Vai trò tuỳ chỉnh của cửa hàng</Text>
+                    {(customRolesQ.data ?? []).map((r, i) => {
+                      const on = customIds?.has(r.id) ?? false;
+                      return (
+                        <View key={r.id}>
+                          {i > 0 ? <Divider /> : null}
+                          <Pressable onPress={() => toggleCustom(r.id)} className="flex-row items-center gap-3 py-2.5">
+                            <View className="flex-1">
+                              <Text variant="bodySmall" className="font-medium">{r.name}</Text>
+                              <Text variant="caption" tone="muted" numberOfLines={1}>
+                                Gốc {r.baseRole} · {r.permissions.length} quyền
+                              </Text>
+                            </View>
+                            <Icon name={on ? 'checkbox-marked' : 'checkbox-blank-outline'} size={24} tone={on ? 'primary' : 'faint'} />
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </>
+                ) : null}
+                <Button fullWidth className="mt-2" disabled={!rolesDirty} loading={assignM.isPending || customM.isPending} onPress={saveRoles} icon="content-save-outline">
                   Lưu vai trò
                 </Button>
               </>
@@ -189,4 +253,11 @@ export function UserDetailScreen() {
       )}
     </Screen>
   );
+}
+
+function differs(current: Set<string> | null, initial: Set<string> | null): boolean {
+  if (!current || !initial) return false;
+  if (current.size !== initial.size) return true;
+  for (const id of current) if (!initial.has(id)) return true;
+  return false;
 }
