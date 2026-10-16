@@ -16,6 +16,7 @@ import {
   type CounterPerson,
 } from 'src/api/counter';
 import { leaveCounterMode, useCounterMode } from 'src/services/counter-mode';
+import { CounterQrPanel } from './CounterQrPanel';
 import { getStore } from 'src/services/store-config';
 
 // ----------------------------------------------------------------------
@@ -70,6 +71,7 @@ export function CounterLockScreen() {
 
   const [sending, setSending] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
+  const [qrMode, setQrMode] = useState(false);
 
   const people = rosterQ.data?.people ?? [];
   const groups = useMemo(() => {
@@ -144,7 +146,18 @@ export function CounterLockScreen() {
         </View>
       </View>
 
-      {pending ? (
+      {qrMode ? (
+        <ScrollView contentContainerStyle={{ padding: 16, flexGrow: 1, justifyContent: 'center' }}>
+          <CounterQrPanel
+            onCancel={() => setQrMode(false)}
+            onSignedIn={async (auth) => {
+              await loginWithAuthResponse(auth);
+              setQrMode(false);
+              router.replace('/');
+            }}
+          />
+        </ScrollView>
+      ) : pending ? (
         <CodeEntry
           pending={pending}
           wide={width >= 720}
@@ -168,8 +181,13 @@ export function CounterLockScreen() {
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 24, alignSelf: 'center', width: '100%', maxWidth: 1280 }}
           refreshControl={<RefreshControl refreshing={rosterQ.isRefetching} onRefresh={() => rosterQ.refetch()} />}
         >
-          <Text variant="headline" className="mb-1">Chọn tên của bạn để đăng nhập</Text>
-          <Text tone="muted" className="mb-4">Mã 6 số sẽ gửi về app trên điện thoại của bạn.</Text>
+          <View className="flex-row items-start justify-between mb-4 gap-3">
+            <View className="flex-1">
+              <Text variant="headline" className="mb-1">Chọn tên của bạn để đăng nhập</Text>
+              <Text tone="muted">Mã 6 số sẽ gửi về app trên điện thoại của bạn.</Text>
+            </View>
+            <Button variant="soft" size="sm" onPress={() => setQrMode(true)}>Quét QR bằng điện thoại</Button>
+          </View>
 
           {rosterQ.isLoading ? (
             <View className="py-16 items-center"><Spinner /></View>

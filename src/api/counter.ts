@@ -99,3 +99,24 @@ export async function verifyCounterLogin(requestId: string, code: string): Promi
 export async function unpairCounter(): Promise<void> {
   await counterAxios.post('/counter/unpair');
 }
+
+// ── Đăng nhập máy quầy bằng mã QR (dự phòng khi điện thoại không nhận được mã) ──
+// Cùng API với trang đăng nhập web (/auth/qr/*): máy quầy xin mã kèm ảnh QR (server vẽ), nhân viên quét bằng app trên
+// điện thoại và duyệt; máy quầy đổi mã + verifier lấy phiên. Gửi kèm key máy quầy khi đổi → phiên gắn máy, hết ca thì hết.
+
+export type CounterQrStart = { code: string; expiresInSeconds: number; pollIntervalSeconds: number; qrImage?: string | null };
+
+export async function startCounterQr(codeChallenge: string): Promise<CounterQrStart> {
+  const res = await counterAxios.post<CounterQrStart>('/auth/qr/start', { codeChallenge, image: true });
+  return res.data;
+}
+
+export async function counterQrStatus(code: string): Promise<'pending' | 'scanned' | 'approved' | 'rejected' | 'expired'> {
+  const res = await counterAxios.post<{ status: string }>('/auth/qr/status', { code });
+  return res.data.status as any;
+}
+
+export async function exchangeCounterQr(code: string, codeVerifier: string): Promise<IAuthResponse> {
+  const res = await counterAxios.post<IAuthResponse>('/auth/qr/exchange', { code, codeVerifier });
+  return res.data;
+}
