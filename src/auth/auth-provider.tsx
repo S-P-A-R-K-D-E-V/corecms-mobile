@@ -222,6 +222,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     commit({ type: Types.LOGIN, payload: { user } });
   }, [commit]);
 
+  /** Đã có phản hồi đăng nhập (vd máy quầy đổi mã 6 số lấy phiên): lưu phiên rồi nạp người dùng. */
+  const loginWithAuthResponse = useCallback(async (auth: IAuthResponse) => {
+    const { token: accessToken, refreshToken, sessionToken } = auth;
+    await setSession(accessToken, refreshToken ?? null);
+    if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
+    else await SecureStore.deleteItemAsync(SESSION_KEY);
+    queryClient.clear();
+    const user = await loadUserAfterAuth(auth, accessToken, refreshToken ?? undefined);
+    commit({ type: Types.LOGIN, payload: { user } });
+  }, [commit]);
+
   const loginWithDiscoveredStore = useCallback(async (store: DiscoveredStore, state: string) => {
     // Gắn cửa hàng trước (xoá token của cửa hàng cũ): từ đây axios gọi https://<cửa hàng>/api.
     await setStore(storeProfileOf(store));
@@ -361,6 +372,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       retrySession: initialize,
       login,
       loginWithSessionToken,
+      loginWithAuthResponse,
       loginWithOAuth,
       loginWithDiscoveredStore,
       deleteAccount,
@@ -370,7 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       resendOtp,
       refreshUser,
     }),
-    [state.user, status, pendingVerification, sessionOffline, resumingSession, initialize, login, loginWithSessionToken, loginWithOAuth, loginWithDiscoveredStore, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
+    [state.user, status, pendingVerification, sessionOffline, resumingSession, initialize, login, loginWithSessionToken, loginWithAuthResponse, loginWithOAuth, loginWithDiscoveredStore, deleteAccount, register, logout, verifyOtp, resendOtp, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
