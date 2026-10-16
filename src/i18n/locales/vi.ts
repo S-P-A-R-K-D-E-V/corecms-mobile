@@ -925,6 +925,7 @@ export const vi = {
     confirmTitle: 'Cho trình duyệt này đăng nhập?',
     confirmAs: 'Trình duyệt dưới đây sẽ đăng nhập bằng tài khoản {email}.',
     site: 'Trang web',
+    hubSite: 'Trang đăng nhập chung — sẽ vào {store}',
     browser: 'Trình duyệt',
     unknown: 'Không rõ',
     ipAddress: 'Địa chỉ IP',
