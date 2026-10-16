@@ -80,6 +80,11 @@ Notifications.setNotificationHandler({
       };
     }
 
+    // Mã đăng nhập máy quầy: người đang đứng ở quầy chờ mã — có tiếng để biết mã đã tới.
+    if (data.type === 'counter-login') {
+      return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false };
+    }
+
     return { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: false, shouldSetBadge: true };
   },
 });

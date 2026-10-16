@@ -10,6 +10,7 @@ import { isProfileComplete } from 'src/services/profile-completion';
 import { Text, Spinner, SparkStoreBolt, SPARK_STORE_BRAND } from 'src/components/ui';
 import { softShadow } from 'src/theme';
 import { APP_DISPLAY_NAME, getStoreCode, isMultiStore } from 'src/services/store-config';
+import { useCounterMode } from 'src/services/counter-mode';
 
 // Boot gate: decides the first route based on first-run + auth state.
 //   first run        → /(onboarding)          (bản CiCi; bản cửa hàng dùng màn Chào mừng)
@@ -21,6 +22,7 @@ export default function Index() {
   const { loading, authenticated, user } = useAuthContext();
   const onboardingEnabled = useFeatureFlag('onboardingEnabled');
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+  const counter = useCounterMode((s) => s.device);
 
   useEffect(() => {
     prefs.getBool(PrefKeys.onboardingDone).then(setOnboardingDone);
@@ -56,6 +58,8 @@ export default function Index() {
 
   if (onboardingEnabled && !onboardingDone && !isMultiStore) return <Redirect href="/onboarding" />;
   // Bản app cửa hàng: chưa chọn cửa hàng thì chưa có API để đăng nhập — màn Chào mừng tự tìm cửa hàng.
+  // Máy quầy: chưa ai đăng nhập → màn chọn nhân viên có ca.
+  if (counter && !authenticated) return <Redirect href={'/counter' as any} />;
   if (isMultiStore && !getStoreCode() && !authenticated) return <Redirect href={'/welcome' as any} />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
   if (user && !isProfileComplete(user)) return <Redirect href={'/complete-profile' as any} />;

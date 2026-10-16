@@ -8,6 +8,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { registerPushToken, unregisterPushToken } from 'src/api/notifications';
 import { ACCESS_TOKEN_KEY } from 'src/api/session';
 import { getStoreCode, onBeforeStoreChange } from 'src/services/store-config';
+import { useCounterMode } from 'src/services/counter-mode';
 
 // ----------------------------------------------------------------------
 // Token Expo theo cửa hàng: server lưu token cho cửa hàng ĐANG đăng nhập (POST /notifications/push-token tới API
@@ -52,8 +53,11 @@ async function getExpoPushToken(): Promise<string | null> {
 
 export function usePushRegistration() {
   const { user } = useAuthContext();
+  // Máy quầy: không đăng ký thông báo cho người đang dùng máy — mã đăng nhập máy quầy gửi về máy của họ không
+  // được hiện ngay trên quầy (server cũng bỏ token của phiên máy quầy khi gửi mã).
+  const counter = useCounterMode((s) => s.device);
   // Đổi cửa hàng = đăng nhập cửa hàng khác: kể cả khi id người dùng trùng nhau, khoá đổi → đăng ký lại.
-  const registrationKey = user ? `${getStoreCode() ?? 'app'}:${user.id}` : null;
+  const registrationKey = user && !counter ? `${getStoreCode() ?? 'app'}:${user.id}` : null;
 
   useEffect(() => {
     if (!registrationKey) return;

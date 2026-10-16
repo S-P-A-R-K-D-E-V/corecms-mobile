@@ -28,6 +28,9 @@ import { paletteVars, useBrandColor } from 'src/theme/brand-color';
 import { FontProvider } from 'src/theme/FontProvider';
 import { OverlayHost } from 'src/components/overlay';
 import { loadStore } from 'src/services/store-config';
+import { hydrateCounterMode } from 'src/services/counter-mode';
+import { CounterSessionGuard } from 'src/features/counter/CounterSessionGuard';
+import { CustomerDisplayHost } from 'src/features/counter/CustomerDisplayHost';
 import { hydrateLocale, useLocaleStore } from 'src/i18n';
 
 // Keep the native splash up until the Minimal font is ready.
@@ -75,7 +78,11 @@ export default function RootLayout() {
   // cửa hàng). Ngôn ngữ đã chọn cũng nạp trước màn đầu tiên. Bản CiCi trả về ngay.
   const [storeLoaded, setStoreLoaded] = useState(false);
   useEffect(() => {
-    Promise.all([loadStore().catch(() => null), hydrateLocale().catch(() => null)]).finally(() => setStoreLoaded(true));
+    // Chế độ máy quầy gắn với cửa hàng → đọc sau khi biết cửa hàng.
+    Promise.all([
+      loadStore().catch(() => null).then(() => hydrateCounterMode()),
+      hydrateLocale().catch(() => null),
+    ]).finally(() => setStoreLoaded(true));
   }, []);
   // Đổi ngôn ngữ → dựng lại navigator để mọi màn đọc lại chữ (t() đọc ngôn ngữ lúc render).
   const locale = useLocaleStore((s) => s.locale);
@@ -108,6 +115,8 @@ export default function RootLayout() {
               <AuthProvider>
                 <OrientationGuard />
                 <PushRegistrationWrapper />
+                <CounterSessionGuard />
+                <CustomerDisplayHost />
                 <LauncherHydrator />
                 <StatusBar style="auto" />
                 <Stack key={`${locale}-${palette.main}`} screenOptions={{ headerShown: false }} />

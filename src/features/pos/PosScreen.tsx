@@ -28,6 +28,7 @@ import { ProductPicker } from './ProductPicker';
 import { sendSale } from './checkout';
 import { buildSaleDraft } from './sale-request';
 import { cartPaneWidth, isSplitPos } from './pos-layout';
+import { customerDisplay } from 'src/services/customer-display';
 
 // ----------------------------------------------------------------------
 // Bán hàng trên app: chọn hàng (tìm / quét mã / lọc nhóm), giỏ hàng, thanh toán → core-be tạo hoá đơn và trừ tồn.
@@ -126,6 +127,19 @@ export function PosScreen() {
 
   const total = cartTotal(lines);
   const count = cartCount(lines);
+
+  // Màn hình khách: đang ở màn Bán hàng thì hiện giỏ; sang màn khác (hoặc giỏ trống) → quảng cáo.
+  useEffect(() => {
+    customerDisplay.setCart(
+      focused && lines.length > 0
+        ? {
+            lines: lines.map((l) => ({ key: l.key, name: l.name, qty: l.qty, price: l.price, amount: l.price * l.qty })),
+            total,
+          }
+        : null
+    );
+  }, [focused, lines, total]);
+  useEffect(() => () => customerDisplay.setCart(null), []);
   const inCart = useCallback(
     (p: IProductListItem) => lines.filter((l) => l.productId === p.id).reduce((s, l) => s + l.qty, 0),
     [lines]
@@ -210,11 +224,16 @@ export function PosScreen() {
               soldByName: sellerName,
             })
       ),
-    onMutate: () => setStillUnknown(false),
-    onSuccess: (attempt, mode) => {
+    onMutate: () => {
+      setStillUnknown(false);
+      // Số tiền của lần bán này (giỏ bị xoá trước khi onSuccess chạy) — cho màn hình khách "Đã thanh toán".
+      return { amount: total };
+    },
+    onSuccess: (attempt, mode, context) => {
       if (attempt.kind === 'created') {
         // Giỏ đã được xoá trong sendSale.
         haptics.success();
+        customerDisplay.paid(context?.amount ?? 0);
         setNote('');
         setSheet(null);
         setDone(attempt.sale);

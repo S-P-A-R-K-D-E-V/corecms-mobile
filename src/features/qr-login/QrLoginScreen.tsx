@@ -11,6 +11,7 @@ import { haptics } from 'src/services/haptics';
 import { t } from 'src/i18n';
 import type { IQrLoginInspectResponse } from 'src/types/corecms-api';
 import { parseQrLoginPayload } from './qr-payload';
+import { getStore, getStoreCode } from 'src/services/store-config';
 
 // ----------------------------------------------------------------------
 // Đăng nhập web bằng mã QR: người đã đăng nhập app quét QR trên trang đăng nhập web (máy tính), XEM trình
@@ -191,7 +192,17 @@ export function QrLoginScreen() {
 
       <SectionCard title={t('qrLogin.confirmTitle')} bodyClassName="pt-0">
         <Text tone="muted" className="pb-2">{t('qrLogin.confirmAs', { email: user?.email ?? '' })}</Text>
-        <ListItem icon="web" iconTone="primary" title={info.host} subtitle={t('qrLogin.site')} />
+        <ListItem
+          icon="web"
+          iconTone="primary"
+          title={info.host}
+          subtitle={
+            // Mã của trang đăng nhập chung (auth.…): duyệt xong trình duyệt vào web của cửa hàng app đang mở.
+            info.host.startsWith('auth.')
+              ? t('qrLogin.hubSite', { store: getStore()?.name ?? getStoreCode() ?? '' })
+              : t('qrLogin.site')
+          }
+        />
         <ListItem icon="monitor" iconTone="secondary" title={info.browser || t('qrLogin.unknown')} subtitle={t('qrLogin.browser')} />
         <ListItem icon="ip-network-outline" iconTone="secondary" title={info.ipAddress || t('qrLogin.unknown')} subtitle={t('qrLogin.ipAddress')} />
       </SectionCard>

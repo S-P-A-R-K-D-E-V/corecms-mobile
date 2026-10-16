@@ -12,6 +12,7 @@ import type { IBankAccount, PaymentMethod } from 'src/types/erp';
 
 import { money } from 'src/features/erp/shared';
 import { cashSuggestions, vietQrUrl } from './payment-utils';
+import { customerDisplay } from 'src/services/customer-display';
 
 // ----------------------------------------------------------------------
 // Thanh toán: tiền mặt (khách đưa → tiền thừa), chuyển khoản (ảnh VietQR theo tài khoản cửa hàng + số
@@ -65,6 +66,21 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
   }, [method, ready, account, transferRef, given, onChange]);
 
   const qr = method === 'Transfer' && account ? vietQrUrl(account, total, transferRef) : null;
+
+  // Màn hình khách: chọn chuyển khoản thì QR to cho khách quét trên màn phụ; đóng bảng / đổi cách trả thì ẩn.
+  useEffect(() => {
+    customerDisplay.setQr(
+      qr
+        ? {
+            imageUrl: qr,
+            amount: total,
+            bankLine: [account?.shortName || account?.bankName, account?.accountNumber].filter(Boolean).join(' · ') || null,
+            note: transferRef || null,
+          }
+        : null
+    );
+  }, [qr, total, account?.shortName, account?.bankName, account?.accountNumber, transferRef]);
+  useEffect(() => () => customerDisplay.setQr(null), []);
 
   return (
     <View className="gap-3">

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import * as Notifications from 'expo-notifications';
+import { router } from 'expo-router';
 
 import { toast } from 'src/components/overlay';
 import { t } from 'src/i18n';
@@ -25,7 +26,22 @@ function handleResponse(response: Notifications.NotificationResponse) {
   handled.add(key);
 
   const decision = decidePushTap(request.content.data, getStoreCode());
-  if (decision.kind !== 'otherStore') return;
+  if (decision.kind === 'sameStore') {
+    // Mã đăng nhập máy quầy: mở màn hiện mã to để đọc cho dễ (mã vẫn có trong tiêu đề thông báo).
+    const data = (request.content.data ?? {}) as Record<string, unknown>;
+    if (data.type === 'counter-login' && typeof data.code === 'string') {
+      router.push({
+        pathname: '/counter-code' as any,
+        params: {
+          code: data.code,
+          device: typeof data.deviceName === 'string' ? data.deviceName : '',
+          branch: typeof data.branchName === 'string' ? data.branchName : '',
+          at: String(date),
+        },
+      });
+    }
+    return;
+  }
   // Đã báo: tải lại JS (bản cập nhật OTA) không báo lại lần chạm cũ.
   try {
     Notifications.clearLastNotificationResponseAsync().catch(() => {});

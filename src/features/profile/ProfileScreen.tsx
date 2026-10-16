@@ -8,6 +8,8 @@ import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { confirm, toast } from 'src/components/overlay';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser } from 'src/auth/roles';
+import { unpairCounter } from 'src/api/counter';
+import { leaveCounterMode, useCounterMode } from 'src/services/counter-mode';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { useLocaleStore, useT } from 'src/i18n';
 import { extractApiError } from 'src/services/error';
@@ -47,6 +49,7 @@ const PROVIDER_ICON: Record<string, 'google' | 'apple' | 'facebook'> = {
 export function ProfileScreen() {
   const t = useT();
   const { user, logout, deleteAccount } = useAuthContext();
+  const counter = useCounterMode((s) => s.device);
   const role = ROLE[user?.role ?? ''];
   const isAdminOrManager = isManagerUser(user);
   const store = isMultiStore ? getStore() : null;
@@ -78,6 +81,25 @@ export function ProfileScreen() {
     });
     if (!ok) return;
     track(AnalyticsEvent.Logout);
+    try { await logout(); } catch {}
+  }
+
+  // Máy quầy: thu hồi thiết bị trên server (đăng xuất mọi người đang dùng máy), máy thành máy thường.
+  async function handleLeaveCounter() {
+    if (!counter) return;
+    const ok = await confirm({
+      title: 'Thoát chế độ máy quầy?',
+      message: `Gỡ ${counter.deviceName} khỏi ${counter.branchName}. Máy trở lại đăng nhập bình thường; bạn sẽ được đăng xuất.`,
+      confirmText: 'Thoát chế độ máy quầy',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await unpairCounter();
+    } catch {
+      // Máy đã bị thu hồi trên web / mất mạng: vẫn thoát ở máy này.
+    }
+    await leaveCounterMode();
     try { await logout(); } catch {}
   }
 
@@ -261,6 +283,29 @@ export function ProfileScreen() {
               onPress={() => router.push('/kiosk-pairing')}
               showChevron
             />
+            {isMultiStore ? (
+              <>
+                <Divider className="ml-12" />
+                {counter ? (
+                  <ListItem
+                    icon="cash-register"
+                    iconTone="error"
+                    title="Thoát chế độ máy quầy"
+                    subtitle={`${counter.deviceName} · ${counter.branchName}`}
+                    onPress={handleLeaveCounter}
+                  />
+                ) : (
+                  <ListItem
+                    icon="cash-register"
+                    iconTone="secondary"
+                    title="Đặt máy này làm máy quầy"
+                    subtitle="POS / tablet ở quầy: nhân viên có ca đăng nhập bằng mã gửi về điện thoại"
+                    onPress={() => router.push('/counter-setup' as any)}
+                    showChevron
+                  />
+                )}
+              </>
+            ) : null}
           </>
         ) : null}
       </SectionCard>
