@@ -286,7 +286,8 @@ function RefreshIndicator({
   let caption = '';
   if (phase === 'pull') caption = tr('refresh.pull');
   else if (phase === 'armed') caption = tr('refresh.release');
-  else if (phase === 'loading' || phase === 'slow') caption = slowNote ? tr('refresh.slow') : tr('refresh.loading');
+  // Đang tải: linh vật nảy đã đủ nói "đang tải" (vệt tốc độ nằm chỗ dòng chữ) — chỉ có chữ khi tải lâu.
+  else if (phase === 'slow') caption = slowNote ? tr('refresh.slow') : tr('refresh.loading');
   else if (phase === 'done') caption = tr('refresh.done', { time: clock(doneAt) });
   else if (phase === 'error') caption = tr('refresh.error');
 
