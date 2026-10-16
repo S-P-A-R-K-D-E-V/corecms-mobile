@@ -23,6 +23,8 @@ export const PLATFORM_FEATURES = {
   cleaningTasks: 'cleaning.tasks',
   /** Báo cáo kinh doanh (/reports/*). */
   reports: 'analytics.reports',
+  /** Quản lý lương: bảng lương, kỳ lương, mức lương. Không gồm lương của chính mình (tab Lương). */
+  payroll: 'payroll.records',
 } as const;
 
 /** Mã lỗi Core-be trả khi tính năng bị tắt trên nền tảng này với người gọi. */

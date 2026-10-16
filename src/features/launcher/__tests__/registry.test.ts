@@ -189,4 +189,11 @@ describe('Tính năng tắt trên app theo vai trò (blockedFeatures)', () => {
   it('không bị tắt (hoặc chưa nạp) thì vẫn hiện', () => {
     expect(keys({ ...staff, blockedFeatures: [] })).toEqual(expect.arrayContaining(['pos', 'shift-cash']));
   });
+
+  it('"Xem bảng lương" bị tắt: ẩn Chu kỳ lương, tab Lương của mình vẫn còn', () => {
+    expect(keys(owner)).toContain('payroll-cycle');
+    const visible = keys({ ...owner, blockedFeatures: ['payroll.records'] });
+    expect(visible).not.toContain('payroll-cycle');
+    expect(visible).toContain('payroll');
+  });
 });
