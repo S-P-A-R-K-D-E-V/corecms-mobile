@@ -132,6 +132,32 @@ export async function requestCounterLogin(userId: string): Promise<CounterLoginR
   return res.data;
 }
 
+// ── Duyệt trong app (không cần thông báo đẩy) ──
+
+/** Máy quầy hỏi: người được gửi mã đã bấm Đồng ý trong app chưa. approved kèm phiên đăng nhập. */
+export type CounterLoginPoll = { status: 'pending' | 'approved' | 'rejected' | 'expired'; auth?: IAuthResponse | null };
+
+export async function pollCounterLogin(requestId: string): Promise<CounterLoginPoll> {
+  const res = await counterAxios.get<CounterLoginPoll>(`/counter/login-requests/${encodeURIComponent(requestId)}`);
+  return res.data;
+}
+
+/** Điện thoại của nhân viên: yêu cầu đăng nhập máy quầy đang chờ mình (mã + máy quầy). */
+export type CounterApproval = { requestId: string; code: string; deviceName: string; branchName?: string | null; expiresAt: string };
+
+export async function getMyCounterApprovals(): Promise<CounterApproval[]> {
+  const res = await axiosInstance.get<CounterApproval[]>('/counter-approvals');
+  return res.data;
+}
+
+export async function approveCounterLogin(requestId: string): Promise<void> {
+  await axiosInstance.post(`/counter-approvals/${encodeURIComponent(requestId)}/approve`);
+}
+
+export async function rejectCounterLogin(requestId: string): Promise<void> {
+  await axiosInstance.post(`/counter-approvals/${encodeURIComponent(requestId)}/reject`);
+}
+
 export async function verifyCounterLogin(requestId: string, code: string): Promise<IAuthResponse> {
   const res = await counterAxios.post<IAuthResponse>(`/counter/login-requests/${encodeURIComponent(requestId)}/verify`, { code });
   return res.data;

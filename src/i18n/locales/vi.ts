@@ -1043,6 +1043,16 @@ export const vi = {
       expired: 'Mã đã hết hạn — bấm tên trên máy quầy để gửi mã mới.',
       notYou: 'Không phải bạn bấm tên trên máy quầy? Bỏ qua — không ai đăng nhập được nếu không có mã này.',
     },
+    approve: {
+      title: 'Mã đăng nhập máy quầy',
+      hint: 'Nhập mã trên máy quầy, hoặc bấm Đồng ý để máy quầy tự đăng nhập · còn {time}',
+      approve: 'Đồng ý đăng nhập',
+      reject: 'Không phải tôi',
+      approved: 'Đã cho {place} đăng nhập',
+      rejected: 'Đã từ chối — máy quầy không đăng nhập được.',
+    },
+    openApp: 'Mở app trên điện thoại — mã hiện ngay khi mở app.',
+    rejectedOnPhone: 'Đã từ chối trên điện thoại.',
     pair: {
       entry: 'Đặt máy này làm máy quầy',
       title: 'Đặt làm máy quầy',

@@ -1042,6 +1042,16 @@ export const en: Dict = {
       expired: 'The code has expired — tap your name on the counter to get a new one.',
       notYou: "Didn't tap your name on a counter? Ignore this — nobody can sign in without this code.",
     },
+    approve: {
+      title: 'Counter sign-in code',
+      hint: 'Enter the code on the counter, or tap Approve to sign the counter in · {time} left',
+      approve: 'Approve sign-in',
+      reject: "It's not me",
+      approved: '{place} signed in',
+      rejected: "Rejected — the counter can't sign in.",
+    },
+    openApp: 'Open the app on your phone — the code shows as soon as it opens.',
+    rejectedOnPhone: 'Rejected on the phone.',
     pair: {
       entry: 'Make this device a counter',
       title: 'Make this a counter',
