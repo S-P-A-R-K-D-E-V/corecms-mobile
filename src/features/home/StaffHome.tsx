@@ -8,7 +8,8 @@ import { Screen, SectionCard } from 'src/components/shared';
 import { Text, Icon, Pressable, Badge, Divider, Skeleton, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isAdminUser, isManagerUser } from 'src/auth/roles';
+import { isAdminUser } from 'src/auth/roles';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { t } from 'src/i18n';
 import type { ICleaningTaskInstance, IMyScheduleItem } from 'src/types/corecms-api';
 
@@ -330,7 +331,8 @@ export function StaffHome() {
         <FeatureGrid solid variant="staff" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
         <TodayShiftCard />
         <CleaningTasksCard />
-        {isManagerUser(user) ? <TeamTodayCard /> : null}
+        {/* Bảng hôm nay của cả nhóm: attendance.read (Manager, Admin mặc định; vai trò được cấp). */}
+        {hasPermission(user, PERMISSIONS.attendance.read) ? <TeamTodayCard /> : null}
         {isAdminUser(user) ? <StoreRevenueMini /> : null}
         <PeriodStatsCard />
       </View>

@@ -13,7 +13,12 @@ import {
 } from '../registry';
 
 const staff = { role: 'Staff', roles: ['Staff'] } as any;
-const manager = { role: 'Manager', roles: ['Manager'] } as any;
+// Quyền mặc định của Manager (Core-be) — response đăng nhập / GET /users/me luôn kèm.
+const manager = {
+  role: 'Manager',
+  roles: ['Manager'],
+  permissions: ['shift.assignment.read', 'shift.assignment.manage', 'shift.request.review', 'attendance.read', 'attendance.request.process'],
+} as any;
 const owner = { role: 'Admin', roles: ['Admin'] } as any;
 
 describe('Dùng nhanh — tối đa 8 ghim', () => {

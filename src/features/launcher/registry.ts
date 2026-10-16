@@ -1,7 +1,13 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
 import { hasAnyRole, MANAGER_ROLES, ADMIN_ROLES, SHIFT_CASH_ROLES, canUseAssistant, assistantEnabled } from 'src/auth/roles';
-import { hasAllPermissions, PERMISSIONS, REPORT_SCREEN_PERMISSIONS } from 'src/auth/permissions';
+import {
+  hasAllPermissions,
+  hasAnyPermission,
+  PERMISSIONS,
+  REPORT_SCREEN_PERMISSIONS,
+  MANAGE_SCREEN_PERMISSIONS,
+} from 'src/auth/permissions';
 import type { BranchType } from 'src/features/branch/working-branch';
 import { t } from 'src/i18n';
 import { COUNTER_FEATURE_KEYS, COUNTER_OPEN_TO_ALL } from 'src/features/counter/counter-scope';
@@ -126,10 +132,11 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   },
 
   // ── Quản lý (Manager/Admin) ────────────────────────────────────────
-  { key: 'team-schedule', label: 'Lịch đội ngũ', icon: 'calendar-account', href: '/manage/schedule', tone: 'info', group: 'manage', roles: MANAGER_ROLES },
-  { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
-  { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', tone: 'info', group: 'manage', roles: MANAGER_ROLES },
-  { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', roles: MANAGER_ROLES },
+  // Ca làm / chấm công theo quyền shift.* / attendance.* (Manager, Admin mặc định; vai trò tuỳ chỉnh được cấp — vd Trưởng ca).
+  { key: 'team-schedule', label: 'Lịch đội ngũ', icon: 'calendar-account', href: '/manage/schedule', tone: 'info', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.teamSchedule },
+  { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', tone: 'warning', group: 'manage', visible: (user) => hasAnyPermission(user, MANAGE_SCREEN_PERMISSIONS.approvals) },
+  { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', tone: 'info', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.assignShift },
+  { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.coverShift },
   { key: 'cleaning-week', label: 'Theo dõi vệ sinh', icon: 'broom', href: '/manage/cleaning', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
   { key: 'cleaning-review', label: 'Đánh giá vệ sinh', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', tone: 'warning', group: 'manage', roles: MANAGER_ROLES },
   // Thư viện đầu việc / xây checklist: core-be (CleaningController) và core-fe cho cả quản lý — trước đây ô chỉ hiện với
@@ -142,7 +149,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'revenue-report', label: 'Doanh thu', icon: 'chart-line', href: '/admin/revenue', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.revenue },
   { key: 'financial-overview', label: 'Tổng quan tài chính', icon: 'finance', href: '/admin/financial-overview', tone: 'success', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.financialOverview },
   { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.breakEven },
-  { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
+  { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', allPermissions: [PERMISSIONS.attendance.read] },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead] },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', roles: ADMIN_ROLES },
 ];
