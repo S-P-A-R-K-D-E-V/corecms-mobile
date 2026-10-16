@@ -7,13 +7,13 @@ import { Text, Icon, Pressable, Divider, Skeleton, Button } from 'src/components
 import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
-import { isAdminUser, isManagerUser } from 'src/auth/roles';
 import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { t } from 'src/i18n';
 import type { IProductChild, IProductInventory } from 'src/types/erp';
 
 import { InfoRow, ProductThumb, StockBadge, avgCost, childStock, fmtQty, money, stockOf } from 'src/features/erp/shared';
 import { useCart, lineFromProduct, lineFromVariant } from 'src/features/pos/cart-store';
+import { productDetailAccessFor } from './access';
 import { useProduct } from './hooks';
 import { StockAdjustSheet, adjustableInventories, type StockTarget } from './StockAdjustSheet';
 import { StockAdjustmentHistory } from './StockAdjustmentHistory';
@@ -102,10 +102,8 @@ export function ProductDetailScreen() {
   const { data: p, isLoading, isError, refetch } = useProduct(id);
   const add = useCart((s) => s.add);
   const counterSession = useCounterSession();
-  // Máy quầy: chỉ xem tồn — không chỉnh tồn, không giá vốn / lịch sử điều chỉnh (kể cả quản lý đăng nhập ở quầy).
-  const isManager = isManagerUser(user) && !counterSession;
-  const seeCost = isManager;
-  const isAdmin = isAdminUser(user);
+  // Theo quyền products.cost.read / inventory.* — máy quầy chỉ xem tồn (kể cả quản lý đăng nhập ở quầy).
+  const { seeCost, seeAdjustments, canAdjust: mayAdjust } = productDetailAccessFor(user, counterSession);
   const [adjust, setAdjust] = useState<{ target: StockTarget; branchId?: number } | null>(null);
 
   function sell(line: Parameters<typeof add>[0]) {
@@ -144,10 +142,10 @@ export function ProductDetailScreen() {
   // Có biến thể = có biến thể đang bán. Cờ hasVariants đồng bộ từ KiotViet bật cả với hàng không còn biến thể
   // nào (CiCi: 205 hàng) → coi như hàng thường để còn bán / sửa tồn được.
   const hasVariants = children.length > 0;
-  // Chỉ hàng có tồn (không phải combo / dịch vụ) mới sửa tồn; lịch sử chỉnh tồn: chủ + quản lý. Loại hàng đồng
+  // Chỉ hàng có tồn (không phải combo / dịch vụ) mới sửa tồn / có lịch sử chỉnh tồn. Loại hàng đồng
   // bộ từ KiotViet có thể chưa có (0) — coi là hàng thường.
   const stocked = p.productType !== 1 && p.productType !== 3;
-  const canAdjust = isAdmin && stocked && !counterSession;
+  const canAdjust = mayAdjust && stocked;
   const editChild = (c: IProductChild) =>
     canAdjust && adjustableInventories(c.inventories).length > 0
       ? () => setAdjust({ target: { productId: c.id, name: variantName(p.name, c), inventories: c.inventories ?? [] } })
@@ -210,11 +208,11 @@ export function ProductDetailScreen() {
         </SectionCard>
       ) : null}
 
-      {isManager && stocked ? (
+      {seeAdjustments && stocked ? (
         <StockAdjustmentHistory
           key={p.id}
           targets={hasVariants ? children.map((c) => ({ productId: c.id, label: variantName('', c) })) : [{ productId: p.id }]}
-          canRetry={isAdmin}
+          canRetry={mayAdjust}
           lazy={hasVariants}
         />
       ) : null}

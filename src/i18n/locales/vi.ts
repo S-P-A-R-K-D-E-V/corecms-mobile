@@ -532,7 +532,7 @@ export const vi = {
     productsCount: '{n} mặt hàng',
     price: 'Giá bán',
     cost: 'Giá vốn',
-    costOwnerOnly: 'Chỉ chủ cửa hàng và quản lý thấy giá vốn',
+    costOwnerOnly: 'Chỉ người được cấp quyền xem giá vốn mới thấy',
     stockByBranch: 'Tồn kho theo chi nhánh',
     reserved: 'Khách đặt {n}',
     variantList: 'Biến thể',

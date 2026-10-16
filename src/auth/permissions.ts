@@ -66,6 +66,20 @@ export const PERMISSIONS = {
     auditRead: 'shift.audit.read',
     reminderManage: 'shift.reminder.manage',
   },
+  /** Hàng hoá — xem hàng, nhóm hàng, đơn vị không cần quyền. Thêm / sửa cần kèm xem giá vốn. */
+  products: {
+    costRead: 'products.cost.read',
+    create: 'products.create',
+    update: 'products.update',
+    delete: 'products.delete',
+    catalogManage: 'products.catalog.manage',
+  },
+  /** Tồn kho — chỉnh tồn trực tiếp (kể cả đẩy lại sang KiotViet) mặc định chỉ Admin; lịch sử chỉnh tồn Admin, Manager. */
+  inventory: {
+    warehouseManage: 'inventory.warehouse.manage',
+    adjustmentRead: 'inventory.adjustment.read',
+    adjust: 'inventory.adjust',
+  },
 } as const;
 
 const A = PERMISSIONS.analytics;

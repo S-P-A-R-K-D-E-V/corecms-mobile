@@ -531,7 +531,7 @@ export const en: Dict = {
     productsCount: '{n} products',
     price: 'Price',
     cost: 'Cost',
-    costOwnerOnly: 'Only owners and managers see cost',
+    costOwnerOnly: 'Only people allowed to see cost can see this',
     stockByBranch: 'Stock by branch',
     reserved: '{n} reserved',
     variantList: 'Variants',
