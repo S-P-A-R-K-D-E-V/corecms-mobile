@@ -59,6 +59,8 @@ export type AuthContextType = {
   retrySession: () => Promise<void>;
   login:(email: string, password: string) => Promise<void>;
   loginWithSessionToken: (sessionToken: string) => Promise<void>;
+  /** Lưu phiên từ một phản hồi đăng nhập có sẵn (máy quầy đổi mã 6 số lấy phiên). */
+  loginWithAuthResponse: (auth: import('src/types/corecms-api').IAuthResponse) => Promise<void>;
   /** Đăng nhập bằng token nhà cung cấp (hiện dùng cho Sign in with Apple native trên iOS). */
   loginWithOAuth: (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => Promise<void>;
   /**

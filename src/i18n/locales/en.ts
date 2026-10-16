@@ -924,6 +924,7 @@ export const en: Dict = {
     confirmTitle: 'Let this browser sign in?',
     confirmAs: 'The browser below will sign in as {email}.',
     site: 'Website',
+    hubSite: 'Central sign-in page — will open {store}',
     browser: 'Browser',
     unknown: 'Unknown',
     ipAddress: 'IP address',
