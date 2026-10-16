@@ -195,13 +195,21 @@ internal class CustomerPresentation(outer: Context, display: Display) : Presenta
     for (i in 0 until totals.length()) {
       val t = totals.optJSONObject(i) ?: continue
       val strong = t.optBoolean("strong")
+      if (strong) {
+        // Tổng thanh toán: nhãn một dòng, số tiền lớn bên dưới căn phải (không bị số tiền chen làm xuống dòng nhãn).
+        right.addView(View(context).apply { setBackgroundColor(Color.argb(40, 255, 255, 255)) },
+          LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 2).apply { topMargin = (unit * 0.4f).toInt(); bottomMargin = (unit * 0.4f).toInt() })
+        right.addView(text(t.optString("label"), 1.1f, bold = true, single = true))
+        right.addView(text(t.optString("value"), 2.4f, bold = true, single = true).apply { gravity = Gravity.END },
+          LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        continue
+      }
       val r = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         setPadding(0, (unit * 0.2f).toInt(), 0, (unit * 0.2f).toInt())
       }
-      r.addView(text(t.optString("label"), if (strong) 1.2f else 0.9f, color = if (strong) Color.WHITE else MUTED, bold = strong),
-        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-      r.addView(text(t.optString("value"), if (strong) 2.1f else 0.9f, bold = strong))
+      r.addView(text(t.optString("label"), 0.9f, color = MUTED, single = true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+      r.addView(text(t.optString("value"), 0.9f))
       right.addView(r)
     }
 
