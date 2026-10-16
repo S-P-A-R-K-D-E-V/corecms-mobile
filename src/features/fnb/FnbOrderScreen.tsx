@@ -18,10 +18,12 @@ import type { IMenuDish, IOrderLine } from 'src/types/fnb';
 
 import { money } from 'src/features/erp/shared';
 import { PaymentPanel, type PaymentState } from 'src/features/pos/PaymentPanel';
+import { customerDisplay } from 'src/services/customer-display';
 import { checkoutPlan } from './checkout-plan';
 import { DishOptionsSheet, OpenItemSheet } from './DishSheets';
 import {
   addDraft,
+  draftAmount,
   draftCount,
   draftTotal,
   itemDraft,
@@ -271,6 +273,7 @@ export function FnbOrderScreen() {
     await enqueueFnb(
       checkoutCmd(commandCtx(), order, { expectedTotal: total, payments: plan.payments, cashTendered: plan.cashTendered, sendPending: pending.length > 0 })
     );
+    customerDisplay.paid(total);
     setPanel(null);
   }
 
@@ -350,6 +353,37 @@ export function FnbOrderScreen() {
   const canSend = !closed && (drafts.length > 0 || pending.length > 0);
   const total = (order?.totals.total ?? 0) + draftTotal(drafts);
   const hasSentLines = voidableLines(order).length > 0;
+
+  // Màn hình khách: đơn đang mở (món đã gửi + món đang chọn) khi màn này đang mở; rời màn → quảng cáo.
+  useEffect(() => {
+    if (!focused || closed) {
+      customerDisplay.setCart(null);
+      return;
+    }
+    const sent = (order?.lines ?? [])
+      .filter((l) => l.quantity > 0)
+      .map((l) => ({
+        key: l.id,
+        name: l.name,
+        detail: [l.variantName, ...l.toppings.map((tp) => tp.name)].filter(Boolean).join(', ') || null,
+        qty: l.quantity,
+        price: l.quantity ? l.amount / l.quantity : l.unitPrice,
+        amount: l.amount,
+      }));
+    const chosen = drafts.map((d) => ({
+      key: d.id,
+      name: d.name,
+      detail: [d.variantName, ...d.toppings.map((tp) => tp.name)].filter(Boolean).join(', ') || null,
+      qty: d.quantity,
+      price: d.quantity ? draftAmount(d) / d.quantity : d.unitPrice,
+      amount: draftAmount(d),
+    }));
+    const lines = [...sent, ...chosen];
+    customerDisplay.setCart(
+      lines.length ? { lines, total, discount: order?.totals.discountAmount || undefined } : null
+    );
+  }, [focused, closed, order, drafts, total]);
+  useEffect(() => () => customerDisplay.setCart(null), []);
 
   const orderBody = (
     <OrderPanel
