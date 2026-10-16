@@ -11,6 +11,7 @@ import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
 import { useAuthContext } from 'src/auth/auth-context';
 import { usesAdminShell } from 'src/auth/roles';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { getSalesOrders } from 'src/api/erp';
 import { getRevenueReport } from 'src/api/reports';
 import { t } from 'src/i18n';
@@ -79,6 +80,7 @@ export function InvoicesScreen() {
   const { width } = useResponsive();
   const columns = width >= 900 ? 2 : 1;
   const { user } = useAuthContext();
+  const counterSession = useCounterSession();
   const [range, setRange] = useState<Range>('today');
   const [keyword, setKeyword] = useState('');
   const q = useDebounced(keyword);
@@ -95,6 +97,7 @@ export function InvoicesScreen() {
     queryKey: ['erp', 'invoice-summary', dates.fromDate, dates.toDate],
     queryFn: () => getRevenueReport({ ...dates, groupBy: 'day' }),
     staleTime: 30_000,
+    enabled: !counterSession,
   });
 
   const items = useMemo(() => list.data?.pages.flatMap((p) => p.items) ?? [], [list.data]);
@@ -103,19 +106,21 @@ export function InvoicesScreen() {
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top }}>
       <View className="px-4 pt-2 gap-3">
-        <AppHeader back={!usesAdminShell(user)} title={t('tabs.invoices')} />
+        <AppHeader back={!(usesAdminShell(user) || counterSession)} title={t('tabs.invoices')} />
         <SegmentedControl
           segments={(['today', 'yesterday', 'last7', 'last30'] as Range[]).map((k) => ({ key: k, label: t(`erp.${k}`) }))}
           value={range}
           onChange={(k) => setRange(k as Range)}
         />
         <View className="flex-row gap-3">
-          <View className="flex-1 rounded-2xl bg-primary-soft px-4 py-3">
-            <Text variant="caption" tone="primary">{t('erp.revenue')}</Text>
-            <Text variant="headline" tone="primary" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>
-              {summary.data ? money(summary.data.totalRevenue) : '—'}
-            </Text>
-          </View>
+          {counterSession ? null : (
+            <View className="flex-1 rounded-2xl bg-primary-soft px-4 py-3">
+              <Text variant="caption" tone="primary">{t('erp.revenue')}</Text>
+              <Text variant="headline" tone="primary" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>
+                {summary.data ? money(summary.data.totalRevenue) : '—'}
+              </Text>
+            </View>
+          )}
           <View className="flex-1 rounded-2xl bg-ink/5 dark:bg-white/10 px-4 py-3">
             <Text variant="caption" tone="muted">{t('erp.invoiceCountLabel')}</Text>
             <Text variant="headline" className="font-bold">{list.data ? total : '—'}</Text>

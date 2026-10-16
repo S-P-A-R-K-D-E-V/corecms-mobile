@@ -30,6 +30,7 @@ import { OverlayHost } from 'src/components/overlay';
 import { loadStore } from 'src/services/store-config';
 import { hydrateCounterMode } from 'src/services/counter-mode';
 import { CounterSessionGuard } from 'src/features/counter/CounterSessionGuard';
+import { CounterRouteGuard } from 'src/features/counter/CounterRouteGuard';
 import { CustomerDisplayHost } from 'src/features/counter/CustomerDisplayHost';
 import { hydrateLocale, useLocaleStore } from 'src/i18n';
 
@@ -116,6 +117,7 @@ export default function RootLayout() {
                 <OrientationGuard />
                 <PushRegistrationWrapper />
                 <CounterSessionGuard />
+                <CounterRouteGuard />
                 <CustomerDisplayHost />
                 <LauncherHydrator />
                 <StatusBar style="auto" />

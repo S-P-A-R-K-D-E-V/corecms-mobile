@@ -116,6 +116,36 @@ export async function getSalesOrders(params: {
   return res.data;
 }
 
+export type CreateSalesReturnInput = {
+  /** 1 = theo hoá đơn. */
+  returnType: 1;
+  salesOrderId: string;
+  customerId: string | null;
+  warehouseId: string;
+  note: string | null;
+  lines: { productId: string; quantity: number; price: number }[];
+};
+
+/**
+ * Tạo phiếu trả (nháp) rồi đọc lại tổng phiếu — ở máy quầy server đặt lại giá theo hoá đơn nên tổng có thể khác số
+ * app ước tính.
+ */
+export async function createSalesReturn(input: CreateSalesReturnInput): Promise<{ id: string; returnTotal: number | null }> {
+  const created = await axios.post<{ id: string }>(endpoints.salesReturns.create, input);
+  const id = created.data.id;
+  try {
+    const detail = await axios.get<{ returnTotal: number }>(endpoints.salesReturns.details(id));
+    return { id, returnTotal: detail.data.returnTotal };
+  } catch {
+    return { id, returnTotal: null };
+  }
+}
+
+/** Hoàn tất phiếu trả: nhập lại kho + ghi tiền hoàn cho khách (máy quầy: không vượt tổng phiếu). */
+export async function completeSalesReturn(id: string, refundAmount: number): Promise<void> {
+  await axios.post(endpoints.salesReturns.complete(id), { refundAmount });
+}
+
 export async function getSalesOrder(id: string): Promise<ISalesOrder> {
   const res = await axios.get<ISalesOrder>(endpoints.salesOrders.details(id));
   return res.data;

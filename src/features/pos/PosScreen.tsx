@@ -12,6 +12,7 @@ import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser, usesAdminShell } from 'src/auth/roles';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { getProducts, getWarehouses } from 'src/api/erp';
 import { t } from 'src/i18n';
@@ -83,6 +84,7 @@ export function PosScreen() {
   const { width, isTablet, isLandscape } = useResponsive();
   const split = isSplitPos({ isTablet, isLandscape });
   const canEditPrice = isManagerUser(user);
+  const counterSession = useCounterSession();
 
   const lines = useCart((s) => s.lines);
   const add = useCart((s) => s.add);
@@ -284,7 +286,7 @@ export function PosScreen() {
     <>
       <AppHeader
         // Hai khung: thanh tab ẩn nên luôn có nút quay lại.
-        back={split || !usesAdminShell(user)}
+        back={split || !(usesAdminShell(user) || counterSession)}
         title={t('tabs.pos')}
         subtitle={[userName, branch?.name].filter(Boolean).join(' · ') || undefined}
         actions={headerActions}

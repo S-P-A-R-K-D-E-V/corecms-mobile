@@ -11,6 +11,7 @@ import { Text, Spinner, SparkStoreBolt, SPARK_STORE_BRAND } from 'src/components
 import { softShadow } from 'src/theme';
 import { APP_DISPLAY_NAME, getStoreCode, isMultiStore } from 'src/services/store-config';
 import { useCounterMode } from 'src/services/counter-mode';
+import { COUNTER_HOME } from 'src/features/counter/counter-scope';
 
 // Boot gate: decides the first route based on first-run + auth state.
 //   first run        → /(onboarding)          (bản CiCi; bản cửa hàng dùng màn Chào mừng)
@@ -62,6 +63,7 @@ export default function Index() {
   if (counter && !authenticated) return <Redirect href={'/counter' as any} />;
   if (isMultiStore && !getStoreCode() && !authenticated) return <Redirect href={'/welcome' as any} />;
   if (!authenticated) return <Redirect href="/(auth)/login" />;
+  if (counter) return <Redirect href={COUNTER_HOME as any} />;
   if (user && !isProfileComplete(user)) return <Redirect href={'/complete-profile' as any} />;
   return <Redirect href={homeHref(user) as any} />;
 }

@@ -409,6 +409,11 @@ export const endpoints = {
     receive: (id: string) => `/purchase-orders/${id}/receive`,
   },
   warehouses: { list: '/warehouses' },
+  salesReturns: {
+    create: '/sales-returns',
+    details: (id: string) => `/sales-returns/${id}`,
+    complete: (id: string) => `/sales-returns/${id}/complete`,
+  },
   suppliers: { list: '/suppliers' },
   bankAccounts: { list: '/bank-accounts' },
   // ── F&B: thực đơn, sơ đồ bàn, đơn mở, phiếu bar (contract F&B POS v1) ──

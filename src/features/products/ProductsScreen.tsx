@@ -8,6 +8,7 @@ import { Text, Pressable, Skeleton } from 'src/components/ui';
 import { brand } from 'src/theme';
 import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser, usesAdminShell } from 'src/auth/roles';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
 import { t } from 'src/i18n';
 import type { IProductListItem } from 'src/types/erp';
 
@@ -45,6 +46,7 @@ function ProductRow({ item }: { item: IProductListItem }) {
 export function ProductsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthContext();
+  const counterSession = useCounterSession();
   const [keyword, setKeyword] = useState('');
   const [scanning, setScanning] = useState(false);
   const q = useDebounced(keyword);
@@ -58,10 +60,10 @@ export function ProductsScreen() {
       <View className="px-4 pt-2 gap-3">
         {/* Chủ cửa hàng: tab trên thanh; nhân viên mở từ Tiện ích → cần nút quay lại. */}
         <AppHeader
-          back={!usesAdminShell(user)}
+          back={!(usesAdminShell(user) || counterSession)}
           title={t('tabs.products')}
           subtitle={query.data ? t('erp.productsCount', { n: total }) : undefined}
-          actions={isManagerUser(user) ? [{ icon: 'truck-delivery-outline', onPress: () => router.push('/purchase-orders' as any) }] : undefined}
+          actions={isManagerUser(user) && !counterSession ? [{ icon: 'truck-delivery-outline', onPress: () => router.push('/purchase-orders' as any) }] : undefined}
         />
         <SearchBar
           value={keyword}
