@@ -264,6 +264,10 @@ export function StoreLoginScreen() {
           <Button variant="ghost" action="neutral" size="sm" icon="swap-horizontal" disabled={working} onPress={handleChangeStore}>
             {t('auth.otherStore')}
           </Button>
+          {/* POS / tablet đặt ở quầy: ghép làm máy quầy bằng mã, quản lý duyệt từ web / điện thoại — không cần đăng nhập ở đây. */}
+          <Button variant="ghost" action="neutral" size="sm" icon="cash-register" disabled={working} onPress={() => router.push('/counter-pair' as any)}>
+            {t('counter.pair.entry')}
+          </Button>
           {domain ? (
             <Text variant="caption" tone="faint" className="text-center">{t('auth.securedBy', { site: domain })}</Text>
           ) : null}

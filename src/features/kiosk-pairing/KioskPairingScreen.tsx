@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
@@ -41,8 +41,15 @@ export function KioskPairingScreen() {
   const [branchId, setBranchId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [deviceLabel, setDeviceLabel] = useState<string | null>(null);
+  const [pairedCounter, setPairedCounter] = useState(false);
 
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
+  // Quản lý chỉ ghép thiết bị cho chi nhánh được phân công (server cũng chặn).
+  const branches = useMemo(() => {
+    const all = branchesQ.data ?? [];
+    const scope = user?.branchScope;
+    return scope && !scope.allBranches ? all.filter((b) => scope.branchIds.includes(String(b.id))) : all;
+  }, [branchesQ.data, user?.branchScope]);
 
   useEffect(() => {
     if (mode === 'scan' && !permission?.granted) requestPermission();
@@ -62,6 +69,7 @@ export function KioskPairingScreen() {
     try {
       const res = await claimKioskPairing({ code: code.trim(), deviceName: deviceName.trim(), branchId });
       setDeviceLabel(res.deviceName);
+      setPairedCounter(res.deviceType === 'counter');
       setMode('success');
     } catch (err) {
       setErrorMsg(extractApiError(err));
@@ -96,7 +104,11 @@ export function KioskPairingScreen() {
         <View className="flex-1 items-center justify-center gap-3 px-8">
           <Icon name="check-decagram" size={56} tone="success" />
           <Text variant="title" className="text-center">Ghép nối thành công!</Text>
-          <Text tone="muted" className="text-center">Thiết bị &quot;{deviceLabel}&quot; đã sẵn sàng dùng chấm công kiosk.</Text>
+          <Text tone="muted" className="text-center">
+            {pairedCounter
+              ? `Máy quầy "${deviceLabel}" đã sẵn sàng — nhân viên có ca chọn tên để đăng nhập.`
+              : `Thiết bị "${deviceLabel}" đã sẵn sàng dùng chấm công kiosk.`}
+          </Text>
           <Button onPress={reset}>Ghép nối thiết bị khác</Button>
           <Button variant="outline" action="neutral" onPress={() => router.back()}>Xong</Button>
         </View>
@@ -164,7 +176,7 @@ export function KioskPairingScreen() {
         {branchesQ.isLoading ? (
           <View className="py-4 items-center"><Spinner /></View>
         ) : (
-          (branchesQ.data ?? []).map((b) => (
+          branches.map((b) => (
             <ListItem
               key={b.id}
               title={b.branchName}
