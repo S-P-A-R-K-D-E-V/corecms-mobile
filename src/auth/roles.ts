@@ -49,12 +49,6 @@ export function hasAnyRole(user: AuthUser | null | undefined, roles?: readonly s
   return roles.some((r) => userRoles.includes(r));
 }
 
-/** True nếu user có ÍT NHẤT một trong các permission yêu cầu (rỗng = cho qua). */
-export function hasAnyPermission(user: AuthUser | null | undefined, permissions?: readonly string[]): boolean {
-  if (!permissions || permissions.length === 0) return true;
-  const userPermissions = user?.permissions ?? [];
-  return permissions.some((p) => userPermissions.includes(p));
-}
 
 /** Cổng chặn cấp app: user có được phép dùng app nội bộ này không. */
 export function canUseInternalApp(user: AuthUser | null | undefined): boolean {

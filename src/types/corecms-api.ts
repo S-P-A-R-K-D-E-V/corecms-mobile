@@ -102,6 +102,23 @@ export interface IRole {
   permissions: { id: string; name: string; description?: string }[];
 }
 
+/** Vai trò tuỳ chỉnh của cửa hàng (Core-be CustomRole) — GET /custom-roles. */
+export interface ICustomRole {
+  id: string;
+  name: string;
+  description?: string | null;
+  /** Manager | Staff. */
+  baseRole: string;
+  permissions: string[];
+  userCount: number;
+}
+
+/** GET /custom-roles/users/{userId} — vai trò ĐƯỢC GÁN (không gồm vai trò gốc suy ra từ vai trò tuỳ chỉnh). */
+export interface IUserRoleAssignment {
+  systemRoles: string[];
+  customRoleIds: string[];
+}
+
 export interface IAssignRoleRequest {
   userId: string;
   roleIds: string[];

@@ -1,6 +1,11 @@
+import { RoleGuard } from 'src/auth/role-guard';
+import { ADMIN_ROLES } from 'src/auth/roles';
 import { AdminDashboardScreen } from 'src/features/admin-dashboard/AdminDashboardScreen';
 
-// Guard ADMIN_ROLES đặt ở (tabs)/admin/_layout — bao mọi màn con.
 export default function Admin() {
-  return <AdminDashboardScreen />;
+  return (
+    <RoleGuard roles={ADMIN_ROLES}>
+      <AdminDashboardScreen />
+    </RoleGuard>
+  );
 }
