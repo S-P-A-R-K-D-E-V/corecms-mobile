@@ -46,11 +46,12 @@ export function SegmentedControl({ segments, value, onChange, className }: Segme
             key={s.key}
             onPress={() => { if (!active) { haptics.selection(); onChange(s.key); } }}
             style={{ flex: 1 }}
-            className="py-2.5 items-center justify-center"
+            className="py-2.5 px-1.5 justify-center"
           >
+            {/* Chữ chiếm đúng bề ngang ô (không items-center) để adjustsFontSizeToFit biết chỗ mà co khi chữ to. */}
             <Text
               variant="bodySmall"
-              className={cn('font-semibold', active ? 'text-white' : 'text-muted')}
+              className={cn('font-semibold text-center', active ? 'text-white' : 'text-muted')}
               numberOfLines={1}
               adjustsFontSizeToFit
               minimumFontScale={0.7}
