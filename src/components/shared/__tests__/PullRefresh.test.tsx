@@ -42,7 +42,7 @@ describe('isFailedRefresh', () => {
 });
 
 describe('useRefreshMachine', () => {
-  it('shows loading for at least 0.7 s, then done, then closes', async () => {
+  it('shows loading for at least 1.6 s, then done, then closes', async () => {
     const d = deferred();
     const close = jest.fn();
     const { result } = renderHook(() => useRefreshMachine({ onRefresh: () => d.promise, close }));
@@ -54,13 +54,13 @@ describe('useRefreshMachine', () => {
 
     d.resolve({ isError: false });
     await flush();
-    expect(result.current.phase).toBe('loading'); // chưa đủ 0,7 giây
+    expect(result.current.phase).toBe('loading'); // chưa đủ 1,6 giây (mây chưa kịp trôi)
 
-    act(() => jest.advanceTimersByTime(700));
+    act(() => jest.advanceTimersByTime(1600));
     expect(result.current.phase).toBe('done');
     expect(close).not.toHaveBeenCalled();
 
-    act(() => jest.advanceTimersByTime(650));
+    act(() => jest.advanceTimersByTime(900));
     expect(close).toHaveBeenCalledTimes(1);
     act(() => jest.advanceTimersByTime(300));
     expect(result.current.phase).toBe('rest');
@@ -91,7 +91,7 @@ describe('useRefreshMachine', () => {
     });
     d.reject(new Error('offline'));
     await flush();
-    act(() => jest.advanceTimersByTime(700));
+    act(() => jest.advanceTimersByTime(1600));
     expect(result.current.phase).toBe('error');
 
     const never = renderHook(() => useRefreshMachine({ onRefresh: () => new Promise(() => {}), close: jest.fn() }));
@@ -116,7 +116,7 @@ describe('useRefreshMachine', () => {
     act(() => jest.advanceTimersByTime(1500));
     expect(result.current.phase).toBe('loading'); // vẫn đang tải: cờ còn bật
     rerender({ refreshing: false });
-    act(() => jest.advanceTimersByTime(0));
+    act(() => jest.advanceTimersByTime(100)); // đủ 1,6 s tối thiểu (đã qua 1,5 s)
     expect(result.current.phase).toBe('done');
   });
 

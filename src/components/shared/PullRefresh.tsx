@@ -1,5 +1,5 @@
 import { createContext, isValidElement, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Dimensions, Platform, RefreshControl, View, type FlatListProps, type LayoutChangeEvent, type RefreshControlProps, type ScrollViewProps } from 'react-native';
+import { AccessibilityInfo, Dimensions, Platform, RefreshControl, View, useWindowDimensions, type FlatListProps, type LayoutChangeEvent, type RefreshControlProps, type ScrollViewProps } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -23,7 +23,7 @@ import Animated, {
 import { cssInterop, useColorScheme } from 'nativewind';
 
 import { Text } from '../ui/text';
-import { MascotGlow, MascotRings, MascotShadow, MascotSpeedLines, SparkMascot, MASCOT_ASPECT, type MascotMood } from '../ui/spark-mascot';
+import { MascotCloud, MascotGlow, MascotRings, MascotShadow, MascotSpeedLines, SparkMascot, MASCOT_ASPECT, type MascotMood } from '../ui/spark-mascot';
 import { haptics } from 'src/services/haptics';
 import { t, useT } from 'src/i18n';
 
@@ -47,12 +47,13 @@ cssInterop(Animated.FlatList, {
 
 export const PULL_THRESHOLD = 72;
 /** Chiều cao khe lúc đang tải (Android). iOS do UIRefreshControl giữ ~60. */
-const HOLD = 64;
-const MIN_SHOW_MS = 700;
+const HOLD = 84;
+/** Hiện tối thiểu — dữ liệu về ngay vẫn đủ thấy linh vật nảy + mây trôi (0,7 s trước đây chớp nhoáng). */
+const MIN_SHOW_MS = 1600;
 const SLOW_MS = 2000;
 const SLOW_NOTE_MS = 4500;
 const TIMEOUT_MS = 15000;
-const DONE_MS = 650;
+const DONE_MS = 900;
 const ERROR_MS = 1600;
 const CLOSE_MS = 300;
 const MASCOT_W = 34;
@@ -213,6 +214,49 @@ function moodOf(phase: RefreshPhase, reduce: boolean): MascotMood {
   }
 }
 
+// ── Trời mây phía sau linh vật ───────────────────────────────────────
+// Bốn đám mây trôi phải → trái, xa (nhỏ, mờ, chậm) / gần (to, rõ, nhanh) cho có chiều sâu. Một đồng hồ chung chạy vòng
+// 60 s; chu kỳ từng mây chia hết 60 s nên hết vòng không bị giật. Giảm chuyển động → mây đứng yên.
+
+const SKY_H = 110;
+const SKY_CYCLE = 60000;
+const CLOUDS = [
+  { w: 44, top: 6, period: 20000, offset: 0.12, alpha: 0.55 },
+  { w: 70, top: 20, period: 15000, offset: 0.64, alpha: 0.9 },
+  { w: 36, top: 66, period: 12000, offset: 0.36, alpha: 0.7 },
+  { w: 58, top: 76, period: 10000, offset: 0.86, alpha: 0.95 },
+] as const;
+
+function Cloud({ cloud, clock, width, dark }: { cloud: (typeof CLOUDS)[number]; clock: SharedValue<number>; width: number; dark: boolean }) {
+  const style = useAnimatedStyle(() => {
+    const p = (clock.value * (SKY_CYCLE / cloud.period) + cloud.offset) % 1;
+    return { transform: [{ translateX: width - p * (width + cloud.w) }] };
+  });
+  return (
+    <Animated.View style={[{ position: 'absolute', top: cloud.top, left: 0 }, style]}>
+      <MascotCloud width={cloud.w} opacity={dark ? cloud.alpha * 0.16 : cloud.alpha} />
+    </Animated.View>
+  );
+}
+
+function CloudSky({ active, reduce, dark }: { active: boolean; reduce: boolean; dark: boolean }) {
+  const { width } = useWindowDimensions();
+  const clock = useSharedValue(0);
+  useEffect(() => {
+    cancelAnimation(clock);
+    if (active && !reduce) {
+      clock.value = withRepeat(withTiming(clock.value + 1, { duration: SKY_CYCLE, easing: Easing.linear }), -1, false);
+    }
+  }, [active, reduce, clock]);
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: SKY_H, marginTop: -SKY_H / 2 }}>
+      {CLOUDS.map((c, i) => (
+        <Cloud key={i} cloud={c} clock={clock} width={width} dark={dark} />
+      ))}
+    </View>
+  );
+}
+
 function RefreshIndicator({
   pull,
   phase,
@@ -304,11 +348,12 @@ function RefreshIndicator({
           overflow: 'hidden',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(30,40,60,0.045)',
+          backgroundColor: colorScheme === 'dark' ? 'rgba(96,150,220,0.10)' : 'rgba(64,132,220,0.12)',
         },
         gapStyle,
       ]}
     >
+      <CloudSky active={phase !== 'rest'} reduce={reduce} dark={colorScheme === 'dark'} />
       <View style={{ width: 80, height: mascotH + 4, alignItems: 'center', justifyContent: 'center' }}>
         {phase === 'done' ? (
           <Animated.View style={[{ position: 'absolute' }, glowStyle]}>

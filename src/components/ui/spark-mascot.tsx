@@ -139,6 +139,19 @@ export function MascotSpeedLines({ width = 30 }: { width?: number }) {
   );
 }
 
+/** Đám mây bo mềm (trời mây trôi phía sau linh vật lúc kéo làm mới). */
+export function MascotCloud({ width = 60, color = '#FFFFFF', opacity = 1 }: { width?: number; color?: string; opacity?: number }) {
+  return (
+    <Svg width={width} height={width * 0.5} viewBox="0 0 64 32">
+      <Path
+        d="M15 29 H50 C56 29 60 25 60 20 C60 15 56 11 51 11.5 C49.5 6 44.5 2.5 38.5 2.5 C31.5 2.5 26.5 7 25.5 12.5 C24 11.6 22 11 20 11 C14.5 11 10.5 15 10.5 20 C7 20.5 4.5 23 4.5 25.5 C4.5 27.5 6 29 8 29 Z"
+        fill={color}
+        opacity={opacity}
+      />
+    </Svg>
+  );
+}
+
 /** Bóng mềm dưới chân linh vật. */
 export function MascotShadow({ width = 30 }: { width?: number }) {
   const id = useId().replace(/[^a-zA-Z0-9]/g, '');
