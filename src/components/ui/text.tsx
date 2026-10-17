@@ -130,6 +130,9 @@ export function Text({ className, variant = 'body', tone = 'default', bold, styl
   return (
     <RNText
       maxFontSizeMultiplier={typo[2]}
+      // Android: "highQuality" (mặc định) đo hụt bề ngang khi cỡ chữ máy ≠ 1 + chữ đậm vừa → chữ cuối bị cắt
+      // ("+2 đăng" thay vì "+2 đăng ký"). "simple" đo khớp với lúc vẽ.
+      textBreakStrategy="simple"
       className={cn(variantClassFor(variant, className), toneClassFor(tone, className), bold && 'font-bold', className)}
       style={[typo[0], typo[1], style]}
       {...props}
