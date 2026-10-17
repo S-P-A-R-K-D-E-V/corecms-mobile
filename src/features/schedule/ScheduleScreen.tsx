@@ -5,7 +5,8 @@ import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
 import isToday from 'dayjs/plugin/isToday';
 
-import { Screen, Sheet, SectionCard } from 'src/components/shared';
+import { AppHeader, Screen, Sheet, SectionCard } from 'src/components/shared';
+import { usesAdminShell } from 'src/auth/roles';
 import { Text, Button, Badge, Icon, Pressable, Divider, TextField } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand } from 'src/theme';
@@ -381,6 +382,9 @@ export function ScheduleScreen() {
 
   return (
     <Screen scroll refreshing={refreshing} onRefresh={refetch}>
+      {/* Tiêu đề đứng yên; shell chủ cửa hàng không có tab Lịch làm — mở từ Tiện ích thì có nút quay lại. */}
+      <AppHeader title={t('tabs.schedule')} back={usesAdminShell(user)} />
+
       {/* Week strip */}
       <CalendarStrip
         weekStart={weekStart}

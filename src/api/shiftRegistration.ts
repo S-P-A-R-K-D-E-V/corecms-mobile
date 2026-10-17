@@ -23,6 +23,14 @@ export async function getMyShiftRegistrations(fromDate: string, toDate: string):
   return response.data;
 }
 
+/** Mốc chốt đăng ký của một tuần (theo thứ 2 đầu tuần) — nhân viên đọc được để biết hạn chót. */
+export type RegistrationLock = { weekStart: string; lockAt: string; isDefault: boolean; isLocked: boolean };
+
+export async function getRegistrationLock(weekStart: string): Promise<RegistrationLock> {
+  const response = await axios.get<RegistrationLock>(endpoints.shiftRegistrations.lock, { params: { weekStart } });
+  return response.data;
+}
+
 /** [Admin/Manager] Đăng ký ca của MỌI nhân viên trong khoảng — nguồn "khóa ca". */
 export async function getShiftRegistrations(fromDate: string, toDate: string): Promise<IShiftRegistration[]> {
   const response = await axios.get<IShiftRegistration[]>(endpoints.shiftRegistrations.list, {

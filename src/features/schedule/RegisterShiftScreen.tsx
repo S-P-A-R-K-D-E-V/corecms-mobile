@@ -10,7 +10,7 @@ import { Text, Button, Pressable, Icon, TextField } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { toast } from 'src/components/overlay';
 import { getShiftSchedules } from 'src/api/schedule';
-import { registerShift, unregisterShift, getMyShiftRegistrations } from 'src/api/shiftRegistration';
+import { registerShift, unregisterShift, getMyShiftRegistrations, getRegistrationLock, type RegistrationLock } from 'src/api/shiftRegistration';
 import { extractApiError } from 'src/services/error';
 import type { IShiftSchedule, IShiftRegistration } from 'src/types/corecms-api';
 
@@ -38,11 +38,16 @@ export function RegisterShiftScreen() {
   const [registrations, setRegistrations] = useState<IShiftRegistration[]>([]);
   const [selections, setSelections] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState('');
+  const [lock, setLock] = useState<RegistrationLock | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const weekEnd = weekStart.add(6, 'day');
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day')), [weekStart]);
+  const weekHasToday = !today.isBefore(weekStart, 'day') && !today.isAfter(weekEnd, 'day');
+  const shownDays = weekHasToday ? days.filter((d) => !d.isBefore(today, 'day')) : days;
+  const hiddenPast = days.length - shownDays.length;
+  const locked = !!lock?.isLocked;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -50,7 +55,13 @@ export function RegisterShiftScreen() {
     try {
       const from = weekStart.format('YYYY-MM-DD');
       const to = weekEnd.format('YYYY-MM-DD');
-      const [sched, regs] = await Promise.all([getShiftSchedules(from, to), getMyShiftRegistrations(from, to)]);
+      const [sched, regs, lk] = await Promise.all([
+        getShiftSchedules(from, to),
+        getMyShiftRegistrations(from, to),
+        // Không đọc được mốc chốt (máy chủ cũ / lỗi) thì vẫn cho đăng ký như trước.
+        getRegistrationLock(from).catch(() => null),
+      ]);
+      setLock(lk);
       setSchedules(sched.filter((s) => s.isActive).sort((a, b) => a.startTime.localeCompare(b.startTime)));
       setRegistrations(regs);
       const initial: Record<string, boolean> = {};
@@ -137,7 +148,7 @@ export function RegisterShiftScreen() {
       {/* Week nav */}
       <View className="flex-row items-center justify-between px-5 py-2 border-y border-line dark:border-line-dark bg-surface dark:bg-surface-dark">
         <Pressable onPress={() => setWeekStart((w) => w.subtract(7, 'day'))} className="p-1"><Icon name="chevron-left" size={24} /></Pressable>
-        <Text variant="subtitle">{weekStart.format('DD-MM')} — {weekEnd.format('DD/MM/YYYY')}</Text>
+        <Text variant="subtitle">{weekStart.format('DD/MM')} – {weekEnd.format('DD/MM/YYYY')}</Text>
         <Pressable onPress={() => setWeekStart((w) => w.add(7, 'day'))} className="p-1"><Icon name="chevron-right" size={24} /></Pressable>
       </View>
 
@@ -147,7 +158,21 @@ export function RegisterShiftScreen() {
         <EmptyState icon="calendar-blank-outline" title="Không có lịch ca nào trong tuần này" />
       ) : (
         <ScrollView contentContainerClassName="p-3 gap-1">
-          {days.map((day) => {
+          {/* Hạn chót / đã chốt đăng ký của tuần */}
+          {lock ? (
+            <View className={cn('flex-row items-center gap-2 px-3 py-2.5 rounded-xl mb-1', locked ? 'bg-warning-soft' : 'bg-info-soft')}>
+              <Icon name={locked ? 'lock-outline' : 'clock-outline'} size={18} tone={locked ? 'warning' : 'primary'} />
+              <Text variant="bodySmall" tone={locked ? 'warning' : 'primary'} className="flex-1 font-semibold">
+                {locked
+                  ? `Tuần này đã chốt đăng ký lúc ${dayjs(lock.lockAt).format('HH:mm DD/MM')}. Cần đổi ca? Dùng Đổi ca hoặc Chợ ca.`
+                  : `Hạn đăng ký: ${dayjs(lock.lockAt).format('HH:mm')}, ${VI_DAYS[dayjs(lock.lockAt).day()]} ${dayjs(lock.lockAt).format('DD/MM')}`}
+              </Text>
+            </View>
+          ) : null}
+          {hiddenPast > 0 ? (
+            <Text variant="caption" tone="muted" className="px-1 pb-1">Đã ẩn {hiddenPast} ngày đã qua của tuần này.</Text>
+          ) : null}
+          {shownDays.map((day) => {
             const d = day.format('YYYY-MM-DD');
             const isToday = day.isSame(today, 'day');
             const isPast = day.isBefore(today, 'day');
@@ -170,12 +195,16 @@ export function RegisterShiftScreen() {
                     return (
                       <Pressable
                         key={s.id}
-                        disabled={isPast}
+                        disabled={isPast || locked}
                         onPress={() => setSelections((p) => ({ ...p, [k]: !p[k] }))}
                         className="flex-1 min-w-[72px] min-h-[52px] rounded-xl items-center justify-center px-1.5 py-2"
                         style={{ backgroundColor: sel ? color : `${color}18`, borderWidth: sel ? 0 : 0 }}
                       >
-                        <Text numberOfLines={1} className="text-[11px] font-bold" style={{ color: sel ? '#fff' : color }}>{s.templateName}</Text>
+                        <View className="flex-row items-center gap-1">
+                          {/* Đã chọn: dấu tích — không chỉ dựa vào màu nền để biết ca nào của mình. */}
+                          {sel ? <Icon name="check" size={12} color="#FFFFFF" /> : null}
+                          <Text numberOfLines={1} className="text-[11px] font-bold" style={{ color: sel ? '#fff' : color }}>{s.templateName}</Text>
+                        </View>
                         <Text numberOfLines={1} className="text-[9px] mt-0.5" style={{ color: sel ? '#fff' : color, opacity: 0.85 }}>{s.startTime}-{s.endTime}</Text>
                       </Pressable>
                     );
@@ -209,7 +238,7 @@ export function RegisterShiftScreen() {
             </View>
           ) : null}
           <Button icon="calendar-check" loading={submitting} disabled={changes.total === 0} onPress={handleSubmit}>
-            {changes.total > 0 ? 'Lưu thay đổi' : 'Chưa có thay đổi'}
+            {changes.total > 0 ? 'Lưu thay đổi' : locked ? 'Đã chốt đăng ký' : 'Chạm vào ca để đăng ký'}
           </Button>
         </View>
       ) : null}

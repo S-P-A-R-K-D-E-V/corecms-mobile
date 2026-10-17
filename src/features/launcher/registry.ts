@@ -165,6 +165,8 @@ export function getFeature(key: string): FeatureItem | undefined {
 
 /** Tiện ích này có hiện với người dùng + ngữ cảnh này không (vai trò và điều kiện `visible`). */
 export function isFeatureVisible(item: FeatureItem, user: AuthUser | null | undefined, ctx: FeatureContext = featureContext(user)): boolean {
+  // Tính năng chưa làm xong không hiện cho người dùng (Apple từ chối app có mục dở dang — guideline 2.1).
+  if (item.comingSoon) return false;
   if (ctx.counter) {
     // Máy quầy: chỉ tiện ích bán hàng; hoá đơn mở cho mọi người đứng quầy (in lại, trả hàng).
     if (!COUNTER_FEATURE_KEYS.has(item.key)) return false;

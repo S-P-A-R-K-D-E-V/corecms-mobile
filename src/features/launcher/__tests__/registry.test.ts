@@ -201,3 +201,11 @@ describe('Tính năng tắt trên app theo vai trò (blockedFeatures)', () => {
     expect(keys({ ...staff, blockedFeatures: ['payroll.self'] })).not.toContain('payroll');
   });
 });
+
+describe('tính năng đang phát triển', () => {
+  it('không hiện cho bất kỳ ai (Bảng công đang làm dở)', () => {
+    expect(FEATURE_REGISTRY.find((f) => f.key === 'attendance')?.comingSoon).toBe(true);
+    expect(availableFeatures(staff).map((f) => f.key)).not.toContain('attendance');
+    expect(availableFeatures(owner).map((f) => f.key)).not.toContain('attendance');
+  });
+});

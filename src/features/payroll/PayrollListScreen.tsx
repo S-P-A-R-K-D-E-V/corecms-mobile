@@ -7,6 +7,8 @@ import { Card, Text, Badge, Icon, Pressable, Appear, Skeleton } from 'src/compon
 import type { IPayrollRecord } from 'src/types/corecms-api';
 import { useMyPayroll, fmtMoney } from './hooks';
 import { t } from 'src/i18n';
+import { useAuthContext } from 'src/auth/auth-context';
+import { usesAdminShell } from 'src/auth/roles';
 
 function PayrollSkeleton() {
   return (
@@ -77,11 +79,13 @@ function PayrollCard({ rec }: { rec: IPayrollRecord }) {
 }
 
 export function PayrollListScreen() {
+  const { user } = useAuthContext();
   const { data, isLoading, isError, refetch, isFetching } = useMyPayroll();
 
   return (
     <Screen scroll refreshing={isFetching} onRefresh={refetch}>
-      <AppHeader title={t('tabs.payroll')} subtitle="Bảng lương của bạn" />
+      {/* Shell chủ cửa hàng không có tab Lương — mở từ Tiện ích thì cần nút quay lại. */}
+      <AppHeader title={t('tabs.payroll')} subtitle="Bảng lương của bạn" back={usesAdminShell(user)} />
       {isLoading ? (
         <PayrollSkeleton />
       ) : isError ? (

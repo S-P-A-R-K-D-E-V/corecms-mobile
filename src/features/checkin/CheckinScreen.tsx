@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Linking, View } from 'react-native';
 import { MotiView } from 'moti';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import dayjs from 'dayjs';
 
-import { Screen, SectionCard, StatCard, EmptyState } from 'src/components/shared';
+import { Screen, SectionCard, StatCard, EmptyState, goBackOrHome } from 'src/components/shared';
+import { usesAdminShell } from 'src/auth/roles';
 import { Text, Button, Badge, Card, Icon, Pressable, Divider, BrandGradient, Appear, SuccessOverlay, Spinner, type IconName } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand, softShadow } from 'src/theme';
@@ -124,6 +125,8 @@ export function CheckinScreen() {
 
   // GPS
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>('idle');
+  // Quyền vị trí: null = chưa biết. canAskAgain=false (đã chặn hẳn) → chỉ còn cách mở Cài đặt của máy.
+  const [gpsPerm, setGpsPerm] = useState<{ granted: boolean; canAskAgain: boolean } | null>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
   // Chi nhánh (cửa hàng) để tính & hiển thị khoảng cách GPS cho người dùng
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
@@ -187,8 +190,9 @@ export function CheckinScreen() {
 
   async function fetchGps(): Promise<Coords | null> {
     setGpsStatus('loading');
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') { setGpsStatus('error'); return null; }
+    const perm = await Location.requestForegroundPermissionsAsync();
+    setGpsPerm({ granted: perm.status === 'granted', canAskAgain: perm.canAskAgain });
+    if (perm.status !== 'granted') { setGpsStatus('error'); return null; }
     try {
       // Hiển thị ngay vị trí gần nhất đã biết (gần như tức thì) để không phải chờ.
       const last = await Location.getLastKnownPositionAsync();
@@ -209,9 +213,23 @@ export function CheckinScreen() {
     }
   }
 
-  // Tự lấy GPS khi mở màn để hiện trạng thái + kích hoạt đếm ngược fallback nếu lỗi
+  // Mở màn: đã cho phép vị trí thì lấy GPS luôn (hiện trạng thái + đếm ngược fallback nếu lỗi). Chưa từng hỏi thì
+  // KHÔNG bật hộp xin quyền ngay — chip GPS giải thích lý do, người dùng bấm "Cho phép" (hoặc bấm check-in) mới hỏi.
   useEffect(() => {
-    fetchGps();
+    let cancelled = false;
+    Location.getForegroundPermissionsAsync()
+      .then((p) => {
+        if (cancelled) return;
+        setGpsPerm({ granted: p.status === 'granted', canAskAgain: p.canAskAgain });
+        if (p.status === 'granted') fetchGps();
+        else if (p.status === 'denied') setGpsStatus('error');
+      })
+      .catch(() => {
+        if (!cancelled) fetchGps();
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -375,8 +393,31 @@ export function CheckinScreen() {
     idle: { icon: 'map-marker-outline' as IconName, label: t('checkin.gpsIdle'), cls: 'bg-bg', tone: 'muted' as const },
     loading: { icon: 'map-marker-radius' as IconName, label: t('checkin.gpsLoading'), cls: 'bg-warning-soft', tone: 'warning' as const },
     ready: { icon: 'map-marker-check' as IconName, label: t('checkin.gpsReady'), cls: 'bg-success-soft', tone: 'success' as const },
-    error: { icon: 'map-marker-off' as IconName, label: t('checkin.gpsError'), cls: 'bg-error-soft', tone: 'error' as const },
+    error: {
+      icon: 'map-marker-off' as IconName,
+      label: gpsPerm && !gpsPerm.granted ? t('checkin.gpsDenied') : t('checkin.gpsError'),
+      cls: 'bg-error-soft',
+      tone: 'error' as const,
+    },
   }[gpsStatus];
+  // Hành động trên chip GPS: chưa hỏi → "Cho phép" (hộp xin quyền); đã chặn hẳn → "Mở cài đặt"; lỗi khác → "Thử lại".
+  const gpsAction =
+    gpsStatus === 'idle'
+      ? t('checkin.gpsAllow')
+      : gpsStatus === 'error'
+        ? gpsPerm && !gpsPerm.granted && !gpsPerm.canAskAgain
+          ? t('checkin.gpsOpenSettings')
+          : gpsPerm && !gpsPerm.granted
+            ? t('checkin.gpsAllow')
+            : t('checkin.gpsRetry')
+        : null;
+  function onGpsChipPress() {
+    if (gpsStatus === 'error' && gpsPerm && !gpsPerm.granted && !gpsPerm.canAskAgain) {
+      void Linking.openSettings();
+      return;
+    }
+    if (gpsStatus === 'idle' || gpsStatus === 'error') void fetchGps();
+  }
   // Ngoài khu vực cửa hàng → chip cảnh báo (đè lên trạng thái "ready" xanh).
   const outsideStore = gpsStatus === 'ready' && !!nearestBranch && !nearestBranch.within;
   const gpsChip = outsideStore
@@ -387,7 +428,13 @@ export function CheckinScreen() {
     <Screen scroll refreshing={refreshing} onRefresh={refetch}>
       {/* Header */}
       <View className="flex-row items-center justify-between mb-1">
-        <View>
+        {/* Shell chủ cửa hàng không có tab Điểm danh — mở từ Tiện ích thì cần nút quay lại. */}
+        {usesAdminShell(user) ? (
+          <Pressable onPress={goBackOrHome} accessibilityLabel={t('common.back')} className="w-10 h-10 -ml-2 mr-1 items-center justify-center rounded-full self-start">
+            <Icon name="chevron-left" size={26} tone="default" />
+          </Pressable>
+        ) : null}
+        <View className="flex-1">
           <Text variant="bodySmall" tone="muted">{dayjs().format('dddd, DD/MM/YYYY')}</Text>
           <Text variant="title" className="mt-0.5">{t('common.greeting', { name: user?.firstName ?? '' })}</Text>
           <BranchSwitcher />
@@ -474,7 +521,7 @@ export function CheckinScreen() {
               <View className={cn('flex-row items-center gap-1.5 px-3 py-1 rounded-full mb-1', canCheckIn ? 'bg-white/25' : 'bg-white/15')}>
                 <Icon name={canCheckIn ? 'check-circle' : 'clock-outline'} size={14} color="#FFFFFF" />
                 <Text className="text-white font-bold tracking-wider text-[12px]">
-                  {canCheckIn ? t('checkin.ready') : t('checkin.notYet')}
+                  {canCheckIn ? t('checkin.ready') : shifts.length === 0 ? t('checkin.noShiftPill') : t('checkin.notYet')}
                 </Text>
               </View>
               <Text className="text-white text-[52px] leading-[58px] font-bold" style={{ fontVariant: ['tabular-nums'] }}>
@@ -536,6 +583,15 @@ export function CheckinScreen() {
                     </Pressable>
                   )}
                 </>
+              ) : shifts.length === 0 ? (
+                // Hôm nay không có ca: "Chưa đến giờ" là sai — mời đăng ký ca.
+                <Pressable
+                  onPress={() => router.push('/shift-register' as any)}
+                  className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2"
+                >
+                  <Icon name="calendar-plus" size={18} color="#FFFFFF" />
+                  <Text className="text-white font-bold text-[15px]">{t('checkin.registerShiftBtn')}</Text>
+                </Pressable>
               ) : (
                 // Disabled state — translucent glass so it stays visible on rose
                 <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
@@ -578,10 +634,15 @@ export function CheckinScreen() {
       </BrandGradient>
 
       {/* GPS chip */}
-      <Pressable onPress={gpsStatus === 'idle' || gpsStatus === 'error' ? fetchGps : undefined}>
+      <Pressable onPress={gpsAction ? onGpsChipPress : undefined} accessibilityRole={gpsAction ? 'button' : undefined}>
         <View className={cn('flex-row items-center gap-1.5 px-3.5 py-2 rounded-full', gpsChip.cls)}>
           <Icon name={gpsChip.icon} size={16} tone={gpsChip.tone} />
           <Text variant="bodySmall" tone={gpsChip.tone} className="font-semibold flex-1">{gpsChip.label}</Text>
+          {gpsAction ? (
+            <View className="px-2.5 py-1 rounded-full bg-white/70 dark:bg-white/10">
+              <Text variant="caption" tone={gpsChip.tone} className="font-bold">{gpsAction}</Text>
+            </View>
+          ) : null}
           {gpsStatus === 'ready' && coords ? (
             <Text variant="caption" tone={gpsChip.tone}>
               {nearestBranch
