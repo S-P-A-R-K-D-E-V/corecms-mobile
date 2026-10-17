@@ -22,6 +22,13 @@ const PALETTE = ['#7C3AED', '#2563EB', '#0891B2', '#059669', '#D97706'];
 
 const key = (scheduleId: string, date: string) => `${scheduleId}_${date}`;
 
+/** " · còn 5 giờ" / " · còn 40 phút" khi hạn đăng ký còn dưới 48 giờ (để nhân viên kịp đăng ký). */
+function deadlineLeft(lockAt: string): string {
+  const minutes = dayjs(lockAt).diff(dayjs(), 'minute');
+  if (minutes <= 0 || minutes >= 48 * 60) return '';
+  return minutes < 60 ? ` · còn ${minutes} phút` : ` · còn ${Math.floor(minutes / 60)} giờ`;
+}
+
 function isScheduleOnDate(s: IShiftSchedule, date: dayjs.Dayjs): boolean {
   const d = date.format('YYYY-MM-DD');
   const from = s.fromDate.split('T')[0];
@@ -165,7 +172,7 @@ export function RegisterShiftScreen() {
               <Text variant="bodySmall" tone={locked ? 'warning' : 'primary'} className="flex-1 font-semibold">
                 {locked
                   ? `Tuần này đã chốt đăng ký lúc ${dayjs(lock.lockAt).format('HH:mm DD/MM')}. Cần đổi ca? Dùng Đổi ca hoặc Chợ ca.`
-                  : `Hạn đăng ký: ${dayjs(lock.lockAt).format('HH:mm')}, ${VI_DAYS[dayjs(lock.lockAt).day()]} ${dayjs(lock.lockAt).format('DD/MM')}`}
+                  : `Hạn đăng ký: ${dayjs(lock.lockAt).format('HH:mm')}, ${VI_DAYS[dayjs(lock.lockAt).day()]} ${dayjs(lock.lockAt).format('DD/MM')}${deadlineLeft(lock.lockAt)}`}
               </Text>
             </View>
           ) : null}
