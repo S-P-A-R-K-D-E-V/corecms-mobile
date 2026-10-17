@@ -278,7 +278,7 @@ export function CheckinScreen() {
     }
     const ok = await confirm({
       title: 'Check-in ngoài giờ',
-      message: 'Bạn không có ca phù hợp lúc này. Tiếp tục check-in ngoài giờ (ghi nhận làm thêm)?',
+      message: t('checkin.overtimeConfirm'),
       confirmText: 'Check-in',
     });
     if (ok) setFaceCheckinMode('overtime');
@@ -530,7 +530,9 @@ export function CheckinScreen() {
               <Text className="text-white/85 text-[13px] text-center leading-[18px]">
                 {canCheckIn
                   ? `Ca ${activeCheckinShift?.shiftName} · ${activeCheckinShift?.startTime} – ${activeCheckinShift?.endTime}`
-                  : disabledReason ?? 'Hệ thống tự nhận diện ca phù hợp'}
+                  : shifts.length === 0
+                    ? t('checkin.noShiftHint')
+                    : disabledReason ?? 'Hệ thống tự nhận diện ca phù hợp'}
               </Text>
 
               {canCheckIn ? (
@@ -584,14 +586,38 @@ export function CheckinScreen() {
                   )}
                 </>
               ) : shifts.length === 0 ? (
-                // Hôm nay không có ca: "Chưa đến giờ" là sai — mời đăng ký ca.
-                <Pressable
-                  onPress={() => router.push('/shift-register' as any)}
-                  className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2"
-                >
-                  <Icon name="calendar-plus" size={18} color="#FFFFFF" />
-                  <Text className="text-white font-bold text-[15px]">{t('checkin.registerShiftBtn')}</Text>
-                </Pressable>
+                // Hôm nay chưa được xếp ca: đang ở cửa hàng thì check-in ngoài giờ (chỉ ghi giờ để đối chiếu cuối tháng,
+                // không tính lương); hoặc đăng ký ca / nhận ca trên chợ ca cho những ngày tới.
+                <View className="mt-4 w-full gap-2">
+                  <Pressable
+                    onPress={handleOvertimePress}
+                    disabled={submitting}
+                    className="w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
+                    style={softShadow}
+                  >
+                    <Icon name={hasFaceEmbedding ? 'clock-plus-outline' : 'face-recognition'} size={20} color={brand.primary} />
+                    <Text className="text-primary font-bold text-[16px]">{t('checkin.overtimeBtn')}</Text>
+                  </Pressable>
+                  <Text className="text-white/80 text-[12px] leading-[16px] text-center">
+                    {hasFaceEmbedding ? t('checkin.overtimeNote') : t('checkin.overtimeNeedsFace')}
+                  </Text>
+                  <View className="flex-row gap-2 mt-1">
+                    <Pressable
+                      onPress={() => router.push('/shift-register' as any)}
+                      className="flex-1 h-[46px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-1.5 px-2"
+                    >
+                      <Icon name="calendar-plus" size={18} color="#FFFFFF" />
+                      <Text className="text-white font-bold text-[14px]" numberOfLines={1}>{t('checkin.registerShiftBtn')}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => router.push('/shift-pool' as any)}
+                      className="flex-1 h-[46px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-1.5 px-2"
+                    >
+                      <Icon name="hand-heart" size={18} color="#FFFFFF" />
+                      <Text className="text-white font-bold text-[14px]" numberOfLines={1}>{t('checkin.shiftPoolBtn')}</Text>
+                    </Pressable>
+                  </View>
+                </View>
               ) : (
                 // Disabled state — translucent glass so it stays visible on rose
                 <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
@@ -601,7 +627,7 @@ export function CheckinScreen() {
               )}
 
               {/* Check-in ngoài giờ — khi không có ca phù hợp lúc này */}
-              {!canCheckIn ? (
+              {!canCheckIn && shifts.length > 0 ? (
                 <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15">
                   <Icon name="clock-plus-outline" size={16} color="#FFFFFF" />
                   <Text className="text-white font-semibold text-[13px]">
