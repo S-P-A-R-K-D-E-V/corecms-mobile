@@ -607,14 +607,14 @@ export function CheckinScreen() {
                       className="flex-1 h-[46px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-1.5 px-2"
                     >
                       <Icon name="calendar-plus" size={18} color="#FFFFFF" />
-                      <Text className="text-white font-bold text-[14px]" numberOfLines={1}>{t('checkin.registerShiftBtn')}</Text>
+                      <Text className="text-white font-bold text-[14px] flex-shrink" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t('checkin.registerShiftBtn')}</Text>
                     </Pressable>
                     <Pressable
                       onPress={() => router.push('/shift-pool' as any)}
                       className="flex-1 h-[46px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-1.5 px-2"
                     >
                       <Icon name="hand-heart" size={18} color="#FFFFFF" />
-                      <Text className="text-white font-bold text-[14px]" numberOfLines={1}>{t('checkin.shiftPoolBtn')}</Text>
+                      <Text className="text-white font-bold text-[14px] flex-shrink" numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{t('checkin.shiftPoolBtn')}</Text>
                     </Pressable>
                   </View>
                 </View>
