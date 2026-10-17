@@ -36,9 +36,23 @@ const variantSize: Record<Variant, [number, number]> = {
   micro: [10, 13], nano: [9, 12],
 };
 
-// Chip/nhãn chữ siêu nhỏ nằm trong khung gần như cố định — giới hạn phóng chữ iOS (Dynamic Type)
-// để không tràn/xén; chữ thường vẫn phóng theo máy như cũ.
-const TINY_MAX_FONT_MULTIPLIER = 1.3;
+/**
+ * Mức phóng chữ TỐI ĐA (cỡ chữ của máy × cỡ chữ trong app) theo cỡ gốc: chữ càng to càng phóng ít. Không giới hạn thì
+ * máy để cỡ chữ lớn là header, chip, lưới tiện ích, thanh tab vỡ hết (chữ ×2 trong khung cố định). Vẫn phóng được — chữ
+ * thường tới ×1,4 — nên người cần chữ to vẫn đọc dễ hơn.
+ */
+export function maxTextScale(fontSize: number): number {
+  if (fontSize >= 28) return 1.15;
+  if (fontSize >= 20) return 1.25;
+  if (fontSize >= 14) return 1.4;
+  if (fontSize >= 11) return 1.3;
+  return 1.15;
+}
+
+/** maxFontSizeMultiplier cho phần phóng của MÁY, sau khi đã tính cỡ chữ trong app (nhân chồng) — tổng ≤ maxTextScale. */
+export function systemFontCap(fontSize: number, appScale: number): number {
+  return Math.max(1, Math.round((maxTextScale(fontSize) / appScale) * 100) / 100);
+}
 
 // Cỡ chữ / dòng ghi thẳng trong className (vd "text-[9px]", "leading-[13px]").
 const PX_SIZE = /(?:^|\s)text-\[(\d+(?:\.\d+)?)px\]/;
@@ -94,15 +108,14 @@ function useTypoStyle(variant: Variant, className?: string) {
   const fam = resolveFontFamily(family);
   const [sz, lh] = baseTypoSize(variant, className);
   const sized = scale !== 1 ? { fontSize: Math.round(sz * scale), ...(lh != null ? { lineHeight: Math.round(lh * scale) } : null) } : null;
-  return [fam ? { fontFamily: fam } : null, sized] as const;
+  return [fam ? { fontFamily: fam } : null, sized, systemFontCap(sz, scale)] as const;
 }
 
 export function Text({ className, variant = 'body', tone = 'default', bold, style, ...props }: TextProps) {
   const typo = useTypoStyle(variant, className);
-  const tiny = variant === 'micro' || variant === 'nano';
   return (
     <RNText
-      maxFontSizeMultiplier={tiny ? TINY_MAX_FONT_MULTIPLIER : undefined}
+      maxFontSizeMultiplier={typo[2]}
       className={cn(variantClassFor(variant, className), toneClass[tone], bold && 'font-bold', className)}
       style={[typo[0], typo[1], style]}
       {...props}
@@ -114,6 +127,7 @@ export function Heading({ className, tone = 'default', style, ...props }: Omit<T
   const typo = useTypoStyle('largeTitle', className);
   return (
     <RNText
+      maxFontSizeMultiplier={typo[2]}
       className={cn(variantClassFor('largeTitle', className), toneClass[tone], className)}
       style={[typo[0], typo[1], style]}
       {...props}

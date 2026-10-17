@@ -61,6 +61,8 @@ const COUNTER_TABS: TabDef[] = [
 ];
 
 const PILL_H = 72;
+/** Nhãn thanh tab nằm trong ô cố định — máy để cỡ chữ lớn thì chỉ phóng tới ×1,15 (còn chật thì tự co). */
+const TAB_LABEL_MAX_SCALE = 1.15;
 // Cap + center the pill on tablet so it doesn't stretch full-bleed across a
 // landscape iPad.
 const TABLET_PILL_MAX_WIDTH = 560;
@@ -220,7 +222,13 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                       />
                     )}
                   </MotiView>
-                  <Text style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}>
+                  <Text
+                    numberOfLines={1}
+                    maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}
+                  >
                     {t(tab.labelKey)}
                   </Text>
                 </Pressable>
@@ -250,6 +258,9 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                 </MotiView>
                 <Text
                   numberOfLines={1}
+                  maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
                   style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: isFocused ? '700' : '600', letterSpacing: 0.1 }}
                 >
                   {t(tab.labelKey)}

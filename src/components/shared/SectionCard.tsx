@@ -38,17 +38,18 @@ export function SectionCard({
   const open = collapsible ? expanded : true;
 
   const Header = (
-    <View className="flex-row items-center justify-between px-4 py-3.5">
-      <View className="flex-row items-center gap-2">
+    <View className="flex-row items-center justify-between gap-2 px-4 py-3.5">
+      {/* Tiêu đề co lại (…) khi chật — chữ to theo máy không đẩy nút bên phải ra khỏi thẻ. */}
+      <View className="flex-row items-center gap-2 flex-1 min-w-0">
         {icon ? <Icon name={icon} size={18} tone="primary" /> : null}
-        <Text variant="subtitle">{title}</Text>
+        <Text variant="subtitle" numberOfLines={1} className="flex-shrink">{title}</Text>
         {typeof count === 'number' ? <CountBadge count={count} size="md" tone="primary" /> : null}
       </View>
       {collapsible ? (
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} tone="muted" />
-      ) : (
-        right ?? null
-      )}
+      ) : right ? (
+        <View className="flex-shrink-0">{right}</View>
+      ) : null}
     </View>
   );
 

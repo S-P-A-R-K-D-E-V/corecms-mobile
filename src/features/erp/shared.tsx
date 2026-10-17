@@ -129,6 +129,7 @@ export function SearchBar({
       <View className="flex-1 flex-row items-center h-11 px-3 gap-2 rounded-2xl bg-surface dark:bg-surface-dark border border-line/70 dark:border-line-dark">
         <Icon name="magnify" size={20} tone="muted" />
         <TextInput
+          maxFontSizeMultiplier={1.3}
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}

@@ -1,5 +1,5 @@
 import { formatBadgeCount, countBadgeHeight } from '../count-badge';
-import { baseTypoSize, variantClassFor } from '../text';
+import { baseTypoSize, maxTextScale, systemFontCap, variantClassFor } from '../text';
 
 describe('huy hiệu số đếm', () => {
   it('quá ngưỡng thì hiện "99+"', () => {
@@ -33,5 +33,21 @@ describe('class của variant khi className đã ghi cỡ chữ', () => {
     expect(variantClassFor('title', 'text-[24px]')).toBe('font-bold tracking-[-0.4px]');
     expect(variantClassFor('caption', 'leading-[13px]')).toBe('text-[12px]');
     expect(variantClassFor('body')).toBe('text-[16px] leading-[22px]');
+  });
+});
+
+describe('giới hạn phóng chữ theo cỡ chữ của máy', () => {
+  it('chữ càng to càng phóng ít', () => {
+    expect(maxTextScale(34)).toBe(1.15);
+    expect(maxTextScale(22)).toBe(1.25);
+    expect(maxTextScale(16)).toBe(1.4);
+    expect(maxTextScale(12)).toBe(1.3);
+    expect(maxTextScale(10)).toBe(1.15);
+  });
+
+  it('tính cả cỡ chữ trong app: tổng không vượt giới hạn, nhưng máy không bao giờ bị ép nhỏ hơn 1', () => {
+    expect(systemFontCap(16, 1)).toBe(1.4);
+    expect(systemFontCap(16, 1.25)).toBe(1.12);
+    expect(systemFontCap(34, 1.25)).toBe(1);
   });
 });

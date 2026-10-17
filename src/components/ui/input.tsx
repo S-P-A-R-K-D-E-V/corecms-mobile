@@ -62,6 +62,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
           <Icon name={icon} size={18} tone={focused ? 'primary' : 'faint'} color={focused && accentColor ? accentColor : undefined} />
         ) : null}
         <TextInput
+          maxFontSizeMultiplier={1.3}
           ref={ref}
           // Trợ năng: nhãn hiện phía trên là Text riêng — gắn vào ô để VoiceOver / TalkBack đọc "Email, ô nhập"
           // thay vì chỉ "ô nhập" (ô không có placeholder). Màn gọi truyền accessibilityLabel riêng thì dùng cái đó.

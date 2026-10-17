@@ -67,6 +67,7 @@ export function TimeField({
       >
         <Icon name="clock-outline" size={18} tone={focused ? 'primary' : 'faint'} />
         <TextInput
+          maxFontSizeMultiplier={1.3}
           value={value}
           onChangeText={(raw) => onChangeTime(maskTime(raw))}
           placeholder={placeholder}

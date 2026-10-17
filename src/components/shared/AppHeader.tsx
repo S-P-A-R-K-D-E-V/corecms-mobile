@@ -35,7 +35,7 @@ export function AppHeader({ title, subtitle, back, onBack, actions }: AppHeaderP
           </Pressable>
         ) : null}
         <View className="flex-1">
-          {subtitle ? <Text variant="bodySmall" tone="muted">{subtitle}</Text> : null}
+          {subtitle ? <Text variant="bodySmall" tone="muted" numberOfLines={1}>{subtitle}</Text> : null}
           <Text variant="title" numberOfLines={1}>{title}</Text>
         </View>
       </View>
