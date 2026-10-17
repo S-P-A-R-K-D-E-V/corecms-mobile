@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { PixelRatio, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -32,7 +32,7 @@ export const HERO_OVERLAP = 52;
 const GLASS = 'rgba(255,255,255,0.16)';
 const WHITE_70 = 'rgba(255,255,255,0.72)';
 
-function HeaderButton({ icon, badge, label, onPress }: { icon: IconName; badge?: number; label: string; onPress: () => void }) {
+function HeaderButton({ icon, badge, label, onPress, size = 40 }: { icon: IconName; badge?: number; label: string; onPress: () => void; size?: number }) {
   return (
     <Pressable
       onPress={() => {
@@ -41,9 +41,9 @@ function HeaderButton({ icon, badge, label, onPress }: { icon: IconName; badge?:
       }}
       accessibilityLabel={label}
       hitSlop={4}
-      style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GLASS, alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: GLASS, alignItems: 'center', justifyContent: 'center' }}
     >
-      <Icon name={icon} size={21} color="#FFFFFF" />
+      <Icon name={icon} size={size > 36 ? 21 : 19} color="#FFFFFF" />
       <CountBadge count={badge} style={{ position: 'absolute', top: 4, right: 3 }} />
     </Pressable>
   );
@@ -51,6 +51,11 @@ function HeaderButton({ icon, badge, label, onPress }: { icon: IconName; badge?:
 
 export function HomeTopBar() {
   const insets = useSafeAreaInsets();
+  // Màn hẹp (cỡ hiển thị lớn) hoặc chữ to theo máy: nút nhỏ lại, bỏ dòng tên cửa hàng (chip chi nhánh đã nói rõ) — tên
+  // người dùng còn chỗ thay vì bị cắt thành "Trị Quả…".
+  const { width } = useWindowDimensions();
+  const compact = width < 360 || PixelRatio.getFontScale() > 1.3;
+  const btn = compact ? 34 : 40;
   const [focused, setFocused] = useState(true);
   useFocusEffect(
     useCallback(() => {
@@ -74,22 +79,24 @@ export function HomeTopBar() {
       <View className="flex-row items-center gap-3">
         <Pressable onPress={() => router.push('/(tabs)/profile' as any)} accessibilityLabel={t('home.profile')}>
           <View style={{ padding: 2, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.35)' }}>
-            <Avatar name={fullName} uri={user?.photoURL} size={40} />
+            <Avatar name={fullName} uri={user?.photoURL} size={compact ? 34 : 40} />
           </View>
         </Pressable>
         <View className="flex-1">
-          <Text variant="caption" style={{ color: WHITE_70 }} numberOfLines={1}>
-            {storeName ?? t('home.hello')}
-          </Text>
+          {compact ? null : (
+            <Text variant="caption" style={{ color: WHITE_70 }} numberOfLines={1}>
+              {storeName ?? t('home.hello')}
+            </Text>
+          )}
           <Text variant="headline" tone="inverse" numberOfLines={1}>{fullName || user?.email}</Text>
           <BranchSwitcher inverse />
         </View>
-        <View className="flex-row items-center gap-2">
-          <HeaderButton icon="chat-processing-outline" badge={chatUnread} label={t('home.chat')} onPress={() => router.push('/(tabs)/chat' as any)} />
+        <View className={compact ? 'flex-row items-center gap-1.5' : 'flex-row items-center gap-2'}>
+          <HeaderButton size={btn} icon="chat-processing-outline" badge={chatUnread} label={t('home.chat')} onPress={() => router.push('/(tabs)/chat' as any)} />
           {showAssistant ? (
-            <HeaderButton icon="robot-happy-outline" label={t('home.assistant')} onPress={() => router.push('/(tabs)/assistant' as any)} />
+            <HeaderButton size={btn} icon="robot-happy-outline" label={t('home.assistant')} onPress={() => router.push('/(tabs)/assistant' as any)} />
           ) : null}
-          <HeaderButton icon="bell-outline" badge={notifQ.data} label={t('home.notifications')} onPress={() => router.push('/notifications' as any)} />
+          <HeaderButton size={btn} icon="bell-outline" badge={notifQ.data} label={t('home.notifications')} onPress={() => router.push('/notifications' as any)} />
         </View>
       </View>
     </BrandGradient>

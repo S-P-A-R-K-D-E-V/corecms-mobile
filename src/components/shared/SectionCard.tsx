@@ -37,19 +37,25 @@ export function SectionCard({
   const [expanded, setExpanded] = useState(defaultExpanded);
   const open = collapsible ? expanded : true;
 
-  const Header = (
+  const titleRow = (
+    <>
+      {icon ? <Icon name={icon} size={18} tone="primary" /> : null}
+      <Text variant="subtitle" numberOfLines={1} className="flex-shrink">{title}</Text>
+      {typeof count === 'number' ? <CountBadge count={count} size="md" tone="primary" /> : null}
+    </>
+  );
+
+  const Header = right && !collapsible ? (
+    // Tiêu đề được ưu tiên; chật (chữ to theo máy, màn hẹp) thì cụm nút bên phải xuống dòng (canh phải) — không cắt
+    // tiêu đề thành "Dùn…".
+    <View className="flex-row flex-wrap items-center gap-x-2 gap-y-1.5 px-4 py-3.5">
+      <View className="flex-row items-center gap-2 flex-grow" style={{ maxWidth: '100%' }}>{titleRow}</View>
+      <View className="ml-auto">{right}</View>
+    </View>
+  ) : (
     <View className="flex-row items-center justify-between gap-2 px-4 py-3.5">
-      {/* Tiêu đề co lại (…) khi chật — chữ to theo máy không đẩy nút bên phải ra khỏi thẻ. */}
-      <View className="flex-row items-center gap-2 flex-1 min-w-0">
-        {icon ? <Icon name={icon} size={18} tone="primary" /> : null}
-        <Text variant="subtitle" numberOfLines={1} className="flex-shrink">{title}</Text>
-        {typeof count === 'number' ? <CountBadge count={count} size="md" tone="primary" /> : null}
-      </View>
-      {collapsible ? (
-        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} tone="muted" />
-      ) : right ? (
-        <View className="flex-shrink-0">{right}</View>
-      ) : null}
+      <View className="flex-row items-center gap-2 flex-1 min-w-0">{titleRow}</View>
+      {collapsible ? <Icon name={open ? 'chevron-up' : 'chevron-down'} size={20} tone="muted" /> : null}
     </View>
   );
 
