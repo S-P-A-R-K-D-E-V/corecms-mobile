@@ -377,8 +377,16 @@ function RefreshIndicator({
           <SparkMascot mood={moodOf(phase, reduce)} size={MASCOT_W} />
         </Animated.View>
       </View>
-      <Animated.View style={captionStyle}>
-        <Text variant="caption" tone="muted" numberOfLines={1} style={{ fontSize: 11, lineHeight: 14, marginTop: 2 }}>
+      {/* Nền mờ sau dòng chữ: mây trôi ngang qua không làm khó đọc. */}
+      <Animated.View
+        style={[
+          caption
+            ? { marginTop: 2, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colorScheme === 'dark' ? 'rgba(22,28,36,0.6)' : 'rgba(255,255,255,0.65)' }
+            : null,
+          captionStyle,
+        ]}
+      >
+        <Text variant="caption" tone="muted" numberOfLines={1} style={{ fontSize: 11, lineHeight: 15 }}>
           {caption}
         </Text>
       </Animated.View>
