@@ -369,10 +369,13 @@ export function RegisterShiftScreen() {
       {!loading && schedules.length > 0 ? (
         <View className="p-3 pb-4 border-t border-line dark:border-line-dark bg-surface dark:bg-surface-dark gap-2">
           {changes.total > 0 ? (
-            <View className="flex-row gap-3 justify-center">
+            // Một dòng chữ chiếm đủ bề ngang (căn giữa): chữ tự co rộng trong hàng ngang bị Android đo hụt khi cỡ chữ máy
+            // ≠ 1 → mất chữ cuối ("+2 đăng").
+            <Text variant="bodySmall" className="font-semibold text-center w-full">
               {changes.toReg > 0 ? <Text variant="bodySmall" tone="success" className="font-semibold">+{changes.toReg} đăng ký</Text> : null}
+              {changes.toReg > 0 && changes.toUnreg > 0 ? '   ' : null}
               {changes.toUnreg > 0 ? <Text variant="bodySmall" tone="error" className="font-semibold">-{changes.toUnreg} huỷ</Text> : null}
-            </View>
+            </Text>
           ) : null}
           <Button icon="calendar-check" loading={submitting} disabled={changes.total === 0} onPress={handleSubmit}>
             {changes.total > 0 ? 'Lưu thay đổi' : locked ? 'Đã chốt đăng ký' : 'Chạm vào ca để đăng ký'}
