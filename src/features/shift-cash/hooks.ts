@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { getShiftCashSummary, getKiotVietDailySummary } from 'src/api/shiftCash';
+import { getShiftCashSummary, getShiftCashRevenue } from 'src/api/shiftCash';
 import type { IShiftCashGeoStamp } from 'src/types/corecms-api';
 
 import { getShiftCashDenial } from './access';
@@ -20,24 +20,24 @@ export function useShiftCash(date: string, geo: IShiftCashGeoStamp | null) {
     retry: retryUnlessDenied,
   });
 
-  // KiotViet có thể chậm/hỏng → tách query riêng, không chặn phần tổng hợp.
-  const kiotQ = useQuery({
-    queryKey: ['shift-cash', 'kiot', date],
-    queryFn: () => getKiotVietDailySummary(date, geo),
+  // Doanh thu (dữ liệu hệ thống) → query riêng, không chặn phần tổng hợp. BE tự che số ({ masked: true }) với
+  // người không có quyền xem doanh thu.
+  const revenueQ = useQuery({
+    queryKey: ['shift-cash', 'revenue', date],
+    queryFn: () => getShiftCashRevenue(date, geo),
     retry: retryUnlessDenied,
   });
 
   // Lỗi 403 ShiftCash.* (đã tải xong, không phải lỗi cũ đang tải lại) → màn đưa về cổng.
   const denied =
-    [summaryQ, kiotQ].find((q) => q.isError && !q.isFetching && getShiftCashDenial(q.error))?.error ?? null;
+    [summaryQ, revenueQ].find((q) => q.isError && !q.isFetching && getShiftCashDenial(q.error))?.error ?? null;
 
   return {
     summary: summaryQ.data ?? null,
-    kiot: kiotQ.data ?? null,
+    revenue: revenueQ.data ?? null,
     loading: summaryQ.isLoading,
-    kiotLoading: kiotQ.isLoading,
-    kiotError: kiotQ.isError,
-    refreshing: summaryQ.isFetching || kiotQ.isFetching,
+    revenueLoading: revenueQ.isLoading,
+    refreshing: summaryQ.isFetching || revenueQ.isFetching,
     error: summaryQ.isError,
     denied,
     // Làm mới cả ca hôm nay của cổng (khoá 'shift-cash', 'my-shift') — hết ca/đổi ca thì cổng chặn lại.

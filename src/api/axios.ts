@@ -363,6 +363,9 @@ export const endpoints = {
     denominationsBatch: '/shift-cash/denominations/batch',
     finalize: '/shift-cash/finalize',
     open: '/shift-cash/open',
+    revenue: '/shift-cash/revenue',
+    reconciliation: '/shift-cash/reconciliation',
+    investigation: '/shift-cash/investigation',
   },
   kiotViet: {
     dailySummary: '/kiotviet/daily-summary',

@@ -9,7 +9,7 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 import { ADMIN_ROLES, hasAnyRole } from 'src/auth/roles';
-import { canOverseeShiftCash, canManageShiftCashOversight } from 'src/auth/permissions';
+import { canOverseeShiftCash, canManageShiftCashOversight, canViewShiftCashRevenue } from 'src/auth/permissions';
 import { extractApiError } from 'src/services/error';
 import {
   openCounter,
@@ -23,8 +23,9 @@ import {
 import { useShiftCash } from './hooks';
 import { useShiftCashAccess } from './AccessGate';
 import { TransactionSheet, type TxDraft } from './TransactionSheet';
+import { ReconcileSheet } from './ReconcileSheet';
 import { DENOMINATIONS, formatCurrency, computeTotalCash, vnToday } from './utils';
-import type { IShiftCashTransaction, IShiftCashFinalization } from 'src/types/corecms-api';
+import type { IShiftCashTransaction, IShiftCashFinalization, IShiftCashRevenue } from 'src/types/corecms-api';
 import { useResponsive } from 'src/hooks/use-responsive';
 
 // ── Lịch sử chốt ────────────────────────────────────────────────────────────
@@ -129,6 +130,62 @@ function SummaryRow({
   );
 }
 
+// ── Doanh thu (dữ liệu hệ thống) ────────────────────────────────────────────────
+// Không có quyền xem doanh thu → BE không gửi con số nào ({ masked: true }) → "****". Cuối ngày quản lý xem chủ yếu
+// dòng chuyển khoản: số trên hoá đơn so với tiền ngân hàng thực nhận (khi cửa hàng có theo dõi ngân hàng).
+const MASKED = '****';
+
+function RevenueBlock({ revenue, loading }: { revenue: IShiftCashRevenue | null; loading: boolean }) {
+  const data = revenue && revenue.masked !== true ? revenue : null;
+  const sales = data?.revenue.sales;
+  const bank = data?.bank;
+  const bankIssue = !!bank?.hasBankFeed && (bank.missingCredits.length > 0 || bank.unmatchedCredits.length > 0);
+
+  return (
+    <View className="gap-1.5 rounded-2xl px-3.5 py-3 border border-dashed border-line dark:border-line-dark">
+      <View className="flex-row items-center justify-between gap-2">
+        <View className="flex-row items-center gap-1.5 flex-1">
+          <Icon name="chart-line" size={16} tone="muted" />
+          <Text variant="subtitle">Doanh thu</Text>
+          {sales ? <Text variant="caption" tone="faint">{sales.invoiceCount} hoá đơn</Text> : null}
+        </View>
+        <Text variant="subtitle" tone={data ? 'default' : 'faint'} style={{ fontVariant: ['tabular-nums'] }}>
+          {data ? `${formatCurrency(sales!.netRevenue)}đ` : revenue?.masked ? MASKED : loading ? '…' : '—'}
+        </Text>
+      </View>
+      {sales && bank ? (
+        <>
+          <SummaryRow label="Tiền mặt" value={`${formatCurrency(sales.cash)}đ`} indent />
+          <SummaryRow label="Chuyển khoản" value={`${formatCurrency(sales.transfer)}đ`} indent />
+          {bank.hasBankFeed && (sales.transfer > 0 || bank.received > 0) ? (
+            <SummaryRow
+              label="  Ngân hàng nhận"
+              value={`${formatCurrency(bank.received)}đ${Math.abs(bank.difference) >= 1 ? ` (${bank.difference > 0 ? '+' : '−'}${formatCurrency(Math.abs(bank.difference))})` : ''}`}
+              tone={bankIssue ? 'error' : 'success'}
+              indent
+            />
+          ) : null}
+          <SummaryRow label="Quẹt thẻ" value={`${formatCurrency(sales.card)}đ`} indent />
+          {sales.eWallet !== 0 ? <SummaryRow label="Ví điện tử" value={`${formatCurrency(sales.eWallet)}đ`} indent /> : null}
+          {sales.other !== 0 ? <SummaryRow label="Khác (voucher, điểm…)" value={`${formatCurrency(sales.other)}đ`} indent /> : null}
+          {sales.returns !== 0 ? <SummaryRow label="Trả hàng" value={`-${formatCurrency(sales.returns)}đ`} tone="error" indent /> : null}
+          {bankIssue ? (
+            <Text variant="caption" tone="warning">
+              {[
+                bank.missingCredits.length > 0 ? `${bank.missingCredits.length} hoá đơn chuyển khoản chưa thấy tiền về` : null,
+                bank.unmatchedCredits.length > 0 ? `${bank.unmatchedCredits.length} khoản tiền về chưa khớp hoá đơn` : null,
+              ].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
+          {!bank.hasBankFeed && sales.transfer > 0 ? (
+            <Text variant="caption" tone="faint">Chưa theo dõi tiền vào ngân hàng nên chưa đối chiếu được chuyển khoản.</Text>
+          ) : null}
+        </>
+      ) : null}
+    </View>
+  );
+}
+
 export function ShiftCashScreen() {
   const { isTablet, isLandscape, width } = useResponsive();
   const wide = (isTablet && isLandscape) || width >= 900;
@@ -136,7 +193,11 @@ export function ShiftCashScreen() {
   // Cùng luật với BE RequireShiftCashAccess: quyền sửa giám sát mới ghi ngày cũ / khoản của người khác. Người chỉ có
   // quyền xem vào thẳng (không qua kiểm ca) nên chỉ xem — ghi sẽ bị BE chặn vì không có ca.
   const canManageOversight = canManageShiftCashOversight(user);
-  const viewOnly = canOverseeShiftCash(user) && !canManageOversight;
+  const canOversee = canOverseeShiftCash(user);
+  const viewOnly = canOversee && !canManageOversight;
+  // Xem doanh thu + kiểm tra chênh lệch (bấm dòng "Chênh lệch") — mặc định Chủ + Quản lý.
+  const canViewRevenue = canViewShiftCashRevenue(user);
+  const [reconcileOpen, setReconcileOpen] = useState(false);
 
   // Toạ độ đã xác minh ở cổng — gửi kèm MỌI lệnh (header X-Geo-* cho BE gác cổng + body để lưu audit).
   // todayOnly: không phải người giám sát thì chỉ ngày hôm nay (BE cũng chặn ngày khác bằng 403).
@@ -150,7 +211,7 @@ export function ShiftCashScreen() {
   const canEdit = canManageOversight || (isToday && !viewOnly);
   const isOwner = hasAnyRole(user, ADMIN_ROLES);
 
-  const { summary, kiot, loading, kiotLoading, kiotError, refreshing, refetch, denied } = useShiftCash(date, geo);
+  const { summary, revenue, loading, revenueLoading, refreshing, refetch, denied } = useShiftCash(date, geo);
 
   // BE từ chối (hết ca / ra ngoài cửa hàng / ngày cũ) → về cổng hiện lý do.
   useEffect(() => {
@@ -176,7 +237,6 @@ export function ShiftCashScreen() {
   const totalCash = useMemo(() => computeTotalCash(denomQ), [denomQ]);
   const expectedClosing = summary?.expectedClosing ?? 0;
   const difference = totalCash - expectedClosing;
-  const kiotNet = (kiot?.totalRevenue ?? 0) - (kiot?.totalReturns ?? 0);
 
   // ── Transaction sheet ─────────────────────────────────────────────────────
   const [tx, setTx] = useState<{ visible: boolean; mode: 'add' | 'edit'; type: 'Thu' | 'Chi'; editing: IShiftCashTransaction | null }>(
@@ -274,17 +334,7 @@ export function ShiftCashScreen() {
       <SectionCard title="Tổng hợp" icon="calculator-variant-outline">
         <View className="gap-2">
           <SummaryRow label="Tồn đầu ca" value={`${formatCurrency(summary?.openingBalance ?? 0)}đ`} />
-          <SummaryRow label="+ KiotViet (thực thu)" value={kiotLoading ? '…' : `${formatCurrency(kiotNet)}đ`} />
-          {kiot ? (
-            <>
-              <SummaryRow label="Tiền mặt" value={`${formatCurrency(kiot.totalCash)}đ`} indent />
-              <SummaryRow label="Chuyển khoản" value={`${formatCurrency(kiot.totalBank)}đ`} indent />
-              <SummaryRow label="Quẹt thẻ" value={`${formatCurrency(kiot.totalCard)}đ`} indent />
-              {kiot.totalReturns > 0 ? (
-                <SummaryRow label="Trả hàng" value={`-${formatCurrency(kiot.totalReturns)}đ`} tone="error" indent />
-              ) : null}
-            </>
-          ) : null}
+          <SummaryRow label="+ Tiền mặt bán hàng" value={`${formatCurrency(summary?.totalCashFromKiot ?? 0)}đ`} />
           <SummaryRow label="+ Thu quầy" value={`+${formatCurrency(summary?.manualIncome ?? 0)}đ`} tone="success" />
           <SummaryRow label="- Chi quầy" value={`-${formatCurrency(summary?.manualExpense ?? 0)}đ`} tone="error" />
 
@@ -300,20 +350,35 @@ export function ShiftCashScreen() {
             <Text variant="subtitle" style={{ fontVariant: ['tabular-nums'] }}>{formatCurrency(totalCash)}đ</Text>
           </View>
 
-          {/* Difference */}
-          <View className={cn('mt-1 rounded-2xl px-4 py-3 flex-row items-center justify-between', difference >= 0 ? 'bg-success-soft' : 'bg-error-soft')}>
-            <View className="flex-row items-center gap-1.5">
-              <Icon name={difference === 0 ? 'check-circle' : 'scale-balance'} size={18} tone={difference >= 0 ? 'success' : 'error'} />
-              <Text variant="subtitle" tone={difference >= 0 ? 'success' : 'error'}>Chênh lệch</Text>
+          {/* Difference — người được xem doanh thu bấm để kiểm tra chênh lệch (két, chuyển khoản, KiotViet). */}
+          <Pressable
+            disabled={!canViewRevenue}
+            onPress={() => setReconcileOpen(true)}
+            accessibilityRole={canViewRevenue ? 'button' : undefined}
+            accessibilityHint={canViewRevenue ? 'Mở kiểm tra chênh lệch' : undefined}
+            className={cn('mt-1 rounded-2xl px-4 py-3', difference >= 0 ? 'bg-success-soft' : 'bg-error-soft')}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center gap-1.5">
+                <Icon name={difference === 0 ? 'check-circle' : 'scale-balance'} size={18} tone={difference >= 0 ? 'success' : 'error'} />
+                <Text variant="subtitle" tone={difference >= 0 ? 'success' : 'error'}>Chênh lệch</Text>
+              </View>
+              <CountUp
+                variant="title2"
+                tone={difference >= 0 ? 'success' : 'error'}
+                style={{ fontVariant: ['tabular-nums'] }}
+                value={difference}
+                format={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(Math.round(n))}đ`}
+              />
             </View>
-            <CountUp
-              variant="title2"
-              tone={difference >= 0 ? 'success' : 'error'}
-              style={{ fontVariant: ['tabular-nums'] }}
-              value={difference}
-              format={(n) => `${n >= 0 ? '+' : ''}${formatCurrency(Math.round(n))}đ`}
-            />
-          </View>
+            {canViewRevenue ? (
+              <View className="flex-row items-center justify-end gap-0.5 mt-1">
+                <Text variant="caption" tone={difference >= 0 ? 'success' : 'error'} className="font-semibold">Kiểm tra chênh lệch</Text>
+                <Icon name="chevron-right" size={16} tone={difference >= 0 ? 'success' : 'error'} />
+              </View>
+            ) : null}
+          </Pressable>
+          <RevenueBlock revenue={revenue} loading={revenueLoading} />
           {summary?.finalizations && summary.finalizations.length > 0 ? (
             <FinalizationLog items={summary.finalizations} />
           ) : null}
@@ -442,26 +507,6 @@ export function ShiftCashScreen() {
       </SectionCard>
   );
 
-  // Bán hàng KiotViet
-  const kiotCard = (
-      <SectionCard title="Bán hàng KiotViet" icon="shopping-outline" collapsible defaultExpanded={false}>
-        {kiotLoading ? (
-          <Loading />
-        ) : kiotError || !kiot ? (
-          <EmptyState icon="cloud-off-outline" title="Không tải được dữ liệu KiotViet" />
-        ) : (
-          <View className="flex-row flex-wrap gap-2">
-            <Badge tone="neutral" icon="receipt">{kiot.totalInvoices} đơn</Badge>
-            <Badge tone="primary">Tổng {formatCurrency(kiot.totalRevenue)}đ</Badge>
-            <Badge tone="success">TM {formatCurrency(kiot.totalCash)}đ</Badge>
-            <Badge tone="info">CK {formatCurrency(kiot.totalBank)}đ</Badge>
-            <Badge tone="warning">Thẻ {formatCurrency(kiot.totalCard)}đ</Badge>
-            {kiot.totalReturns > 0 ? <Badge tone="error">Trả -{formatCurrency(kiot.totalReturns)}đ</Badge> : null}
-          </View>
-        )}
-      </SectionCard>
-  );
-
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <Screen scroll tabBarInset={false} refreshing={refreshing} onRefresh={refetch}>
@@ -513,7 +558,6 @@ export function ShiftCashScreen() {
           <View className="flex-row gap-3.5 items-start">
             <View className="flex-1 gap-3.5">
               {summaryCard}
-              {kiotCard}
             </View>
             <View className="flex-1 gap-3.5">
               {denomCard}
@@ -525,7 +569,6 @@ export function ShiftCashScreen() {
             {summaryCard}
             {denomCard}
             {txCard}
-            {kiotCard}
           </>
         )
       )}
@@ -538,6 +581,13 @@ export function ShiftCashScreen() {
         saving={txSaving}
         onClose={() => setTx((s) => ({ ...s, visible: false, editing: null }))}
         onSubmit={handleSubmitTx}
+      />
+      <ReconcileSheet
+        visible={reconcileOpen}
+        date={date}
+        geo={geo}
+        canOversee={canOversee}
+        onClose={() => setReconcileOpen(false)}
       />
     </Screen>
   );

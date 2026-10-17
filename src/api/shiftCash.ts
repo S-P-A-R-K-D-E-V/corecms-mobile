@@ -7,6 +7,9 @@ import type {
   IUpdateDenominationBatchRequest,
   IFinalizeShiftCashRequest,
   IKiotVietDailySummary,
+  IShiftCashRevenue,
+  IShiftCashReconciliation,
+  IShiftCashInvestigation,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -43,6 +46,37 @@ export async function getKiotVietDailySummary(date: string, geo?: Geo): Promise<
     headers: geoHeaders(geo),
   });
   return res.data;
+}
+
+/**
+ * Doanh thu của ngày từ dữ liệu HỆ THỐNG (mọi cửa hàng, có nối KiotViet hay không). Không có quyền xem doanh thu →
+ * { date, masked: true } (BE không gửi con số nào) — màn hiện "****".
+ */
+export async function getShiftCashRevenue(date: string, geo?: Geo): Promise<IShiftCashRevenue> {
+  const res = await axios.get<IShiftCashRevenue>(endpoints.shiftCash.revenue, {
+    params: { date },
+    headers: geoHeaders(geo),
+  });
+  return res.data;
+}
+
+/** Kiểm tra chênh lệch: két, chuyển khoản ↔ ngân hàng, KiotViet ↔ hệ thống (quyền xem doanh thu). */
+export async function getShiftCashReconciliation(date: string, geo?: Geo): Promise<IShiftCashReconciliation> {
+  const res = await axios.get<IShiftCashReconciliation>(endpoints.shiftCash.reconciliation, {
+    params: { date },
+    headers: geoHeaders(geo),
+  });
+  return res.data;
+}
+
+/** Nguyên nhân có thể của lệch két ngày đã chốt — chỉ người giám sát. Chưa chốt → null (BE 404 NotFinalized). */
+export async function getShiftCashInvestigation(date: string, geo?: Geo): Promise<IShiftCashInvestigation | null> {
+  const res = await axios.get<IShiftCashInvestigation>(endpoints.shiftCash.investigation, {
+    params: { date },
+    headers: geoHeaders(geo),
+    validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
+  });
+  return res.status === 404 ? null : res.data;
 }
 
 export async function openCounter(date: string, geo?: Geo): Promise<void> {

@@ -30,6 +30,8 @@ export const PERMISSIONS = {
   shiftCash: {
     oversightRead: 'shift-cash.oversight.read',
     oversightManage: 'shift-cash.oversight.manage',
+    /** Doanh thu ở Kiểm quầy + kiểm tra chênh lệch doanh thu — không có: số doanh thu hiện "****". */
+    revenueRead: 'shift-cash.revenue.read',
   },
   /** Lương — lương của chính mình không cần quyền. Quyền ghi cần kèm quyền xem tương ứng (Core-be Requires). */
   payroll: {
@@ -155,6 +157,14 @@ export function hasAllPermissions(user: AuthUser | null | undefined, codes?: rea
 /** Vào thẳng Kiểm quầy (không cần ca hôm nay / GPS), xem ngày cũ — khớp BE RequireShiftCashAccess. Mặc định chỉ Admin. */
 export function canOverseeShiftCash(user: AuthUser | null | undefined): boolean {
   return hasPermission(user, PERMISSIONS.shiftCash.oversightRead);
+}
+
+/** Xem doanh thu + kiểm tra chênh lệch doanh thu ở Kiểm quầy (mặc định Chủ + Quản lý) — người giám sát cũng xem được. */
+export function canViewShiftCashRevenue(user: AuthUser | null | undefined): boolean {
+  return (
+    hasPermission(user, PERMISSIONS.shiftCash.revenueRead) ||
+    hasPermission(user, PERMISSIONS.shiftCash.oversightRead)
+  );
 }
 
 /** Ghi ngày cũ, sửa / xoá khoản thu chi của người khác. */

@@ -1093,6 +1093,143 @@ export interface IFinalizeShiftCashRequest extends IShiftCashGeoStamp {
   items: IDenominationItem[];
 }
 
+// --- Kiểm quầy: doanh thu + đối chiếu từ dữ liệu hệ thống (GET /shift-cash/revenue, /shift-cash/reconciliation) ---
+
+export interface ISalesChannelTotals {
+  invoiceCount: number;
+  revenue: number;
+  /** Tiền mặt theo luật kiểm quầy, CHƯA trừ trả hàng. */
+  cash: number;
+  transfer: number;
+  card: number;
+  eWallet: number;
+  /** Voucher, điểm… — không phải tiền. */
+  other: number;
+  returnCount: number;
+  returns: number;
+  netRevenue: number;
+}
+
+export interface ITransferInvoice {
+  salesOrderId: string;
+  code: string;
+  at: string;
+  amount: number;
+}
+
+export interface IUnmatchedCredit {
+  at: string;
+  amount: number;
+  source: string | null;
+  linkedInvoiceCode: string | null;
+}
+
+export interface IBankTransferCheck {
+  /** false = cửa hàng chưa theo dõi tiền vào ngân hàng. */
+  hasBankFeed: boolean;
+  systemTransfer: number;
+  transferInvoiceCount: number;
+  received: number;
+  creditCount: number;
+  matched: number;
+  /** Ngân hàng nhận − chuyển khoản trên hoá đơn (âm = nhận thiếu). */
+  difference: number;
+  missingCredits: ITransferInvoice[];
+  unmatchedCredits: IUnmatchedCredit[];
+}
+
+export interface IShiftCashRevenueTotals {
+  sales: ISalesChannelTotals;
+  cashRefunds: number;
+  netCash: number;
+}
+
+/** Không có quyền xem doanh thu: BE chỉ trả { date, masked: true } — không con số nào. */
+export type IShiftCashRevenue =
+  | { date: string; masked: true }
+  | {
+      date: string;
+      masked?: false;
+      kiotVietConnected: boolean;
+      revenue: IShiftCashRevenueTotals;
+      bank: IBankTransferCheck;
+    };
+
+export type ShiftCashInvoiceIssue = 'missing-in-system' | 'not-on-kiotviet' | 'amount' | 'payment';
+
+export interface IShiftCashInvoiceDiff {
+  code: string;
+  purchaseDate: string | null;
+  issue: ShiftCashInvoiceIssue;
+  kiotVietTotal: number | null;
+  systemTotal: number | null;
+  detail: string;
+}
+
+export interface IKiotVietComparison {
+  ok: boolean;
+  error: string | null;
+  totals: ISalesChannelTotals | null;
+  systemOnlyCount: number;
+  systemOnlyRevenue: number;
+  diffs: IShiftCashInvoiceDiff[];
+}
+
+export interface ICashDrawerCheck {
+  openingBalance: number;
+  cashFromSales: number;
+  manualIncome: number;
+  manualExpense: number;
+  expected: number;
+  counted: number | null;
+  difference: number | null;
+  isFinalized: boolean;
+  finalizedAt: string | null;
+}
+
+export interface IReconciliationRow {
+  key: 'revenue' | 'cash' | 'transfer' | 'card' | 'ewallet' | 'other' | 'returns' | 'net';
+  label: string;
+  system: number;
+  kiotViet: number | null;
+  kiotVietDiff: number | null;
+  bank: number | null;
+  bankDiff: number | null;
+}
+
+export interface IShiftCashReconciliation {
+  date: string;
+  system: IShiftCashRevenueTotals;
+  bank: IBankTransferCheck;
+  kiotVietConnected: boolean;
+  kiotViet: IKiotVietComparison | null;
+  drawer: ICashDrawerCheck;
+  rows: IReconciliationRow[];
+  notes: string[];
+  allMatched: boolean;
+}
+
+/** Một nguyên nhân có thể của lệch két (GET /shift-cash/investigation — chỉ người giám sát). */
+export interface IShiftCashFinding {
+  code: string;
+  strength: 'Weak' | 'Medium' | 'Strong';
+  title: string;
+  detail: string;
+  amount: number;
+  direction: 'Unknown' | 'Shortage' | 'Overage';
+  refs: string[];
+  at: string | null;
+  inDriftWindow: boolean;
+}
+
+export interface IShiftCashInvestigation {
+  date: string;
+  finalized: boolean;
+  findings: IShiftCashFinding[];
+  driftNote: string | null;
+  message: string;
+}
+
 // --- KiotViet (chỉ phần tổng hợp cần cho mobile) ---
 
 export interface IKiotVietDailySummary {
