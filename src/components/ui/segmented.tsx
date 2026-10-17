@@ -48,7 +48,13 @@ export function SegmentedControl({ segments, value, onChange, className }: Segme
             style={{ flex: 1 }}
             className="py-2.5 items-center justify-center"
           >
-            <Text variant="bodySmall" className={cn('font-semibold', active ? 'text-white' : 'text-muted')} numberOfLines={1}>
+            <Text
+              variant="bodySmall"
+              className={cn('font-semibold', active ? 'text-white' : 'text-muted')}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
               {s.label}
             </Text>
           </Pressable>

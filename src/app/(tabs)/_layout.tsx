@@ -227,7 +227,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                     maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
                     adjustsFontSizeToFit
                     minimumFontScale={0.8}
-                    style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: '700', letterSpacing: 0.1 }}
+                    style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: '700', letterSpacing: 0.1, paddingHorizontal: 2 }}
                   >
                     {t(tab.labelKey)}
                   </Text>
@@ -261,7 +261,7 @@ function CiCiTabBar({ state, navigation, tabs }: { state: any; navigation: any; 
                   maxFontSizeMultiplier={TAB_LABEL_MAX_SCALE}
                   adjustsFontSizeToFit
                   minimumFontScale={0.8}
-                  style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: isFocused ? '700' : '600', letterSpacing: 0.1 }}
+                  style={{ color: isFocused ? activeColor : idleColor, fontSize: 10, fontWeight: isFocused ? '700' : '600', letterSpacing: 0.1, paddingHorizontal: 2 }}
                 >
                   {t(tab.labelKey)}
                 </Text>

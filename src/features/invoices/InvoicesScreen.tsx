@@ -116,7 +116,7 @@ export function InvoicesScreen() {
           {counterSession ? null : (
             <View className="flex-1 rounded-2xl bg-primary-soft px-4 py-3">
               <Text variant="caption" tone="primary">{t('erp.revenue')}</Text>
-              <Text variant="headline" tone="primary" className="font-bold" style={{ fontVariant: ['tabular-nums'] }}>
+              <Text variant="headline" tone="primary" className="font-bold" style={{ fontVariant: ['tabular-nums'] }} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                 {summary.data ? money(summary.data.totalRevenue) : '—'}
               </Text>
             </View>

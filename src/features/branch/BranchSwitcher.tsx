@@ -41,7 +41,7 @@ export function BranchSwitcher({ inverse = false }: { inverse?: boolean }) {
         accessibilityRole={switchable ? 'button' : 'text'}
         accessibilityLabel={switchable ? t('branch.switchA11y', { name: label }) : label}
         hitSlop={8}
-        className="self-start mt-1"
+        className="self-start mt-1 max-w-full"
       >
         <View
           className={inverse ? 'flex-row items-center rounded-full px-2.5 py-1' : 'flex-row items-center rounded-full px-2.5 py-1 bg-surface dark:bg-surface-dark'}
@@ -52,7 +52,7 @@ export function BranchSwitcher({ inverse = false }: { inverse?: boolean }) {
             variant="caption"
             tone={inverse ? undefined : needsPick ? 'warning' : 'default'}
             style={inverse ? { color: WHITE_85 } : undefined}
-            className="ml-1 font-semibold"
+            className="ml-1 font-semibold flex-shrink"
             numberOfLines={1}
           >
             {label}
