@@ -129,13 +129,21 @@ function ReconcileBody({ result }: { result: IShiftCashReconciliation }) {
   const { drawer, bank, kiotViet, kiotVietConnected, rows, notes } = result;
   const showKiotViet = kiotVietConnected && !!kiotViet?.ok && !!kiotViet.totals;
   const time = (iso: string) => dayjs(iso).format('HH:mm');
+  // Két chưa đếm thì chưa nói được "khớp" (trừ khi đã thấy lệch ở phần khác).
+  const hasIssue =
+    (bank.hasBankFeed && (bank.missingCredits.length > 0 || bank.unmatchedCredits.length > 0)) ||
+    (!!kiotViet && (!kiotViet.ok || kiotViet.diffs.length > 0));
+  const status =
+    drawer.counted === null && !hasIssue
+      ? { tone: 'neutral' as const, icon: 'cash-clock' as const, label: 'Chưa đếm két' }
+      : result.allMatched
+        ? { tone: 'success' as const, icon: 'check-circle' as const, label: 'Khớp' }
+        : { tone: 'warning' as const, icon: 'alert' as const, label: 'Có chênh lệch' };
 
   return (
     <View className="gap-4">
       <View className="flex-row items-center gap-2">
-        <Badge tone={result.allMatched ? 'success' : 'warning'} icon={result.allMatched ? 'check-circle' : 'alert'}>
-          {result.allMatched ? 'Khớp' : 'Có chênh lệch'}
-        </Badge>
+        <Badge tone={status.tone} icon={status.icon}>{status.label}</Badge>
         <Text variant="caption" tone="muted" className="flex-1">
           {drawer.isFinalized ? `Đã chốt lúc ${drawer.finalizedAt ? time(drawer.finalizedAt) : '—'}` : 'Chưa chốt'}
         </Text>
@@ -192,7 +200,7 @@ function ReconcileBody({ result }: { result: IShiftCashReconciliation }) {
 }
 
 function ReconcileRow({ row, showKiotViet }: { row: IReconciliationRow; showKiotViet: boolean }) {
-  const sign = row.key === 'returns' ? '−' : '';
+  const sign = row.key === 'returns' && row.system !== 0 ? '−' : '';
   return (
     <View className={cn('gap-0.5', row.key === 'net' && 'pt-1.5 border-t border-line/50 dark:border-line-dark/50')}>
       <View className="flex-row items-center justify-between gap-3">

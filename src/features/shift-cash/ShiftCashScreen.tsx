@@ -168,7 +168,7 @@ function RevenueBlock({ revenue, loading }: { revenue: IShiftCashRevenue | null;
           <SummaryRow label="Quẹt thẻ" value={`${formatCurrency(sales.card)}đ`} indent />
           {sales.eWallet !== 0 ? <SummaryRow label="Ví điện tử" value={`${formatCurrency(sales.eWallet)}đ`} indent /> : null}
           {sales.other !== 0 ? <SummaryRow label="Khác (voucher, điểm…)" value={`${formatCurrency(sales.other)}đ`} indent /> : null}
-          {sales.returns !== 0 ? <SummaryRow label="Trả hàng" value={`-${formatCurrency(sales.returns)}đ`} tone="error" indent /> : null}
+          {sales.returns !== 0 ? <SummaryRow label="Trả hàng" value={`−${formatCurrency(sales.returns)}đ`} tone="error" indent /> : null}
           {bankIssue ? (
             <Text variant="caption" tone="warning">
               {[
