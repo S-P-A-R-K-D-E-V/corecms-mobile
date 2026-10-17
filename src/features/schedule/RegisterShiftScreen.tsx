@@ -185,7 +185,7 @@ export function RegisterShiftScreen() {
                   </View>
                   <Text className={cn('text-[10px]', isToday ? 'text-primary font-bold' : 'text-muted')}>{VI_DAYS[day.day()]}</Text>
                 </View>
-                <View className="flex-1 flex-row gap-1.5 flex-wrap">
+                <View className={cn('flex-1 flex-row gap-1.5 flex-wrap', locked && !isPast && 'opacity-50')}>
                   {daySchedules.length === 0 ? (
                     <Text tone="muted" className="self-center">—</Text>
                   ) : daySchedules.map((s, idx) => {
@@ -214,6 +214,8 @@ export function RegisterShiftScreen() {
             );
           })}
 
+          {/* Đã chốt: không đổi được gì — bỏ ô ghi chú. */}
+          {locked ? null : (
           <View className="mt-3">
             <TextField
               placeholder="Ghi chú (tùy chọn)"
@@ -224,6 +226,7 @@ export function RegisterShiftScreen() {
               className="min-h-[44px]"
             />
           </View>
+          )}
           <View className="h-4" />
         </ScrollView>
       )}
