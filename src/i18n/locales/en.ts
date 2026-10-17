@@ -151,6 +151,8 @@ export const en: Dict = {
     roleStaff: 'Staff',
     roleUser: 'Member',
     lastUsed: 'Last used',
+    current: 'Current',
+    otherAccount: 'Sign in with another account',
   },
   storeSelect: {
     title: 'Find your store',

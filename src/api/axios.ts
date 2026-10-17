@@ -167,6 +167,8 @@ export const endpoints = {
     restoreSession: '/auth/restore-session',
     oauthLogin: '/auth/oauth-login',
     ssoExchange: '/auth/sso/exchange',
+    // Đổi cửa hàng không đăng nhập lại: vé app-hub cho chính tài khoản đang đăng nhập (xem features/auth/switch-store.ts).
+    appHubHandoff: '/auth/app-hub/handoff',
     oauthConnect: '/auth/oauth-connect',
     oauthConnections: '/auth/oauth-connections',
     // Gỡ theo id liên kết (mỗi loại một liên kết; tài khoản cũ có thể còn nhiều cái cùng loại).

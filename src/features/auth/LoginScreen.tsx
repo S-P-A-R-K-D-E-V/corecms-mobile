@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { enterApp } from './enter-app';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 
@@ -48,7 +49,7 @@ function CiCiWebLoginScreen() {
           await loginWithSessionToken(sessionToken);
           track(AnalyticsEvent.LoginSuccess);
           // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
-          router.replace('/');
+          enterApp();
           return;
         }
         toast.error(t('auth.noSession'), t('auth.loginFailed'));

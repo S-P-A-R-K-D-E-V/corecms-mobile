@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { enterApp } from './enter-app';
 
 import { Screen } from 'src/components/shared';
 import { AppHeader } from 'src/components/shared';
@@ -29,7 +30,7 @@ export function VerifyOtpScreen() {
     try {
       await verifyOtp(email!, otp);
       // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
-      router.replace('/');
+      enterApp();
     } catch (err: any) {
       setError(extractApiError(err) || 'Mã OTP không hợp lệ');
     } finally {

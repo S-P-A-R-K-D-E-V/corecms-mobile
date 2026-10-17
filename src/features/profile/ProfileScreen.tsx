@@ -17,6 +17,8 @@ import { extractApiError } from 'src/services/error';
 import { getStore, isMultiStore } from 'src/services/store-config';
 import { isAppleSignInAvailable } from 'src/features/auth/apple-sign-in';
 import { startWebLink } from 'src/features/auth/web-link';
+import { discoverFromSession } from 'src/features/auth/switch-store';
+import { leaveToWelcome } from 'src/features/auth/enter-app';
 import {
   announceLinkResult,
   isProviderLinked,
@@ -58,6 +60,7 @@ export function ProfileScreen() {
 
   const locale = useLocaleStore((s) => s.locale);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const [switchingStore, setSwitchingStore] = useState(false);
   const [linking, setLinking] = useState(false);
   useEffect(() => {
     if (isMultiStore) isAppleSignInAvailable().then(setAppleAvailable);
@@ -104,19 +107,30 @@ export function ProfileScreen() {
     try { await logout(); } catch {}
   }
 
+  // Đổi cửa hàng: lấy danh sách cửa hàng của tài khoản bằng phiên hiện tại rồi chọn — không đăng nhập lại, phiên
+  // cửa hàng này giữ nguyên cho tới khi vào được cửa hàng mới. Máy chủ chưa hỗ trợ / mất mạng → cách cũ: đăng xuất
+  // máy này rồi chọn cửa hàng ở Chào mừng.
   async function handleSwitchStore() {
+    if (switchingStore) return;
+    setSwitchingStore(true);
+    try {
+      await discoverFromSession();
+      router.push('/store-picker' as any);
+      return;
+    } catch {
+      // rơi xuống cách cũ
+    } finally {
+      setSwitchingStore(false);
+    }
     const ok = await confirm({
       title: t('profile.switchStore'),
       message: t('profile.switchStoreConfirm', { store: storeName }),
       confirmText: t('profile.switchStore'),
     });
     if (!ok) return;
-    // Sang màn Chào mừng TRƯỚC rồi mới đăng xuất máy này (chỉ phiên của máy này): đăng xuất trước thì cổng
-    // của màn hiện tại tự chuyển về trang đăng nhập, tranh với lệnh sang Chào mừng. Chào mừng khoá nút cho
-    // tới khi đăng xuất xong. Cửa hàng hiện tại vẫn được nhớ (Chào mừng có "Quay lại …") cho tới khi thật
-    // sự vào cửa hàng mới.
-    router.replace('/welcome' as any);
-    try { await logout(); } catch {}
+    // Sang Chào mừng TRƯỚC rồi mới đăng xuất máy này (chỉ phiên của máy này): đăng xuất trước thì cổng của màn
+    // hiện tại tự chuyển về trang đăng nhập, tranh với lệnh sang Chào mừng. Cửa hàng hiện tại vẫn được nhớ.
+    await leaveToWelcome(logout);
   }
 
   async function handleLinkGoogle() {

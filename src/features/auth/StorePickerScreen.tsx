@@ -9,8 +9,10 @@ import { StoreAvatar } from 'src/components/store/StoreAvatar';
 import { useT } from 'src/i18n';
 import { usePlatformPrimary } from 'src/theme/BrandScope';
 import { getStoreCode, lastStoreFirst } from 'src/services/store-config';
+import { useAuthContext } from 'src/auth/auth-context';
 import { useDiscovery } from './discovery';
 import { useEnterStore } from './use-enter-store';
+import { leaveToWelcome } from './enter-app';
 
 // ----------------------------------------------------------------------
 // Sau khi đăng nhập một lần (Apple/email): chọn cửa hàng để vào. Không có cửa hàng nào → hướng dẫn nhờ
@@ -31,16 +33,26 @@ export function StorePickerScreen() {
   const pending = useDiscovery((s) => s.pending);
   const clear = useDiscovery((s) => s.clear);
   const { enter, entering } = useEnterStore();
+  const { authenticated, logout } = useAuthContext();
   // Đang tự lùi về trang đăng nhập (startOver): kết quả discover vừa bỏ — không Redirect chồng lên lần lùi.
   const leaving = useRef(false);
 
-  if (!pending) return leaving.current ? null : <Redirect href={'/welcome' as any} />;
+  // Không còn gì để chọn: đã đăng nhập (vd Back sau khi vào cửa hàng) → về app; chưa → Chào mừng.
+  if (!pending) return leaving.current ? null : <Redirect href={(authenticated ? '/' : '/welcome') as any} />;
 
   const { result } = pending;
   const email = result.email ?? '';
   const lastCode = getStoreCode();
   const stores = lastStoreFirst(result.stores);
   const viaApple = pending.via === 'apple';
+  // Đổi cửa hàng khi đang đăng nhập: cửa hàng hiện tại ghi "Đang dùng", có lối đăng nhập tài khoản khác.
+  const switching = pending.via === 'session' && authenticated;
+
+  function signInAnotherAccount() {
+    leaving.current = true;
+    clear();
+    void leaveToWelcome(logout);
+  }
 
   // Lùi về đúng trang đăng nhập đã mở màn này (Chào mừng, hoặc trang của cửa hàng khi đăng nhập Google /
   // Apple từ đó) — giữ nguyên chữ đã gõ ở đó, không chồng thêm một màn Chào mừng mới. Mở thẳng bằng link
@@ -105,7 +117,9 @@ export function StorePickerScreen() {
                   <View className="flex-row flex-wrap gap-1.5 mt-1">
                     <Badge tone="neutral">{t(ROLE_KEY[store.role] ?? 'storePicker.roleUser')}</Badge>
                     {isLast ? (
-                      <Badge tone="primary" icon="history">{t('storePicker.lastUsed')}</Badge>
+                      <Badge tone="primary" icon={switching ? 'check-circle' : 'history'}>
+                        {t(switching ? 'storePicker.current' : 'storePicker.lastUsed')}
+                      </Badge>
                     ) : null}
                   </View>
                 </View>
@@ -114,6 +128,11 @@ export function StorePickerScreen() {
             </PressableScale>
           );
         })}
+        {switching ? (
+          <Button variant="ghost" action="neutral" icon="account-switch-outline" disabled={!!entering} onPress={signInAnotherAccount}>
+            {t('storePicker.otherAccount')}
+          </Button>
+        ) : null}
       </ScrollView>
     </View>
   );

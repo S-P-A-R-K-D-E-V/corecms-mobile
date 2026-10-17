@@ -43,6 +43,15 @@ function base64Url(bytes: Uint8Array): string {
   return out;
 }
 
+/** Cặp PKCE S256: verifier (43 ký tự, chỉ nằm trong máy) + challenge gửi lên máy chủ. */
+export async function newPkce(): Promise<{ verifier: string; challenge: string }> {
+  const verifier = base64Url(Crypto.getRandomBytes(32)); // 43 ký tự
+  const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
+    encoding: Crypto.CryptoEncoding.BASE64,
+  });
+  return { verifier, challenge: digest.replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_') };
+}
+
 /** Deep link trang web chuyển về — scheme của app (core-fe chỉ nhận sparkstore:/corecms:). */
 export function hubRedirectUri(): string {
   return Linking.createURL('auth/hub');
@@ -58,11 +67,7 @@ export async function startWebSignIn(
   lang: string,
   prefer?: string | null
 ): Promise<{ code: string; state: string } | null> {
-  const verifier = base64Url(Crypto.getRandomBytes(32)); // 43 ký tự
-  const digest = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, verifier, {
-    encoding: Crypto.CryptoEncoding.BASE64,
-  });
-  const challenge = digest.replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
+  const { verifier, challenge } = await newPkce();
   const state = newSsoState();
   const saved: SavedPkce = { state, verifier, provider, at: Date.now(), prefer: prefer ?? null };
   await SecureStore.setItemAsync(PKCE_KEY, JSON.stringify(saved));

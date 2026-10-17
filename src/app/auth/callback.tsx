@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
+import { enterApp } from 'src/features/auth/enter-app';
 
 import { Spinner } from 'src/components/ui';
 import { useAuthContext } from 'src/auth/auth-context';
@@ -16,7 +17,7 @@ export default function AuthCallbackScreen() {
     }
     loginWithSessionToken(sessionToken as string)
       // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
-      .then(() => router.replace('/'))
+      .then(() => enterApp())
       .catch(() => router.replace('/(auth)/login'));
   }, []);
 

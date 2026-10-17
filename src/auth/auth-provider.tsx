@@ -9,7 +9,7 @@ import { AuthContext, type AuthUser, type OAuthExtra } from './auth-context';
 import { resumeSession } from './resume-session';
 import { unregisterCurrentPushToken } from 'src/hooks/use-push-registration';
 import { storeProfileOf, type DiscoveredStore } from 'src/api/app-hub';
-import { forgetStore, setStore } from 'src/services/store-config';
+import { forgetStore, getHostApi, getStoreCode, setStore } from 'src/services/store-config';
 import { queryClient } from 'src/services/query/client';
 
 // ----------------------------------------------------------------------
@@ -120,6 +120,34 @@ async function loadUserAfterAuth(authRes: IAuthResponse, accessToken: string, re
 
 /** Đăng xuất không chờ mạng chập chờn quá lâu — token trên máy vẫn bị xoá dù server chưa trả lời. */
 const LOGOUT_CALL_TIMEOUT_MS = 10_000;
+
+/**
+ * Đăng xuất máy này ở cửa hàng vừa rời (Đổi cửa hàng) — gọi thẳng tên miền cũ bằng token cũ, không qua axios (axios đã
+ * trỏ sang cửa hàng mới). Lỗi bỏ qua: phiên cũ tự hết hạn.
+ */
+async function endPreviousStoreSession(previous: {
+  api: string;
+  accessToken: string | null;
+  sessionToken: string | null;
+  userId: string;
+}): Promise<void> {
+  try {
+    await withinMs(
+      fetch(`${previous.api}${endpoints.auth.logout}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${previous.accessToken}`,
+        },
+        body: JSON.stringify({ userId: previous.userId, ...(previous.sessionToken ? { sessionToken: previous.sessionToken } : {}) }),
+      }),
+      LOGOUT_CALL_TIMEOUT_MS
+    );
+  } catch {
+    // Phiên cũ tự hết hạn.
+  }
+}
 
 function withinMs(promise: Promise<unknown>, ms: number): Promise<unknown> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -237,17 +265,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     commit({ type: Types.LOGIN, payload: { user } });
   }, [commit]);
 
-  const loginWithDiscoveredStore = useCallback(async (store: DiscoveredStore, state: string) => {
+  const loginWithDiscoveredStore = useCallback(async (store: DiscoveredStore, ssoState: string) => {
+    // Đổi cửa hàng khi đang đăng nhập: nhớ phiên của cửa hàng cũ (setStore xoá token của nó) để tắt phiên đó trên
+    // máy chủ SAU khi vào được cửa hàng mới — vào hỏng thì không mất phiên cũ phía máy chủ trước khi cần.
+    const previousCode = getStoreCode();
+    const previous =
+      state.user && previousCode && previousCode !== store.code.toLowerCase()
+        ? {
+            api: getHostApi(),
+            accessToken: await SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+            sessionToken: await SecureStore.getItemAsync(SESSION_KEY),
+            userId: state.user.id,
+          }
+        : null;
     // Gắn cửa hàng trước (xoá token của cửa hàng cũ): từ đây axios gọi https://<cửa hàng>/api.
     await setStore(storeProfileOf(store));
     queryClient.clear();
-    const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.ssoExchange, { code: store.ssoCode, state });
+    const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.ssoExchange, { code: store.ssoCode, state: ssoState });
     const { token: accessToken, refreshToken, sessionToken } = res.data;
     await setSession(accessToken, refreshToken);
     if (sessionToken) await SecureStore.setItemAsync(SESSION_KEY, sessionToken);
     const user = await loadUserAfterAuth(res.data, accessToken, refreshToken);
     commit({ type: Types.LOGIN, payload: { user } });
-  }, [commit]);
+    if (previous?.accessToken) void endPreviousStoreSession(previous);
+  }, [commit, state.user]);
 
   const loginWithOAuth = useCallback(async (provider: 'google' | 'apple', token: string, extra?: OAuthExtra) => {
     const res = await axiosInstance.post<IAuthResponse>(endpoints.auth.oauthLogin, {

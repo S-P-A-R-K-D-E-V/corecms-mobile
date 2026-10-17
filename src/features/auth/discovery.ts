@@ -13,7 +13,8 @@ const TICKET_TTL_MS = 50_000;
 /** Không giữ thông tin đăng nhập lâu hơn thế này. */
 const REQUEST_TTL_MS = 5 * 60_000;
 
-export type SignInMethod = 'apple' | 'google' | 'email';
+/** 'session' = Đổi cửa hàng khi đang đăng nhập (vé xin bằng phiên hiện tại, không đăng nhập lại). */
+export type SignInMethod = 'apple' | 'google' | 'email' | 'session';
 
 export type Pending = {
   state: string;
@@ -25,6 +26,8 @@ export type Pending = {
   firstAt: number;
   /** Mã cửa hàng của trang đăng nhập đã mở đăng nhập này (Google từ trang của một cửa hàng) — ưu tiên vào. */
   prefer?: string | null;
+  /** Xin lại danh sách + vé khi vé quá hạn mà không có thông tin đăng nhập để chạy lại (Đổi cửa hàng). */
+  renew?: (() => Promise<{ state: string; result: DiscoverResult }>) | null;
 };
 
 /**
@@ -60,9 +63,15 @@ export async function runDiscovery(request: DiscoverRequest): Promise<Pending> {
 }
 
 /** Kết quả đã có sẵn (đổi mã từ đăng nhập web) → chờ người dùng chọn cửa hàng như discover. */
-export function setDiscovered(state: string, via: SignInMethod, result: DiscoverResult, prefer?: string | null): Pending {
+export function setDiscovered(
+  state: string,
+  via: SignInMethod,
+  result: DiscoverResult,
+  prefer?: string | null,
+  renew?: Pending['renew']
+): Pending {
   const now = Date.now();
-  const pending: Pending = { state, request: null, via, result, at: now, firstAt: now, prefer: prefer ?? null };
+  const pending: Pending = { state, request: null, via, result, at: now, firstAt: now, prefer: prefer ?? null, renew: renew ?? null };
   useDiscovery.setState({ pending, noStore: null });
   return pending;
 }
@@ -80,7 +89,15 @@ export async function freshTicket(code: string): Promise<{ store: DiscoveredStor
     return store ? { store, state: pending.state } : null;
   }
 
-  if (!pending.request || Date.now() - pending.firstAt > REQUEST_TTL_MS) return null;
+  if (Date.now() - pending.firstAt > REQUEST_TTL_MS) return null;
+
+  if (!pending.request) {
+    if (!pending.renew) return null;
+    const renewed = await pending.renew();
+    useDiscovery.setState({ pending: { ...pending, state: renewed.state, result: renewed.result, at: Date.now() } });
+    const store = renewed.result.stores.find((s) => s.code === code);
+    return store ? { store, state: renewed.state } : null;
+  }
 
   const request: DiscoverRequest =
     'provider' in pending.request ? { ...pending.request, authorizationCode: undefined } : pending.request;

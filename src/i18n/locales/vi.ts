@@ -152,6 +152,8 @@ export const vi = {
     roleStaff: 'Nhân viên',
     roleUser: 'Thành viên',
     lastUsed: 'Dùng gần nhất',
+    current: 'Đang dùng',
+    otherAccount: 'Đăng nhập tài khoản khác',
   },
   storeSelect: {
     title: 'Tìm cửa hàng',

@@ -3,11 +3,13 @@ import { router } from 'expo-router';
 
 import { DiscoverError } from 'src/api/app-hub';
 import { useAuthContext } from 'src/auth/auth-context';
+import { getStoreCode } from 'src/services/store-config';
 import { toast } from 'src/components/overlay';
 import { t } from 'src/i18n';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { extractApiError } from 'src/services/error';
 import { freshTicket, useDiscovery } from './discovery';
+import { enterApp } from './enter-app';
 
 /** Thông báo cho lỗi app-hub/discover. */
 export function discoverErrorMessage(err: unknown): string {
@@ -40,24 +42,33 @@ export function discoverErrorMessage(err: unknown): string {
  * (đã báo lỗi; mã quá hạn thì đã quay về Welcome).
  */
 export function useEnterStore() {
-  const { loginWithDiscoveredStore } = useAuthContext();
+  const { loginWithDiscoveredStore, authenticated } = useAuthContext();
   const [entering, setEntering] = useState<string | null>(null);
 
   const enter = useCallback(
     async (code: string): Promise<boolean> => {
+      // Đổi cửa hàng mà chọn lại đúng cửa hàng đang dùng: giữ phiên, quay lại chỗ cũ.
+      if (authenticated && code.toLowerCase() === getStoreCode()) {
+        useDiscovery.getState().clear();
+        if (router.canGoBack()) router.back();
+        else enterApp();
+        return true;
+      }
       setEntering(code);
       try {
         const ticket = await freshTicket(code);
         if (!ticket) {
           toast.error(t('storePicker.expired'));
           useDiscovery.getState().clear();
-          router.replace('/welcome' as any);
+          // Đang đăng nhập (Đổi cửa hàng): vẫn ở cửa hàng hiện tại — quay lại, không sang Chào mừng.
+          if (authenticated && router.canGoBack()) router.back();
+          else router.replace('/welcome' as any);
           return false;
         }
         await loginWithDiscoveredStore(ticket.store, ticket.state);
         useDiscovery.getState().clear();
         track(AnalyticsEvent.LoginSuccess);
-        router.replace('/');
+        enterApp();
         return true;
       } catch (err) {
         toast.error(discoverErrorMessage(err), t('auth.loginFailed'));
@@ -66,7 +77,7 @@ export function useEnterStore() {
         setEntering(null);
       }
     },
-    [loginWithDiscoveredStore]
+    [loginWithDiscoveredStore, authenticated]
   );
 
   return { enter, entering };

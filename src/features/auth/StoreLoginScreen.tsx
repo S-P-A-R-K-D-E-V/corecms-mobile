@@ -3,6 +3,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View, type TextIn
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { enterApp } from './enter-app';
 
 import { Text, Button, Icon, TextField } from 'src/components/ui';
 import { StoreAvatar } from 'src/components/store/StoreAvatar';
@@ -70,7 +71,7 @@ export function StoreLoginScreen() {
       try {
         await loginWithOAuth('apple', apple.token, apple.extra);
         track(AnalyticsEvent.LoginSuccess);
-        router.replace('/');
+        enterApp();
         return;
       } catch (err) {
         if (!shouldDiscoverAfterStoreOAuth(err)) throw err;
@@ -124,7 +125,7 @@ export function StoreLoginScreen() {
       await login(address, password);
       track(AnalyticsEvent.LoginSuccess);
       // Về boot gate (/) — index.tsx chọn màn "nhà" theo role (Admin → dashboard).
-      router.replace('/');
+      enterApp();
     } catch (err: any) {
       // Email chưa xác minh: máy chủ gửi mã OTP → màn nhập mã của cửa hàng này.
       if (err instanceof Error && err.message === 'OTP_REQUIRED') {

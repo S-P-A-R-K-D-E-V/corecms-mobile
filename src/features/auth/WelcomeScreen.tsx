@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, View, type TextInput } from 'react-native';
 import { MotiView } from 'moti';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { Redirect, router } from 'expo-router';
 
 import { Text, Button, Icon, Pressable, Spinner, SparkStoreIcon, SparkStoreWordmark, TextField, type IconName } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
@@ -20,6 +20,7 @@ import { normalizeStoreField, signInButtons, storeLookupErrorKey } from './sign-
 import { discoverErrorMessage } from './use-enter-store';
 import { loadLastStoreField, saveLastStoreField, useAfterDiscovery } from './use-sign-in';
 import { startWebSignIn } from './web-sign-in';
+import { useLeavingStore } from './enter-app';
 
 // ----------------------------------------------------------------------
 // Màn đầu tiên của bản cửa hàng (toàn cầu) — trang đăng nhập có BA nút:
@@ -104,6 +105,9 @@ export function WelcomeScreen() {
   const [busy, setBusy] = useState(false);
   const { proceed, entering } = useAfterDiscovery();
   const { authenticated } = useAuthContext();
+  // Đang rời cửa hàng (đổi tài khoản): khoá nút chờ đăng xuất xong. Ngoài lúc đó đã đăng nhập mà tới đây (vd Back)
+  // thì về app — trước đây màn khoá nút đứng chờ một lần đăng xuất không bao giờ tới.
+  const leaving = useLeavingStore((s) => s.leaving);
   const noStore = useDiscovery((s) => s.noStore);
   const dismissNoStore = useDiscovery((s) => s.dismissNoStore);
 
@@ -124,7 +128,7 @@ export function WelcomeScreen() {
     });
   }, []);
 
-  // Còn đăng nhập = đang đăng xuất để đổi cửa hàng (Hồ sơ → Đổi cửa hàng) hoặc vừa vào xong một cửa hàng:
+  // Còn đăng nhập = đang đăng xuất để đăng nhập tài khoản khác (leaveToWelcome) hoặc vừa vào xong một cửa hàng:
   // khoá nút cho tới khi xong, không để bắt đầu đăng nhập mới chồng lên.
   const working = busy || !!entering || authenticated;
   const buttons = signInButtons(Platform.OS, appleAvailable);
@@ -207,6 +211,9 @@ export function WelcomeScreen() {
       setBusy(false);
     }
   }
+
+  // Đã đăng nhập, không phải đang rời cửa hàng / đang vào cửa hàng từ chính màn này → về app.
+  if (authenticated && !leaving && !busy && !entering) return <Redirect href="/" />;
 
   return (
     <KeyboardAvoidingView
