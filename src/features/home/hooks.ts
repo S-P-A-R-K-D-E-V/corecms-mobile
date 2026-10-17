@@ -75,11 +75,14 @@ export function useTodayBoard(enabled = true) {
 // ── Nhân viên ──────────────────────────────────────────────────────────
 
 export function useMyEstimate() {
+  // Chủ cửa hàng tắt "Xem lương của mình" trên app → không gọi API; kỳ lương lùi về tháng dương lịch.
+  const enabled = usePlatformFeatureAllowed(PLATFORM_FEATURES.payrollSelf);
   return useQuery({
     queryKey: ['home', 'my-estimate'],
     queryFn: getMyCurrentEstimate,
     staleTime: MINUTE,
     retry: retryUnless404,
+    enabled,
   });
 }
 

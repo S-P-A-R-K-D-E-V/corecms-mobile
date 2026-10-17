@@ -25,6 +25,8 @@ export const PLATFORM_FEATURES = {
   reports: 'analytics.reports',
   /** Quản lý lương: bảng lương, kỳ lương, mức lương. Không gồm lương của chính mình (tab Lương). */
   payroll: 'payroll.records',
+  /** Lương của chính mình: tab Lương, lương tạm tính ở trang chủ. */
+  payrollSelf: 'payroll.self',
 } as const;
 
 /** Mã lỗi Core-be trả khi tính năng bị tắt trên nền tảng này với người gọi. */

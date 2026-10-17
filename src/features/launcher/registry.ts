@@ -118,7 +118,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   // ── Cá nhân (mọi nhân viên) ────────────────────────────────────────
   { key: 'checkin', label: 'Điểm danh', icon: 'fingerprint', href: '/(tabs)/checkin', tone: 'primary', group: 'personal' },
   { key: 'schedule', label: 'Lịch làm', icon: 'calendar-month', href: '/(tabs)/schedule', tone: 'info', group: 'personal' },
-  { key: 'payroll', label: 'Lương', icon: 'cash-multiple', href: '/(tabs)/payroll', tone: 'success', group: 'personal' },
+  { key: 'payroll', label: 'Lương', icon: 'cash-multiple', href: '/(tabs)/payroll', tone: 'success', group: 'personal', platformFeature: PLATFORM_FEATURES.payrollSelf },
   { key: 'shift-register', label: 'Đăng ký ca', icon: 'calendar-plus', href: '/shift-register', tone: 'info', group: 'personal' },
   { key: 'shift-swap', label: 'Đổi ca', icon: 'swap-horizontal', href: '/shift-swap', tone: 'secondary', group: 'personal' },
   { key: 'shift-pool', label: 'Nhận ca', icon: 'hand-heart', href: '/shift-pool', tone: 'secondary', group: 'personal' },

@@ -196,4 +196,8 @@ describe('Tính năng tắt trên app theo vai trò (blockedFeatures)', () => {
     expect(visible).not.toContain('payroll-cycle');
     expect(visible).toContain('payroll');
   });
+
+  it('"Xem lương của mình" bị tắt: ẩn ô Lương', () => {
+    expect(keys({ ...staff, blockedFeatures: ['payroll.self'] })).not.toContain('payroll');
+  });
 });
