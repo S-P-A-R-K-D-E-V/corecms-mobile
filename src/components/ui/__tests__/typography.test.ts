@@ -1,5 +1,5 @@
 import { formatBadgeCount, countBadgeHeight } from '../count-badge';
-import { baseTypoSize, maxTextScale, systemFontCap, variantClassFor } from '../text';
+import { baseTypoSize, maxTextScale, systemFontCap, toneClassFor, variantClassFor } from '../text';
 
 describe('huy hiệu số đếm', () => {
   it('quá ngưỡng thì hiện "99+"', () => {
@@ -49,5 +49,23 @@ describe('giới hạn phóng chữ theo cỡ chữ của máy', () => {
     expect(systemFontCap(16, 1)).toBe(1.4);
     expect(systemFontCap(16, 1.25)).toBe(1.12);
     expect(systemFontCap(34, 1.25)).toBe(1);
+  });
+});
+
+describe('màu chữ ở chế độ tối', () => {
+  it('className tự ghi màu → bỏ màu mặc định (dark:text-ink-dark từng đè thành chữ trắng trên nút trắng)', () => {
+    expect(toneClassFor('default', 'text-primary font-bold text-[16px]')).toBe('');
+    expect(toneClassFor('default', 'text-white/80 text-[12px]')).toBe('');
+    expect(toneClassFor('default', 'text-[#FF0000]')).toBe('');
+  });
+
+  it('chỉ có cỡ / căn lề / màu riêng cho dark → vẫn giữ màu mặc định', () => {
+    expect(toneClassFor('default', 'text-[16px] text-center font-bold')).toBe('text-ink dark:text-ink-dark');
+    expect(toneClassFor('default', 'text-sm dark:text-white')).toBe('text-ink dark:text-ink-dark');
+    expect(toneClassFor('default')).toBe('text-ink dark:text-ink-dark');
+  });
+
+  it('tone khác mặc định giữ nguyên', () => {
+    expect(toneClassFor('primary', 'text-white')).toBe('text-primary');
   });
 });

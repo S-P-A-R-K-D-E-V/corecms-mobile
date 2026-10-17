@@ -94,6 +94,20 @@ const toneClass: Record<Tone, string> = {
   inverse: 'text-white',
 };
 
+/** Màu chữ ghi thẳng trong className ("text-primary", "text-white/80", "text-[#…]") — không phải cỡ (text-[16px], text-sm) hay
+ *  căn lề (text-center). Biến thể dark: ("dark:text-…") không tính. */
+const COLOR_CLASS = /(?:^|\s)text-(?:\[#|(?!(?:xs|sm|base|lg|[2-9]?xl|left|right|center|justify|start|end)(?:\s|$|\/))[a-z])/;
+
+/**
+ * Lớp màu theo tone. tone mặc định mang "text-ink dark:text-ink-dark": nếu className đã tự ghi màu (vd "text-primary" trên
+ * nút trắng) thì ở chế độ tối dark:text-ink-dark (trắng) đè lên → chữ trắng trên nền trắng, mất chữ. Có màu riêng thì
+ * bỏ màu mặc định.
+ */
+export function toneClassFor(tone: Tone, className?: string): string {
+  if (tone === 'default' && className && COLOR_CLASS.test(className)) return '';
+  return toneClass[tone];
+}
+
 export type TextProps = RNTextProps & {
   className?: string;
   variant?: Variant;
@@ -116,7 +130,7 @@ export function Text({ className, variant = 'body', tone = 'default', bold, styl
   return (
     <RNText
       maxFontSizeMultiplier={typo[2]}
-      className={cn(variantClassFor(variant, className), toneClass[tone], bold && 'font-bold', className)}
+      className={cn(variantClassFor(variant, className), toneClassFor(tone, className), bold && 'font-bold', className)}
       style={[typo[0], typo[1], style]}
       {...props}
     />
@@ -128,7 +142,7 @@ export function Heading({ className, tone = 'default', style, ...props }: Omit<T
   return (
     <RNText
       maxFontSizeMultiplier={typo[2]}
-      className={cn(variantClassFor('largeTitle', className), toneClass[tone], className)}
+      className={cn(variantClassFor('largeTitle', className), toneClassFor(tone, className), className)}
       style={[typo[0], typo[1], style]}
       {...props}
     />
