@@ -82,7 +82,15 @@
           "color": "#C84D71"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "15.5"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
