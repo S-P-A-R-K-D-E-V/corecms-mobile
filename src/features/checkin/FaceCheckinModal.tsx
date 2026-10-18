@@ -10,6 +10,7 @@ import { extractApiError } from 'src/services/error';
 import { checkEnrollQuality } from 'src/api/faceEnrollment';
 import { smartCheckInFace, smartCheckOutFace, checkInFace, checkinFace } from 'src/api/attendance';
 import { useAuthContext } from 'src/auth/auth-context';
+import { getImageManipulator } from 'src/features/chat/attachment-prepare';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 import type { Coords } from './utils';
 import {
@@ -31,8 +32,11 @@ import { useFaceStream } from './useFaceStream';
 // Không kết nối được hub (mạng chặn WebSocket…) → cách cũ: cứ ~1 giây chụp một ảnh, đủ "nhìn thẳng" thì gửi.
 // ----------------------------------------------------------------------
 
-/** Nhịp gửi khung hình khi quét trực tiếp (~4 hình/giây). */
-const FRAME_INTERVAL_MS = 250;
+/** Nhịp gửi khung hình khi quét trực tiếp (~4–5 hình/giây, thực tế chậm hơn nếu máy chụp chậm). */
+const FRAME_INTERVAL_MS = 200;
+/** Khung hình lớn hơn thế này (máy bỏ qua cỡ ảnh nhỏ đã chọn, vd iPhone) → thu nhỏ còn cạnh dài 640 px trước khi gửi. */
+const MAX_FRAME_CHARS = 160_000;
+const SHRINK_LONG_SIDE = 640;
 const FALLBACK_INTERVAL_MS = 900;
 /** Đã gửi khung hình mà máy chủ chưa từng thấy khuôn mặt nào trong chừng này → chuyển sang cách cũ (chụp ~1 giây/lần). */
 const NO_FACE_FALLBACK_MS = 10_000;
@@ -55,6 +59,40 @@ function isNotEnrolledError(err: any): boolean {
 
 type Phase = 'opening' | 'scanning' | 'submitting' | 'success' | 'error';
 
+/**
+ * Thu nhỏ khung hình còn cạnh dài 640 px, JPEG 0.6 (≈40–60 KB). Bộ nén xoay ảnh theo EXIF nên width / height trả về đã
+ * đúng chiều. Bản app chưa có bộ nén → null (gửi ảnh gốc, máy chủ vẫn nhận tới 5 MB).
+ */
+async function shrinkFrame(uri: string): Promise<{ base64: string; width: number; height: number } | null> {
+  const M = getImageManipulator();
+  if (!M) return null;
+  const owned: { release(): void }[] = [];
+  try {
+    const ctx = M.ImageManipulator.manipulate(uri);
+    owned.push(ctx);
+    const original = await ctx.renderAsync();
+    owned.push(original);
+    const scale = Math.min(1, SHRINK_LONG_SIDE / Math.max(original.width, original.height));
+    const resized = M.ImageManipulator.manipulate(original).resize({
+      width: Math.round(original.width * scale),
+      height: Math.round(original.height * scale),
+    });
+    owned.push(resized);
+    const out = await resized.renderAsync();
+    owned.push(out);
+    const saved = await out.saveAsync({ compress: 0.6, format: M.SaveFormat.JPEG, base64: true });
+    return saved.base64 ? { base64: saved.base64, width: out.width, height: out.height } : null;
+  } catch {
+    return null;
+  } finally {
+    for (const o of owned) {
+      try {
+        o.release();
+      } catch {}
+    }
+  }
+}
+
 type Props = {
   visible: boolean;
   mode: 'checkin' | 'checkout' | 'overtime';
@@ -71,7 +109,7 @@ function FaceBox({ left, top, width, height, color, label }: { left: number; top
   const w = useSharedValue(width);
   const h = useSharedValue(height);
   useEffect(() => {
-    const t = { duration: 180 };
+    const t = { duration: 120 };
     x.value = withTiming(left, t);
     y.value = withTiming(top, t);
     w.value = withTiming(width, t);
@@ -154,6 +192,13 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       shutterSound: false,
     });
     if (!photo?.base64) return null;
+    if (photo.base64.length > MAX_FRAME_CHARS) {
+      const shrunk = await shrinkFrame(photo.uri);
+      if (shrunk) {
+        setFrame({ width: shrunk.width, height: shrunk.height });
+        return shrunk.base64;
+      }
+    }
     const fromPicture = pictureSize ? /^(\d+)x(\d+)$/.exec(pictureSize) : null;
     const rawW = photo.width > 0 ? photo.width : fromPicture ? Number(fromPicture[1]) : 480;
     const rawH = photo.height > 0 ? photo.height : fromPicture ? Number(fromPicture[2]) : 640;
@@ -302,10 +347,13 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       ? stream.tracks.map((t) => ({ id: t.trackId, rect: trackRectInView(t.bbox, frame, view, true) }))
       : [];
   const color = faceColor(status);
+  const percent = stream.verifyResult ? Math.round(stream.verifyResult.similarity * 100) : 0;
   const label =
-    status === 'matched' && stream.verifyResult
-      ? `${user?.firstName ?? 'Bạn'} · ${Math.round(stream.verifyResult.similarity * 100)}%`
-      : faceHint(status);
+    status === 'matched'
+      ? `${user?.firstName ?? 'Bạn'} · ${percent}%`
+      : status === 'mismatch'
+        ? `Không khớp · ${percent}%`
+        : faceHint(status);
   const statusText = fallback
     ? hint ?? 'Giữ khuôn mặt trước camera, nhìn thẳng…'
     : stream.state !== 'connected'

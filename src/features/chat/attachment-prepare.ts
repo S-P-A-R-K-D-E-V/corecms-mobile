@@ -30,7 +30,7 @@ let manipulator: Manipulator | null | undefined;
  * expo-image-manipulator là module native mới thêm: chỉ có trong bản build sau khi thêm gói. Bản app cũ nhận
  * JS qua OTA (runtimeVersion theo appVersion) thì không có → bỏ qua bước nén, không được crash lúc import.
  */
-function getImageManipulator(): Manipulator | null {
+export function getImageManipulator(): Manipulator | null {
   if (manipulator !== undefined) return manipulator;
   try {
     manipulator = requireOptionalNativeModule('ExpoImageManipulator')
