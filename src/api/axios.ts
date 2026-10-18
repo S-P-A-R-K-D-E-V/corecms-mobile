@@ -245,6 +245,8 @@ export const endpoints = {
     report: '/attendance/report',
     manualAdjustment: '/attendance/manual-adjustment',
     adjustTime: '/attendance/adjust-time',
+    // Thiết lập chấm công của cửa hàng: { requireFaceVerification } — bật thì chỉ chấm công bằng quét khuôn mặt.
+    settings: '/attendance/settings',
   },
   branches: {
     list: '/branches',

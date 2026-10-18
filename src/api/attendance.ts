@@ -107,6 +107,19 @@ export async function adjustAttendanceTime(data: IAdjustAttendanceTimeRequest): 
   return response.data;
 }
 
+/**
+ * Thiết lập chấm công của cửa hàng. requireFaceVerification = chỉ chấm công bằng quét khuôn mặt (luồng chụp ảnh bị
+ * máy chủ chặn). Máy chủ cũ chưa có endpoint → coi như tắt.
+ */
+export async function getAttendanceSettings(): Promise<{ requireFaceVerification: boolean }> {
+  try {
+    const res = await axios.get<{ requireFaceVerification: boolean }>(endpoints.attendance.settings);
+    return { requireFaceVerification: !!res.data?.requireFaceVerification };
+  } catch {
+    return { requireFaceVerification: false };
+  }
+}
+
 export async function getBranchLocations(): Promise<IBranchLocation[]> {
   const response = await axios.get<IBranchLocation[]>(endpoints.branches.list);
   return response.data;

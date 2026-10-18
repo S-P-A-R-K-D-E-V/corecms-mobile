@@ -17,7 +17,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { isPlatformFeatureDisabledError } from 'src/auth/platform-features';
 import { useQuery } from '@tanstack/react-query';
 
-import { smartCheckIn, smartCheckOut, checkIn, checkinFace, getBranchLocations } from 'src/api/attendance';
+import { smartCheckIn, smartCheckOut, checkIn, checkinFace, getBranchLocations, getAttendanceSettings } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
@@ -78,6 +78,24 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
       </View>
       <Badge tone={badge.tone}>{badge.label}</Badge>
     </View>
+  );
+}
+
+// ── Lời mời đăng ký khuôn mặt ────────────────────────────────────────────────
+// Chưa đăng ký khuôn mặt: chấm công bằng ảnh chụp vẫn được nhưng máy chủ ghi "chưa xác minh" (ảnh chỉ gửi nhóm chấm
+// công, không so khuôn mặt). Đăng ký xong thì check-in / check-out đi qua quét mặt.
+function EnrollFaceHint() {
+  return (
+    <Pressable
+      onPress={() => router.push('/face-enrollment' as any)}
+      accessibilityRole="button"
+      className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
+    >
+      <Icon name="face-recognition" size={16} color="#FFFFFF" />
+      <Text className="text-white font-semibold text-[13px] flex-shrink" numberOfLines={2}>
+        {t('checkin.unverifiedHint')}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -170,6 +188,12 @@ export function CheckinScreen() {
   const [gpsFallback, setGpsFallback] = useState(false);
   const needOvertimeFallback = canCheckIn && locationBad;
   const hasFaceEmbedding = !!user?.hasFaceEmbedding;
+  // Cửa hàng bật "Bắt buộc khuôn mặt": chưa đăng ký khuôn mặt thì không chấm công bằng ảnh chụp được nữa.
+  const settingsQ = useQuery({ queryKey: ['attendance-settings'], queryFn: getAttendanceSettings, staleTime: 5 * 60 * 1000 });
+  const requireFace = !!settingsQ.data?.requireFaceVerification;
+  // Đã đăng ký khuôn mặt → check-in / check-out chính đi qua quét mặt (máy chủ so khuôn mặt). Chưa đăng ký → chụp ảnh
+  // gửi nhóm chấm công như cũ, máy chủ ghi "chưa xác minh" (trừ khi cửa hàng bắt buộc khuôn mặt).
+  const photoOnly = !hasFaceEmbedding && !requireFace;
 
   function pressFaceCheckin(mode: 'checkin' | 'checkout' | 'overtime') {
     if (!hasFaceEmbedding) {
@@ -319,6 +343,8 @@ export function CheckinScreen() {
     } catch (err: any) {
       haptics.error();
       toast.error(extractApiError(err), t('checkin.checkInFailed'));
+      // Cửa hàng vừa bật "Bắt buộc khuôn mặt" (máy chủ trả Attendance.FaceRequired): nạp lại thiết lập để đổi nút.
+      void settingsQ.refetch();
       // Chủ cửa hàng vừa tắt chấm công trên app với người này: nạp lại /users/me để tab chuyển sang báo đã tắt.
       if (isPlatformFeatureDisabledError(err)) {
         setModalOpen(false);
@@ -329,7 +355,18 @@ export function CheckinScreen() {
     }
   }
 
+  /** Toạ độ cho check-out: máy chủ bắt buộc có vị trí khi cửa hàng đặt toạ độ chi nhánh. Không lấy được → báo, trả null. */
+  async function ensureCoords(): Promise<Coords | null> {
+    const c = coords ?? (await fetchGps());
+    if (!c) toast.error(t('checkin.locationNeeded'), t('checkin.checkOutFailed'));
+    return c;
+  }
+
   async function openCheckOutCamera() {
+    if (!hasFaceEmbedding && requireFace) {
+      router.push('/face-enrollment' as any);
+      return;
+    }
     const ok = await confirm({
       title: t('common.confirm'),
       message: t('checkin.confirmCheckOut'),
@@ -337,6 +374,11 @@ export function CheckinScreen() {
       destructive: true,
     });
     if (!ok) return;
+    if (!(await ensureCoords())) return;
+    if (hasFaceEmbedding) {
+      setFaceCheckinMode('checkout');
+      return;
+    }
 
     let granted = cameraPermission?.granted;
     if (!granted) granted = (await requestCameraPermission()).granted;
@@ -379,6 +421,7 @@ export function CheckinScreen() {
     } catch (err: any) {
       haptics.error();
       toast.error(extractApiError(err), t('checkin.checkOutFailed'));
+      void settingsQ.refetch();
       // Chủ cửa hàng vừa tắt chấm công trên app với người này: nạp lại /users/me để tab chuyển sang báo đã tắt.
       if (isPlatformFeatureDisabledError(err)) {
         setModalOpen(false);
@@ -498,22 +541,19 @@ export function CheckinScreen() {
                 className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                 style={softShadow}
               >
-                {submitting ? <Spinner color={brand.error} /> : <Icon name="logout" size={20} color={brand.error} />}
+                {submitting ? (
+                  <Spinner color={brand.error} />
+                ) : (
+                  <Icon name={hasFaceEmbedding ? 'face-recognition' : 'logout'} size={20} color={brand.error} />
+                )}
                 {/* tone="error" thay vì className="text-error": tone mặc định kèm
                     dark:text-ink-dark (trắng) đè text-error ở dark → chữ trắng
                     trên nút trắng, mất chữ Checkout. */}
-                <Text tone="error" className="font-bold text-[16px]">{t('checkin.checkOutBtn')}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => pressFaceCheckin('checkout')}
-                disabled={submitting}
-                className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
-              >
-                <Icon name="face-recognition" size={16} color="#FFFFFF" />
-                <Text className="text-white font-semibold text-[13px]">
-                  {hasFaceEmbedding ? 'Check-out bằng khuôn mặt (mới)' : 'Đăng ký khuôn mặt để check-out'}
+                <Text tone="error" className="font-bold text-[16px]">
+                  {hasFaceEmbedding || photoOnly ? t('checkin.checkOutBtn') : t('checkin.enrollToCheckOut')}
                 </Text>
               </Pressable>
+              {photoOnly ? <EnrollFaceHint /> : null}
             </>
           ) : (
             <>
@@ -540,13 +580,19 @@ export function CheckinScreen() {
                   {locationOk ? (
                     // Vị trí hợp lệ (trong khu vực) → check-in thường
                     <Pressable
-                      onPress={() => openCheckInCamera('smart')}
+                      onPress={() => (photoOnly ? openCheckInCamera('smart') : pressFaceCheckin('checkin'))}
                       disabled={submitting}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
-                      {submitting ? <Spinner color={brand.primary} /> : <Icon name="camera-account" size={20} color={brand.primary} />}
-                      <Text className="text-primary font-bold text-[16px]">{t('checkin.checkInBtn')}</Text>
+                      {submitting ? (
+                        <Spinner color={brand.primary} />
+                      ) : (
+                        <Icon name={photoOnly ? 'camera-account' : 'face-recognition'} size={20} color={brand.primary} />
+                      )}
+                      <Text className="text-primary font-bold text-[16px]">
+                        {hasFaceEmbedding || photoOnly ? t('checkin.checkInBtn') : t('checkin.enrollToCheckIn')}
+                      </Text>
                     </Pressable>
                   ) : gpsFallback ? (
                     // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
@@ -572,18 +618,7 @@ export function CheckinScreen() {
                       </Text>
                     </View>
                   )}
-                  {locationOk && (
-                    <Pressable
-                      onPress={() => pressFaceCheckin('checkin')}
-                      disabled={submitting}
-                      className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
-                    >
-                      <Icon name="face-recognition" size={16} color="#FFFFFF" />
-                      <Text className="text-white font-semibold text-[13px]">
-                        {hasFaceEmbedding ? 'Check-in bằng khuôn mặt (mới)' : 'Đăng ký khuôn mặt để check-in'}
-                      </Text>
-                    </Pressable>
-                  )}
+                  {locationOk && photoOnly ? <EnrollFaceHint /> : null}
                 </>
               ) : shifts.length === 0 ? (
                 // Hôm nay chưa được xếp ca: đang ở cửa hàng thì check-in ngoài giờ (chỉ ghi giờ để đối chiếu cuối tháng,
