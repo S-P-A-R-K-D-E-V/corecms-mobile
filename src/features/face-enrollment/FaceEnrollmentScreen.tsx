@@ -11,6 +11,8 @@ import { useAuthContext } from 'src/auth/auth-context';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 
 import { FaceEnrollmentCameraModal } from './FaceEnrollmentCameraModal';
+import { FaceIdEnrollModal } from './FaceIdEnrollModal';
+import { loadFaceIdNative } from './face-id-native';
 import { SelfVerifyModal } from './SelfVerifyModal';
 
 // ----------------------------------------------------------------------
@@ -93,6 +95,8 @@ type Mode = 'status' | 'capture';
 
 export function FaceEnrollmentScreen() {
   const { user, refreshUser } = useAuthContext();
+  // Bản build có nhận diện khuôn mặt trên máy (1.0.4+) → đăng ký kiểu Face ID; bản cũ → chụp từng bước như trước.
+  const faceIdNative = loadFaceIdNative();
 
   const [mode, setMode] = useState<Mode>(user?.hasFaceEmbedding ? 'status' : 'capture');
   const manualCaptureRef = useRef(false);
@@ -219,6 +223,22 @@ export function FaceEnrollmentScreen() {
         </View>
 
         <SelfVerifyModal visible={verifyOpen} onClose={() => setVerifyOpen(false)} />
+      </Screen>
+    );
+  }
+
+  if (faceIdNative) {
+    return (
+      <Screen tabBarInset={false} contentClassName="items-center justify-center">
+        <FaceIdEnrollModal
+          native={faceIdNative}
+          visible
+          onClose={() => router.back()}
+          onEnrolled={() => {
+            refreshUser().catch(() => {});
+            router.back();
+          }}
+        />
       </Screen>
     );
   }
