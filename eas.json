@@ -38,6 +38,9 @@
       },
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.2"
       }
     },
     "store-production": {
@@ -51,6 +54,9 @@
         "EXPO_PUBLIC_SUPPORT_EMAIL": "binh.vx@cici21chualang.vn",
         "STORE_APP_NAME": "Spark Store",
         "STORE_APP_VERSION": "1.0.4"
+      },
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.2"
       }
     }
   },
