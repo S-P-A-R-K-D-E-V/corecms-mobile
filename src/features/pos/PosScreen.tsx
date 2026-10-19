@@ -14,6 +14,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { usesAdminShell } from 'src/auth/roles';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { useCounterSession } from 'src/features/counter/use-counter-session';
+import { COUNTER_MENU } from 'src/features/counter/counter-scope';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { getProducts, getWarehouses } from 'src/api/erp';
 import { t } from 'src/i18n';
@@ -287,8 +288,9 @@ export function PosScreen() {
   const pickerHeader = (
     <>
       <AppHeader
-        // Hai khung: thanh tab ẩn nên luôn có nút quay lại.
+        // Hai khung: thanh tab ẩn nên luôn có nút quay lại. Máy quầy: về menu máy quầy (về "/" lại vào Bán hàng).
         back={split || !(usesAdminShell(user) || counterSession)}
+        onBack={counterSession ? () => router.navigate(COUNTER_MENU as any) : undefined}
         title={t('tabs.pos')}
         subtitle={[userName, branch?.name].filter(Boolean).join(' · ') || undefined}
         actions={headerActions}

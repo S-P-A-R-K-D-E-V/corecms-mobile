@@ -14,6 +14,13 @@ export const COUNTER_OPEN_TO_ALL: ReadonlySet<string> = new Set(['invoices']);
 /** Màn bắt đầu sau khi đăng nhập ở máy quầy. */
 export const COUNTER_HOME = '/(tabs)/pos';
 
+/**
+ * Menu máy quầy (tab Tiện ích: Bán hàng, Hàng hoá, Hoá đơn, Kiểm quầy, phiên đang dùng máy). Màn Bán hàng / sơ đồ bàn
+ * ở máy ngang (tablet, máy POS) ẩn thanh tab — nút quay lại ở đó về đây. Về "/" thì trang gốc lại chuyển vào Bán hàng:
+ * máy quầy bị kẹt ở màn Bán hàng (chủ báo 2026-10-19: "back về trắng màn hình xong lại vào pos").
+ */
+export const COUNTER_MENU = '/(tabs)/features';
+
 // Đường dẫn (usePathname — không có nhóm "(tabs)") được mở ở máy quầy; còn lại đưa về Bán hàng.
 const ALLOWED_PREFIXES = [
   '/pos',

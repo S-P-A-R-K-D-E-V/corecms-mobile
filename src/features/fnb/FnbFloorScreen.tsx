@@ -11,6 +11,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { isManagerUser } from 'src/auth/roles';
 import { usesAdminShell } from 'src/auth/roles';
 import { useCounterSession } from 'src/features/counter/use-counter-session';
+import { COUNTER_MENU } from 'src/features/counter/counter-scope';
 import { useResponsive } from 'src/hooks/use-responsive';
 import { t } from 'src/i18n';
 import type { IFloorTable, IOrderSummary } from 'src/types/fnb';
@@ -199,7 +200,14 @@ export function FnbFloorScreen() {
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }}>
       <View className="px-4">
-        <AppHeader back={split || !(usesAdminShell(user) || counterSession)} title={t('fnb.title')} subtitle={branch?.name} actions={headerActions} />
+        <AppHeader
+          back={split || !(usesAdminShell(user) || counterSession)}
+          // Máy quầy: về menu máy quầy (về "/" lại vào sơ đồ bàn — kẹt ở đây khi thanh tab ẩn).
+          onBack={counterSession ? () => router.navigate(COUNTER_MENU as any) : undefined}
+          title={t('fnb.title')}
+          subtitle={branch?.name}
+          actions={headerActions}
+        />
       </View>
       <RefreshScrollView
         className="flex-1"
