@@ -306,6 +306,8 @@ export interface ICheckInRequest {
   faceImageBase64?: string;
   faceVerified?: boolean;
   isOvertime?: boolean;
+  /** GPS lỗi sau ~5 giây thử lại — máy chủ vẫn nhận, đánh dấu log không có vị trí. */
+  locationUnavailable?: boolean;
 }
 
 /** POST /attendance/check-in-face — đối xứng ICheckInRequest: KHÔNG có faceVerified (server tự
@@ -320,6 +322,8 @@ export interface ICheckInWithFaceRequest {
   accuracy?: number;
   ipAddress?: string;
   wifiName?: string;
+  /** GPS lỗi sau ~5 giây thử lại — máy chủ vẫn nhận, đánh dấu log không có vị trí. */
+  locationUnavailable?: boolean;
 }
 
 export interface ICheckOutRequest {
@@ -339,6 +343,8 @@ export interface ISmartCheckInRequest {
   ipAddress?: string;
   wifiName?: string;
   faceVerified: boolean;
+  /** GPS lỗi sau ~5 giây thử lại — máy chủ vẫn nhận, đánh dấu log không có vị trí. */
+  locationUnavailable?: boolean;
 }
 
 export interface ISmartCheckOutRequest {
@@ -348,6 +354,8 @@ export interface ISmartCheckOutRequest {
   ipAddress?: string;
   wifiName?: string;
   faceVerified?: boolean;
+  /** GPS lỗi sau ~5 giây thử lại — máy chủ vẫn nhận, đánh dấu log không có vị trí. */
+  locationUnavailable?: boolean;
 }
 
 /** POST /attendance/smart-check-in-face — khác ISmartCheckInRequest: KHÔNG có faceVerified
@@ -359,6 +367,8 @@ export interface ISmartCheckInWithFaceRequest {
   accuracy?: number;
   ipAddress?: string;
   wifiName?: string;
+  /** GPS lỗi sau ~5 giây thử lại — máy chủ vẫn nhận, đánh dấu log không có vị trí. */
+  locationUnavailable?: boolean;
 }
 
 /** POST /attendance/smart-check-out-face — đối xứng ISmartCheckInWithFaceRequest. */
@@ -369,6 +379,8 @@ export interface ISmartCheckOutWithFaceRequest {
   accuracy?: number;
   ipAddress?: string;
   wifiName?: string;
+  /** GPS lỗi sau ~5 giây thử lại — máy chủ vẫn nhận, đánh dấu log không có vị trí. */
+  locationUnavailable?: boolean;
 }
 
 /** Khớp BE AttendanceRequestType — KHÔNG có "LeaveRequest" (chưa có tính năng

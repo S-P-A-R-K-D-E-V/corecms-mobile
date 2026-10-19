@@ -222,7 +222,7 @@ export function FaceEnrollmentScreen() {
           </View>
         </View>
 
-        <SelfVerifyModal visible={verifyOpen} onClose={() => setVerifyOpen(false)} />
+        <SelfVerifyModal visible={verifyOpen} onClose={() => setVerifyOpen(false)} onReenroll={startReenroll} />
       </Screen>
     );
   }

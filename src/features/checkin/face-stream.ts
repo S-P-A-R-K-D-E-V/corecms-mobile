@@ -68,6 +68,10 @@ export function trackRectInView(bbox: FaceTrack['bbox'], frame: Size, view: Size
   };
 }
 
+/** Máy chủ báo khớp → giữ khuôn mặt trong khung thêm chừng này (đúng người đó, vẫn là người thật, không thêm ai)
+ *  rồi mới chấm công — tránh chấm quá nhanh khi khuôn mặt chỉ lướt qua. */
+export const CONFIRM_HOLD_MS = 1500;
+
 export const FACE_COLORS = {
   detecting: '#FFFFFF',
   live: '#38BDF8',

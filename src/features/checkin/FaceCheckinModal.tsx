@@ -3,40 +3,29 @@ import { View, Modal, StyleSheet, StatusBar, useWindowDimensions, type LayoutCha
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { Text, Button, Pressable, Icon, Spinner } from 'src/components/ui';
 import { extractApiError } from 'src/services/error';
 import { checkEnrollQuality } from 'src/api/faceEnrollment';
 import { smartCheckInFace, smartCheckOutFace, checkInFace, checkinFace } from 'src/api/attendance';
 import { useAuthContext } from 'src/auth/auth-context';
-import { getImageManipulator } from 'src/features/chat/attachment-prepare';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 import type { Coords } from './utils';
-import {
-  faceColor,
-  faceHint,
-  faceStatus,
-  orientedFrameSize,
-  pickPictureSize,
-  trackRectInView,
-  type Size,
-} from './face-stream';
+import { CONFIRM_HOLD_MS, faceColor, faceHint, faceStatus, trackRectInView, type Size } from './face-stream';
+import { FaceBox, useFrameCapture } from './live-face';
 import { useFaceStream } from './useFaceStream';
 
 // ----------------------------------------------------------------------
 // Check-in / check-out bằng khuôn mặt — tự phát hiện khuôn mặt như kiosk trên web, không có khung tròn hay nút chụp:
 // camera mở là gửi khung hình (~4 hình/giây) qua /hubs/self-verify, vẽ khung bám theo khuôn mặt, máy chủ tự kiểm tra
-// người thật + so 1:1 với khuôn mặt đã đăng ký. Khớp → tự gửi đúng khung hình đó tới smart-check-in-face /
-// smart-check-out-face / check-in-face (ngoài giờ) — máy chủ so lại lần nữa rồi mới ghi chấm công.
+// người thật + so 1:1 với khuôn mặt đã đăng ký. Khớp → giữ khuôn mặt trong khung thêm ~1,5 giây (đúng người đó, vẫn
+// là người thật, không thêm ai) rồi gửi khung hình MỚI NHẤT tới smart-check-in-face / smart-check-out-face /
+// check-in-face (ngoài giờ) — máy chủ so lại lần nữa rồi mới ghi chấm công.
 // Không kết nối được hub (mạng chặn WebSocket…) → cách cũ: cứ ~1 giây chụp một ảnh, đủ "nhìn thẳng" thì gửi.
 // ----------------------------------------------------------------------
 
 /** Nhịp gửi khung hình khi quét trực tiếp (~4–5 hình/giây, thực tế chậm hơn nếu máy chụp chậm). */
 const FRAME_INTERVAL_MS = 200;
-/** Khung hình lớn hơn thế này (máy bỏ qua cỡ ảnh nhỏ đã chọn, vd iPhone) → thu nhỏ còn cạnh dài 640 px trước khi gửi. */
-const MAX_FRAME_CHARS = 160_000;
-const SHRINK_LONG_SIDE = 640;
 const FALLBACK_INTERVAL_MS = 900;
 /** Đã gửi khung hình mà máy chủ chưa từng thấy khuôn mặt nào trong chừng này → chuyển sang cách cũ (chụp ~1 giây/lần). */
 const NO_FACE_FALLBACK_MS = 10_000;
@@ -59,74 +48,18 @@ function isNotEnrolledError(err: any): boolean {
 
 type Phase = 'opening' | 'scanning' | 'submitting' | 'success' | 'error';
 
-/**
- * Thu nhỏ khung hình còn cạnh dài 640 px, JPEG 0.6 (≈40–60 KB). Bộ nén xoay ảnh theo EXIF nên width / height trả về đã
- * đúng chiều. Bản app chưa có bộ nén → null (gửi ảnh gốc, máy chủ vẫn nhận tới 5 MB).
- */
-async function shrinkFrame(uri: string): Promise<{ base64: string; width: number; height: number } | null> {
-  const M = getImageManipulator();
-  if (!M) return null;
-  const owned: { release(): void }[] = [];
-  try {
-    const ctx = M.ImageManipulator.manipulate(uri);
-    owned.push(ctx);
-    const original = await ctx.renderAsync();
-    owned.push(original);
-    const scale = Math.min(1, SHRINK_LONG_SIDE / Math.max(original.width, original.height));
-    const resized = M.ImageManipulator.manipulate(original).resize({
-      width: Math.round(original.width * scale),
-      height: Math.round(original.height * scale),
-    });
-    owned.push(resized);
-    const out = await resized.renderAsync();
-    owned.push(out);
-    const saved = await out.saveAsync({ compress: 0.6, format: M.SaveFormat.JPEG, base64: true });
-    return saved.base64 ? { base64: saved.base64, width: out.width, height: out.height } : null;
-  } catch {
-    return null;
-  } finally {
-    for (const o of owned) {
-      try {
-        o.release();
-      } catch {}
-    }
-  }
-}
-
 type Props = {
   visible: boolean;
   mode: 'checkin' | 'checkout' | 'overtime';
   coords: Coords | null;
+  /** App đã thử lấy GPS ~5 giây không được — máy chủ vẫn nhận, đánh dấu lần chấm công này không có vị trí. */
+  locationUnavailable?: boolean;
   onClose: () => void;
   /** Gọi khi check-in/out thành công — cha tự refetch(). */
   onSuccess: () => void;
 };
 
-/** Khung bám khuôn mặt — trượt mượt giữa các lần cập nhật (~4 lần/giây) như kiosk. */
-function FaceBox({ left, top, width, height, color, label }: { left: number; top: number; width: number; height: number; color: string; label: string }) {
-  const x = useSharedValue(left);
-  const y = useSharedValue(top);
-  const w = useSharedValue(width);
-  const h = useSharedValue(height);
-  useEffect(() => {
-    const t = { duration: 120 };
-    x.value = withTiming(left, t);
-    y.value = withTiming(top, t);
-    w.value = withTiming(width, t);
-    h.value = withTiming(height, t);
-  }, [left, top, width, height, x, y, w, h]);
-  const style = useAnimatedStyle(() => ({ left: x.value, top: y.value, width: w.value, height: h.value }));
-
-  return (
-    <Animated.View pointerEvents="none" style={[{ position: 'absolute', borderWidth: 3, borderRadius: 18, borderColor: color }, style]}>
-      <View style={{ position: 'absolute', top: -30, left: -3, backgroundColor: color, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-        <Text className="text-white font-bold text-[12px]" numberOfLines={1}>{label}</Text>
-      </View>
-    </Animated.View>
-  );
-}
-
-export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: Props) {
+export function FaceCheckinModal({ visible, mode, coords, locationUnavailable = false, onClose, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const portrait = screenH >= screenW;
@@ -140,12 +73,14 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [notEnrolled, setNotEnrolled] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
-  const [pictureSize, setPictureSize] = useState<string | undefined>(undefined);
-  const [frame, setFrame] = useState<Size | null>(null);
   const [view, setView] = useState<Size | null>(null);
   const [session, setSession] = useState(0);
   const [noFaceFallback, setNoFaceFallback] = useState(false);
+  /** Lúc bắt đầu giữ khớp (đếm ~1,5 giây trước khi chấm công); null = chưa khớp. */
+  const [holdStartedAt, setHoldStartedAt] = useState<number | null>(null);
+  const [holdNow, setHoldNow] = useState(0);
   const firstFrameAtRef = useRef<number | null>(null);
+  const frames = useFrameCapture(cameraRef, portrait);
 
   const scanning = visible && (phase === 'scanning' || phase === 'submitting');
   const stream = useFaceStream(scanning, session);
@@ -159,8 +94,9 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
     setErrorMsg(null);
     setNotEnrolled(false);
     setCameraReady(false);
-    setFrame(null);
+    frames.reset();
     setNoFaceFallback(false);
+    setHoldStartedAt(null);
     firstFrameAtRef.current = null;
     lastFrameRef.current = null;
     if (!permission?.granted) {
@@ -175,41 +111,19 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
 
   async function onCameraReady() {
     setCameraReady(true);
-    try {
-      const sizes = (await cameraRef.current?.getAvailablePictureSizesAsync()) ?? [];
-      const picked = pickPictureSize(sizes);
-      if (picked) setPictureSize(picked);
-    } catch {
-      // Không lấy được danh sách cỡ ảnh → dùng mặc định (ảnh nặng hơn, vẫn chạy).
-    }
-  }
-
-  async function capture(): Promise<string | null> {
-    const photo = await cameraRef.current?.takePictureAsync({
-      quality: 0.5,
-      base64: true,
-      skipProcessing: true,
-      shutterSound: false,
-    });
-    if (!photo?.base64) return null;
-    if (photo.base64.length > MAX_FRAME_CHARS) {
-      const shrunk = await shrinkFrame(photo.uri);
-      if (shrunk) {
-        setFrame({ width: shrunk.width, height: shrunk.height });
-        return shrunk.base64;
-      }
-    }
-    const fromPicture = pictureSize ? /^(\d+)x(\d+)$/.exec(pictureSize) : null;
-    const rawW = photo.width > 0 ? photo.width : fromPicture ? Number(fromPicture[1]) : 480;
-    const rawH = photo.height > 0 ? photo.height : fromPicture ? Number(fromPicture[2]) : 640;
-    setFrame(orientedFrameSize(rawW, rawH, portrait));
-    return photo.base64;
+    await frames.pickSize();
   }
 
   async function handleSubmit(imageBase64: string) {
     setPhase('submitting');
     try {
-      const payload = { imageBase64, latitude: coords?.latitude, longitude: coords?.longitude, accuracy: coords?.accuracy };
+      const payload = {
+        imageBase64,
+        latitude: coords?.latitude,
+        longitude: coords?.longitude,
+        accuracy: coords?.accuracy,
+        locationUnavailable: !coords && locationUnavailable,
+      };
       // faceMatchConfidence (%) do máy chủ tính khi so — đưa vào tin nhóm chấm công.
       let matchConfidence: number | undefined;
       if (mode === 'checkin') matchConfidence = (await smartCheckInFace(payload)).faceMatchConfidence;
@@ -242,7 +156,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       if (busyRef.current || !cameraRef.current) return;
       busyRef.current = true;
       try {
-        const base64 = await capture();
+        const base64 = await frames.capture();
         if (base64 && stream.sendFrame(base64)) {
           lastFrameRef.current = base64;
           if (firstFrameAtRef.current === null) firstFrameAtRef.current = Date.now();
@@ -255,7 +169,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
     }, FRAME_INTERVAL_MS);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, cameraReady, fallback, stream.state, pictureSize]);
+  }, [phase, cameraReady, fallback, stream.state, frames.capture]);
 
   // Đã gửi khung hình ~10 giây mà máy chủ chưa thấy khuôn mặt nào (ảnh lỗi chiều / mạng chậm…) → cách cũ, khỏi kẹt.
   const seenFaceRef = useRef(false);
@@ -269,11 +183,27 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
     return () => clearInterval(timer);
   }, [phase, fallback, stream.state]);
 
-  // Máy chủ báo khớp đúng khuôn mặt duy nhất trong khung → tự chấm công bằng khung hình vừa gửi.
+  // Máy chủ báo khớp → giữ thêm CONFIRM_HOLD_MS: khuôn mặt đó vẫn trong khung, vẫn là người thật, không thêm ai (đổi
+  // trạng thái là đếm lại). Đủ giờ → chấm công bằng khung hình mới nhất (máy chủ so lại khung đó).
   useEffect(() => {
-    if (phase === 'scanning' && status === 'matched' && lastFrameRef.current) void handleSubmit(lastFrameRef.current);
+    if (phase !== 'scanning' || status !== 'matched') {
+      setHoldStartedAt(null);
+      return undefined;
+    }
+    const startedAt = Date.now();
+    setHoldStartedAt(startedAt);
+    setHoldNow(startedAt);
+    const tick = setInterval(() => setHoldNow(Date.now()), 100);
+    const done = setTimeout(() => {
+      clearInterval(tick);
+      if (lastFrameRef.current) void handleSubmit(lastFrameRef.current);
+    }, CONFIRM_HOLD_MS);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(done);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, status]);
+  }, [phase, status, stream.verifyResult?.trackId]);
 
   // ── Cách cũ khi không có hub: ~1 giây chụp một ảnh, đủ "nhìn thẳng" thì gửi luôn. ──
   useEffect(() => {
@@ -282,7 +212,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
       if (busyRef.current || !cameraRef.current) return;
       busyRef.current = true;
       try {
-        const base64 = await capture();
+        const base64 = await frames.capture();
         if (!base64) return;
         const error = validateStraight(await checkEnrollQuality(base64));
         if (error) {
@@ -299,7 +229,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
     }, FALLBACK_INTERVAL_MS);
     return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, cameraReady, fallback, pictureSize]);
+  }, [phase, cameraReady, fallback, frames.capture]);
 
   // Quét quá lâu không nhận ra → dừng, mời thử lại.
   useEffect(() => {
@@ -328,6 +258,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
     firstFrameAtRef.current = null;
     seenFaceRef.current = false;
     setNoFaceFallback(false);
+    setHoldStartedAt(null);
     stream.resetVerify();
     setSession((n) => n + 1);
     setPhase('scanning');
@@ -342,12 +273,14 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
   const camW = Math.min(screenW, 560);
   const camH = Math.round((camW * 4) / 3);
   const soloTrack = stream.tracks.length === 1 ? stream.tracks[0] : undefined;
+  const frame = frames.frame;
   const boxes =
     frame && view && !fallback
       ? stream.tracks.map((t) => ({ id: t.trackId, rect: trackRectInView(t.bbox, frame, view, true) }))
       : [];
   const color = faceColor(status);
   const percent = stream.verifyResult ? Math.round(stream.verifyResult.similarity * 100) : 0;
+  const holdProgress = holdStartedAt !== null ? Math.min(1, (holdNow - holdStartedAt) / CONFIRM_HOLD_MS) : 0;
   const label =
     status === 'matched'
       ? `${user?.firstName ?? 'Bạn'} · ${percent}%`
@@ -358,7 +291,9 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
     ? hint ?? 'Giữ khuôn mặt trước camera, nhìn thẳng…'
     : stream.state !== 'connected'
       ? 'Đang kết nối nhận diện khuôn mặt…'
-      : faceHint(status);
+      : status === 'matched'
+        ? 'Đã nhận ra bạn — giữ yên để xác nhận…'
+        : faceHint(status);
 
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent onRequestClose={onClose}>
@@ -400,7 +335,7 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
                 style={StyleSheet.absoluteFill}
                 facing="front"
                 ratio="4:3"
-                pictureSize={pictureSize}
+                pictureSize={frames.pictureSize}
                 animateShutter={false}
                 onCameraReady={onCameraReady}
               />
@@ -415,6 +350,12 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
                   label={soloTrack ? label : faceHint('multi')}
                 />
               ))}
+              {holdStartedAt !== null && phase === 'scanning' ? (
+                // Thanh xác nhận: đầy là chấm công.
+                <View pointerEvents="none" style={{ position: 'absolute', left: 24, right: 24, bottom: 20, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' }}>
+                  <View style={{ width: `${Math.round(holdProgress * 100)}%`, height: 6, borderRadius: 3, backgroundColor: color }} />
+                </View>
+              ) : null}
               {phase === 'submitting' ? (
                 <View style={StyleSheet.absoluteFill} className="items-center justify-center bg-black/50 gap-2">
                   <Spinner color="#FFFFFF" />
@@ -430,11 +371,18 @@ export function FaceCheckinModal({ visible, mode, coords, onClose, onSuccess }: 
             <View className="px-4 py-3 flex-row items-center gap-2">
               {status === 'mismatch' || status === 'spoof' ? (
                 <Icon name="alert-circle" size={18} color={color} />
+              ) : status === 'matched' ? (
+                <Icon name="check-circle" size={18} color={color} />
               ) : (
                 <Spinner color="#FFFFFF" />
               )}
               <Text className="text-white text-[13px] flex-1">{statusText}</Text>
             </View>
+          ) : null}
+          {(phase === 'scanning' || phase === 'opening') && !coords && locationUnavailable ? (
+            <Text className="text-amber-300 text-[12px] px-4 pb-2">
+              Không lấy được GPS — vẫn chấm công, lần này được ghi là không có vị trí.
+            </Text>
           ) : null}
           {phase === 'scanning' && (status === 'mismatch' || status === 'spoof') ? (
             <View className="px-4 pb-1">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, View } from 'react-native';
 import { MotiView } from 'moti';
 import { router } from 'expo-router';
@@ -25,6 +25,7 @@ import { t } from 'src/i18n';
 import { useCheckinData } from './hooks';
 import { FaceCaptureModal } from './FaceCaptureModal';
 import { FaceCheckinModal } from './FaceCheckinModal';
+import { LOCATION_FRESH_MS, retryLocation, withTimeout } from './location';
 import { CleaningChecklistSummaryCard } from './CleaningChecklistSummaryCard';
 import {
   getCheckInWindow,
@@ -146,6 +147,12 @@ export function CheckinScreen() {
   // Quyền vị trí: null = chưa biết. canAskAgain=false (đã chặn hẳn) → chỉ còn cách mở Cài đặt của máy.
   const [gpsPerm, setGpsPerm] = useState<{ granted: boolean; canAskAgain: boolean } | null>(null);
   const [coords, setCoords] = useState<Coords | null>(null);
+  /** Lúc lấy được `coords` (ms) — vị trí cũ hơn LOCATION_FRESH_MS thì bấm chấm công sẽ lấy lại. */
+  const coordsAtRef = useRef(0);
+  /** Đang lấy vị trí khi vừa bấm check-in / check-out (thử lại tới 5 giây). */
+  const [locating, setLocating] = useState(false);
+  /** Lần chấm công đang mở: thử GPS 5 giây không được → máy chủ ghi "không có GPS". */
+  const [gpsUnavailable, setGpsUnavailable] = useState(false);
   // Chi nhánh (cửa hàng) để tính & hiển thị khoảng cách GPS cho người dùng
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
   // Được phân công chi nhánh (branchScope) → chỉ đo tới chi nhánh đang làm việc; chưa phân công → chi nhánh gần nhất
@@ -170,12 +177,10 @@ export function CheckinScreen() {
   const overlayAddress =
     [nearestBranch?.within ? nearestBranch.branch.branchName : null, address].filter(Boolean).join(' · ') || null;
 
-  // Geofence: đang ở trong khu vực cửa hàng không (chỉ ý nghĩa khi GPS ready;
-  // không có toạ độ chi nhánh thì coi như hợp lệ để tránh khoá cứng).
-  const withinGeofence = !nearestBranch ? true : nearestBranch.within;
-  const locationOk = gpsStatus === 'ready' && withinGeofence;
-  // Vị trí KHÔNG hợp lệ cho check-in thường: GPS lỗi, hoặc đã xác định nhưng ngoài khu vực.
-  const locationBad = gpsStatus === 'error' || (gpsStatus === 'ready' && !withinGeofence);
+  // Ngoài khu vực cửa hàng (đã có vị trí, cửa hàng đặt toạ độ chi nhánh) → check-in thường bị máy chủ từ chối, chuyển
+  // sang check-in ngoài giờ sau 5 giây. GPS lỗi thì KHÔNG chuyển: bấm check-in sẽ thử lại GPS 5 giây rồi vẫn cho chấm
+  // công thường, máy chủ đánh dấu lần đó không có vị trí.
+  const outsideStore = gpsStatus === 'ready' && !!nearestBranch && !nearestBranch.within;
 
   // Check-in ngoài giờ + fallback (đồng bộ hành vi core-fe): có ca phù hợp nhưng
   // vị trí không hợp lệ → đếm ngược 5s rồi cho phép check-in NGOÀI GIỜ.
@@ -186,7 +191,7 @@ export function CheckinScreen() {
   const [actionKind, setActionKind] = useState<'checkin' | 'checkout'>('checkin');
   const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
   const [gpsFallback, setGpsFallback] = useState(false);
-  const needOvertimeFallback = canCheckIn && locationBad;
+  const needOvertimeFallback = canCheckIn && outsideStore;
   const hasFaceEmbedding = !!user?.hasFaceEmbedding;
   // Cửa hàng bật "Bắt buộc khuôn mặt": chưa đăng ký khuôn mặt thì không chấm công bằng ảnh chụp được nữa.
   const settingsQ = useQuery({ queryKey: ['attendance-settings'], queryFn: getAttendanceSettings, staleTime: 5 * 60 * 1000 });
@@ -195,9 +200,16 @@ export function CheckinScreen() {
   // gửi nhóm chấm công như cũ, máy chủ ghi "chưa xác minh" (trừ khi cửa hàng bắt buộc khuôn mặt).
   const photoOnly = !hasFaceEmbedding && !requireFace;
 
-  function pressFaceCheckin(mode: 'checkin' | 'checkout' | 'overtime') {
+  async function pressFaceCheckin(mode: 'checkin' | 'checkout' | 'overtime') {
     if (!hasFaceEmbedding) {
       router.push('/face-enrollment' as any);
+      return;
+    }
+    if (locating) return;
+    const loc = await resolveLocation();
+    // Ngoài khu vực: check-in thường sẽ bị từ chối — nút tự chuyển sang check-in ngoài giờ sau 5 giây.
+    if (mode === 'checkin' && isOutside(loc.coords)) {
+      toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
       return;
     }
     setFaceCheckinMode(mode);
@@ -228,6 +240,7 @@ export function CheckinScreen() {
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const c: Coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
       setCoords(c);
+      coordsAtRef.current = Date.now();
       setGpsStatus('ready');
       return c;
     } catch {
@@ -235,6 +248,58 @@ export function CheckinScreen() {
       setGpsStatus((prev) => (prev === 'ready' ? 'ready' : 'error'));
       return null;
     }
+  }
+
+  /**
+   * Bấm check-in / check-out: cần vị trí MỚI. Xin quyền nếu chưa có, lấy vị trí, lỗi thì thử lại tới 5 giây. Không
+   * được → vẫn cho chấm công (`unavailable`), máy chủ ghi lần đó "không có GPS" cho quản lý xem lại.
+   */
+  async function resolveLocation(): Promise<{ coords: Coords | null; unavailable: boolean }> {
+    if (coords && gpsStatus === 'ready' && Date.now() - coordsAtRef.current < LOCATION_FRESH_MS) {
+      setGpsUnavailable(false);
+      return { coords, unavailable: false };
+    }
+    setLocating(true);
+    setGpsStatus('loading');
+    try {
+      let perm = await Location.getForegroundPermissionsAsync();
+      if (perm.status !== 'granted' && perm.canAskAgain) perm = await Location.requestForegroundPermissionsAsync();
+      setGpsPerm({ granted: perm.status === 'granted', canAskAgain: perm.canAskAgain });
+      const fresh =
+        perm.status === 'granted'
+          ? await retryLocation(async (remaining) => {
+              const loc = await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), remaining);
+              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
+            })
+          : null;
+      if (fresh) {
+        setCoords(fresh);
+        coordsAtRef.current = Date.now();
+        setGpsStatus('ready');
+        setGpsUnavailable(false);
+        return { coords: fresh, unavailable: false };
+      }
+      // Không gửi vị trí cũ (lúc mở màn) thay cho vị trí hiện tại — lần này coi như không có GPS.
+      setCoords(null);
+      setGpsStatus('error');
+      setGpsUnavailable(true);
+      toast.warning(
+        perm.status === 'granted'
+          ? 'Không lấy được GPS sau 5 giây — vẫn chấm công, lần này được ghi là không có vị trí.'
+          : 'App chưa được phép dùng vị trí — vẫn chấm công, lần này được ghi là không có vị trí.',
+        'GPS',
+      );
+      return { coords: null, unavailable: true };
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  /** Vị trí vừa lấy nằm ngoài khu vực cửa hàng (cửa hàng có đặt toạ độ chi nhánh). */
+  function isOutside(c: Coords | null): boolean {
+    if (!c || !geofenceBranches) return false;
+    const nearest = findNearestBranch(c, geofenceBranches);
+    return !!nearest && !nearest.within;
   }
 
   // Mở màn: đã cho phép vị trí thì lấy GPS luôn (hiện trạng thái + đếm ngược fallback nếu lỗi). Chưa từng hỏi thì
@@ -285,14 +350,17 @@ export function CheckinScreen() {
       toast.error(t('checkin.cameraPermMsg'), t('checkin.cameraPermTitle'));
       return;
     }
+    if (locating) return;
     haptics.light();
     setCheckinMode(mode);
     setActionKind('checkin');
-    // Mở camera NGAY — không chờ GPS (trước đây await GPS khiến nút "không phản hồi"
-    // và camera mở rất chậm). GPS chạy song song; modal tự hiện trạng thái "đang
-    // kiểm tra GPS" và chỉ cho xác nhận khi đã có vị trí (hoặc fallback sau 5s).
+    // Lấy vị trí trước (tối đa ~5 giây, nút hiện "Đang lấy vị trí GPS…"); GPS lỗi vẫn mở, máy chủ đánh dấu.
+    const loc = await resolveLocation();
+    if (mode === 'smart' && isOutside(loc.coords)) {
+      toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
+      return;
+    }
     setModalOpen(true);
-    if (gpsStatus !== 'ready' && gpsStatus !== 'loading') fetchGps();
   }
 
   async function handleOvertimePress() {
@@ -305,7 +373,9 @@ export function CheckinScreen() {
       message: t('checkin.overtimeConfirm'),
       confirmText: 'Check-in',
     });
-    if (ok) setFaceCheckinMode('overtime');
+    if (!ok) return;
+    await resolveLocation();
+    setFaceCheckinMode('overtime');
   }
 
   async function handleConfirmCheckIn(base64: string, captureTime: Date) {
@@ -319,6 +389,7 @@ export function CheckinScreen() {
           longitude: coords?.longitude,
           accuracy: coords?.accuracy,
           faceVerified: true,
+          locationUnavailable: !coords && gpsUnavailable,
         });
       } else {
         await smartCheckIn({
@@ -326,6 +397,7 @@ export function CheckinScreen() {
           longitude: coords?.longitude,
           accuracy: coords?.accuracy,
           faceVerified: true,
+          locationUnavailable: !coords && gpsUnavailable,
         });
       }
       // 2. Fire Telegram face notification.
@@ -355,13 +427,6 @@ export function CheckinScreen() {
     }
   }
 
-  /** Toạ độ cho check-out: máy chủ bắt buộc có vị trí khi cửa hàng đặt toạ độ chi nhánh. Không lấy được → báo, trả null. */
-  async function ensureCoords(): Promise<Coords | null> {
-    const c = coords ?? (await fetchGps());
-    if (!c) toast.error(t('checkin.locationNeeded'), t('checkin.checkOutFailed'));
-    return c;
-  }
-
   async function openCheckOutCamera() {
     if (!hasFaceEmbedding && requireFace) {
       router.push('/face-enrollment' as any);
@@ -374,7 +439,8 @@ export function CheckinScreen() {
       destructive: true,
     });
     if (!ok) return;
-    if (!(await ensureCoords())) return;
+    if (locating) return;
+    await resolveLocation();
     if (hasFaceEmbedding) {
       setFaceCheckinMode('checkout');
       return;
@@ -389,23 +455,20 @@ export function CheckinScreen() {
     haptics.light();
     setActionKind('checkout');
     setModalOpen(true);
-    if (gpsStatus !== 'ready' && gpsStatus !== 'loading') fetchGps();
   }
 
   async function handleConfirmCheckOut(base64: string, captureTime: Date) {
     setSubmitting(true);
     try {
-      // Ưu tiên toạ độ đã lấy sẵn cho modal (coords); GPS lỗi vẫn cho checkout
-      // (giữ đúng hành vi cũ — không chặn checkout vì GPS, chỉ chặn vì thiếu ảnh).
-      let c: Coords | undefined = coords ?? undefined;
-      if (!c) {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          c = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
-        }
-      }
-      await smartCheckOut({ latitude: c?.latitude, longitude: c?.longitude, accuracy: c?.accuracy, faceVerified: true });
+      // Vị trí đã lấy lúc bấm check-out (thử lại 5 giây); không có → máy chủ ghi "không có GPS".
+      const c: Coords | undefined = coords ?? undefined;
+      await smartCheckOut({
+        latitude: c?.latitude,
+        longitude: c?.longitude,
+        accuracy: c?.accuracy,
+        faceVerified: true,
+        locationUnavailable: !c && gpsUnavailable,
+      });
       // Đẩy ảnh lên Telegram — tái dùng đúng luồng checkin-face như lúc check-in.
       await checkinFace({
         candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
@@ -462,7 +525,6 @@ export function CheckinScreen() {
     if (gpsStatus === 'idle' || gpsStatus === 'error') void fetchGps();
   }
   // Ngoài khu vực cửa hàng → chip cảnh báo (đè lên trạng thái "ready" xanh).
-  const outsideStore = gpsStatus === 'ready' && !!nearestBranch && !nearestBranch.within;
   const gpsChip = outsideStore
     ? { icon: 'map-marker-off' as IconName, label: 'Ngoài khu vực cửa hàng', cls: 'bg-warning-soft', tone: 'warning' as const }
     : baseGpsChip;
@@ -537,11 +599,11 @@ export function CheckinScreen() {
               {/* White CTA — stays legible on the rose hero */}
               <Pressable
                 onPress={openCheckOutCamera}
-                disabled={submitting}
+                disabled={submitting || locating}
                 className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                 style={softShadow}
               >
-                {submitting ? (
+                {submitting || locating ? (
                   <Spinner color={brand.error} />
                 ) : (
                   <Icon name={hasFaceEmbedding ? 'face-recognition' : 'logout'} size={20} color={brand.error} />
@@ -550,7 +612,11 @@ export function CheckinScreen() {
                     dark:text-ink-dark (trắng) đè text-error ở dark → chữ trắng
                     trên nút trắng, mất chữ Checkout. */}
                 <Text tone="error" className="font-bold text-[16px]">
-                  {hasFaceEmbedding || photoOnly ? t('checkin.checkOutBtn') : t('checkin.enrollToCheckOut')}
+                  {locating
+                    ? 'Đang lấy vị trí GPS…'
+                    : hasFaceEmbedding || photoOnly
+                      ? t('checkin.checkOutBtn')
+                      : t('checkin.enrollToCheckOut')}
                 </Text>
               </Pressable>
               {photoOnly ? <EnrollFaceHint /> : null}
@@ -577,25 +643,29 @@ export function CheckinScreen() {
 
               {canCheckIn ? (
                 <>
-                  {locationOk ? (
-                    // Vị trí hợp lệ (trong khu vực) → check-in thường
+                  {!outsideStore ? (
+                    // Trong khu vực / chưa có vị trí / GPS lỗi → check-in thường (bấm là lấy vị trí, thử lại 5 giây).
                     <Pressable
                       onPress={() => (photoOnly ? openCheckInCamera('smart') : pressFaceCheckin('checkin'))}
-                      disabled={submitting}
+                      disabled={submitting || locating}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
-                      {submitting ? (
+                      {submitting || locating ? (
                         <Spinner color={brand.primary} />
                       ) : (
                         <Icon name={photoOnly ? 'camera-account' : 'face-recognition'} size={20} color={brand.primary} />
                       )}
                       <Text className="text-primary font-bold text-[16px]">
-                        {hasFaceEmbedding || photoOnly ? t('checkin.checkInBtn') : t('checkin.enrollToCheckIn')}
+                        {locating
+                          ? 'Đang lấy vị trí GPS…'
+                          : hasFaceEmbedding || photoOnly
+                            ? t('checkin.checkInBtn')
+                            : t('checkin.enrollToCheckIn')}
                       </Text>
                     </Pressable>
                   ) : gpsFallback ? (
-                    // Ngoài khu vực / GPS lỗi, đã hết đếm ngược → cho phép check-in ngoài giờ
+                    // Ngoài khu vực, đã hết đếm ngược → cho phép check-in ngoài giờ
                     <Pressable
                       onPress={() => pressFaceCheckin('overtime')}
                       disabled={submitting}
@@ -608,17 +678,15 @@ export function CheckinScreen() {
                       </Text>
                     </Pressable>
                   ) : (
-                    // Đang xác định vị trí / đếm ngược trước khi mở check-in ngoài giờ
+                    // Ngoài khu vực: đếm ngược trước khi mở check-in ngoài giờ
                     <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
                       <Spinner color="#FFFFFF" />
                       <Text className="text-white/90 font-bold text-[14px]">
-                        {locationBad
-                          ? `${gpsStatus === 'error' ? 'Không có GPS' : 'Ngoài khu vực'} — chờ ${gpsCountdown ?? 5}s`
-                          : 'Đang kiểm tra vị trí…'}
+                        {`Ngoài khu vực — chờ ${gpsCountdown ?? 5}s`}
                       </Text>
                     </View>
                   )}
-                  {locationOk && photoOnly ? <EnrollFaceHint /> : null}
+                  {!outsideStore && photoOnly ? <EnrollFaceHint /> : null}
                 </>
               ) : shifts.length === 0 ? (
                 // Hôm nay chưa được xếp ca: đang ở cửa hàng thì check-in ngoài giờ (chỉ ghi giờ để đối chiếu cuối tháng,
@@ -716,14 +784,14 @@ export function CheckinScreen() {
         </View>
       </Pressable>
 
-      {/* Có ca nhưng vị trí không hợp lệ → đếm ngược rồi mở Check-in ngoài giờ (giống core-fe) */}
+      {/* Có ca nhưng đang ở ngoài khu vực cửa hàng → đếm ngược rồi mở Check-in ngoài giờ (giống core-fe) */}
       {needOvertimeFallback ? (
         <View className={cn('flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl', gpsFallback ? 'bg-success-soft' : 'bg-warning-soft')}>
           <Icon name={(gpsFallback ? 'clock-plus-outline' : 'timer-sand') as IconName} size={16} tone={gpsFallback ? 'success' : 'warning'} />
           <Text variant="bodySmall" tone={gpsFallback ? 'success' : 'warning'} className="font-semibold flex-1">
             {gpsFallback
               ? 'Đã mở Check-in ngoài giờ — bạn có thể chụp ảnh để check-in.'
-              : `${gpsStatus === 'error' ? 'Không lấy được GPS' : 'Bạn đang ở ngoài khu vực cửa hàng'}. Mở Check-in ngoài giờ sau ${gpsCountdown ?? 0}s…`}
+              : `Bạn đang ở ngoài khu vực cửa hàng. Mở Check-in ngoài giờ sau ${gpsCountdown ?? 0}s…`}
           </Text>
         </View>
       ) : null}
@@ -792,7 +860,7 @@ export function CheckinScreen() {
         // Check-out KHÔNG phụ thuộc GPS như check-in (không có khái niệm "ca phù hợp"
         // để tính fallback) — giữ đúng hành vi cũ là checkout vẫn được dù GPS lỗi,
         // chỉ chặn vì thiếu ảnh (yêu cầu mới), không chặn thêm vì vị trí.
-        canSubmit={actionKind === 'checkout' ? true : gpsStatus === 'ready' || gpsFallback}
+        canSubmit={actionKind === 'checkout' ? true : gpsStatus === 'ready' || gpsUnavailable || gpsFallback}
         loading={submitting}
         onClose={() => setModalOpen(false)}
         onConfirm={actionKind === 'checkout' ? handleConfirmCheckOut : handleConfirmCheckIn}
@@ -806,6 +874,7 @@ export function CheckinScreen() {
         visible={faceCheckinMode !== null}
         mode={faceCheckinMode ?? 'checkin'}
         coords={coords}
+        locationUnavailable={gpsUnavailable}
         onClose={() => setFaceCheckinMode(null)}
         onSuccess={() => {
           const isOut = faceCheckinMode === 'checkout';
