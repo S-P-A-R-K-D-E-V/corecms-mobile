@@ -6,6 +6,7 @@ import type {
   IEnrollPresignedFileResponse,
   IEnrollFaceBatchRequest,
   IFaceEmbeddingResponse,
+  IFaceEnrollmentRequest,
   IVerifySelfRequest,
   IVerifySelfResponse,
 } from 'src/types/corecms-api';
@@ -50,6 +51,22 @@ export async function submitFaceEnrollment(photos: { uri: string }[]): Promise<I
     objectKeys: presigned.map((p) => p.objectKey),
   } satisfies IEnrollFaceBatchRequest);
   return response.data;
+}
+
+// ── Duyệt đăng ký khuôn mặt (quyền user.update) ──
+
+/** Đăng ký khuôn mặt đang chờ duyệt, cũ nhất trước — ảnh mới cạnh ảnh đang dùng + % giống. */
+export async function getFaceEnrollmentRequests(): Promise<IFaceEnrollmentRequest[]> {
+  const response = await axios.get<IFaceEnrollmentRequest[]>(endpoints.faceTracking.enrollmentRequests);
+  return response.data;
+}
+
+export async function approveFaceEnrollmentRequest(id: string): Promise<void> {
+  await axios.post(endpoints.faceTracking.approveEnrollment(id));
+}
+
+export async function rejectFaceEnrollmentRequest(id: string, reason?: string): Promise<void> {
+  await axios.post(endpoints.faceTracking.rejectEnrollment(id), { reason: reason || null });
 }
 
 /** Tự kiểm tra khuôn mặt hiện tại (video ngắn) có khớp với embedding đã đăng ký không —

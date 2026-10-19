@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Image, View } from 'react-native';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared';
 import { Card, Text, Badge, Button, Icon, Skeleton, SegmentedControl } from 'src/components/ui';
-import { toast, confirm } from 'src/components/overlay';
+import { toast, confirm, showActionSheet } from 'src/components/overlay';
+import { getStorageUrl } from 'src/api/axios';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
 import { NEED_TYPE_LABEL, fmtMoney } from 'src/features/schedule/constants';
 import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
-import type { AttendanceRequestType, IAttendanceRequest,IShiftPoolPost, ILateCoverRequest, IShiftSwapRequest } from 'src/types/corecms-api';
+import type { AttendanceRequestType, IAttendanceRequest,IShiftPoolPost, ILateCoverRequest, IShiftSwapRequest, IFaceEnrollmentRequest } from 'src/types/corecms-api';
 
 import {
   usePendingAttendanceRequests,
@@ -19,6 +20,8 @@ import {
   useProcessAttendanceRequest,
   useReviewSwapRequest,
   useReviewShiftPoolPost,
+  usePendingFaceEnrollments,
+  useReviewFaceEnrollment,
 } from './hooks';
 
 // ----------------------------------------------------------------------
@@ -30,7 +33,10 @@ import {
 // lỗi trả về, không tự nhân bản luật.
 // ----------------------------------------------------------------------
 
-type Tab = 'attendance' | 'swap' | 'pool';
+type Tab = 'attendance' | 'swap' | 'pool' | 'face';
+
+/** Ngưỡng nhận diện của máy chủ (KioskSettings.SimilarityThreshold). */
+const FACE_MATCH_THRESHOLD = 0.55;
 
 const REQUEST_TYPE_LABEL: Record<AttendanceRequestType, string> = {
   MissedCheckIn: 'Quên giờ vào',
@@ -232,6 +238,106 @@ function PoolCard({ item }: { item: IShiftPoolPost }) {
   );
 }
 
+function FacePhoto({ url, caption }: { url: string | null; caption: string }) {
+  return (
+    <View className="flex-1 gap-1">
+      <View className="rounded-xl overflow-hidden bg-bg dark:bg-bg-dark items-center justify-center" style={{ aspectRatio: 3 / 4 }}>
+        {url ? (
+          <Image source={{ uri: getStorageUrl(url) }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+        ) : (
+          <Text variant="caption" tone="faint" className="text-center px-2">Chưa có khuôn mặt</Text>
+        )}
+      </View>
+      <Text variant="caption" tone="muted" className="text-center">{caption}</Text>
+    </View>
+  );
+}
+
+/** Đăng ký khuôn mặt chờ duyệt: ảnh đang dùng cạnh ảnh mới + % giống (lần đầu thì chưa có ảnh để so). */
+function FaceCard({ item }: { item: IFaceEnrollmentRequest }) {
+  const mutation = useReviewFaceEnrollment();
+  const first = item.similarityToCurrent == null;
+  const pct = first ? null : Math.round((item.similarityToCurrent ?? 0) * 100);
+
+  const done = (approved: boolean) => {
+    haptics.success();
+    toast.success(approved ? `Đã duyệt khuôn mặt của ${item.staffName}.` : `Đã từ chối — ${item.staffName} sẽ được báo đăng ký lại.`);
+  };
+  const fail = (err: unknown) => {
+    haptics.error();
+    toast.error(extractApiError(err), 'Không xử lý được');
+  };
+
+  const approve = async () => {
+    const ok = await confirm({
+      title: 'Duyệt khuôn mặt',
+      message: `Dùng khuôn mặt mới cho ${item.staffName}? Khuôn mặt đang dùng sẽ bị thay.`,
+      confirmText: 'Duyệt',
+    });
+    if (!ok) return;
+    try {
+      await mutation.mutateAsync({ id: item.id, status: 'Approved' });
+      done(true);
+    } catch (err) {
+      fail(err);
+    }
+  };
+
+  const reject = () => {
+    const run = async (reason?: string) => {
+      try {
+        await mutation.mutateAsync({ id: item.id, status: 'Rejected', reviewNote: reason });
+        done(false);
+      } catch (err) {
+        fail(err);
+      }
+    };
+    void showActionSheet({
+      title: `Từ chối khuôn mặt của ${item.staffName}`,
+      message: 'Khuôn mặt mới bị bỏ, khuôn mặt đang dùng giữ nguyên.',
+      options: [
+        { label: 'Không phải nhân viên này', icon: 'account-cancel', destructive: true, onPress: () => void run('Không phải bạn') },
+        { label: 'Ảnh mờ / thiếu sáng', icon: 'image-off-outline', destructive: true, onPress: () => void run('Ảnh mờ hoặc thiếu sáng') },
+        { label: 'Từ chối, không ghi lý do', icon: 'close-circle-outline', destructive: true, onPress: () => void run() },
+      ],
+    });
+  };
+
+  return (
+    <Card className="p-4 gap-3">
+      <View className="flex-row items-center gap-2">
+        <Icon name="face-recognition" size={18} tone="primary" />
+        <View className="flex-1">
+          <Text variant="subtitle" numberOfLines={1}>{item.staffName}</Text>
+          <Text variant="caption" tone="faint">Gửi lúc {dayjs(item.createdAt).format('HH:mm DD/MM/YYYY')}</Text>
+        </View>
+        {first ? <Badge tone="info">Lần đầu</Badge> : <Badge tone={pct! >= 40 ? 'warning' : 'error'}>{`Giống ${pct}%`}</Badge>}
+      </View>
+      <View className="flex-row gap-3">
+        <FacePhoto url={item.currentPhotoUrl} caption="Đang dùng" />
+        <FacePhoto url={item.newPhotoUrl} caption="Mới đăng ký" />
+      </View>
+      <Text variant="caption" tone="muted">
+        {first
+          ? 'Chưa có khuôn mặt để so — kiểm tra đúng là nhân viên này.'
+          : `Khác khuôn mặt đang dùng (nhận ra cùng người từ ${Math.round(FACE_MATCH_THRESHOLD * 100)}%). Duyệt nếu đúng là nhân viên này.`}
+      </Text>
+      <View className="flex-row gap-2">
+        <View className="flex-1">
+          <Button variant="soft" action="error" size="sm" disabled={mutation.isPending} onPress={reject}>
+            Từ chối
+          </Button>
+        </View>
+        <View className="flex-1">
+          <Button size="sm" loading={mutation.isPending} onPress={approve}>
+            Duyệt
+          </Button>
+        </View>
+      </View>
+    </Card>
+  );
+}
+
 // ── Screen ─────────────────────────────────────────────────────────────
 
 function ListSkeleton() {
@@ -253,22 +359,29 @@ export function ApprovalsScreen() {
   // Mỗi tab theo quyền của API nó gọi — vai trò tuỳ chỉnh chỉ có một quyền thì chỉ thấy tab đó, không gọi API 403.
   const canAttendance = hasPermission(user, PERMISSIONS.attendance.requestProcess);
   const canShift = hasPermission(user, PERMISSIONS.shift.requestReview);
-  const tabs: Tab[] = [...(canAttendance ? (['attendance'] as const) : []), ...(canShift ? (['swap', 'pool'] as const) : [])];
+  const canFace = hasPermission(user, PERMISSIONS.user.update);
+  const tabs: Tab[] = [
+    ...(canAttendance ? (['attendance'] as const) : []),
+    ...(canShift ? (['swap', 'pool'] as const) : []),
+    ...(canFace ? (['face'] as const) : []),
+  ];
   const [pickedTab, setTab] = useState<Tab>(tabs[0] ?? 'attendance');
   const tab = tabs.includes(pickedTab) ? pickedTab : tabs[0] ?? 'attendance';
 
   const att = usePendingAttendanceRequests(canAttendance);
   const swap = usePendingSwapRequests(canShift);
   const pool = usePendingShiftPoolPosts(canShift);
+  const face = usePendingFaceEnrollments(canFace);
 
-  const current = { attendance: att, swap, pool }[tab];
-  const refreshing = att.isFetching || swap.isFetching || pool.isFetching;
+  const current = { attendance: att, swap, pool, face }[tab];
+  const refreshing = att.isFetching || swap.isFetching || pool.isFetching || face.isFetching;
   const onRefresh = () => {
     if (canAttendance) att.refetch();
     if (canShift) {
       swap.refetch();
       pool.refetch();
     }
+    if (canFace) face.refetch();
   };
 
   const label = (base: string, n?: number) => (n ? `${base} (${n})` : base);
@@ -282,6 +395,7 @@ export function ApprovalsScreen() {
           { key: 'attendance', label: label('Chấm công', att.data?.length) },
           { key: 'swap', label: label('Đổi ca', swap.data?.length) },
           { key: 'pool', label: label('Chợ ca', pool.data?.length) },
+          { key: 'face', label: label('Khuôn mặt', face.data?.length) },
         ].filter((s) => tabs.includes(s.key as Tab))}
         value={tab}
         onChange={(k) => setTab(k as Tab)}
@@ -297,6 +411,8 @@ export function ApprovalsScreen() {
         (att.data ?? []).map((r) => <AttendanceCard key={r.id} item={r} />)
       ) : tab === 'swap' ? (
         (swap.data ?? []).map((r) => <SwapCard key={r.id} item={r} />)
+      ) : tab === 'face' ? (
+        (face.data ?? []).map((r) => <FaceCard key={r.id} item={r} />)
       ) : (
         (pool.data ?? []).map((r) => <PoolCard key={r.id} item={r} />)
       )}

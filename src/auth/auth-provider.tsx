@@ -75,6 +75,7 @@ function buildUserFromMe(data: any, accessToken: string, refreshToken?: string):
     idCardFrontUrl: data.idCardFrontUrl,
     idCardBackUrl: data.idCardBackUrl,
     hasFaceEmbedding: !!data.hasFaceEmbedding,
+    faceEnrollmentPending: !!data.faceEnrollmentPending,
     enabledFeatures: Array.isArray(data.enabledFeatures) ? data.enabledFeatures : undefined,
     blockedFeatures: Array.isArray(data.blockedFeatures) ? data.blockedFeatures : [],
     branchScope:

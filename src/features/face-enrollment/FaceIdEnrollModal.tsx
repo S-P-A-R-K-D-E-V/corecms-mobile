@@ -95,6 +95,8 @@ export function FaceIdEnrollModal({ native, visible, onClose, onEnrolled }: Prop
   const [hint, setHint] = useState('Đưa khuôn mặt vào trong khung tròn');
   const [lit, setLit] = useState<boolean[]>(() => Array(TICK_COUNT).fill(false));
   const [error, setError] = useState<string | null>(null);
+  /** Máy chủ giữ khuôn mặt mới chờ quản lý duyệt (lần đầu, hoặc khác khuôn mặt đang dùng). */
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   const phaseRef = useRef<Phase>('front');
   const litRef = useRef<boolean[]>(Array(TICK_COUNT).fill(false));
@@ -168,7 +170,8 @@ export function FaceIdEnrollModal({ native, visible, onClose, onEnrolled }: Prop
     }
     try {
       // Ảnh nhìn thẳng PHẢI đứng đầu — máy chủ so mọi ảnh còn lại với ảnh này.
-      await submitFaceEnrollment([front, ...angles].map((uri) => ({ uri })));
+      const saved = await submitFaceEnrollment([front, ...angles].map((uri) => ({ uri })));
+      setPendingApproval(saved?.status === 'PendingApproval');
       litRef.current = Array(TICK_COUNT).fill(true);
       setLit(litRef.current);
       go('done');
@@ -334,12 +337,22 @@ export function FaceIdEnrollModal({ native, visible, onClose, onEnrolled }: Prop
               ) : null}
               <View pointerEvents="none" style={{ position: 'absolute', left: 24, right: 24, top: circle.cy + circle.r + TICK_GAP + TICK_LEN + 28 }}>
                 <Text className="text-white text-center text-[17px] font-bold">
-                  {phase === 'done' ? 'Đã đăng ký khuôn mặt' : phase === 'error' ? 'Đăng ký chưa thành công' : hint}
+                  {phase === 'done'
+                    ? pendingApproval
+                      ? 'Đã gửi — chờ quản lý duyệt'
+                      : 'Đã đăng ký khuôn mặt'
+                    : phase === 'error'
+                      ? 'Đăng ký chưa thành công'
+                      : hint}
                 </Text>
                 {phase === 'front' ? (
                   <Text className="text-white/60 text-center text-[13px] mt-2">Nhìn thẳng — ảnh nhìn thẳng được chụp tự động.</Text>
                 ) : phase === 'rotate' ? (
                   <Text className="text-white/60 text-center text-[13px] mt-2">Xoay đầu chậm thành vòng tròn đến khi các vạch sáng hết.</Text>
+                ) : phase === 'done' && pendingApproval ? (
+                  <Text className="text-white/70 text-center text-[13px] mt-2">
+                    Quản lý sẽ xem ảnh và duyệt. Trong lúc chờ, bạn vẫn chấm công bằng khuôn mặt cũ (nếu đã có).
+                  </Text>
                 ) : phase === 'error' && error ? (
                   <Text className="text-white/70 text-center text-[13px] mt-2">{error}</Text>
                 ) : null}

@@ -338,6 +338,9 @@ export const endpoints = {
     enrollPresign: '/face-tracking/enroll/presign',
     enrollBatch: '/face-tracking/enroll/batch',
     verifySelf: '/face-tracking/verify-self',
+    enrollmentRequests: '/face-tracking/enrollment-requests',
+    approveEnrollment: (id: string) => `/face-tracking/enrollment-requests/${id}/approve`,
+    rejectEnrollment: (id: string) => `/face-tracking/enrollment-requests/${id}/reject`,
   },
   shiftSwap: {
     create: '/shift-swap',

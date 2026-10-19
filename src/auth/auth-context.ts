@@ -24,6 +24,8 @@ export type AuthUser = {
   idCardFrontUrl?: string;
   idCardBackUrl?: string;
   hasFaceEmbedding?: boolean;
+  /** Khuôn mặt mới đang chờ quản lý duyệt. */
+  faceEnrollmentPending?: boolean;
   /** Tính năng cửa hàng đang bật (GET /users/me → enabledFeatures), vd "ai.assistant". */
   enabledFeatures?: string[];
   /** Tính năng chủ cửa hàng tắt trên app với người này (GET /users/me → blockedFeatures, src/auth/platform-features.ts). */

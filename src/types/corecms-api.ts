@@ -73,6 +73,8 @@ export interface IUser {
   status?: UserStatus;
   createdAt: string;
   hasFaceEmbedding: boolean;
+  /** Có lần đăng ký khuôn mặt đang chờ quản lý duyệt (chỉ có ở GET /users/me). */
+  faceEnrollmentPending?: boolean;
 }
 
 export type UserStatus = 'Active' | 'Pending' | 'Banned' | 'Rejected';
@@ -479,6 +481,23 @@ export interface IFaceEmbeddingResponse {
   staffId: string;
   quality: number;
   updatedAt: string;
+  /** "Approved" = dùng ngay; "PendingApproval" = chờ quản lý duyệt (khuôn mặt cũ vẫn dùng). Máy chủ cũ không gửi. */
+  status?: 'Approved' | 'PendingApproval';
+  requestId?: string | null;
+  /** Độ giống khuôn mặt đang dùng (0–1); null = đăng ký lần đầu. */
+  similarityToCurrent?: number | null;
+}
+
+/** GET /face-tracking/enrollment-requests — ảnh là đường dẫn /media đã ký (dùng getStorageUrl). */
+export interface IFaceEnrollmentRequest {
+  id: string;
+  staffId: string;
+  staffName: string;
+  createdAt: string;
+  similarityToCurrent: number | null;
+  quality: number;
+  newPhotoUrl: string | null;
+  currentPhotoUrl: string | null;
 }
 
 /** POST /face-tracking/verify-self — nhân viên tự kiểm tra khuôn mặt hiện tại (video ngắn)

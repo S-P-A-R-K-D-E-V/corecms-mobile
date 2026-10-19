@@ -181,7 +181,7 @@ export const MANAGE_SCREEN_PERMISSIONS = {
   assignShift: [SHIFT.assignmentRead, SHIFT.assignmentManage],
   coverShift: [SHIFT.assignmentRead, SHIFT.assignmentManage],
   /** Duyệt yêu cầu: có MỘT trong hai là vào được, mỗi tab theo quyền của nó. */
-  approvals: [ATTENDANCE.requestProcess, SHIFT.requestReview],
+  approvals: [ATTENDANCE.requestProcess, SHIFT.requestReview, PERMISSIONS.user.update],
   /** Theo dõi tuần / chấm vệ sinh: xem checklist; nút chấm, phạt theo quyền riêng trong màn. */
   cleaningReview: [PERMISSIONS.cleaning.read],
   /** Thư viện đầu việc, xây checklist tuần. */

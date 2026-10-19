@@ -98,12 +98,16 @@ export function FaceEnrollmentScreen() {
   // Bản build có nhận diện khuôn mặt trên máy (1.0.4+) → đăng ký kiểu Face ID; bản cũ → chụp từng bước như trước.
   const faceIdNative = loadFaceIdNative();
 
-  const [mode, setMode] = useState<Mode>(user?.hasFaceEmbedding ? 'status' : 'capture');
+  // Đã có khuôn mặt, hoặc đang chờ quản lý duyệt → màn trạng thái (có nút Đăng ký lại); chưa có gì → đăng ký luôn.
+  const hasOrPending = !!user?.hasFaceEmbedding || !!user?.faceEnrollmentPending;
+  const [mode, setMode] = useState<Mode>(hasOrPending ? 'status' : 'capture');
   const manualCaptureRef = useRef(false);
   useEffect(() => {
     if (manualCaptureRef.current) return;
-    setMode(user?.hasFaceEmbedding ? 'status' : 'capture');
-  }, [user?.hasFaceEmbedding]);
+    setMode(hasOrPending ? 'status' : 'capture');
+  }, [hasOrPending]);
+  /** Lần đăng ký vừa gửi đang chờ quản lý duyệt (luồng chụp từng bước của bản cũ). */
+  const [pendingApproval, setPendingApproval] = useState(false);
 
   const [verifyOpen, setVerifyOpen] = useState(false);
 
@@ -128,7 +132,8 @@ export function FaceEnrollmentScreen() {
     setSubmitting(true);
     setFailedReason(null);
     try {
-      await submitFaceEnrollment(finalImages.map((p) => ({ uri: p.uri })));
+      const saved = await submitFaceEnrollment(finalImages.map((p) => ({ uri: p.uri })));
+      setPendingApproval(saved?.status === 'PendingApproval');
       setDone(true);
       refreshUser().catch(() => {});
     } catch (err) {
@@ -203,15 +208,33 @@ export function FaceEnrollmentScreen() {
     return (
       <Screen tabBarInset={false} contentClassName="items-center justify-center">
         <View className="items-center gap-4 px-6">
-          <Icon name="check-decagram" size={56} tone="success" />
-          <Text variant="title" className="text-center">Bạn đã đăng ký khuôn mặt</Text>
-          <Text tone="muted" className="text-center">
-            Có thể dùng khuôn mặt để chấm công tại quầy.
+          <Icon
+            name={user?.hasFaceEmbedding ? 'check-decagram' : 'timer-sand'}
+            size={56}
+            tone={user?.hasFaceEmbedding ? 'success' : 'warning'}
+          />
+          <Text variant="title" className="text-center">
+            {user?.hasFaceEmbedding ? 'Bạn đã đăng ký khuôn mặt' : 'Khuôn mặt đang chờ duyệt'}
           </Text>
+          <Text tone="muted" className="text-center">
+            {user?.hasFaceEmbedding
+              ? 'Có thể dùng khuôn mặt để chấm công tại quầy.'
+              : 'Quản lý sẽ xem ảnh và duyệt — duyệt xong là chấm công bằng khuôn mặt được.'}
+          </Text>
+          {user?.hasFaceEmbedding && user?.faceEnrollmentPending ? (
+            <View className="w-full rounded-xl bg-warning-soft px-3 py-2.5 flex-row items-center gap-2">
+              <Icon name="timer-sand" size={18} tone="warning" />
+              <Text variant="bodySmall" tone="warning" className="flex-1">
+                Khuôn mặt mới đang chờ quản lý duyệt — trong lúc chờ vẫn chấm công bằng khuôn mặt hiện tại.
+              </Text>
+            </View>
+          ) : null}
           <View className="w-full gap-3 mt-2">
-            <Button icon="face-recognition" onPress={() => setVerifyOpen(true)}>
-              Kiểm tra so khớp
-            </Button>
+            {user?.hasFaceEmbedding ? (
+              <Button icon="face-recognition" onPress={() => setVerifyOpen(true)}>
+                Kiểm tra so khớp
+              </Button>
+            ) : null}
             {/* Nhân viên tự đăng ký lại được (chủ đã chốt 2026-10-15; Core-be không còn chặn). */}
             <Button variant="outline" action="neutral" icon="camera-retake" onPress={startReenroll}>
               Đăng ký lại
@@ -247,7 +270,7 @@ export function FaceEnrollmentScreen() {
     return (
       <SuccessOverlay
         visible
-        message="Đăng ký khuôn mặt thành công!"
+        message={pendingApproval ? 'Đã gửi — chờ quản lý duyệt' : 'Đăng ký khuôn mặt thành công!'}
         onDone={() => router.back()}
       />
     );

@@ -15,6 +15,7 @@ import { getAttendanceReport } from 'src/api/reports';
 import { adjustAttendanceTime, getAttendanceRequests, processAttendanceRequest } from 'src/api/attendance';
 import { getPendingShiftSwapRequests, reviewShiftSwapRequest } from 'src/api/shiftSwap';
 import { getPendingShiftPoolPosts, reviewShiftPoolPost } from 'src/api/shiftPool';
+import { approveFaceEnrollmentRequest, getFaceEnrollmentRequests, rejectFaceEnrollmentRequest } from 'src/api/faceEnrollment';
 import type {
   IAdjustAttendanceTimeRequest,
   IAutoAssignSlotDto,
@@ -164,6 +165,25 @@ export function usePendingShiftPoolPosts(enabled = true) {
     enabled,
     queryFn: getPendingShiftPoolPosts,
     staleTime: MINUTE,
+  });
+}
+
+/** Đăng ký khuôn mặt chờ duyệt (quyền user.update). */
+export function usePendingFaceEnrollments(enabled = true) {
+  return useQuery({
+    queryKey: ['manage', 'face-enrollments', 'pending'],
+    enabled,
+    queryFn: getFaceEnrollmentRequests,
+    staleTime: MINUTE,
+  });
+}
+
+export function useReviewFaceEnrollment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status, reviewNote }: ReviewInput) =>
+      status === 'Approved' ? approveFaceEnrollmentRequest(id) : rejectFaceEnrollmentRequest(id, reviewNote),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['manage', 'face-enrollments'] }),
   });
 }
 
