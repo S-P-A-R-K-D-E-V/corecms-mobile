@@ -21,6 +21,7 @@ import {
   useCustomRoles,
   useAssignRoles,
   useChangeUserStatus,
+  useResetUserFace,
   useSetUserCustomRoles,
   useUserRoleAssignment,
 } from './hooks';
@@ -50,6 +51,7 @@ export function UserDetailScreen() {
   const customRolesQ = useCustomRoles(isOwner);
   const assignmentQ = useUserRoleAssignment(userId, isOwner);
   const statusM = useChangeUserStatus();
+  const resetFaceM = useResetUserFace();
   const assignM = useAssignRoles();
   const customM = useSetUserCustomRoles();
 
@@ -58,6 +60,9 @@ export function UserDetailScreen() {
   const targetIsAdmin = [...(user?.roles ?? []), user?.role].includes('Admin');
   const canChangeStatus =
     hasAllPermissions(me, [PERMISSIONS.user.read, PERMISSIONS.user.status]) && (isOwner || !targetIsAdmin);
+  // Huỷ khuôn mặt theo quyền user.update; khuôn mặt Admin chỉ Admin huỷ được (Core-be trả 403).
+  const canResetFace =
+    hasAllPermissions(me, [PERMISSIONS.user.read, PERMISSIONS.user.update]) && (isOwner || !targetIsAdmin);
   // Core-be chặn Admin tự khoá tài khoản / tự gỡ Admin của chính mình (có thể là Admin cuối cùng) — khoá luôn trên UI.
   const isSelf = !!me?.id && me.id === userId;
   const currentStatus: UserStatus = user?.status ?? (user?.isActive ? 'Active' : 'Banned');
@@ -120,6 +125,25 @@ export function UserDetailScreen() {
     } catch (e) {
       haptics.error();
       toast.error(extractApiError(e), 'Không đổi được');
+    }
+  }
+
+  async function resetFace() {
+    if (!userId) return;
+    const ok = await confirm({
+      title: 'Huỷ khuôn mặt',
+      message: `Xoá khuôn mặt chấm công đã đăng ký của "${user?.fullName}"? Nhân viên sẽ được báo đăng ký lại; cửa hàng bật "Bắt buộc khuôn mặt" thì họ không chấm công được cho tới khi đăng ký lại.`,
+      confirmText: 'Huỷ khuôn mặt',
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await resetFaceM.mutateAsync(userId);
+      haptics.success();
+      toast.success('Nhân viên sẽ được báo đăng ký lại.', 'Đã huỷ khuôn mặt');
+    } catch (e) {
+      haptics.error();
+      toast.error(extractApiError(e), 'Không huỷ được');
     }
   }
 
@@ -193,6 +217,34 @@ export function UserDetailScreen() {
               <Text variant="caption" tone="muted" className="mt-2">
                 Không tự khoá tài khoản của chính mình — nhờ một Admin khác nếu cần.
               </Text>
+            ) : null}
+          </Card>
+
+          {/* Khuôn mặt chấm công */}
+          <Card className="p-4">
+            <View className="flex-row items-center gap-2">
+              <Icon name="face-recognition" size={18} tone="primary" />
+              <Text variant="subtitle" className="flex-1">Khuôn mặt chấm công</Text>
+              <Badge tone={user.hasFaceEmbedding ? 'success' : 'warning'}>
+                {user.hasFaceEmbedding ? 'Đã đăng ký' : 'Chưa đăng ký'}
+              </Badge>
+            </View>
+            {user.hasFaceEmbedding && canResetFace ? (
+              <>
+                <Text variant="caption" tone="muted" className="mt-2">
+                  Đăng ký nhầm người, ảnh mờ hay khuôn mặt đã thay đổi — huỷ để nhân viên đăng ký lại.
+                </Text>
+                <Button
+                  variant="outline"
+                  action="error"
+                  className="mt-3"
+                  icon="face-recognition"
+                  loading={resetFaceM.isPending}
+                  onPress={resetFace}
+                >
+                  Huỷ khuôn mặt
+                </Button>
+              </>
             ) : null}
           </Card>
 

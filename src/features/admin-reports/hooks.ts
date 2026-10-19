@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { getAttendanceReport, getRevenueReport, getExpenseReport, getBreakEvenAnalysis } from 'src/api/reports';
-import { getAllUsers, getUserById, changeUserStatus } from 'src/api/users';
+import { getAllUsers, getUserById, changeUserStatus, resetUserFace } from 'src/api/users';
 import { getAllRoles, assignRoles, getCustomRoles, getUserRoleAssignment, setUserCustomRoles } from 'src/api/roles';
 import { rangeLastDays } from 'src/features/admin-dashboard/hooks';
 import type {
@@ -67,6 +67,14 @@ export function useChangeUserStatus() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: IChangeUserStatusRequest }) => changeUserStatus(id, data),
     onSuccess: (_r, { id }) => invalidateUser(qc, id),
+  });
+}
+
+export function useResetUserFace() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => resetUserFace(id),
+    onSuccess: (_r, id) => invalidateUser(qc, id),
   });
 }
 

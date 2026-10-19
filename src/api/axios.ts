@@ -190,6 +190,7 @@ export const endpoints = {
     activeStaff: '/users/active-staff',
     details: (id: string) => `/users/${id}`,
     changeStatus: (id: string) => `/users/${id}/status`,
+    face: (id: string) => `/users/${id}/face`,
     schedulingPriority: (id: string) => `/users/${id}/scheduling-priority`,
     me: '/users/me',
     updateProfile: '/users/me/profile',

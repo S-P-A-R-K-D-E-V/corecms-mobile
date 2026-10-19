@@ -53,6 +53,11 @@ export async function changeUserStatus(id: string, data: IChangeUserStatusReques
   await axios.patch(endpoints.users.changeStatus(id), data);
 }
 
+/** Huỷ khuôn mặt đã đăng ký của nhân viên ở cửa hàng này — nhân viên phải đăng ký lại (quyền user.update). */
+export async function resetUserFace(id: string): Promise<void> {
+  await axios.delete(endpoints.users.face(id));
+}
+
 export async function updateMyProfile(data: IUpdateProfileRequest): Promise<void> {
   await axios.put(endpoints.users.updateProfile, data);
 }
