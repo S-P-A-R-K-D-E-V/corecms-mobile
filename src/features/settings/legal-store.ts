@@ -13,7 +13,7 @@ export type LegalContent = { title: string; updatedAt: string; sections: LegalSe
 
 const SUPPORT_EMAIL = process.env.EXPO_PUBLIC_SUPPORT_EMAIL;
 const PRIVACY_URL = process.env.EXPO_PUBLIC_PRIVACY_URL;
-const UPDATED = '2026-10-01';
+const UPDATED = '2026-10-19';
 
 const LICENSES_BODY = {
   platform: 'React, React Native, Expo, expo-router, babel-preset-expo',
@@ -26,7 +26,9 @@ const LICENSES_BODY = {
     'expo-camera, expo-location, expo-image-picker, expo-secure-store, expo-notifications, ' +
     'expo-apple-authentication, expo-crypto, expo-auth-session, expo-web-browser, expo-linking, ' +
     'expo-constants, expo-asset, expo-font, expo-splash-screen, expo-status-bar, expo-updates, ' +
-    '@react-native-async-storage/async-storage, react-native-view-shot',
+    '@react-native-async-storage/async-storage, react-native-view-shot, react-native-vision-camera, ' +
+    'react-native-vision-camera-face-detector (Google ML Kit Face Detection), react-native-nitro-modules, ' +
+    'react-native-nitro-image',
   realtime: '@microsoft/signalr',
 };
 
@@ -64,6 +66,10 @@ function english(): Record<LegalDoc, LegalContent> {
             '• Account: name, email, profile photo; Sign in with Apple / Google identifiers when you use them.\n' +
             '• Location (GPS): only when you check in/out or count the cash drawer, to confirm you are at the store.\n' +
             '• Face photos: taken at check-in and during face enrollment to verify it is really you.\n' +
+            '• On-device face detection: during face enrollment and face check-in the app uses Google ML Kit on your ' +
+            'phone to find your face and head angle. Images are processed on the device and are not sent to Google; ML ' +
+            'Kit sends Google technical usage metrics (device model, OS and app version, processing time, image size, ' +
+            'error codes).\n' +
             '• Work data: shifts, attendance, pay, requests, chat messages and anything you enter in the app.\n' +
             '• Device: push-notification token, app version and crash diagnostics.',
         },
@@ -85,13 +91,15 @@ function english(): Record<LegalDoc, LegalContent> {
           heading: '5. Sharing',
           body:
             'We do not sell personal data. Data is shared only with the store you work for, the service providers that run ' +
-            'the platform (hosting, notifications, AI when enabled), or when the law requires it.',
+            'the platform (hosting, notifications, AI when enabled, Google ML Kit usage metrics), or when the law requires it.',
         },
         {
           heading: '6. Security & retention',
           body:
             'Data is encrypted in transit (HTTPS/TLS) and passwords are hashed. Check-in photos and locations are kept as ' +
-            'long as the related attendance and payroll records.',
+            'long as the related attendance and payroll records. Face enrollment photos are kept in private storage; a store ' +
+            'manager may review a new enrollment before it is used, and the photos are deleted when you enroll again, when a ' +
+            'manager removes your face, or when you delete your account.',
         },
         {
           heading: '7. Your choices',
@@ -172,6 +180,10 @@ function vietnamese(): Record<LegalDoc, LegalContent> {
             '• Tài khoản: họ tên, email, ảnh đại diện; định danh Sign in with Apple / Google khi bạn dùng.\n' +
             '• Vị trí (GPS): chỉ khi chấm công hoặc kiểm tiền quầy, để xác nhận bạn đang ở cửa hàng.\n' +
             '• Ảnh khuôn mặt: chụp khi chấm công và khi đăng ký khuôn mặt để xác thực đúng người.\n' +
+            '• Nhận diện khuôn mặt trên máy: khi đăng ký và chấm công bằng khuôn mặt, ứng dụng dùng Google ML Kit ngay ' +
+            'trên điện thoại để tìm khuôn mặt và góc đầu. Ảnh được xử lý trên máy, không gửi cho Google; ML Kit gửi ' +
+            'cho Google số liệu kỹ thuật (dòng máy, phiên bản hệ điều hành và ứng dụng, thời gian xử lý, kích thước ' +
+            'ảnh, mã lỗi).\n' +
             '• Dữ liệu công việc: ca làm, chấm công, lương, yêu cầu, tin nhắn và mọi thông tin bạn nhập.\n' +
             '• Thiết bị: mã nhận thông báo, phiên bản ứng dụng và thông tin lỗi.',
         },
@@ -193,13 +205,14 @@ function vietnamese(): Record<LegalDoc, LegalContent> {
           heading: '5. Chia sẻ',
           body:
             'Chúng tôi không bán dữ liệu cá nhân. Dữ liệu chỉ được chia sẻ với cửa hàng bạn làm việc, các nhà cung cấp vận ' +
-            'hành nền tảng (lưu trữ, thông báo, AI khi được bật), hoặc khi pháp luật yêu cầu.',
+            'hành nền tảng (lưu trữ, thông báo, AI khi được bật, số liệu sử dụng Google ML Kit), hoặc khi pháp luật yêu cầu.',
         },
         {
           heading: '6. Bảo mật & lưu trữ',
           body:
             'Dữ liệu được mã hoá khi truyền (HTTPS/TLS), mật khẩu được băm. Ảnh và vị trí chấm công được lưu cùng thời hạn ' +
-            'với bảng công, bảng lương liên quan.',
+            'với bảng công, bảng lương liên quan. Ảnh đăng ký khuôn mặt được lưu riêng tư; quản lý cửa hàng có thể duyệt lần ' +
+            'đăng ký mới trước khi dùng, ảnh bị xoá khi bạn đăng ký lại, khi quản lý huỷ khuôn mặt hoặc khi bạn xoá tài khoản.',
         },
         {
           heading: '7. Quyền của bạn',
