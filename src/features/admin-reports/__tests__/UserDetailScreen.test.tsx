@@ -40,6 +40,7 @@ jest.mock('../hooks', () => ({
   }),
   useUserRoleAssignment: () => mockAssignment,
   useChangeUserStatus: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useResetUserFace: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useAssignRoles: () => ({ mutateAsync: mockAssign, isPending: false }),
   useSetUserCustomRoles: () => ({ mutateAsync: mockSetCustom, isPending: false }),
 }));
