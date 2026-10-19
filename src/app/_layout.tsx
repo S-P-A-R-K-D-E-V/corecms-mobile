@@ -21,7 +21,7 @@ import { useHydrateLauncher } from 'src/features/launcher/store';
 import { queryClient } from 'src/services/query/client';
 import { RemoteConfigProvider } from 'src/services/remote-config';
 import { RootErrorBoundary } from 'src/services/error/ErrorBoundary';
-import { checkForUpdate } from 'src/services/app-update';
+import { BOOT_UPDATE_WAIT_MS, checkForUpdate, markUiShown } from 'src/services/app-update';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { ThemeProvider } from 'src/theme/ThemeProvider';
 import { paletteVars, useBrandColor } from 'src/theme/brand-color';
@@ -79,6 +79,9 @@ export default function RootLayout() {
   // Bản app cửa hàng: đọc cửa hàng đã chọn TRƯỚC khi AuthProvider gọi API lần đầu (gốc API phụ thuộc
   // cửa hàng). Ngôn ngữ đã chọn cũng nạp trước màn đầu tiên. Bản CiCi trả về ngay.
   const [storeLoaded, setStoreLoaded] = useState(false);
+  // Giữ màn chờ thêm chút (tối đa BOOT_UPDATE_WAIT_MS) cho lần kiểm tra OTA — có bản mới tải kịp thì áp ngay sau màn chờ
+  // thay vì khởi động lại khi người dùng đã vào app.
+  const [updateChecked, setUpdateChecked] = useState(false);
   useEffect(() => {
     // Chế độ máy quầy gắn với cửa hàng → đọc sau khi biết cửa hàng.
     Promise.all([
@@ -95,12 +98,20 @@ export default function RootLayout() {
 
   useEffect(() => {
     track(AnalyticsEvent.AppOpen);
-    void checkForUpdate();
+    const timer = setTimeout(() => setUpdateChecked(true), BOOT_UPDATE_WAIT_MS);
+    void checkForUpdate().finally(() => {
+      clearTimeout(timer);
+      setUpdateChecked(true);
+    });
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if ((fontsLoaded || fontError) && storeLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded, fontError, storeLoaded]);
+    if ((fontsLoaded || fontError) && storeLoaded && updateChecked) {
+      markUiShown();
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontError, storeLoaded, updateChecked]);
 
   // Hold on the splash until the font resolves; fall through on error so a
   // font failure never bricks the app (degrades to the system font).
