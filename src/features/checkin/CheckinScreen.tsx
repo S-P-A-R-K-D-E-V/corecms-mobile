@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, View } from 'react-native';
+import { AppState, Linking, Platform, View } from 'react-native';
 import { MotiView } from 'moti';
 import { router } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
@@ -137,6 +137,8 @@ export function CheckinScreen() {
   const [locating, setLocating] = useState(false);
   /** Lần chấm công đang mở: thử GPS 5 giây không được → máy chủ ghi "không có GPS". */
   const [gpsUnavailable, setGpsUnavailable] = useState(false);
+  /** Định vị bị chặn: chưa cho phép vị trí / định vị của máy đang tắt → không chấm công được tới khi bật. */
+  const [gpsBlocked, setGpsBlocked] = useState<'permission' | 'services' | null>(null);
   // Chi nhánh (cửa hàng) để tính & hiển thị khoảng cách GPS cho người dùng
   const branchesQ = useQuery({ queryKey: ['branches'], queryFn: getBranchLocations, staleTime: 60 * 60 * 1000 });
   // Được phân công chi nhánh (branchScope) → chỉ đo tới chi nhánh đang làm việc; chưa phân công → chi nhánh gần nhất
@@ -204,6 +206,7 @@ export function CheckinScreen() {
     }
     if (locating) return;
     const loc = await resolveLocation();
+    if (loc.blocked) return;
     // Ngoài khu vực: check-in thường sẽ bị từ chối — nút tự chuyển sang check-in ngoài giờ sau 5 giây.
     if (mode === 'checkin' && isOutside(loc.coords)) {
       toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
@@ -220,75 +223,70 @@ export function CheckinScreen() {
   // Màn quét khuôn mặt (chế độ khuôn mặt): null = đóng.
   const [faceCheckinMode, setFaceCheckinMode] = useState<'checkin' | 'checkout' | 'overtime' | null>(null);
 
-  async function fetchGps(): Promise<Coords | null> {
-    setGpsStatus('loading');
-    const perm = await Location.requestForegroundPermissionsAsync();
-    setGpsPerm({ granted: perm.status === 'granted', canAskAgain: perm.canAskAgain });
-    if (perm.status !== 'granted') { setGpsStatus('error'); return null; }
-    try {
-      // Hiển thị ngay vị trí gần nhất đã biết (gần như tức thì) để không phải chờ.
-      const last = await Location.getLastKnownPositionAsync();
-      if (last) {
-        setCoords({ latitude: last.coords.latitude, longitude: last.coords.longitude, accuracy: last.coords.accuracy ?? undefined });
-        setGpsStatus('ready');
-      }
-      // Sau đó refine bằng định vị thực tế (Balanced nhanh hơn High, đủ chính xác để chấm công).
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const c: Coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
-      setCoords(c);
-      coordsAtRef.current = Date.now();
-      setGpsStatus('ready');
-      return c;
-    } catch {
-      // Nếu chưa có toạ độ nào (kể cả last-known) thì coi là lỗi.
-      setGpsStatus((prev) => (prev === 'ready' ? 'ready' : 'error'));
-      return null;
-    }
+  type ScreenLocation = { coords: Coords | null; unavailable: boolean; blocked: 'permission' | 'services' | null };
+
+  function markBlocked(reason: 'permission' | 'services'): ScreenLocation {
+    setGpsBlocked(reason);
+    setCoords(null);
+    setGpsStatus('error');
+    setGpsUnavailable(false);
+    return { coords: null, unavailable: false, blocked: reason };
   }
 
   /**
-   * Bấm check-in / check-out: cần vị trí MỚI. Xin quyền nếu chưa có, lấy vị trí, lỗi thì thử lại tới 5 giây. Không
-   * được → vẫn cho chấm công (`unavailable`), máy chủ ghi lần đó "không có GPS" cho quản lý xem lại.
+   * Lấy vị trí ở màn chấm công — BẮT BUỘC trước khi chấm công (chủ 2026-10-21): vào màn là xin quyền ngay, định vị của máy
+   * phải bật, thử lấy điểm GPS mới tới 5 giây. Chưa cho phép / tắt định vị → chặn (chip GPS + nút chỉ cách bật). Đã cho
+   * phép + bật mà 5 giây vẫn không ra vị trí → GPS lỗi: vẫn cho chấm công, máy chủ ghi lần đó "không có vị trí".
    */
-  async function resolveLocation(): Promise<{ coords: Coords | null; unavailable: boolean }> {
-    if (coords && gpsStatus === 'ready' && Date.now() - coordsAtRef.current < LOCATION_FRESH_MS) {
-      setGpsUnavailable(false);
-      return { coords, unavailable: false };
-    }
+  async function fetchGps(): Promise<ScreenLocation> {
     setLocating(true);
     setGpsStatus('loading');
     try {
       let perm = await Location.getForegroundPermissionsAsync();
       if (perm.status !== 'granted' && perm.canAskAgain) perm = await Location.requestForegroundPermissionsAsync();
       setGpsPerm({ granted: perm.status === 'granted', canAskAgain: perm.canAskAgain });
-      const fresh =
-        perm.status === 'granted'
-          ? await retryLocation(async (remaining) => {
-              const loc = await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), remaining);
-              return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
-            })
-          : null;
+      if (perm.status !== 'granted') return markBlocked('permission');
+      const servicesOn = await Location.hasServicesEnabledAsync().catch(() => true);
+      if (!servicesOn) return markBlocked('services');
+      setGpsBlocked(null);
+      const fresh = await retryLocation(async (remaining) => {
+        const loc = await withTimeout(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }), remaining);
+        return { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined };
+      });
       if (fresh) {
         setCoords(fresh);
         coordsAtRef.current = Date.now();
         setGpsStatus('ready');
         setGpsUnavailable(false);
-        return { coords: fresh, unavailable: false };
+        return { coords: fresh, unavailable: false, blocked: null };
       }
-      // Không gửi vị trí cũ (lúc mở màn) thay cho vị trí hiện tại — lần này coi như không có GPS.
       setCoords(null);
       setGpsStatus('error');
       setGpsUnavailable(true);
-      toast.warning(
-        perm.status === 'granted'
-          ? 'Không lấy được GPS sau 5 giây — vẫn chấm công, lần này được ghi là không có vị trí.'
-          : 'App chưa được phép dùng vị trí — vẫn chấm công, lần này được ghi là không có vị trí.',
-        'GPS',
-      );
-      return { coords: null, unavailable: true };
+      return { coords: null, unavailable: true, blocked: null };
     } finally {
       setLocating(false);
     }
+  }
+
+  /**
+   * Bấm check-in / check-out: dùng lại vị trí vừa lấy (≤ LOCATION_FRESH_MS), không thì lấy lại. Bị chặn (chưa cho phép /
+   * tắt định vị) → báo và không mở camera; GPS lỗi sau 5 giây → vẫn cho, máy chủ ghi "không có vị trí".
+   */
+  async function resolveLocation(): Promise<ScreenLocation> {
+    if (coords && gpsStatus === 'ready' && Date.now() - coordsAtRef.current < LOCATION_FRESH_MS) {
+      return { coords, unavailable: false, blocked: null };
+    }
+    const loc = await fetchGps();
+    if (loc.blocked) {
+      toast.error(
+        loc.blocked === 'permission' ? 'Cần cho phép ứng dụng dùng vị trí để chấm công.' : 'Cần bật định vị (GPS) của máy để chấm công.',
+        'GPS',
+      );
+    } else if (loc.unavailable) {
+      toast.warning('Không lấy được GPS sau 5 giây — vẫn chấm công, lần này được ghi là không có vị trí.', 'GPS');
+    }
+    return loc;
   }
 
   /**
@@ -298,6 +296,12 @@ export function CheckinScreen() {
   async function locateForSubmit(): Promise<LocationFix> {
     const fix = await locateForAttendance();
     setGpsPerm(fix.permission);
+    if (fix.blocked) {
+      markBlocked(fix.blocked);
+      throw new Error(
+        fix.blocked === 'permission' ? 'Cần cho phép ứng dụng dùng vị trí để chấm công.' : 'Cần bật định vị (GPS) của máy để chấm công.',
+      );
+    }
     if (fix.coords) {
       setCoords(fix.coords);
       coordsAtRef.current = Date.now();
@@ -307,12 +311,7 @@ export function CheckinScreen() {
       setCoords(null);
       setGpsStatus('error');
       setGpsUnavailable(true);
-      toast.warning(
-        fix.permission.granted
-          ? 'Không lấy được GPS sau 5 giây — vẫn chấm công, lần này được ghi là không có vị trí.'
-          : 'App chưa được phép dùng vị trí — vẫn chấm công, lần này được ghi là không có vị trí.',
-        'GPS',
-      );
+      toast.warning('Không lấy được GPS sau 5 giây — vẫn chấm công, lần này được ghi là không có vị trí.', 'GPS');
     }
     return fix;
   }
@@ -324,23 +323,20 @@ export function CheckinScreen() {
     return !!nearest && !nearest.within;
   }
 
-  // Mở màn: đã cho phép vị trí thì lấy GPS luôn (hiện trạng thái + đếm ngược fallback nếu lỗi). Chưa từng hỏi thì
-  // KHÔNG bật hộp xin quyền ngay — chip GPS giải thích lý do, người dùng bấm "Cho phép" (hoặc bấm check-in) mới hỏi.
+  // Vào màn là xin quyền + lấy vị trí ngay — chưa có vị trí ở màn này thì các nút chấm công chưa mở.
   useEffect(() => {
-    let cancelled = false;
-    Location.getForegroundPermissionsAsync()
-      .then((p) => {
-        if (cancelled) return;
-        setGpsPerm({ granted: p.status === 'granted', canAskAgain: p.canAskAgain });
-        if (p.status === 'granted') fetchGps();
-        else if (p.status === 'denied') setGpsStatus('error');
-      })
-      .catch(() => {
-        if (!cancelled) fetchGps();
-      });
-    return () => {
-      cancelled = true;
-    };
+    void fetchGps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Quay lại app (vd từ Cài đặt sau khi bật vị trí) mà định vị đang bị chặn / lỗi → lấy lại.
+  const gpsRecheckRef = useRef(false);
+  gpsRecheckRef.current = !!gpsBlocked || gpsStatus === 'error';
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && gpsRecheckRef.current) void fetchGps();
+    });
+    return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -378,6 +374,7 @@ export function CheckinScreen() {
     setActionKind('checkin');
     // Lấy vị trí trước (tối đa ~5 giây, nút hiện "Đang lấy vị trí GPS…"); GPS lỗi vẫn mở, máy chủ đánh dấu.
     const loc = await resolveLocation();
+    if (loc.blocked) return;
     if (mode === 'smart' && isOutside(loc.coords)) {
       toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
       return;
@@ -418,7 +415,7 @@ export function CheckinScreen() {
       await openCheckInCamera('overtime');
       return;
     }
-    await resolveLocation();
+    if ((await resolveLocation()).blocked) return;
     setFaceCheckinMode('overtime');
   }
 
@@ -474,7 +471,7 @@ export function CheckinScreen() {
     });
     if (!ok) return;
     if (locating) return;
-    await resolveLocation();
+    if ((await resolveLocation()).blocked) return;
     if (face) {
       setFaceCheckinMode('checkout');
       return;
@@ -529,29 +526,66 @@ export function CheckinScreen() {
     ready: { icon: 'map-marker-check' as IconName, label: t('checkin.gpsReady'), cls: 'bg-success-soft', tone: 'success' as const },
     error: {
       icon: 'map-marker-off' as IconName,
-      label: gpsPerm && !gpsPerm.granted ? t('checkin.gpsDenied') : t('checkin.gpsError'),
+      label:
+        gpsBlocked === 'permission'
+          ? t('checkin.gpsDenied')
+          : gpsBlocked === 'services'
+            ? 'Định vị (GPS) của máy đang tắt'
+            : t('checkin.gpsError'),
       cls: 'bg-error-soft',
       tone: 'error' as const,
     },
   }[gpsStatus];
-  // Hành động trên chip GPS: chưa hỏi → "Cho phép" (hộp xin quyền); đã chặn hẳn → "Mở cài đặt"; lỗi khác → "Thử lại".
+  // Hành động trên chip GPS: chưa cho phép → "Cho phép" (hộp xin quyền) / "Mở cài đặt" (đã chặn hẳn); định vị tắt → "Mở
+  // cài đặt"; lỗi khác → "Thử lại".
   const gpsAction =
     gpsStatus === 'idle'
       ? t('checkin.gpsAllow')
       : gpsStatus === 'error'
-        ? gpsPerm && !gpsPerm.granted && !gpsPerm.canAskAgain
+        ? gpsBlocked === 'services' || (gpsBlocked === 'permission' && gpsPerm && !gpsPerm.canAskAgain)
           ? t('checkin.gpsOpenSettings')
-          : gpsPerm && !gpsPerm.granted
+          : gpsBlocked === 'permission'
             ? t('checkin.gpsAllow')
             : t('checkin.gpsRetry')
         : null;
   function onGpsChipPress() {
-    if (gpsStatus === 'error' && gpsPerm && !gpsPerm.granted && !gpsPerm.canAskAgain) {
+    if (locating) return;
+    if (gpsBlocked === 'permission' && gpsPerm && !gpsPerm.canAskAgain) {
       void Linking.openSettings();
+      return;
+    }
+    if (gpsBlocked === 'services') {
+      // Android mở thẳng màn bật vị trí; iOS chỉ mở được Cài đặt của app.
+      if (Platform.OS === 'android') {
+        Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS').catch(() => Linking.openSettings());
+      } else {
+        void Linking.openSettings();
+      }
       return;
     }
     if (gpsStatus === 'idle' || gpsStatus === 'error') void fetchGps();
   }
+
+  /** Đã có vị trí ở màn này (hoặc GPS lỗi dù đã cho phép + bật định vị) → mới mở các nút chấm công. */
+  const gpsGateOpen = !gpsBlocked && !locating && (gpsStatus === 'ready' || gpsUnavailable);
+  /** Đang lấy vị trí → nút chờ (khoá); bị chặn → nút dẫn đi bật vị trí. */
+  const gpsWaiting = !gpsGateOpen && !gpsBlocked;
+  const gpsLockLabel =
+    gpsBlocked === 'permission'
+      ? 'Cho phép vị trí để chấm công'
+      : gpsBlocked === 'services'
+        ? 'Bật định vị để chấm công'
+        : 'Đang lấy vị trí GPS…';
+  /** Nhãn nút chấm công: chưa mở (chưa có vị trí) thì báo vị trí. */
+  const gpsLabel = (label: string) => (gpsGateOpen ? label : gpsLockLabel);
+  /** Bấm nút chấm công: bị chặn định vị thì đi bật vị trí; chưa có vị trí thì chưa làm gì. */
+  const withGps = (action: () => unknown) => () => {
+    if (gpsBlocked) {
+      onGpsChipPress();
+      return;
+    }
+    if (gpsGateOpen) void action();
+  };
   // Ngoài khu vực cửa hàng → chip cảnh báo (đè lên trạng thái "ready" xanh).
   const gpsChip = outsideStore
     ? { icon: 'map-marker-off' as IconName, label: 'Ngoài khu vực cửa hàng', cls: 'bg-warning-soft', tone: 'warning' as const }
@@ -626,21 +660,21 @@ export function CheckinScreen() {
               </Text>
               {/* White CTA — stays legible on the rose hero */}
               <Pressable
-                onPress={openCheckOutCamera}
-                disabled={submitting || locating}
+                onPress={withGps(openCheckOutCamera)}
+                disabled={submitting || gpsWaiting}
                 className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                 style={softShadow}
               >
-                {submitting || locating ? (
+                {submitting || gpsWaiting ? (
                   <Spinner color={brand.error} />
                 ) : (
-                  <Icon name={faceMode ? 'face-recognition' : 'logout'} size={20} color={brand.error} />
+                  <Icon name={gpsBlocked ? 'map-marker-off' : faceMode ? 'face-recognition' : 'logout'} size={20} color={brand.error} />
                 )}
                 {/* tone="error" thay vì className="text-error": tone mặc định kèm
                     dark:text-ink-dark (trắng) đè text-error ở dark → chữ trắng
                     trên nút trắng, mất chữ Checkout. */}
                 <Text tone="error" className="font-bold text-[16px]">
-                  {locating ? 'Đang lấy vị trí GPS…' : needsEnroll ? t('checkin.enrollToCheckOut') : t('checkin.checkOutBtn')}
+                  {gpsLabel(needsEnroll ? t('checkin.enrollToCheckOut') : t('checkin.checkOutBtn'))}
                 </Text>
               </Pressable>
             </>
@@ -669,25 +703,29 @@ export function CheckinScreen() {
                   {!outsideStore ? (
                     // Trong khu vực / chưa có vị trí / GPS lỗi → check-in thường (bấm là lấy vị trí, thử lại 5 giây).
                     <Pressable
-                      onPress={pressCheckIn}
-                      disabled={submitting || locating}
+                      onPress={withGps(pressCheckIn)}
+                      disabled={submitting || gpsWaiting}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
-                      {submitting || locating ? (
+                      {submitting || gpsWaiting ? (
                         <Spinner color={brand.primary} />
                       ) : (
-                        <Icon name={faceMode ? 'face-recognition' : 'camera-account'} size={20} color={brand.primary} />
+                        <Icon
+                          name={gpsBlocked ? 'map-marker-off' : faceMode ? 'face-recognition' : 'camera-account'}
+                          size={20}
+                          color={brand.primary}
+                        />
                       )}
                       <Text className="text-primary font-bold text-[16px]">
-                        {locating ? 'Đang lấy vị trí GPS…' : needsEnroll ? t('checkin.enrollToCheckIn') : t('checkin.checkInBtn')}
+                        {gpsLabel(needsEnroll ? t('checkin.enrollToCheckIn') : t('checkin.checkInBtn'))}
                       </Text>
                     </Pressable>
                   ) : gpsFallback ? (
                     // Ngoài khu vực, đã hết đếm ngược → cho phép check-in ngoài giờ
                     <Pressable
-                      onPress={pressOvertimeFallback}
-                      disabled={submitting}
+                      onPress={withGps(pressOvertimeFallback)}
+                      disabled={submitting || gpsWaiting}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
@@ -697,7 +735,7 @@ export function CheckinScreen() {
                         <Icon name={faceMode ? 'face-recognition' : 'camera-account'} size={20} color={brand.warning} />
                       )}
                       <Text className="text-warning-text font-bold text-[16px]">
-                        {needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ'}
+                        {gpsLabel(needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ')}
                       </Text>
                     </Pressable>
                   ) : (
@@ -715,13 +753,21 @@ export function CheckinScreen() {
                 // không tính lương); hoặc đăng ký ca / nhận ca trên chợ ca cho những ngày tới.
                 <View className="mt-4 w-full gap-2">
                   <Pressable
-                    onPress={handleOvertimePress}
-                    disabled={submitting}
+                    onPress={withGps(handleOvertimePress)}
+                    disabled={submitting || gpsWaiting}
                     className="w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                     style={softShadow}
                   >
-                    <Icon name={needsEnroll ? 'face-recognition' : 'clock-plus-outline'} size={20} color={brand.primary} />
-                    <Text className="text-primary font-bold text-[16px]">{t('checkin.overtimeBtn')}</Text>
+                    {gpsWaiting ? (
+                      <Spinner color={brand.primary} />
+                    ) : (
+                      <Icon
+                        name={gpsBlocked ? 'map-marker-off' : needsEnroll ? 'face-recognition' : 'clock-plus-outline'}
+                        size={20}
+                        color={brand.primary}
+                      />
+                    )}
+                    <Text className="text-primary font-bold text-[16px]">{gpsLabel(t('checkin.overtimeBtn'))}</Text>
                   </Pressable>
                   <Text className="text-white/80 text-[12px] leading-[16px] text-center">
                     {needsEnroll ? t('checkin.overtimeNeedsFace') : t('checkin.overtimeNote')}
@@ -753,10 +799,14 @@ export function CheckinScreen() {
 
               {/* Check-in ngoài giờ — khi không có ca phù hợp lúc này */}
               {!canCheckIn && shifts.length > 0 ? (
-                <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15">
-                  <Icon name="clock-plus-outline" size={16} color="#FFFFFF" />
+                <Pressable
+                  onPress={withGps(handleOvertimePress)}
+                  disabled={gpsWaiting}
+                  className="mt-3 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
+                >
+                  <Icon name={gpsBlocked ? 'map-marker-off' : 'clock-plus-outline'} size={16} color="#FFFFFF" />
                   <Text className="text-white font-semibold text-[13px]">
-                    {needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ'}
+                    {gpsLabel(needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ')}
                   </Text>
                 </Pressable>
               ) : null}

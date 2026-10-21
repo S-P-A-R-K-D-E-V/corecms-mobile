@@ -112,6 +112,13 @@ export function MidShiftCoverCheckinScreen() {
   /** Vị trí cho lần gửi: ping máy chủ rồi lấy điểm GPS mới (thử lại ~5 giây); cập nhật vị trí trên màn. */
   async function locate(): Promise<LocationFix> {
     const fix = await locateForAttendance();
+    // Chưa cho phép vị trí / định vị tắt → không chấm công (GPS lỗi sau 5 giây thì vẫn cho, máy chủ đánh dấu).
+    if (fix.blocked) {
+      setGpsStatus('error');
+      throw new Error(
+        fix.blocked === 'permission' ? 'Cần cho phép ứng dụng dùng vị trí để chấm công.' : 'Cần bật định vị (GPS) của máy để chấm công.',
+      );
+    }
     if (fix.coords) {
       setCoords(fix.coords);
       setGpsStatus('ready');
