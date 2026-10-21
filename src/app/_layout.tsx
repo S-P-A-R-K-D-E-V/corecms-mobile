@@ -22,6 +22,8 @@ import { queryClient } from 'src/services/query/client';
 import { RemoteConfigProvider } from 'src/services/remote-config';
 import { RootErrorBoundary } from 'src/services/error/ErrorBoundary';
 import { BOOT_UPDATE_WAIT_MS, checkForUpdate, markUiShown } from 'src/services/app-update';
+import { installedAppVersion, isUpdateRequired } from 'src/services/app-update/required-version';
+import { UpdateRequired } from 'src/components/shared/UpdateRequired';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { ThemeProvider } from 'src/theme/ThemeProvider';
 import { paletteVars, useBrandColor } from 'src/theme/brand-color';
@@ -116,6 +118,22 @@ export default function RootLayout() {
   // Hold on the splash until the font resolves; fall through on error so a
   // font failure never bricks the app (degrades to the system font).
   if ((!fontsLoaded && !fontError) || !storeLoaded) return null;
+
+  // Bản app đã ngừng hỗ trợ (dưới MIN_STORE_APP_VERSION): chỉ còn màn cập nhật — không đăng nhập, không gọi API.
+  if (isUpdateRequired()) {
+    return (
+      <SafeAreaProvider>
+        <View style={[{ flex: 1 }, brandVars]}>
+          <ThemeProvider>
+            <FontProvider>
+              <StatusBar style="auto" />
+              <UpdateRequired version={installedAppVersion()} />
+            </FontProvider>
+          </ThemeProvider>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <RootErrorBoundary>

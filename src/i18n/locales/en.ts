@@ -1142,6 +1142,11 @@ export const en: Dict = {
     yourOrder: 'Your order',
     customer: 'Customer: {name}',
   },
+  appUpdate: {
+    title: 'A new version is available',
+    message: 'Version {version} is no longer supported. Please update the app to the latest version to keep using it.',
+    button: 'Update now',
+  },
   push: {
     otherStoreTitle: 'Notification from another store',
     otherStore: 'This notification is from {store}. Sign in to that store to view it.',

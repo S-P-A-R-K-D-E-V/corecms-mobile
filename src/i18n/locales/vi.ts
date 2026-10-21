@@ -1143,6 +1143,11 @@ export const vi = {
     yourOrder: 'Đơn hàng của quý khách',
     customer: 'Khách hàng: {name}',
   },
+  appUpdate: {
+    title: 'Đã có phiên bản mới',
+    message: 'Phiên bản {version} đã ngừng hỗ trợ. Vui lòng cập nhật ứng dụng lên bản mới nhất để tiếp tục sử dụng.',
+    button: 'Cập nhật ngay',
+  },
   push: {
     otherStoreTitle: 'Thông báo của cửa hàng khác',
     otherStore: 'Thông báo này của cửa hàng {store}. Đăng nhập cửa hàng đó để xem.',
