@@ -2,7 +2,15 @@ import * as Location from 'expo-location';
 
 import { locationPing } from 'src/api/attendance';
 
-import { acquireFreshFix, withTimeout, type LocationFix } from './location';
+import {
+  FIX_CLOCK_SKEW_MS,
+  GPS_RETRY_WINDOW_MS,
+  acquireFreshFix,
+  firstNonNull,
+  withTimeout,
+  type LocationFix,
+} from './location';
+import { locationStream } from './location-stream';
 
 export type LocationPermission = { granted: boolean; canAskAgain: boolean };
 
@@ -23,22 +31,36 @@ export async function locateForAttendance(): Promise<
   if (!permission.granted) return { ...none, blocked: 'permission' };
   if (!(await Location.hasServicesEnabledAsync().catch(() => true))) return { ...none, blocked: 'services' };
 
-  const fix = await acquireFreshFix(
-    () =>
-      locationPing()
-        .then((r) => r.token)
-        .catch(() => null),
-    async (remaining, attempt) => {
-      const loc = await withTimeout(
-        Location.getCurrentPositionAsync({ accuracy: attempt === 0 ? Location.Accuracy.Balanced : Location.Accuracy.High }),
-        remaining,
-      );
-      return {
-        coords: { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined },
-        timestamp: loc.timestamp,
-        mocked: !!loc.mocked,
-      };
-    },
-  );
-  return { ...fix, permission, blocked: null };
+  const token = await locationPing()
+    .then((r) => r.token)
+    .catch(() => null);
+  const since = Date.now() - FIX_CLOCK_SKEW_MS;
+
+  // Hai nguồn cùng lúc, lấy điểm mới (sau ping) đến trước: luồng GPS liên tục (màn chấm công đang giữ thì có điểm mới
+  // gần như ngay; không thì bật tạm) và kiểu lấy một lần như trước. Hết ~5 giây không có → GPS lỗi.
+  await locationStream.acquire();
+  try {
+    const fromStream = locationStream.nextFixSince(since, GPS_RETRY_WINDOW_MS).then((raw) =>
+      raw ? { coords: raw.coords, unavailable: false, token, fixAt: raw.timestamp, mocked: raw.mocked } : null,
+    );
+    const fromOneShot = acquireFreshFix(
+      async () => token,
+      async (remaining, attempt) => {
+        const loc = await withTimeout(
+          Location.getCurrentPositionAsync({ accuracy: attempt === 0 ? Location.Accuracy.Balanced : Location.Accuracy.High }),
+          remaining,
+        );
+        return {
+          coords: { latitude: loc.coords.latitude, longitude: loc.coords.longitude, accuracy: loc.coords.accuracy ?? undefined },
+          timestamp: loc.timestamp,
+          mocked: !!loc.mocked,
+        };
+      },
+    ).then((f) => (f.coords ? f : null));
+    const fix = await firstNonNull<LocationFix>([fromStream, fromOneShot]);
+    if (fix) return { ...fix, permission, blocked: null };
+    return { coords: null, unavailable: true, token, fixAt: null, mocked: false, permission, blocked: null };
+  } finally {
+    locationStream.release();
+  }
 }

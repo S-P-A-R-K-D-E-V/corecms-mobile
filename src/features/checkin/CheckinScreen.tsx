@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Linking, Platform, View } from 'react-native';
 import { MotiView } from 'moti';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import dayjs from 'dayjs';
@@ -27,6 +27,7 @@ import { FaceCaptureModal } from './FaceCaptureModal';
 import { FaceCheckinModal } from './FaceCheckinModal';
 import { LOCATION_FRESH_MS, locationFields, retryLocation, sendWithFreshLocation, withTimeout, type LocationFix } from './location';
 import { locateForAttendance } from './fresh-location';
+import { locationStream } from './location-stream';
 import { CleaningChecklistSummaryCard } from './CleaningChecklistSummaryCard';
 import {
   getCheckInWindow,
@@ -273,6 +274,15 @@ export function CheckinScreen() {
     if (coords && gpsStatus === 'ready' && Date.now() - coordsAtRef.current < LOCATION_FRESH_MS) {
       return { coords, unavailable: false, blocked: null };
     }
+    // Luồng GPS của màn vừa có điểm mới → dùng luôn, không phải chờ lấy lại.
+    const live = locationStream.latest();
+    if (!gpsBlocked && live && Date.now() - live.timestamp < LOCATION_FRESH_MS) {
+      setCoords(live.coords);
+      coordsAtRef.current = Date.now();
+      setGpsStatus('ready');
+      setGpsUnavailable(false);
+      return { coords: live.coords, unavailable: false, blocked: null };
+    }
     const loc = await fetchGps();
     if (loc.blocked) {
       toast.error(
@@ -324,6 +334,30 @@ export function CheckinScreen() {
     void fetchGps();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Giữ GPS chạy liên tục khi đang ở màn chấm công (location-stream.ts): lúc gửi có ngay điểm mới, không bị máy trả
+  // điểm cũ trong bộ đệm rồi báo "GPS lỗi". Rời màn / app xuống nền thì tắt cho đỡ tốn pin.
+  const gpsGranted = !!gpsPerm?.granted && !gpsBlocked;
+  useFocusEffect(
+    useCallback(() => {
+      if (!gpsGranted) return undefined;
+      let held = AppState.currentState === 'active';
+      if (held) void locationStream.acquire();
+      const sub = AppState.addEventListener('change', (state) => {
+        if (state === 'active' && !held) {
+          held = true;
+          void locationStream.acquire();
+        } else if (state !== 'active' && held) {
+          held = false;
+          locationStream.release();
+        }
+      });
+      return () => {
+        sub.remove();
+        if (held) locationStream.release();
+      };
+    }, [gpsGranted]),
+  );
 
   // Quay lại app (vd từ Cài đặt sau khi bật vị trí) mà định vị đang bị chặn / lỗi → lấy lại.
   const gpsRecheckRef = useRef(false);

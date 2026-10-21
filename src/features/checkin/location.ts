@@ -146,3 +146,16 @@ export async function sendWithFreshLocation<T>(
     return { result: await send(again), fix: again };
   }
 }
+
+/** Kết quả khác null đầu tiên trong các promise (lỗi coi như null); tất cả null → null. */
+export function firstNonNull<T>(promises: Promise<T | null>[]): Promise<T | null> {
+  return new Promise((resolve) => {
+    let pending = promises.length;
+    if (pending === 0) resolve(null);
+    const settle = (value: T | null) => {
+      if (value != null) resolve(value);
+      else if (--pending === 0) resolve(null);
+    };
+    for (const p of promises) p.then(settle, () => settle(null));
+  });
+}
