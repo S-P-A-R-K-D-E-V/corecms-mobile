@@ -168,16 +168,12 @@ export function CheckinScreen() {
   // công thường, máy chủ đánh dấu lần đó không có vị trí.
   const outsideStore = gpsStatus === 'ready' && !!nearestBranch && !nearestBranch.within;
 
-  // Check-in ngoài giờ + fallback (đồng bộ hành vi core-fe): có ca phù hợp nhưng
-  // vị trí không hợp lệ → đếm ngược 5s rồi cho phép check-in NGOÀI GIỜ.
+  // Check-in thường (có ca) hay ngoài giờ (không có ca, đang ở cửa hàng).
   const [checkinMode, setCheckinMode] = useState<'smart' | 'overtime'>('smart');
   // Modal chụp ảnh dùng chung cho cả check-in và check-out (backend đã bắt buộc ảnh
   // checkout cho người làm hộ 1 phần — LateArrive/EarlyLeave/MidShift — mobile trước
   // đây chỉ bắt ảnh lúc check-in nên chặn mất người hộ ca không có ảnh để gửi lên).
   const [actionKind, setActionKind] = useState<'checkin' | 'checkout'>('checkin');
-  const [gpsCountdown, setGpsCountdown] = useState<number | null>(null);
-  const [gpsFallback, setGpsFallback] = useState(false);
-  const needOvertimeFallback = canCheckIn && outsideStore;
   const hasFaceEmbedding = !!user?.hasFaceEmbedding;
   // Mỗi lúc cửa hàng chỉ dùng MỘT luồng (thiết lập "Chấm công bằng khuôn mặt" của quản lý), áp cho mọi người như nhau:
   //   bật → chỉ quét khuôn mặt (chưa đăng ký khuôn mặt thì phải đăng ký trước);
@@ -207,8 +203,8 @@ export function CheckinScreen() {
     if (locating) return;
     const loc = await resolveLocation();
     if (loc.blocked) return;
-    // Ngoài khu vực: check-in thường sẽ bị từ chối — nút tự chuyển sang check-in ngoài giờ sau 5 giây.
-    if (mode === 'checkin' && isOutside(loc.coords)) {
+    // Ngoài khu vực cửa hàng: máy chủ chặn mọi lượt chấm công (cả ngoài giờ, check-out) — báo trước, không mở camera.
+    if (isOutside(loc.coords)) {
       toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
       return;
     }
@@ -340,27 +336,6 @@ export function CheckinScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Có ca phù hợp nhưng vị trí không hợp lệ (GPS lỗi / ngoài khu vực) → đếm ngược 5s
-  // rồi mở "Check-in ngoài giờ". Vị trí hợp lệ trở lại thì reset.
-  useEffect(() => {
-    if (needOvertimeFallback) {
-      setGpsCountdown((c) => (c === null ? 5 : c));
-    } else {
-      setGpsCountdown(null);
-      setGpsFallback(false);
-    }
-  }, [needOvertimeFallback]);
-
-  useEffect(() => {
-    if (gpsCountdown === null) return;
-    if (gpsCountdown <= 0) {
-      setGpsFallback(true);
-      return;
-    }
-    const tmr = setTimeout(() => setGpsCountdown((n) => (n !== null ? n - 1 : null)), 1000);
-    return () => clearTimeout(tmr);
-  }, [gpsCountdown]);
-
   async function openCheckInCamera(mode: 'smart' | 'overtime' = 'smart') {
     let granted = cameraPermission?.granted;
     if (!granted) granted = (await requestCameraPermission()).granted;
@@ -375,7 +350,7 @@ export function CheckinScreen() {
     // Lấy vị trí trước (tối đa ~5 giây, nút hiện "Đang lấy vị trí GPS…"); GPS lỗi vẫn mở, máy chủ đánh dấu.
     const loc = await resolveLocation();
     if (loc.blocked) return;
-    if (mode === 'smart' && isOutside(loc.coords)) {
+    if (isOutside(loc.coords)) {
       toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
       return;
     }
@@ -388,14 +363,6 @@ export function CheckinScreen() {
     if (face === null) return;
     if (face) await pressFaceCheckin('checkin');
     else await openCheckInCamera('smart');
-  }
-
-  /** Ngoài khu vực, hết đếm ngược → check-in ngoài giờ theo chế độ của cửa hàng. */
-  async function pressOvertimeFallback() {
-    const face = await currentFaceMode();
-    if (face === null) return;
-    if (face) await pressFaceCheckin('overtime');
-    else await openCheckInCamera('overtime');
   }
 
   async function handleOvertimePress() {
@@ -415,7 +382,12 @@ export function CheckinScreen() {
       await openCheckInCamera('overtime');
       return;
     }
-    if ((await resolveLocation()).blocked) return;
+    const loc = await resolveLocation();
+    if (loc.blocked) return;
+    if (isOutside(loc.coords)) {
+      toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
+      return;
+    }
     setFaceCheckinMode('overtime');
   }
 
@@ -471,7 +443,12 @@ export function CheckinScreen() {
     });
     if (!ok) return;
     if (locating) return;
-    if ((await resolveLocation()).blocked) return;
+    const loc = await resolveLocation();
+    if (loc.blocked) return;
+    if (isOutside(loc.coords)) {
+      toast.warning('Bạn đang ở ngoài khu vực cửa hàng.', 'Vị trí');
+      return;
+    }
     if (face) {
       setFaceCheckinMode('checkout');
       return;
@@ -721,30 +698,11 @@ export function CheckinScreen() {
                         {gpsLabel(needsEnroll ? t('checkin.enrollToCheckIn') : t('checkin.checkInBtn'))}
                       </Text>
                     </Pressable>
-                  ) : gpsFallback ? (
-                    // Ngoài khu vực, đã hết đếm ngược → cho phép check-in ngoài giờ
-                    <Pressable
-                      onPress={withGps(pressOvertimeFallback)}
-                      disabled={submitting || gpsWaiting}
-                      className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
-                      style={softShadow}
-                    >
-                      {submitting ? (
-                        <Spinner color={brand.warning} />
-                      ) : (
-                        <Icon name={faceMode ? 'face-recognition' : 'camera-account'} size={20} color={brand.warning} />
-                      )}
-                      <Text className="text-warning-text font-bold text-[16px]">
-                        {gpsLabel(needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ')}
-                      </Text>
-                    </Pressable>
                   ) : (
-                    // Ngoài khu vực: đếm ngược trước khi mở check-in ngoài giờ
+                    // Ngoài khu vực cửa hàng: không chấm công (kể cả ngoài giờ — chủ 2026-10-21; máy chủ cũng chặn).
                     <View className="mt-4 w-full h-[52px] rounded-2xl bg-white/15 border border-white/30 flex-row items-center justify-center gap-2">
-                      <Spinner color="#FFFFFF" />
-                      <Text className="text-white/90 font-bold text-[14px]">
-                        {`Ngoài khu vực — chờ ${gpsCountdown ?? 5}s`}
-                      </Text>
+                      <Icon name="map-marker-off" size={18} color="rgba(255,255,255,0.9)" />
+                      <Text className="text-white/90 font-bold text-[14px]">Ngoài khu vực cửa hàng</Text>
                     </View>
                   )}
                 </>
@@ -856,14 +814,12 @@ export function CheckinScreen() {
         </View>
       </Pressable>
 
-      {/* Có ca nhưng đang ở ngoài khu vực cửa hàng → đếm ngược rồi mở Check-in ngoài giờ (giống core-fe) */}
-      {needOvertimeFallback ? (
-        <View className={cn('flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl', gpsFallback ? 'bg-success-soft' : 'bg-warning-soft')}>
-          <Icon name={(gpsFallback ? 'clock-plus-outline' : 'timer-sand') as IconName} size={16} tone={gpsFallback ? 'success' : 'warning'} />
-          <Text variant="bodySmall" tone={gpsFallback ? 'success' : 'warning'} className="font-semibold flex-1">
-            {gpsFallback
-              ? 'Đã mở Check-in ngoài giờ — bạn có thể chụp ảnh để check-in.'
-              : `Bạn đang ở ngoài khu vực cửa hàng. Mở Check-in ngoài giờ sau ${gpsCountdown ?? 0}s…`}
+      {/* Có ca nhưng đang ở ngoài khu vực cửa hàng → không chấm công được, phải tới cửa hàng */}
+      {canCheckIn && outsideStore ? (
+        <View className="flex-row items-center gap-1.5 px-3.5 py-2 rounded-xl bg-warning-soft">
+          <Icon name="map-marker-off" size={16} tone="warning" />
+          <Text variant="bodySmall" tone="warning" className="font-semibold flex-1">
+            Bạn đang ở ngoài khu vực cửa hàng — tới cửa hàng để chấm công.
           </Text>
         </View>
       ) : null}
@@ -932,7 +888,7 @@ export function CheckinScreen() {
         // Check-out KHÔNG phụ thuộc GPS như check-in (không có khái niệm "ca phù hợp"
         // để tính fallback) — giữ đúng hành vi cũ là checkout vẫn được dù GPS lỗi,
         // chỉ chặn vì thiếu ảnh (yêu cầu mới), không chặn thêm vì vị trí.
-        canSubmit={actionKind === 'checkout' ? true : gpsStatus === 'ready' || gpsUnavailable || gpsFallback}
+        canSubmit={actionKind === 'checkout' ? true : gpsStatus === 'ready' || gpsUnavailable}
         loading={submitting}
         onClose={() => setModalOpen(false)}
         onConfirm={actionKind === 'checkout' ? handleConfirmCheckOut : handleConfirmCheckIn}
