@@ -11,10 +11,15 @@ import { toast, confirm } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { useAuthContext } from 'src/auth/auth-context';
 
-import { checkIn, checkOut, checkinFace, getMyAttendanceLogs } from 'src/api/attendance';
+import { useQuery } from '@tanstack/react-query';
+
+import { checkIn, checkInFace, checkOut, checkOutFace, checkinFace, getAttendanceSettings, getMyAttendanceLogs } from 'src/api/attendance';
 import { getMyClaims } from 'src/api/shiftPool';
 import { extractApiError } from 'src/services/error';
 import { FaceCaptureModal } from 'src/features/checkin/FaceCaptureModal';
+import { FaceCheckinModal, type FaceSubmit } from 'src/features/checkin/FaceCheckinModal';
+import { locateForAttendance } from 'src/features/checkin/fresh-location';
+import { locationFields, sendWithFreshLocation, type LocationFix } from 'src/features/checkin/location';
 import { reverseGeocode, type Coords, type GpsStatus } from 'src/features/checkin/utils';
 import type { IAttendanceLog, IShiftPoolPost } from 'src/types/corecms-api';
 
@@ -24,6 +29,8 @@ import type { IAttendanceLog, IShiftPoolPost } from 'src/types/corecms-api';
  * màn này gọi endpoint check-in/check-out TƯỜNG MINH với ShiftAssignmentId của NGƯỜI NHỜ,
  * được backend cho phép nhờ claim MidShift đã duyệt. Check-out bắt buộc chụp ảnh
  * (BE chặn nếu thiếu) — ảnh đẩy lên nhóm Telegram chấm công qua luồng checkin-face.
+ * Theo luồng chấm công của cửa hàng (mỗi lúc một luồng): chế độ khuôn mặt thì quét mặt (check-in-face /
+ * check-out-face), không thì chụp ảnh gửi nhóm. Vị trí lấy mới ngay lúc gửi (ping máy chủ trước).
  */
 export function MidShiftCoverCheckinScreen() {
   const { postId } = useLocalSearchParams<{ postId: string }>();
@@ -44,6 +51,10 @@ export function MidShiftCoverCheckinScreen() {
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [modalOpen, setModalOpen] = useState(false);
   const [actionKind, setActionKind] = useState<'checkin' | 'checkout'>('checkin');
+  /** Màn quét khuôn mặt (chế độ khuôn mặt của cửa hàng): null = đóng. */
+  const [faceKind, setFaceKind] = useState<'checkin' | 'checkout' | null>(null);
+  const settingsQ = useQuery({ queryKey: ['attendance-settings'], queryFn: getAttendanceSettings, staleTime: 30 * 1000 });
+  const faceMode = !!settingsQ.data?.requireFaceVerification;
 
   const refetch = useCallback(async () => {
     if (!postId) return;
@@ -98,14 +109,42 @@ export function MidShiftCoverCheckinScreen() {
     return () => { cancelled = true; };
   }, [coords?.latitude, coords?.longitude]);
 
+  /** Vị trí cho lần gửi: ping máy chủ rồi lấy điểm GPS mới (thử lại ~5 giây); cập nhật vị trí trên màn. */
+  async function locate(): Promise<LocationFix> {
+    const fix = await locateForAttendance();
+    if (fix.coords) {
+      setCoords(fix.coords);
+      setGpsStatus('ready');
+    } else {
+      setGpsStatus('error');
+    }
+    return fix;
+  }
+
   async function openCamera(kind: 'checkin' | 'checkout') {
+    const mode = settingsQ.data ?? (await settingsQ.refetch()).data;
+    if (!mode) {
+      toast.error('Không tải được thiết lập chấm công của cửa hàng. Vui lòng thử lại.');
+      return;
+    }
+    if (mode.requireFaceVerification && !user?.hasFaceEmbedding) {
+      router.push('/face-enrollment' as any);
+      return;
+    }
     if (kind === 'checkout') {
       const ok = await confirm({
         title: 'Kết thúc làm hộ',
-        message: 'Chụp ảnh check-out để kết thúc phiên làm hộ? Ảnh sẽ được gửi vào nhóm chấm công.',
-        confirmText: 'Chụp ảnh',
+        message: mode.requireFaceVerification
+          ? 'Quét khuôn mặt check-out để kết thúc phiên làm hộ?'
+          : 'Chụp ảnh check-out để kết thúc phiên làm hộ? Ảnh sẽ được gửi vào nhóm chấm công.',
+        confirmText: mode.requireFaceVerification ? 'Quét khuôn mặt' : 'Chụp ảnh',
       });
       if (!ok) return;
+    }
+    if (mode.requireFaceVerification) {
+      haptics.light();
+      setFaceKind(kind);
+      return;
     }
     let granted = cameraPermission?.granted;
     if (!granted) granted = (await requestCameraPermission()).granted;
@@ -119,15 +158,25 @@ export function MidShiftCoverCheckinScreen() {
     if (gpsStatus !== 'ready' && gpsStatus !== 'loading') fetchGps();
   }
 
-  async function pushFacePhoto(base64: string, captureTime: Date) {
+  async function pushFacePhoto(base64: string, captureTime: Date, fix: LocationFix) {
     await checkinFace({
       candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
       imageBase64: `data:image/jpeg;base64,${base64}`,
-      lat: coords?.latitude,
-      lng: coords?.longitude,
+      lat: fix.coords?.latitude,
+      lng: fix.coords?.longitude,
       time: captureTime.toISOString(),
     });
   }
+
+  /** Chế độ khuôn mặt: check-in / check-out đúng ca người nhờ, máy chủ so khuôn mặt. */
+  const faceSubmit: FaceSubmit = async (payload) => {
+    if (!post) throw new Error('Không tìm thấy yêu cầu làm hộ.');
+    if (faceKind === 'checkout') {
+      if (!openLog) throw new Error('Không tìm thấy phiên làm hộ đang mở.');
+      return (await checkOutFace({ ...payload, attendanceLogId: openLog.id })).faceMatchConfidence;
+    }
+    return (await checkInFace({ ...payload, shiftAssignmentId: post.shiftAssignmentId })).faceMatchConfidence;
+  };
 
   async function handleConfirmCapture(base64: string, captureTime: Date) {
     if (!post) return;
@@ -136,25 +185,18 @@ export function MidShiftCoverCheckinScreen() {
       if (actionKind === 'checkin') {
         // Check-in TƯỜNG MINH vào ca của NGƯỜI NHỜ — backend cho phép nhờ claim
         // MidShift đã duyệt (KHÔNG qua smart check-in, nó chỉ tìm ca của chính mình).
-        await checkIn({
-          shiftAssignmentId: post.shiftAssignmentId,
-          latitude: coords?.latitude,
-          longitude: coords?.longitude,
-          accuracy: coords?.accuracy,
-          faceVerified: true,
-        });
-        await pushFacePhoto(base64, captureTime);
+        const { fix } = await sendWithFreshLocation(locate, (f) =>
+          checkIn({ shiftAssignmentId: post.shiftAssignmentId, faceVerified: true, ...locationFields(f) }),
+        );
+        await pushFacePhoto(base64, captureTime, fix);
         setSuccessMsg('Đã bắt đầu làm hộ!');
       } else {
         if (!openLog) throw new Error('Không tìm thấy phiên làm hộ đang mở.');
-        await checkOut({
-          attendanceLogId: openLog.id,
-          latitude: coords?.latitude,
-          longitude: coords?.longitude,
-          accuracy: coords?.accuracy,
-          faceVerified: true,
-        });
-        await pushFacePhoto(base64, captureTime);
+        const logId = openLog.id;
+        const { fix } = await sendWithFreshLocation(locate, (f) =>
+          checkOut({ attendanceLogId: logId, faceVerified: true, ...locationFields(f) }),
+        );
+        await pushFacePhoto(base64, captureTime, fix);
         setSuccessMsg('Đã kết thúc làm hộ!');
       }
       setModalOpen(false);
@@ -207,17 +249,29 @@ export function MidShiftCoverCheckinScreen() {
           </Card>
 
           {phase === 'checkin' ? (
-            <Button icon="camera-account" loading={submitting} disabled={post.status !== 'Approved'} onPress={() => openCamera('checkin')}>
-              Chụp ảnh & bắt đầu làm hộ
+            <Button
+              icon={faceMode ? 'face-recognition' : 'camera-account'}
+              loading={submitting}
+              disabled={post.status !== 'Approved'}
+              onPress={() => openCamera('checkin')}
+            >
+              {faceMode ? 'Quét khuôn mặt & bắt đầu làm hộ' : 'Chụp ảnh & bắt đầu làm hộ'}
             </Button>
           ) : phase === 'checkout' ? (
             <SectionCard title="Đang làm hộ" icon="progress-clock">
               <Text variant="bodySmall" tone="muted" className="mb-3">
                 Check-in lúc {openLog?.checkInTime ? dayjs(openLog.checkInTime).format('HH:mm') : '--'}.
-                Khi xong việc, chụp ảnh check-out để kết thúc — ảnh sẽ gửi vào nhóm chấm công.
+                {faceMode
+                  ? 'Khi xong việc, quét khuôn mặt check-out để kết thúc.'
+                  : 'Khi xong việc, chụp ảnh check-out để kết thúc — ảnh sẽ gửi vào nhóm chấm công.'}
               </Text>
-              <Button action="error" icon="logout" loading={submitting} onPress={() => openCamera('checkout')}>
-                Chụp ảnh & kết thúc làm hộ
+              <Button
+                action="error"
+                icon={faceMode ? 'face-recognition' : 'logout'}
+                loading={submitting}
+                onPress={() => openCamera('checkout')}
+              >
+                {faceMode ? 'Quét khuôn mặt & kết thúc làm hộ' : 'Chụp ảnh & kết thúc làm hộ'}
               </Button>
             </SectionCard>
           ) : (
@@ -249,6 +303,18 @@ export function MidShiftCoverCheckinScreen() {
         onConfirm={handleConfirmCapture}
         title={actionKind === 'checkout' ? 'Chụp ảnh check-out' : 'Chụp ảnh bắt đầu làm hộ'}
         confirmLabel={actionKind === 'checkout' ? 'Kết thúc làm hộ' : 'Bắt đầu làm hộ'}
+      />
+
+      <FaceCheckinModal
+        visible={faceKind !== null}
+        mode={faceKind ?? 'checkin'}
+        locate={locate}
+        submit={faceSubmit}
+        onClose={() => setFaceKind(null)}
+        onSuccess={() => {
+          setSuccessMsg(faceKind === 'checkout' ? 'Đã kết thúc làm hộ!' : 'Đã bắt đầu làm hộ!');
+          refetch();
+        }}
       />
 
       <SuccessOverlay visible={!!successMsg} message={successMsg ?? undefined} onDone={() => setSuccessMsg(null)} />

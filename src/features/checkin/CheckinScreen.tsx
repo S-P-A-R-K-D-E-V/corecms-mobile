@@ -25,7 +25,8 @@ import { t } from 'src/i18n';
 import { useCheckinData } from './hooks';
 import { FaceCaptureModal } from './FaceCaptureModal';
 import { FaceCheckinModal } from './FaceCheckinModal';
-import { LOCATION_FRESH_MS, retryLocation, withTimeout } from './location';
+import { LOCATION_FRESH_MS, locationFields, retryLocation, sendWithFreshLocation, withTimeout, type LocationFix } from './location';
+import { locateForAttendance } from './fresh-location';
 import { CleaningChecklistSummaryCard } from './CleaningChecklistSummaryCard';
 import {
   getCheckInWindow,
@@ -82,23 +83,6 @@ function ShiftRow({ shift, now }: { shift: IMyScheduleItem; now: dayjs.Dayjs }) 
   );
 }
 
-// ── Lời mời đăng ký khuôn mặt ────────────────────────────────────────────────
-// Chưa đăng ký khuôn mặt: chấm công bằng ảnh chụp vẫn được nhưng máy chủ ghi "chưa xác minh" (ảnh chỉ gửi nhóm chấm
-// công, không so khuôn mặt). Đăng ký xong thì check-in / check-out đi qua quét mặt.
-function EnrollFaceHint() {
-  return (
-    <Pressable
-      onPress={() => router.push('/face-enrollment' as any)}
-      accessibilityRole="button"
-      className="mt-2.5 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15"
-    >
-      <Icon name="face-recognition" size={16} color="#FFFFFF" />
-      <Text className="text-white font-semibold text-[13px] flex-shrink" numberOfLines={2}>
-        {t('checkin.unverifiedHint')}
-      </Text>
-    </Pressable>
-  );
-}
 
 // ── Screen ───────────────────────────────────────────────────────────────────
 export function CheckinScreen() {
@@ -193,12 +177,25 @@ export function CheckinScreen() {
   const [gpsFallback, setGpsFallback] = useState(false);
   const needOvertimeFallback = canCheckIn && outsideStore;
   const hasFaceEmbedding = !!user?.hasFaceEmbedding;
-  // Cửa hàng bật "Bắt buộc khuôn mặt": chưa đăng ký khuôn mặt thì không chấm công bằng ảnh chụp được nữa.
-  const settingsQ = useQuery({ queryKey: ['attendance-settings'], queryFn: getAttendanceSettings, staleTime: 5 * 60 * 1000 });
-  const requireFace = !!settingsQ.data?.requireFaceVerification;
-  // Đã đăng ký khuôn mặt → check-in / check-out chính đi qua quét mặt (máy chủ so khuôn mặt). Chưa đăng ký → chụp ảnh
-  // gửi nhóm chấm công như cũ, máy chủ ghi "chưa xác minh" (trừ khi cửa hàng bắt buộc khuôn mặt).
-  const photoOnly = !hasFaceEmbedding && !requireFace;
+  // Mỗi lúc cửa hàng chỉ dùng MỘT luồng (thiết lập "Chấm công bằng khuôn mặt" của quản lý), áp cho mọi người như nhau:
+  //   bật → chỉ quét khuôn mặt (chưa đăng ký khuôn mặt thì phải đăng ký trước);
+  //   tắt → chỉ chụp ảnh gửi nhóm chấm công, kể cả người đã đăng ký khuôn mặt.
+  // Máy chủ chặn luồng còn lại (Attendance.FaceRequired / FaceCheckinDisabled) — gặp lỗi đó thì nạp lại thiết lập.
+  const settingsQ = useQuery({ queryKey: ['attendance-settings'], queryFn: getAttendanceSettings, staleTime: 30 * 1000 });
+  const faceMode = !!settingsQ.data?.requireFaceVerification;
+  /** Chế độ khuôn mặt mà chưa đăng ký khuôn mặt → các nút dẫn sang đăng ký. */
+  const needsEnroll = faceMode && !hasFaceEmbedding;
+
+  /**
+   * Luồng cửa hàng đang dùng, chắc chắn trước khi mở camera: true = khuôn mặt, false = chụp ảnh; thiết lập chưa tải được
+   * thì tải lại, vẫn lỗi → null (báo lỗi, không mở gì).
+   */
+  async function currentFaceMode(): Promise<boolean | null> {
+    const data = settingsQ.data ?? (await settingsQ.refetch()).data;
+    if (data) return data.requireFaceVerification;
+    toast.error('Không tải được thiết lập chấm công của cửa hàng. Vui lòng thử lại.', 'Chấm công');
+    return null;
+  }
 
   async function pressFaceCheckin(mode: 'checkin' | 'checkout' | 'overtime') {
     if (!hasFaceEmbedding) {
@@ -220,8 +217,7 @@ export function CheckinScreen() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  // null = đóng. 'overtime' THAY THẾ hẳn FaceCaptureModal cho action check-in ngoài giờ;
-  // 'checkin'/'checkout' vẫn chạy song song với luồng chụp ảnh cũ (xem FaceCheckinModal).
+  // Màn quét khuôn mặt (chế độ khuôn mặt): null = đóng.
   const [faceCheckinMode, setFaceCheckinMode] = useState<'checkin' | 'checkout' | 'overtime' | null>(null);
 
   async function fetchGps(): Promise<Coords | null> {
@@ -295,6 +291,32 @@ export function CheckinScreen() {
     }
   }
 
+  /**
+   * Vị trí cho lần GỬI chấm công (sau khi chụp ảnh / quét mặt xong): ping máy chủ rồi lấy điểm GPS mới — không gửi toạ độ
+   * lấy từ lúc bấm nút hay lúc mở màn. Cập nhật luôn chip GPS trên màn.
+   */
+  async function locateForSubmit(): Promise<LocationFix> {
+    const fix = await locateForAttendance();
+    setGpsPerm(fix.permission);
+    if (fix.coords) {
+      setCoords(fix.coords);
+      coordsAtRef.current = Date.now();
+      setGpsStatus('ready');
+      setGpsUnavailable(false);
+    } else {
+      setCoords(null);
+      setGpsStatus('error');
+      setGpsUnavailable(true);
+      toast.warning(
+        fix.permission.granted
+          ? 'Không lấy được GPS sau 5 giây — vẫn chấm công, lần này được ghi là không có vị trí.'
+          : 'App chưa được phép dùng vị trí — vẫn chấm công, lần này được ghi là không có vị trí.',
+        'GPS',
+      );
+    }
+    return fix;
+  }
+
   /** Vị trí vừa lấy nằm ngoài khu vực cửa hàng (cửa hàng có đặt toạ độ chi nhánh). */
   function isOutside(c: Coords | null): boolean {
     if (!c || !geofenceBranches) return false;
@@ -363,8 +385,26 @@ export function CheckinScreen() {
     setModalOpen(true);
   }
 
+  /** Bấm check-in (có ca phù hợp): quét mặt hoặc chụp ảnh tuỳ chế độ của cửa hàng. */
+  async function pressCheckIn() {
+    const face = await currentFaceMode();
+    if (face === null) return;
+    if (face) await pressFaceCheckin('checkin');
+    else await openCheckInCamera('smart');
+  }
+
+  /** Ngoài khu vực, hết đếm ngược → check-in ngoài giờ theo chế độ của cửa hàng. */
+  async function pressOvertimeFallback() {
+    const face = await currentFaceMode();
+    if (face === null) return;
+    if (face) await pressFaceCheckin('overtime');
+    else await openCheckInCamera('overtime');
+  }
+
   async function handleOvertimePress() {
-    if (!hasFaceEmbedding) {
+    const face = await currentFaceMode();
+    if (face === null) return;
+    if (face && !hasFaceEmbedding) {
       router.push('/face-enrollment' as any);
       return;
     }
@@ -374,6 +414,10 @@ export function CheckinScreen() {
       confirmText: 'Check-in',
     });
     if (!ok) return;
+    if (!face) {
+      await openCheckInCamera('overtime');
+      return;
+    }
     await resolveLocation();
     setFaceCheckinMode('overtime');
   }
@@ -381,31 +425,19 @@ export function CheckinScreen() {
   async function handleConfirmCheckIn(base64: string, captureTime: Date) {
     setSubmitting(true);
     try {
-      // 1. Create attendance log first; abort before Telegram if it fails.
-      if (checkinMode === 'overtime') {
-        await checkIn({
-          isOvertime: true,
-          latitude: coords?.latitude,
-          longitude: coords?.longitude,
-          accuracy: coords?.accuracy,
-          faceVerified: true,
-          locationUnavailable: !coords && gpsUnavailable,
-        });
-      } else {
-        await smartCheckIn({
-          latitude: coords?.latitude,
-          longitude: coords?.longitude,
-          accuracy: coords?.accuracy,
-          faceVerified: true,
-          locationUnavailable: !coords && gpsUnavailable,
-        });
-      }
-      // 2. Fire Telegram face notification.
+      // 1. Ghi chấm công trước (vị trí lấy mới ngay lúc gửi, sau ping máy chủ); lỗi thì không gửi ảnh vào nhóm.
+      const { fix } = await sendWithFreshLocation(locateForSubmit, (f) =>
+        checkinMode === 'overtime'
+          ? checkIn({ isOvertime: true, faceVerified: true, ...locationFields(f) })
+          : smartCheckIn({ faceVerified: true, ...locationFields(f) }),
+      );
+      const at = fix.coords;
+      // 2. Ảnh vào nhóm chấm công.
       await checkinFace({
         candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
         imageBase64: `data:image/jpeg;base64,${base64}`,
-        lat: coords?.latitude,
-        lng: coords?.longitude,
+        lat: at?.latitude,
+        lng: at?.longitude,
         time: captureTime.toISOString(),
       });
       setModalOpen(false);
@@ -415,7 +447,7 @@ export function CheckinScreen() {
     } catch (err: any) {
       haptics.error();
       toast.error(extractApiError(err), t('checkin.checkInFailed'));
-      // Cửa hàng vừa bật "Bắt buộc khuôn mặt" (máy chủ trả Attendance.FaceRequired): nạp lại thiết lập để đổi nút.
+      // Cửa hàng vừa đổi luồng chấm công (máy chủ trả Attendance.FaceRequired): nạp lại thiết lập để đổi nút.
       void settingsQ.refetch();
       // Chủ cửa hàng vừa tắt chấm công trên app với người này: nạp lại /users/me để tab chuyển sang báo đã tắt.
       if (isPlatformFeatureDisabledError(err)) {
@@ -428,7 +460,9 @@ export function CheckinScreen() {
   }
 
   async function openCheckOutCamera() {
-    if (!hasFaceEmbedding && requireFace) {
+    const face = await currentFaceMode();
+    if (face === null) return;
+    if (face && !hasFaceEmbedding) {
       router.push('/face-enrollment' as any);
       return;
     }
@@ -441,7 +475,7 @@ export function CheckinScreen() {
     if (!ok) return;
     if (locating) return;
     await resolveLocation();
-    if (hasFaceEmbedding) {
+    if (face) {
       setFaceCheckinMode('checkout');
       return;
     }
@@ -460,21 +494,15 @@ export function CheckinScreen() {
   async function handleConfirmCheckOut(base64: string, captureTime: Date) {
     setSubmitting(true);
     try {
-      // Vị trí đã lấy lúc bấm check-out (thử lại 5 giây); không có → máy chủ ghi "không có GPS".
-      const c: Coords | undefined = coords ?? undefined;
-      await smartCheckOut({
-        latitude: c?.latitude,
-        longitude: c?.longitude,
-        accuracy: c?.accuracy,
-        faceVerified: true,
-        locationUnavailable: !c && gpsUnavailable,
-      });
-      // Đẩy ảnh lên Telegram — tái dùng đúng luồng checkin-face như lúc check-in.
+      // Vị trí lấy mới ngay lúc gửi (sau ping máy chủ, thử lại 5 giây); không có → máy chủ ghi "không có GPS".
+      const { fix } = await sendWithFreshLocation(locateForSubmit, (f) => smartCheckOut({ faceVerified: true, ...locationFields(f) }));
+      const at = fix.coords;
+      // Ảnh vào nhóm chấm công — tái dùng đúng luồng checkin-face như lúc check-in.
       await checkinFace({
         candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
         imageBase64: `data:image/jpeg;base64,${base64}`,
-        lat: c?.latitude,
-        lng: c?.longitude,
+        lat: at?.latitude,
+        lng: at?.longitude,
         time: captureTime.toISOString(),
       });
       setModalOpen(false);
@@ -606,20 +634,15 @@ export function CheckinScreen() {
                 {submitting || locating ? (
                   <Spinner color={brand.error} />
                 ) : (
-                  <Icon name={hasFaceEmbedding ? 'face-recognition' : 'logout'} size={20} color={brand.error} />
+                  <Icon name={faceMode ? 'face-recognition' : 'logout'} size={20} color={brand.error} />
                 )}
                 {/* tone="error" thay vì className="text-error": tone mặc định kèm
                     dark:text-ink-dark (trắng) đè text-error ở dark → chữ trắng
                     trên nút trắng, mất chữ Checkout. */}
                 <Text tone="error" className="font-bold text-[16px]">
-                  {locating
-                    ? 'Đang lấy vị trí GPS…'
-                    : hasFaceEmbedding || photoOnly
-                      ? t('checkin.checkOutBtn')
-                      : t('checkin.enrollToCheckOut')}
+                  {locating ? 'Đang lấy vị trí GPS…' : needsEnroll ? t('checkin.enrollToCheckOut') : t('checkin.checkOutBtn')}
                 </Text>
               </Pressable>
-              {photoOnly ? <EnrollFaceHint /> : null}
             </>
           ) : (
             <>
@@ -646,7 +669,7 @@ export function CheckinScreen() {
                   {!outsideStore ? (
                     // Trong khu vực / chưa có vị trí / GPS lỗi → check-in thường (bấm là lấy vị trí, thử lại 5 giây).
                     <Pressable
-                      onPress={() => (photoOnly ? openCheckInCamera('smart') : pressFaceCheckin('checkin'))}
+                      onPress={pressCheckIn}
                       disabled={submitting || locating}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
@@ -654,27 +677,27 @@ export function CheckinScreen() {
                       {submitting || locating ? (
                         <Spinner color={brand.primary} />
                       ) : (
-                        <Icon name={photoOnly ? 'camera-account' : 'face-recognition'} size={20} color={brand.primary} />
+                        <Icon name={faceMode ? 'face-recognition' : 'camera-account'} size={20} color={brand.primary} />
                       )}
                       <Text className="text-primary font-bold text-[16px]">
-                        {locating
-                          ? 'Đang lấy vị trí GPS…'
-                          : hasFaceEmbedding || photoOnly
-                            ? t('checkin.checkInBtn')
-                            : t('checkin.enrollToCheckIn')}
+                        {locating ? 'Đang lấy vị trí GPS…' : needsEnroll ? t('checkin.enrollToCheckIn') : t('checkin.checkInBtn')}
                       </Text>
                     </Pressable>
                   ) : gpsFallback ? (
                     // Ngoài khu vực, đã hết đếm ngược → cho phép check-in ngoài giờ
                     <Pressable
-                      onPress={() => pressFaceCheckin('overtime')}
+                      onPress={pressOvertimeFallback}
                       disabled={submitting}
                       className="mt-4 w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                       style={softShadow}
                     >
-                      {submitting ? <Spinner color={brand.warning} /> : <Icon name="face-recognition" size={20} color={brand.warning} />}
+                      {submitting ? (
+                        <Spinner color={brand.warning} />
+                      ) : (
+                        <Icon name={faceMode ? 'face-recognition' : 'camera-account'} size={20} color={brand.warning} />
+                      )}
                       <Text className="text-warning-text font-bold text-[16px]">
-                        {hasFaceEmbedding ? 'Check-in ngoài giờ' : 'Đăng ký khuôn mặt để check-in'}
+                        {needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ'}
                       </Text>
                     </Pressable>
                   ) : (
@@ -686,7 +709,6 @@ export function CheckinScreen() {
                       </Text>
                     </View>
                   )}
-                  {!outsideStore && photoOnly ? <EnrollFaceHint /> : null}
                 </>
               ) : shifts.length === 0 ? (
                 // Hôm nay chưa được xếp ca: đang ở cửa hàng thì check-in ngoài giờ (chỉ ghi giờ để đối chiếu cuối tháng,
@@ -698,11 +720,11 @@ export function CheckinScreen() {
                     className="w-full h-[52px] rounded-2xl bg-white flex-row items-center justify-center gap-2"
                     style={softShadow}
                   >
-                    <Icon name={hasFaceEmbedding ? 'clock-plus-outline' : 'face-recognition'} size={20} color={brand.primary} />
+                    <Icon name={needsEnroll ? 'face-recognition' : 'clock-plus-outline'} size={20} color={brand.primary} />
                     <Text className="text-primary font-bold text-[16px]">{t('checkin.overtimeBtn')}</Text>
                   </Pressable>
                   <Text className="text-white/80 text-[12px] leading-[16px] text-center">
-                    {hasFaceEmbedding ? t('checkin.overtimeNote') : t('checkin.overtimeNeedsFace')}
+                    {needsEnroll ? t('checkin.overtimeNeedsFace') : t('checkin.overtimeNote')}
                   </Text>
                   <View className="flex-row gap-2 mt-1">
                     <Pressable
@@ -734,7 +756,7 @@ export function CheckinScreen() {
                 <Pressable onPress={handleOvertimePress} className="mt-3 flex-row items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/15">
                   <Icon name="clock-plus-outline" size={16} color="#FFFFFF" />
                   <Text className="text-white font-semibold text-[13px]">
-                    {hasFaceEmbedding ? 'Check-in ngoài giờ' : 'Đăng ký khuôn mặt để check-in'}
+                    {needsEnroll ? 'Đăng ký khuôn mặt để check-in' : 'Check-in ngoài giờ'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -873,8 +895,7 @@ export function CheckinScreen() {
       <FaceCheckinModal
         visible={faceCheckinMode !== null}
         mode={faceCheckinMode ?? 'checkin'}
-        coords={coords}
-        locationUnavailable={gpsUnavailable}
+        locate={locateForSubmit}
         onClose={() => setFaceCheckinMode(null)}
         onSuccess={() => {
           const isOut = faceCheckinMode === 'checkout';

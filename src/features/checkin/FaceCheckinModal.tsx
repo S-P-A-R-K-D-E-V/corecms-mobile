@@ -10,7 +10,7 @@ import { checkEnrollQuality } from 'src/api/faceEnrollment';
 import { smartCheckInFace, smartCheckOutFace, checkInFace, checkinFace } from 'src/api/attendance';
 import { useAuthContext } from 'src/auth/auth-context';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
-import type { Coords } from './utils';
+import { locationFields, sendWithFreshLocation, type LocationFields, type LocationFix } from './location';
 import { CONFIRM_HOLD_MS, faceColor, faceHint, faceStatus, trackRectInView, type Size } from './face-stream';
 import { FaceBox, useFrameCapture } from './live-face';
 import { useFaceStream } from './useFaceStream';
@@ -48,18 +48,25 @@ function isNotEnrolledError(err: any): boolean {
 
 type Phase = 'opening' | 'scanning' | 'submitting' | 'success' | 'error';
 
+/** Ảnh khuôn mặt + vị trí của một lần gửi; trả % khớp máy chủ tính. */
+export type FaceSubmit = (payload: { imageBase64: string } & LocationFields) => Promise<number | undefined>;
+
 type Props = {
   visible: boolean;
   mode: 'checkin' | 'checkout' | 'overtime';
-  coords: Coords | null;
-  /** App đã thử lấy GPS ~5 giây không được — máy chủ vẫn nhận, đánh dấu lần chấm công này không có vị trí. */
-  locationUnavailable?: boolean;
+  /**
+   * Vị trí cho lần gửi — gọi lúc gửi (sau khi quét khớp): ping máy chủ rồi lấy điểm GPS mới. GPS lỗi sau ~5 giây thì
+   * máy chủ vẫn nhận, đánh dấu lần chấm công này không có vị trí.
+   */
+  locate: () => Promise<LocationFix>;
+  /** Gửi tới endpoint khác thay cho mặc định theo `mode` (vd làm hộ giữa ca: check-in / check-out đúng ca người nhờ). */
+  submit?: FaceSubmit;
   onClose: () => void;
   /** Gọi khi check-in/out thành công — cha tự refetch(). */
   onSuccess: () => void;
 };
 
-export function FaceCheckinModal({ visible, mode, coords, locationUnavailable = false, onClose, onSuccess }: Props) {
+export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuccess }: Props) {
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const portrait = screenH >= screenW;
@@ -117,24 +124,20 @@ export function FaceCheckinModal({ visible, mode, coords, locationUnavailable = 
   async function handleSubmit(imageBase64: string) {
     setPhase('submitting');
     try {
-      const payload = {
-        imageBase64,
-        latitude: coords?.latitude,
-        longitude: coords?.longitude,
-        accuracy: coords?.accuracy,
-        locationUnavailable: !coords && locationUnavailable,
-      };
-      // faceMatchConfidence (%) do máy chủ tính khi so — đưa vào tin nhóm chấm công.
-      let matchConfidence: number | undefined;
-      if (mode === 'checkin') matchConfidence = (await smartCheckInFace(payload)).faceMatchConfidence;
-      else if (mode === 'checkout') matchConfidence = (await smartCheckOutFace(payload))[0]?.faceMatchConfidence;
-      else matchConfidence = (await checkInFace({ ...payload, isOvertime: true })).faceMatchConfidence;
+      // faceMatchConfidence (%) do máy chủ tính khi so — đưa vào tin nhóm chấm công. Vị trí lấy mới ngay lúc gửi.
+      const { result: matchConfidence, fix } = await sendWithFreshLocation(locate, (f) => {
+        const payload = { imageBase64, ...locationFields(f) };
+        if (submit) return submit(payload);
+        if (mode === 'checkin') return smartCheckInFace(payload).then((r) => r.faceMatchConfidence);
+        if (mode === 'checkout') return smartCheckOutFace(payload).then((r) => r[0]?.faceMatchConfidence);
+        return checkInFace({ ...payload, isOvertime: true }).then((r) => r.faceMatchConfidence);
+      });
       // Ảnh vào nhóm chấm công — không chặn kết quả nếu lỗi (chỉ là thông báo phụ).
       checkinFace({
         candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
         imageBase64: `data:image/jpeg;base64,${imageBase64}`,
-        lat: coords?.latitude,
-        lng: coords?.longitude,
+        lat: fix.coords?.latitude,
+        lng: fix.coords?.longitude,
         time: new Date().toISOString(),
         matchConfidence,
       }).catch(() => {});
@@ -379,10 +382,9 @@ export function FaceCheckinModal({ visible, mode, coords, locationUnavailable = 
               <Text className="text-white text-[13px] flex-1">{statusText}</Text>
             </View>
           ) : null}
-          {(phase === 'scanning' || phase === 'opening') && !coords && locationUnavailable ? (
-            <Text className="text-amber-300 text-[12px] px-4 pb-2">
-              Không lấy được GPS — vẫn chấm công, lần này được ghi là không có vị trí.
-            </Text>
+          {phase === 'submitting' ? (
+            // Lúc gửi: ping máy chủ + lấy vị trí GPS mới (tối đa ~5 giây) rồi mới chấm công.
+            <Text className="text-white/80 text-[12px] px-4 pb-2">Đang xác nhận vị trí hiện tại…</Text>
           ) : null}
           {phase === 'scanning' && (status === 'mismatch' || status === 'spoof') ? (
             <View className="px-4 pb-1">

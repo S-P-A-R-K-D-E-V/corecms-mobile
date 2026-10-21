@@ -298,7 +298,24 @@ export interface IAttendanceLog {
   faceMatchConfidence?: number;
 }
 
-export interface ICheckInRequest {
+/** Ping vị trí (POST /attendance/location-ping) gửi kèm mọi lần check-in / check-out — chặn vị trí cũ. */
+export interface ILocationProofFields {
+  /** Mã ping máy chủ — điểm GPS lấy SAU lần ping này. */
+  locationToken?: string;
+  /** Tuổi điểm GPS lúc gửi (ms). */
+  locationAgeMs?: number;
+  /** Android: vị trí giả lập. */
+  isMockLocation?: boolean;
+}
+
+export interface ILocationPingResponse {
+  token: string;
+  issuedAt: string;
+  expiresInSeconds: number;
+  maxFixAgeSeconds: number;
+}
+
+export interface ICheckInRequest extends ILocationProofFields {
   shiftAssignmentId?: string;
   latitude?: number;
   longitude?: number;
@@ -315,7 +332,7 @@ export interface ICheckInRequest {
 /** POST /attendance/check-in-face — đối xứng ICheckInRequest: KHÔNG có faceVerified (server tự
  *  verify ảnh qua VerifyCheckInFaceCommand — chặn cứng nếu không khớp/chưa đăng ký). Dùng cho
  *  check-in ngoài giờ (isOvertime=true). */
-export interface ICheckInWithFaceRequest {
+export interface ICheckInWithFaceRequest extends ILocationProofFields {
   imageBase64: string;
   shiftAssignmentId?: string;
   isOvertime?: boolean;
@@ -328,7 +345,7 @@ export interface ICheckInWithFaceRequest {
   locationUnavailable?: boolean;
 }
 
-export interface ICheckOutRequest {
+export interface ICheckOutRequest extends ILocationProofFields {
   attendanceLogId: string;
   latitude?: number;
   longitude?: number;
@@ -338,7 +355,18 @@ export interface ICheckOutRequest {
   faceVerified?: boolean; // bắt buộc true khi checkout ca làm hộ (BE chặn nếu thiếu ảnh)
 }
 
-export interface ISmartCheckInRequest {
+/** POST /attendance/check-out-face — check-out đúng một lượt (làm hộ giữa ca) khi cửa hàng chấm công bằng khuôn mặt. */
+export interface ICheckOutWithFaceRequest extends ILocationProofFields {
+  imageBase64: string;
+  attendanceLogId: string;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  ipAddress?: string;
+  wifiName?: string;
+}
+
+export interface ISmartCheckInRequest extends ILocationProofFields {
   latitude?: number;
   longitude?: number;
   accuracy?: number;
@@ -349,7 +377,7 @@ export interface ISmartCheckInRequest {
   locationUnavailable?: boolean;
 }
 
-export interface ISmartCheckOutRequest {
+export interface ISmartCheckOutRequest extends ILocationProofFields {
   latitude?: number;
   longitude?: number;
   accuracy?: number;
@@ -362,7 +390,7 @@ export interface ISmartCheckOutRequest {
 
 /** POST /attendance/smart-check-in-face — khác ISmartCheckInRequest: KHÔNG có faceVerified
  *  (server tự verify ảnh qua VerifyCheckInFaceCommand, chặn cứng nếu không khớp/chưa đăng ký). */
-export interface ISmartCheckInWithFaceRequest {
+export interface ISmartCheckInWithFaceRequest extends ILocationProofFields {
   imageBase64: string;
   latitude?: number;
   longitude?: number;
@@ -374,7 +402,7 @@ export interface ISmartCheckInWithFaceRequest {
 }
 
 /** POST /attendance/smart-check-out-face — đối xứng ISmartCheckInWithFaceRequest. */
-export interface ISmartCheckOutWithFaceRequest {
+export interface ISmartCheckOutWithFaceRequest extends ILocationProofFields {
   imageBase64: string;
   latitude?: number;
   longitude?: number;

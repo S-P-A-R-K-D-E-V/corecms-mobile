@@ -6,7 +6,9 @@ import type {
   IBranchLocation,
   ICheckInRequest,
   ICheckOutRequest,
+  ICheckOutWithFaceRequest,
   ICheckInWithFaceRequest,
+  ILocationPingResponse,
   ICheckinFaceRequest,
   ICheckinFaceResponse,
   IAdjustAttendanceTimeRequest,
@@ -53,6 +55,18 @@ export async function checkInFace(data: ICheckInWithFaceRequest): Promise<IAtten
 
 export async function checkOut(data: ICheckOutRequest): Promise<IAttendanceLog> {
   const response = await axios.post<IAttendanceLog>(endpoints.attendance.checkOut, data);
+  return response.data;
+}
+
+/** Check-out đúng một lượt (làm hộ giữa ca) bằng quét khuôn mặt — khi cửa hàng chấm công bằng khuôn mặt. */
+export async function checkOutFace(data: ICheckOutWithFaceRequest): Promise<IAttendanceLog> {
+  const response = await axios.post<IAttendanceLog>(endpoints.attendance.checkOutFace, data);
+  return response.data;
+}
+
+/** Ping vị trí ngay trước khi gửi chấm công — lấy vị trí MỚI sau khi có mã rồi gửi kèm (xem checkin/location.ts). */
+export async function locationPing(): Promise<ILocationPingResponse> {
+  const response = await axios.post<ILocationPingResponse>(endpoints.attendance.locationPing);
   return response.data;
 }
 
@@ -108,16 +122,12 @@ export async function adjustAttendanceTime(data: IAdjustAttendanceTimeRequest): 
 }
 
 /**
- * Thiết lập chấm công của cửa hàng. requireFaceVerification = chỉ chấm công bằng quét khuôn mặt (luồng chụp ảnh bị
- * máy chủ chặn). Máy chủ cũ chưa có endpoint → coi như tắt.
+ * Thiết lập chấm công của cửa hàng — mỗi lúc chỉ MỘT luồng: requireFaceVerification bật = chỉ quét khuôn mặt, tắt = chỉ
+ * chụp ảnh gửi nhóm chấm công (máy chủ chặn luồng còn lại). Lỗi thì ném ra (không đoán luồng) — màn chấm công tải lại.
  */
 export async function getAttendanceSettings(): Promise<{ requireFaceVerification: boolean }> {
-  try {
-    const res = await axios.get<{ requireFaceVerification: boolean }>(endpoints.attendance.settings);
-    return { requireFaceVerification: !!res.data?.requireFaceVerification };
-  } catch {
-    return { requireFaceVerification: false };
-  }
+  const res = await axios.get<{ requireFaceVerification: boolean }>(endpoints.attendance.settings);
+  return { requireFaceVerification: !!res.data?.requireFaceVerification };
 }
 
 export async function getBranchLocations(): Promise<IBranchLocation[]> {
