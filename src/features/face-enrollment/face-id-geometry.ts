@@ -141,3 +141,42 @@ export function sectorFor(angle: number, magnitude: number): Sector | null {
 export function isDone(lit: readonly boolean[], sectorPhotos: number): boolean {
   return coverage(lit) >= DONE_COVERAGE && sectorPhotos >= DONE_SECTOR_PHOTOS;
 }
+
+/**
+ * Đầu "đứng yên" ở một góc: trong STEADY_WINDOW_MS gần nhất góc yaw / pitch chỉ dao động ≤ STEADY_RANGE_DEG. Đo theo
+ * khoảng dao động trong cửa sổ chứ không theo tốc độ giữa hai khung — ML Kit rung 1–3° giữa các khung (33 ms) nên tính
+ * tốc độ ra 40–90°/giây dù đầu đứng yên (bản 2026-10-22 đầu tiên vì vậy không bao giờ chụp ảnh nghiêng).
+ */
+export const STEADY_WINDOW_MS = 250;
+export const STEADY_RANGE_DEG = 6;
+/** Chờ ở một hướng chưa có ảnh quá chừng này mà chưa "yên" → vẫn chụp (máy chủ bỏ ảnh mờ, không hỏng cả lượt). */
+export const STEADY_GIVE_UP_MS = 1200;
+/** Vòng tròn đã sáng đủ mà mới có 2 ảnh nghiêng → chờ thêm chừng này cho ảnh thứ 3 rồi lưu luôn. */
+export const SAVE_GRACE_MS = 2500;
+
+export function createSteadyTracker(windowMs = STEADY_WINDOW_MS, rangeDeg = STEADY_RANGE_DEG) {
+  const poses: { t: number; yaw: number; pitch: number }[] = [];
+  return {
+    /** Ghi một khung; trả true khi đầu đã yên đủ một cửa sổ. */
+    observe(t: number, yaw: number, pitch: number): boolean {
+      poses.push({ t, yaw, pitch });
+      // Giữ các khung trong cửa sổ + một khung ngay trước cửa sổ (để biết đã đủ dài chưa).
+      while (poses.length > 2 && t - poses[1].t >= windowMs) poses.shift();
+      if (t - poses[0].t < windowMs) return false;
+      const range = (xs: number[]) => Math.max(...xs) - Math.min(...xs);
+      return range(poses.map((p) => p.yaw)) <= rangeDeg && range(poses.map((p) => p.pitch)) <= rangeDeg;
+    },
+    reset(): void {
+      poses.length = 0;
+    },
+  };
+}
+
+/**
+ * Lưu được chưa: vòng tròn sáng đủ và có đủ DONE_SECTOR_PHOTOS ảnh nghiêng; hoặc đã có 2 ảnh và vòng tròn sáng đủ được
+ * SAVE_GRACE_MS (không bắt quay lại tìm hướng còn thiếu — máy chủ cần ảnh thẳng + ≥ 2 ảnh nghiêng đạt).
+ */
+export function readyToSave(lit: readonly boolean[], sectorPhotos: number, ringDoneFor: number): boolean {
+  if (coverage(lit) < DONE_COVERAGE) return false;
+  return sectorPhotos >= DONE_SECTOR_PHOTOS || (sectorPhotos >= 2 && ringDoneFor >= SAVE_GRACE_MS);
+}

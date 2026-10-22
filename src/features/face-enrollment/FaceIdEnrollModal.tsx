@@ -11,16 +11,19 @@ import type { Face } from 'react-native-vision-camera-face-detector';
 
 import type { FaceIdNative } from './face-id-native';
 import {
+  DONE_COVERAGE,
   SECTORS,
+  STEADY_GIVE_UP_MS,
   TICK_COUNT,
   coverage,
+  createSteadyTracker,
   createYawCalibrator,
   headDirection,
-  isDone,
   isStraight,
   noseOffset,
   placement,
   placementHint,
+  readyToSave,
   sectorFor,
   tickAngle,
   ticksFor,
@@ -75,23 +78,6 @@ const Tick = memo(function Tick({ index, on, cx, cy, radius }: { index: number; 
   );
 });
 
-/**
- * Ảnh góc nghiêng chỉ chụp khi đầu gần như đứng yên (đổi góc < STEADY_DEG_PER_S) đủ STEADY_HOLD_MS — chụp lúc đang
- * xoay hay bị mờ, máy chủ từ chối (20/102 ảnh trong 3 ngày tới 2026-10-22).
- */
-const STEADY_DEG_PER_S = 30;
-const STEADY_HOLD_MS = 200;
-
-/** Tốc độ đổi góc đầu (độ / giây) giữa hai khung hình. */
-export function headSpeed(
-  prev: { yaw: number; pitch: number; t: number } | null,
-  next: { yaw: number; pitch: number; t: number },
-): number {
-  if (!prev) return Infinity;
-  const dt = Math.max(1, next.t - prev.t);
-  return ((Math.abs(next.yaw - prev.yaw) + Math.abs(next.pitch - prev.pitch)) / dt) * 1000;
-}
-
 function toUri(path: string): string {
   return path.startsWith('file://') ? path : `file://${path}`;
 }
@@ -123,8 +109,12 @@ export function FaceIdEnrollModal({ native, visible, onClose, onEnrolled }: Prop
   const frontRef = useRef<string | null>(null);
   const sectorPhotosRef = useRef<Partial<Record<Sector, string>>>({});
   const rotateStartedRef = useRef<number>(0);
-  const lastPoseRef = useRef<{ yaw: number; pitch: number; t: number } | null>(null);
-  const steadySinceRef = useRef<number | null>(null);
+  // Ảnh nghiêng chụp khi đầu đã yên ở hướng đó (đỡ mờ — máy chủ từ chối 20/102 ảnh trong 3 ngày tới 2026-10-22).
+  const steadyRef = useRef(createSteadyTracker());
+  /** Hướng chưa có ảnh đang chờ yên + lúc bắt đầu chờ (chờ lâu quá thì chụp luôn). */
+  const sectorWaitRef = useRef<{ sector: Sector; since: number } | null>(null);
+  /** Lúc vòng tròn sáng đủ (null = chưa). */
+  const ringDoneAtRef = useRef<number | null>(null);
 
   const go = useCallback((p: Phase) => {
     phaseRef.current = p;
@@ -139,8 +129,9 @@ export function FaceIdEnrollModal({ native, visible, onClose, onEnrolled }: Prop
     capturingRef.current = false;
     frontRef.current = null;
     sectorPhotosRef.current = {};
-    lastPoseRef.current = null;
-    steadySinceRef.current = null;
+    steadyRef.current.reset();
+    sectorWaitRef.current = null;
+    ringDoneAtRef.current = null;
     setError(null);
     setHint('Đưa khuôn mặt vào trong khung tròn');
     go('front');
@@ -270,31 +261,41 @@ export function FaceIdEnrollModal({ native, visible, onClose, onEnrolled }: Prop
         litRef.current = next;
         setLit(next);
       }
-      setHint(coverage(litRef.current) < 0.5 ? 'Xoay đầu chậm theo vòng tròn' : 'Tiếp tục xoay để hoàn tất vòng tròn');
-
-      // Đầu có đang đứng yên không (chụp lúc đang xoay dễ mờ).
       const now = Date.now();
-      const pose = { yaw: face.yawAngle, pitch: face.pitchAngle, t: now };
-      const speed = headSpeed(lastPoseRef.current, pose);
-      lastPoseRef.current = pose;
-      if (speed > STEADY_DEG_PER_S) steadySinceRef.current = null;
-      else if (steadySinceRef.current === null) steadySinceRef.current = now;
-      const steady = steadySinceRef.current !== null && now - steadySinceRef.current >= STEADY_HOLD_MS;
+      const cov = coverage(litRef.current);
+      if (cov >= DONE_COVERAGE && ringDoneAtRef.current === null) ringDoneAtRef.current = now;
+      const photoCount = () => Object.keys(sectorPhotosRef.current).length;
+      const ready = () => readyToSave(litRef.current, photoCount(), ringDoneAtRef.current === null ? 0 : Date.now() - ringDoneAtRef.current);
+      setHint(
+        cov < 0.5
+          ? 'Xoay đầu chậm theo vòng tròn'
+          : cov < DONE_COVERAGE
+            ? 'Tiếp tục xoay để hoàn tất vòng tròn'
+            : 'Gần xong — nghiêng đầu sang phía còn thiếu và giữ yên',
+      );
 
+      const steady = steadyRef.current.observe(now, face.yawAngle, face.pitchAngle);
       const sector = sectorFor(dir.angle, dir.magnitude);
-      if (sector && !sectorPhotosRef.current[sector] && !steady) {
-        setHint('Giữ yên một chút…');
-        return;
+      if (sector && !sectorPhotosRef.current[sector]) {
+        if (sectorWaitRef.current?.sector !== sector) sectorWaitRef.current = { sector, since: now };
+        // Chưa yên thì chờ thêm chút; chờ quá STEADY_GIVE_UP_MS vẫn chụp (máy chủ tự bỏ ảnh mờ).
+        if (!steady && now - sectorWaitRef.current.since < STEADY_GIVE_UP_MS) {
+          setHint('Giữ yên một chút…');
+          return;
+        }
+        if (!capturingRef.current) {
+          capture().then((uri) => {
+            if (!uri || phaseRef.current !== 'rotate') return;
+            sectorPhotosRef.current = { ...sectorPhotosRef.current, [sector]: uri };
+            sectorWaitRef.current = null;
+            if (ready()) save();
+          });
+          return;
+        }
+      } else {
+        sectorWaitRef.current = null;
       }
-      if (sector && !sectorPhotosRef.current[sector] && !capturingRef.current) {
-        capture().then((uri) => {
-          if (!uri || phaseRef.current !== 'rotate') return;
-          sectorPhotosRef.current = { ...sectorPhotosRef.current, [sector]: uri };
-          if (isDone(litRef.current, Object.keys(sectorPhotosRef.current).length)) save();
-        });
-        return;
-      }
-      if (isDone(litRef.current, Object.keys(sectorPhotosRef.current).length) && !capturingRef.current) save();
+      if (ready() && !capturingRef.current) save();
     },
     [capture, go, save],
   );

@@ -3,7 +3,7 @@ jest.mock('expo-camera', () => ({ CameraView: 'CameraView' }));
 
 import { stampSize } from 'src/features/checkin/FaceCaptureModal';
 import { extractApiError } from 'src/services/error';
-import { headSpeed } from '../FaceIdEnrollModal';
+import { createSteadyTracker, readyToSave, TICK_COUNT } from '../face-id-geometry';
 
 describe('stampSize (ảnh chấm công gửi nhóm)', () => {
   it('caps the width at 720 px and keeps the frame ratio', () => {
@@ -14,10 +14,38 @@ describe('stampSize (ảnh chấm công gửi nhóm)', () => {
   });
 });
 
-describe('headSpeed (chỉ chụp ảnh nghiêng khi đầu đứng yên)', () => {
-  it('measures degrees per second between frames', () => {
-    expect(headSpeed({ yaw: 10, pitch: 0, t: 1000 }, { yaw: 13, pitch: 0, t: 1100 })).toBeCloseTo(30);
-    expect(headSpeed(null, { yaw: 0, pitch: 0, t: 0 })).toBe(Infinity);
+// Chủ báo 2026-10-22: xoay đủ vòng tròn mà app không làm gì — bản trước đo "đứng yên" bằng tốc độ giữa hai khung, ML Kit
+// rung 1–3° mỗi khung (33 ms) nên không bao giờ "yên", không chụp được ảnh nghiêng nào, không lưu.
+describe('createSteadyTracker (chụp ảnh nghiêng khi đầu đã yên)', () => {
+  it('treats ML Kit jitter of ±2° every 33 ms as steady after the window', () => {
+    const tracker = createSteadyTracker();
+    let steady = false;
+    for (let i = 0; i <= 12; i++) {
+      const jitter = i % 2 === 0 ? 2 : -2;
+      steady = tracker.observe(i * 33, 20 + jitter, 5 - jitter);
+    }
+    expect(steady).toBe(true);
+  });
+
+  it('is not steady while the head is still turning', () => {
+    const tracker = createSteadyTracker();
+    let steady = true;
+    for (let i = 0; i <= 12; i++) steady = tracker.observe(i * 33, i * 1.5, 0); // 45°/giây
+    expect(steady).toBe(false);
+  });
+});
+
+describe('readyToSave', () => {
+  const full = Array(TICK_COUNT).fill(true);
+  const half = Array(TICK_COUNT).fill(false).map((_, i) => i < TICK_COUNT / 2);
+  it('saves with 3 angle photos once the ring is lit', () => {
+    expect(readyToSave(full, 3, 0)).toBe(true);
+    expect(readyToSave(half, 3, 0)).toBe(false);
+  });
+  it('saves with 2 angle photos shortly after the ring is lit instead of waiting 40 s', () => {
+    expect(readyToSave(full, 2, 0)).toBe(false);
+    expect(readyToSave(full, 2, 3000)).toBe(true);
+    expect(readyToSave(full, 1, 10_000)).toBe(false);
   });
 });
 
