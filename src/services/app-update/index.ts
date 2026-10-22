@@ -11,6 +11,19 @@ const log = createLogger('app-update');
 //   - đã vào app rồi mới tải xong → giữ lại, áp khi app xuống nền (lần mở sau là bản mới, không giật giữa chừng).
 // ----------------------------------------------------------------------
 
+/**
+ * Nhãn bản cập nhật đang chạy, vd "cập nhật 22/10 14:28" (giờ máy) — để biết máy đã nhận OTA mới chưa khi thử. Bản
+ * gốc trong cài đặt (chưa nhận OTA nào) / dev → null.
+ */
+export function runningUpdateLabel(
+  createdAt: Date | null | undefined = Updates.createdAt,
+  isEmbedded: boolean = Updates.isEmbeddedLaunch,
+): string | null {
+  if (!createdAt || isEmbedded) return null;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `cập nhật ${p(createdAt.getDate())}/${p(createdAt.getMonth() + 1)} ${p(createdAt.getHours())}:${p(createdAt.getMinutes())}`;
+}
+
 /** Màn chờ chờ kết quả kiểm tra / tải bản cập nhật tối đa chừng này rồi vào app luôn. */
 export const BOOT_UPDATE_WAIT_MS = 2500;
 

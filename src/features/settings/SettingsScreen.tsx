@@ -11,6 +11,7 @@ import { usesAdminShell } from 'src/auth/roles';
 import { LauncherEditor } from 'src/features/launcher/LauncherEditor';
 import { useLocaleStore, useT } from 'src/i18n';
 import { APP_DISPLAY_NAME } from 'src/services/store-config';
+import { runningUpdateLabel } from 'src/services/app-update';
 
 const themeLabelKey: Record<string, string> = {
   light: 'settings.themeLight',
@@ -32,6 +33,8 @@ export function SettingsScreen() {
   const [editingLauncher, setEditingLauncher] = useState(false);
   const launcherVariant = usesAdminShell(user) ? 'admin' : 'staff';
   const version = Constants.expoConfig?.version ?? '1.0.0';
+  // Bản OTA đang chạy — khi thử bản mới biết máy đã nhận chưa (đóng hẳn rồi mở lại app 1–2 lần).
+  const updateLabel = runningUpdateLabel();
 
   return (
     <Screen scroll tabBarInset={false}>
@@ -97,7 +100,10 @@ export function SettingsScreen() {
       </SectionCard>
 
       <View className="items-center py-4">
-        <Text variant="caption" tone="faint">{APP_DISPLAY_NAME} · {t('settings.version')} {version}</Text>
+        <Text variant="caption" tone="faint">
+          {APP_DISPLAY_NAME} · {t('settings.version')} {version}
+          {updateLabel ? ` · ${updateLabel}` : ''}
+        </Text>
       </View>
 
       <LauncherEditor
