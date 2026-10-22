@@ -74,6 +74,8 @@ export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuc
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
   const lastFrameRef = useRef<string | null>(null);
+  /** Khung hình có độ khớp (máy chủ báo qua luồng quét) cao nhất trong lúc giữ yên — gửi chấm công bằng khung này. */
+  const bestFrameRef = useRef<{ frame: string; similarity: number } | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>('opening');
   const [hint, setHint] = useState<string | null>(null);
@@ -106,6 +108,7 @@ export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuc
     setHoldStartedAt(null);
     firstFrameAtRef.current = null;
     lastFrameRef.current = null;
+    bestFrameRef.current = null;
     if (!permission?.granted) {
       requestPermission().then((res) => {
         if (res.granted) setPhase('scanning');
@@ -186,6 +189,16 @@ export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuc
     return () => clearInterval(timer);
   }, [phase, fallback, stream.state]);
 
+  // Mỗi kết quả so của máy chủ ứng với khung vừa gửi: giữ khung có độ khớp cao nhất (khung mờ / nghiêng thì điểm thấp).
+  useEffect(() => {
+    const r = stream.verifyResult;
+    const frame = lastFrameRef.current;
+    if (!r?.matched || !frame) return;
+    if (!bestFrameRef.current || r.similarity > bestFrameRef.current.similarity) {
+      bestFrameRef.current = { frame, similarity: r.similarity };
+    }
+  }, [stream.verifyResult]);
+
   // Máy chủ báo khớp → giữ thêm CONFIRM_HOLD_MS: khuôn mặt đó vẫn trong khung, vẫn là người thật, không thêm ai (đổi
   // trạng thái là đếm lại). Đủ giờ → chấm công bằng khung hình mới nhất (máy chủ so lại khung đó).
   useEffect(() => {
@@ -199,7 +212,9 @@ export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuc
     const tick = setInterval(() => setHoldNow(Date.now()), 100);
     const done = setTimeout(() => {
       clearInterval(tick);
-      if (lastFrameRef.current) void handleSubmit(lastFrameRef.current);
+      // Khung khớp nhất trong lúc giữ (không có thì khung mới nhất) — máy chủ so lại khung đó.
+      const frame = bestFrameRef.current?.frame ?? lastFrameRef.current;
+      if (frame) void handleSubmit(frame);
     }, CONFIRM_HOLD_MS);
     return () => {
       clearInterval(tick);
@@ -258,6 +273,7 @@ export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuc
     setNotEnrolled(false);
     setHint(null);
     lastFrameRef.current = null;
+    bestFrameRef.current = null;
     firstFrameAtRef.current = null;
     seenFaceRef.current = false;
     setNoFaceFallback(false);

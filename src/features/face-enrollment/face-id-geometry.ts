@@ -151,8 +151,10 @@ export const STEADY_WINDOW_MS = 250;
 export const STEADY_RANGE_DEG = 6;
 /** Chờ ở một hướng chưa có ảnh quá chừng này mà chưa "yên" → vẫn chụp (máy chủ bỏ ảnh mờ, không hỏng cả lượt). */
 export const STEADY_GIVE_UP_MS = 1200;
-/** Vòng tròn đã sáng đủ mà mới có 2 ảnh nghiêng → chờ thêm chừng này cho ảnh thứ 3 rồi lưu luôn. */
-export const SAVE_GRACE_MS = 2500;
+/** Vòng tròn đã sáng đủ mà còn thiếu hướng: thiếu 1 hướng chờ thêm chừng này, thiếu 2 hướng chờ gấp đôi, rồi lưu luôn. */
+export const SAVE_GRACE_MS = 4000;
+/** Đủ cả 4 hướng (phải / lên / trái / xuống) — 5 ảnh tính cả ảnh nhìn thẳng (mẫu tốt hơn, chủ 2026-10-22). */
+export const ALL_SECTOR_PHOTOS = 4;
 
 export function createSteadyTracker(windowMs = STEADY_WINDOW_MS, rangeDeg = STEADY_RANGE_DEG) {
   const poses: { t: number; yaw: number; pitch: number }[] = [];
@@ -173,10 +175,12 @@ export function createSteadyTracker(windowMs = STEADY_WINDOW_MS, rangeDeg = STEA
 }
 
 /**
- * Lưu được chưa: vòng tròn sáng đủ và có đủ DONE_SECTOR_PHOTOS ảnh nghiêng; hoặc đã có 2 ảnh và vòng tròn sáng đủ được
- * SAVE_GRACE_MS (không bắt quay lại tìm hướng còn thiếu — máy chủ cần ảnh thẳng + ≥ 2 ảnh nghiêng đạt).
+ * Lưu được chưa (vòng tròn đã sáng đủ): đủ cả 4 hướng thì lưu ngay; thiếu 1 hướng thì chờ SAVE_GRACE_MS cho người dùng
+ * nghiêng nốt; thiếu 2 hướng thì chờ gấp đôi rồi vẫn lưu (máy chủ cần ảnh thẳng + ≥ 2 ảnh nghiêng đạt).
  */
 export function readyToSave(lit: readonly boolean[], sectorPhotos: number, ringDoneFor: number): boolean {
   if (coverage(lit) < DONE_COVERAGE) return false;
-  return sectorPhotos >= DONE_SECTOR_PHOTOS || (sectorPhotos >= 2 && ringDoneFor >= SAVE_GRACE_MS);
+  if (sectorPhotos >= ALL_SECTOR_PHOTOS) return true;
+  if (sectorPhotos >= DONE_SECTOR_PHOTOS) return ringDoneFor >= SAVE_GRACE_MS;
+  return sectorPhotos >= 2 && ringDoneFor >= SAVE_GRACE_MS * 2;
 }

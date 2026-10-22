@@ -38,14 +38,16 @@ describe('createSteadyTracker (chụp ảnh nghiêng khi đầu đã yên)', () 
 describe('readyToSave', () => {
   const full = Array(TICK_COUNT).fill(true);
   const half = Array(TICK_COUNT).fill(false).map((_, i) => i < TICK_COUNT / 2);
-  it('saves with 3 angle photos once the ring is lit', () => {
-    expect(readyToSave(full, 3, 0)).toBe(true);
-    expect(readyToSave(half, 3, 0)).toBe(false);
+  it('saves right away with all 4 directions (5 photos)', () => {
+    expect(readyToSave(full, 4, 0)).toBe(true);
+    expect(readyToSave(half, 4, 0)).toBe(false);
   });
-  it('saves with 2 angle photos shortly after the ring is lit instead of waiting 40 s', () => {
-    expect(readyToSave(full, 2, 0)).toBe(false);
-    expect(readyToSave(full, 2, 3000)).toBe(true);
-    expect(readyToSave(full, 1, 10_000)).toBe(false);
+  it('waits a little for the missing direction, then saves anyway', () => {
+    expect(readyToSave(full, 3, 0)).toBe(false);
+    expect(readyToSave(full, 3, 4000)).toBe(true);
+    expect(readyToSave(full, 2, 4000)).toBe(false);
+    expect(readyToSave(full, 2, 8000)).toBe(true);
+    expect(readyToSave(full, 1, 20_000)).toBe(false);
   });
 });
 
