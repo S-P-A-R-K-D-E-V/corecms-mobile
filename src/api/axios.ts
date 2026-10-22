@@ -334,6 +334,7 @@ export const endpoints = {
   },
   checkinFace: {
     face: '/checkin/face',
+    presign: '/checkin/face/presign',
   },
   faceTracking: {
     enrollQuality: '/face-tracking/enroll/quality',

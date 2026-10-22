@@ -28,9 +28,14 @@ export function hasApiErrorCode(err: any, code: string): boolean {
  * Mirrors (and replaces) the per-screen `extractApiError` that lived in the
  * legacy check-in screen.
  */
+/** Không có phản hồi từ máy chủ / mất mạng (axios trả chuỗi này, fetch ném "Network request failed"). */
+const NETWORK = 'Mạng yếu hoặc mất kết nối — kiểm tra mạng rồi thử lại.';
+const NETWORK_PATTERN = /^(Something went wrong|Network request failed|Network Error|timeout of \d+ms exceeded)$/i;
+
 export function extractApiError(err: any): string {
   if (!err) return GENERIC;
-  if (typeof err === 'string') return err;
+  if (typeof err === 'string') return NETWORK_PATTERN.test(err) ? NETWORK : err;
+  if (err instanceof Error && NETWORK_PATTERN.test(err.message)) return NETWORK;
 
   // ASP.NET validation errors: { errors: { Field: ["msg", ...] } }
   if (err?.errors && typeof err.errors === 'object' && !Array.isArray(err.errors)) {

@@ -1,4 +1,5 @@
 import axios, { endpoints } from './axios';
+import { putFileToPresignedUrl, writeJpegToCache } from 'src/services/upload/presigned-put';
 import type {
   IAttendanceLog,
   IAttendanceReport,
@@ -135,7 +136,22 @@ export async function getBranchLocations(): Promise<IBranchLocation[]> {
   return response.data;
 }
 
-export async function checkinFace(data: ICheckinFaceRequest): Promise<ICheckinFaceResponse> {
-  const response = await axios.post<ICheckinFaceResponse>(endpoints.checkinFace.face, data);
+/**
+ * Ảnh chấm công vào nhóm: PUT thẳng ảnh JPEG lên R2 (POST checkin/face/presign) rồi chỉ gửi object key — không gửi
+ * base64 qua API nữa (nặng hơn ~33%, mạng yếu thì request treo 20+ giây — chủ báo 2026-10-22). Nhận tệp ảnh trên máy
+ * (`fileUri`) hoặc base64 (ghi ra tệp tạm trước). Gửi nhóm là việc phụ: nơi gọi không bắt người dùng chờ.
+ */
+export async function sendCheckinPhoto(
+  data: Omit<ICheckinFaceRequest, 'imageBase64' | 'photoObjectKey'> & { fileUri?: string; imageBase64?: string },
+): Promise<ICheckinFaceResponse> {
+  const { fileUri, imageBase64, ...rest } = data;
+  const uri = fileUri ?? (imageBase64 ? await writeJpegToCache(imageBase64) : null);
+  if (!uri) throw new Error('Thiếu ảnh chấm công.');
+  const presign = await axios.post<{ objectKey: string; uploadUrl: string }>(endpoints.checkinFace.presign);
+  await putFileToPresignedUrl(presign.data.uploadUrl, uri);
+  const response = await axios.post<ICheckinFaceResponse>(endpoints.checkinFace.face, {
+    ...rest,
+    photoObjectKey: presign.data.objectKey,
+  } satisfies ICheckinFaceRequest);
   return response.data;
 }

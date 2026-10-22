@@ -7,7 +7,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Text, Button, Pressable, Icon, Spinner } from 'src/components/ui';
 import { extractApiError } from 'src/services/error';
 import { checkEnrollQuality } from 'src/api/faceEnrollment';
-import { smartCheckInFace, smartCheckOutFace, checkInFace, checkinFace } from 'src/api/attendance';
+import { smartCheckInFace, smartCheckOutFace, checkInFace, sendCheckinPhoto } from 'src/api/attendance';
 import { useAuthContext } from 'src/auth/auth-context';
 import type { IEnrollQualityResponse } from 'src/types/corecms-api';
 import { locationFields, sendWithFreshLocation, type LocationFields, type LocationFix } from './location';
@@ -132,10 +132,10 @@ export function FaceCheckinModal({ visible, mode, locate, submit, onClose, onSuc
         if (mode === 'checkout') return smartCheckOutFace(payload).then((r) => r[0]?.faceMatchConfidence);
         return checkInFace({ ...payload, isOvertime: true }).then((r) => r.faceMatchConfidence);
       });
-      // Ảnh vào nhóm chấm công — không chặn kết quả nếu lỗi (chỉ là thông báo phụ).
-      checkinFace({
+      // Ảnh vào nhóm chấm công — tải thẳng lên R2 ở nền, không chặn kết quả nếu lỗi (chỉ là thông báo phụ).
+      sendCheckinPhoto({
         candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
-        imageBase64: `data:image/jpeg;base64,${imageBase64}`,
+        imageBase64,
         lat: fix.coords?.latitude,
         lng: fix.coords?.longitude,
         time: new Date().toISOString(),

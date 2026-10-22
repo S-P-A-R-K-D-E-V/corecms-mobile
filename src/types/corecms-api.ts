@@ -457,7 +457,10 @@ export interface IProcessAttendanceRequestDto {
 
 export interface ICheckinFaceRequest {
   candidateName: string;
-  imageBase64: string;
+  /** Ảnh base64 (app cũ) — app mới PUT ảnh lên R2 rồi gửi photoObjectKey. */
+  imageBase64?: string;
+  /** Ảnh đã PUT thẳng lên R2 qua POST /checkin/face/presign. */
+  photoObjectKey?: string;
   lat?: number;
   lng?: number;
   time?: string;

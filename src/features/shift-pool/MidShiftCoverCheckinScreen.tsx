@@ -13,7 +13,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 
 import { useQuery } from '@tanstack/react-query';
 
-import { checkIn, checkInFace, checkOut, checkOutFace, checkinFace, getAttendanceSettings, getMyAttendanceLogs } from 'src/api/attendance';
+import { checkIn, checkInFace, checkOut, checkOutFace, sendCheckinPhoto, getAttendanceSettings, getMyAttendanceLogs } from 'src/api/attendance';
 import { getMyClaims } from 'src/api/shiftPool';
 import { extractApiError } from 'src/services/error';
 import { FaceCaptureModal } from 'src/features/checkin/FaceCaptureModal';
@@ -165,14 +165,15 @@ export function MidShiftCoverCheckinScreen() {
     if (gpsStatus !== 'ready' && gpsStatus !== 'loading') fetchGps();
   }
 
-  async function pushFacePhoto(base64: string, captureTime: Date, fix: LocationFix) {
-    await checkinFace({
+  /** Ảnh vào nhóm chấm công — tải thẳng lên R2 ở nền (đã chấm công xong, không bắt chờ mạng yếu). */
+  function pushFacePhoto(photoUri: string, captureTime: Date, fix: LocationFix) {
+    void sendCheckinPhoto({
       candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
-      imageBase64: `data:image/jpeg;base64,${base64}`,
+      fileUri: photoUri,
       lat: fix.coords?.latitude,
       lng: fix.coords?.longitude,
       time: captureTime.toISOString(),
-    });
+    }).catch(() => toast.warning('Đã chấm công, nhưng ảnh chưa gửi được vào nhóm (mạng yếu).'));
   }
 
   /** Chế độ khuôn mặt: check-in / check-out đúng ca người nhờ, máy chủ so khuôn mặt. */
@@ -185,7 +186,7 @@ export function MidShiftCoverCheckinScreen() {
     return (await checkInFace({ ...payload, shiftAssignmentId: post.shiftAssignmentId })).faceMatchConfidence;
   };
 
-  async function handleConfirmCapture(base64: string, captureTime: Date) {
+  async function handleConfirmCapture(photoUri: string, captureTime: Date) {
     if (!post) return;
     setSubmitting(true);
     try {
@@ -195,7 +196,7 @@ export function MidShiftCoverCheckinScreen() {
         const { fix } = await sendWithFreshLocation(locate, (f) =>
           checkIn({ shiftAssignmentId: post.shiftAssignmentId, faceVerified: true, ...locationFields(f) }),
         );
-        await pushFacePhoto(base64, captureTime, fix);
+        pushFacePhoto(photoUri, captureTime, fix);
         setSuccessMsg('Đã bắt đầu làm hộ!');
       } else {
         if (!openLog) throw new Error('Không tìm thấy phiên làm hộ đang mở.');
@@ -203,7 +204,7 @@ export function MidShiftCoverCheckinScreen() {
         const { fix } = await sendWithFreshLocation(locate, (f) =>
           checkOut({ attendanceLogId: logId, faceVerified: true, ...locationFields(f) }),
         );
-        await pushFacePhoto(base64, captureTime, fix);
+        pushFacePhoto(photoUri, captureTime, fix);
         setSuccessMsg('Đã kết thúc làm hộ!');
       }
       setModalOpen(false);

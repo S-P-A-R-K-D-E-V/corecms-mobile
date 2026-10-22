@@ -1,4 +1,5 @@
 import axios, { endpoints } from './axios';
+import { putFileToPresignedUrl } from 'src/services/upload/presigned-put';
 import type {
   IEnrollQualityRequest,
   IEnrollQualityResponse,
@@ -22,30 +23,25 @@ export async function checkEnrollQuality(imageBase64: string): Promise<IEnrollQu
   return response.data;
 }
 
-async function uploadToPresignedUrl(uploadUrl: string, fileUri: string): Promise<void> {
-  const fileResponse = await fetch(fileUri);
-  const blob = await fileResponse.blob();
-  const putResponse = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'image/jpeg' },
-    body: blob,
-  });
-  if (!putResponse.ok) {
-    throw new Error(`Tải ảnh lên thất bại (${putResponse.status})`);
-  }
-}
-
 /** Gửi toàn bộ ảnh đã qua validate để đăng ký/cập nhật khuôn mặt — PUT thẳng từng ảnh (từ file
  *  cache local do camera chụp) lên R2 qua presigned URL (không đi qua API/nginx, tránh 413 khi
  *  gộp nhiều ảnh base64 vào 1 request), rồi chỉ gửi object key cho BE tự tải về + tính embedding.
- *  Cùng pattern với src/api/cleaning.ts (completeCleaningTask). */
-export async function submitFaceEnrollment(photos: { uri: string }[]): Promise<IFaceEmbeddingResponse> {
+ *  Tải LẦN LƯỢT từng ảnh (thử lại khi mạng chập chờn, có giới hạn thời gian) — trước đây 5 ảnh tải cùng lúc bằng
+ *  fetch, mạng 4G yếu là treo rồi báo "Network request failed". `onProgress(đã xong, tổng)` để hiện tiến độ. */
+export async function submitFaceEnrollment(
+  photos: { uri: string }[],
+  onProgress?: (done: number, total: number) => void,
+): Promise<IFaceEmbeddingResponse> {
   const presignRes = await axios.post<IEnrollPresignedFileResponse[]>(endpoints.faceTracking.enrollPresign, {
     count: photos.length,
   } satisfies IEnrollPresignRequest);
   const presigned = presignRes.data;
 
-  await Promise.all(presigned.map((p, i) => uploadToPresignedUrl(p.uploadUrl, photos[i].uri)));
+  for (let i = 0; i < presigned.length; i++) {
+    onProgress?.(i, presigned.length);
+    await putFileToPresignedUrl(presigned[i].uploadUrl, photos[i].uri);
+  }
+  onProgress?.(presigned.length, presigned.length);
 
   const response = await axios.post<IFaceEmbeddingResponse>(endpoints.faceTracking.enrollBatch, {
     objectKeys: presigned.map((p) => p.objectKey),

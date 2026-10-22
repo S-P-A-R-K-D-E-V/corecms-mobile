@@ -17,7 +17,7 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { isPlatformFeatureDisabledError } from 'src/auth/platform-features';
 import { useQuery } from '@tanstack/react-query';
 
-import { smartCheckIn, smartCheckOut, checkIn, checkinFace, getBranchLocations, getAttendanceSettings } from 'src/api/attendance';
+import { smartCheckIn, smartCheckOut, checkIn, sendCheckinPhoto, getBranchLocations, getAttendanceSettings } from 'src/api/attendance';
 import { extractApiError } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
@@ -425,7 +425,18 @@ export function CheckinScreen() {
     setFaceCheckinMode('overtime');
   }
 
-  async function handleConfirmCheckIn(base64: string, captureTime: Date) {
+  /** Ảnh vào nhóm chấm công — tải thẳng lên R2 ở nền (đã chấm công xong, không bắt người dùng chờ mạng yếu). */
+  function sendGroupPhoto(fileUri: string, captureTime: Date, at: Coords | null | undefined) {
+    void sendCheckinPhoto({
+      candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
+      fileUri,
+      lat: at?.latitude,
+      lng: at?.longitude,
+      time: captureTime.toISOString(),
+    }).catch(() => toast.warning('Đã chấm công, nhưng ảnh chưa gửi được vào nhóm (mạng yếu).', 'Ảnh chấm công'));
+  }
+
+  async function handleConfirmCheckIn(photoUri: string, captureTime: Date) {
     setSubmitting(true);
     try {
       // 1. Ghi chấm công trước (vị trí lấy mới ngay lúc gửi, sau ping máy chủ); lỗi thì không gửi ảnh vào nhóm.
@@ -434,15 +445,8 @@ export function CheckinScreen() {
           ? checkIn({ isOvertime: true, faceVerified: true, ...locationFields(f) })
           : smartCheckIn({ faceVerified: true, ...locationFields(f) }),
       );
-      const at = fix.coords;
-      // 2. Ảnh vào nhóm chấm công.
-      await checkinFace({
-        candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
-        imageBase64: `data:image/jpeg;base64,${base64}`,
-        lat: at?.latitude,
-        lng: at?.longitude,
-        time: captureTime.toISOString(),
-      });
+      // 2. Ảnh vào nhóm chấm công (nền).
+      sendGroupPhoto(photoUri, captureTime, fix.coords);
       setModalOpen(false);
       track(AnalyticsEvent.CheckInSuccess);
       setSuccessMsg(checkinMode === 'overtime' ? 'Check-in ngoài giờ thành công!' : t('checkin.checkInSuccess'));
@@ -499,20 +503,13 @@ export function CheckinScreen() {
     setModalOpen(true);
   }
 
-  async function handleConfirmCheckOut(base64: string, captureTime: Date) {
+  async function handleConfirmCheckOut(photoUri: string, captureTime: Date) {
     setSubmitting(true);
     try {
       // Vị trí lấy mới ngay lúc gửi (sau ping máy chủ, thử lại 5 giây); không có → máy chủ ghi "không có GPS".
       const { fix } = await sendWithFreshLocation(locateForSubmit, (f) => smartCheckOut({ faceVerified: true, ...locationFields(f) }));
-      const at = fix.coords;
-      // Ảnh vào nhóm chấm công — tái dùng đúng luồng checkin-face như lúc check-in.
-      await checkinFace({
-        candidateName: `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || 'Unknown',
-        imageBase64: `data:image/jpeg;base64,${base64}`,
-        lat: at?.latitude,
-        lng: at?.longitude,
-        time: captureTime.toISOString(),
-      });
+      // Ảnh vào nhóm chấm công (nền) — như lúc check-in.
+      sendGroupPhoto(photoUri, captureTime, fix.coords);
       setModalOpen(false);
       track(AnalyticsEvent.CheckOutSuccess);
       setSuccessMsg(t('checkin.checkOutSuccess'));

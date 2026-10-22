@@ -20,13 +20,23 @@ type Props = {
   canSubmit: boolean;
   loading: boolean;
   onClose: () => void;
-  /** Receives the stamped photo as base64 (no data: prefix) + capture time. */
-  onConfirm: (base64: string, captureTime: Date) => void;
+  /** Ảnh đã đóng dấu giờ / vị trí (tệp JPEG tạm trên máy, cạnh ngang ≤ STAMP_MAX_WIDTH) + giờ chụp. */
+  onConfirm: (photoUri: string, captureTime: Date) => void;
   /** Tiêu đề khi đang ngắm/chụp — mặc định t('checkin.captureFace') (dùng cho check-in). */
   title?: string;
   /** Nhãn nút xác nhận sau khi đã chụp — mặc định t('checkin.confirmCheckIn'). */
   confirmLabel?: string;
 };
+
+/** Cạnh ngang tối đa của ảnh chấm công gửi nhóm (px). */
+const STAMP_MAX_WIDTH = 720;
+
+/** Kích thước ảnh xuất ra: giữ tỉ lệ khung, cạnh ngang ≤ STAMP_MAX_WIDTH (chưa đo được khung → để view-shot tự quyết). */
+export function stampSize(view: { width: number; height: number } | null): { width?: number; height?: number } {
+  if (!view || view.width <= 0 || view.height <= 0) return {};
+  const width = Math.min(STAMP_MAX_WIDTH, Math.round(view.width * 3));
+  return { width, height: Math.round((width * view.height) / view.width) };
+}
 
 /** Full-screen face capture with a timestamp + GPS + address overlay burned in. */
 export function FaceCaptureModal({
@@ -39,6 +49,7 @@ export function FaceCaptureModal({
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
   const [captureTime, setCaptureTime] = useState<Date>(new Date());
+  const [shotSize, setShotSize] = useState<{ width: number; height: number } | null>(null);
 
   function reset() {
     setCapturedUri(null);
@@ -58,8 +69,8 @@ export function FaceCaptureModal({
 
   async function handleConfirm() {
     if (!capturedUri || !previewRef.current) return;
-    const base64 = await previewRef.current.capture();
-    onConfirm(base64, captureTime);
+    const photoUri = await previewRef.current.capture();
+    onConfirm(photoUri, captureTime);
   }
 
   function handleClose() {
@@ -131,7 +142,10 @@ export function FaceCaptureModal({
             <ViewShot
               ref={previewRef}
               style={StyleSheet.absoluteFill}
-              options={{ format: 'jpg', quality: 0.85, result: 'base64' }}
+              onLayout={(e) => setShotSize(e.nativeEvent.layout)}
+              // Ảnh gửi nhóm: thu về cạnh ngang ≤ STAMP_MAX_WIDTH, ghi thẳng ra tệp (không base64) rồi PUT lên R2 —
+              // trước đây chụp nguyên khung màn hình (1080×2400…) base64 gửi qua API, mạng yếu treo 20+ giây.
+              options={{ format: 'jpg', quality: 0.75, result: 'tmpfile', ...stampSize(shotSize) }}
             >
               <Image
                 source={{ uri: capturedUri }}
