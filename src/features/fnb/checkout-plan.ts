@@ -6,7 +6,8 @@ import type { CheckoutPayment } from './fnb-commands';
 // Thanh toán đơn F&B từ trạng thái của PaymentPanel (dùng chung với Bán hàng): một phương thức trả đủ tổng tiền.
 //   - Σ payments = tổng đơn; tổng 0 → payments rỗng (contract 5.13).
 //   - Tiền mặt: `cashTendered` = tiền khách đưa khi lớn hơn tổng; đưa vừa đủ → null (máy chủ hiểu là vừa đủ).
-//   - Chuyển khoản: `bankAccountId` = id dòng GET /bank-accounts + nội dung chuyển khoản.
+//   - Chuyển khoản: `bankAccountId` = id dòng GET /bank-accounts + nội dung chuyển khoản. Trả bằng mã QR động qua kết nối
+//     S Payment: nội dung = mã thanh toán (SP…) — core-be gắn mã QR với hoá đơn.
 // ----------------------------------------------------------------------
 
 export type CheckoutPlan = { payments: CheckoutPayment[]; cashTendered: number | null };

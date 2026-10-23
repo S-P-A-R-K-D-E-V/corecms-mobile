@@ -8,19 +8,35 @@ import { cn } from 'src/components/ui/utils';
 import { brand, grey } from 'src/theme';
 import { getBankAccounts } from 'src/api/erp';
 import { getPosPaymentConnections } from 'src/api/payment-qr';
+import { prefs } from 'src/services/storage';
 import { t } from 'src/i18n';
-import type { IBankAccount, PaymentMethod } from 'src/types/erp';
+import type { IBankAccount, IPosPaymentConnection, PaymentMethod } from 'src/types/erp';
 
 import { money } from 'src/features/erp/shared';
 import { cashSuggestions, vietQrUrl } from './payment-utils';
 import { connectionLabel, defaultPosMethod, posPaymentConfig, resolvePosMethod } from './payment-config';
+import {
+  BY_ACCOUNT,
+  POS_SOURCE_PREF_KEY,
+  dynamicQrReady,
+  qrPaidAmount,
+  qrTransactionRef,
+  resolveSource,
+  sourceKey,
+  sourceOptions,
+} from './payment-source';
+import { qrImageDataUrl } from './qr-code';
+import { DynamicQrView, useDynamicQr } from './DynamicQr';
 import { customerDisplay } from 'src/services/customer-display';
 
 // ----------------------------------------------------------------------
-// Thanh toán: tiền mặt (khách đưa → tiền thừa), chuyển khoản (ảnh VietQR theo tài khoản cửa hàng + số
-// tiền + nội dung; chưa có open banking để tự đối soát → nhân viên xác nhận đã nhận tiền), thẻ (quẹt
-// trên máy POS riêng). Chỉ là phương thức ghi nhận vào hoá đơn.
-// Phương thức hiện theo cấu hình kênh POS của chủ cửa hàng (payment-config.ts); chưa cấu hình / lỗi → như trước.
+// Thanh toán: tiền mặt (khách đưa → tiền thừa), chuyển khoản, thẻ (quẹt trên máy POS riêng). Dùng chung Bán hàng và F&B.
+// Chuyển khoản có hai nguồn (chip "Nhận tiền qua"):
+//   - Theo tài khoản: ảnh VietQR theo tài khoản cửa hàng + số tiền + nội dung, nhân viên tự tích đã nhận tiền;
+//   - Qua kết nối S Payment: mã QR động, tiền về là tự xác nhận (DynamicQr.tsx); hoá đơn ghi mã thanh toán (SP…) để
+//     core-be gắn mã với hoá đơn.
+// Phương thức / nguồn hiện theo cấu hình kênh POS của chủ cửa hàng (payment-config.ts, payment-source.ts); chưa cấu
+// hình / lỗi → như trước.
 // ----------------------------------------------------------------------
 
 export type PaymentState = {
@@ -38,6 +54,8 @@ const METHODS: { key: PaymentMethod; icon: string }[] = [
   { key: 'Card', icon: 'credit-card-outline' },
 ];
 
+const sourceChipLabel = (c: IPosPaymentConnection) => `${connectionLabel(c)}${c.environment === 'test' ? ` · ${t('erp.sourceTest')}` : ''}`;
+
 export function PaymentPanel({ total, transferRef, onChange }: { total: number; transferRef: string; onChange: (s: PaymentState) => void }) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
@@ -52,10 +70,38 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
   const [transferOk, setTransferOk] = useState(false);
   const [qrFailed, setQrFailed] = useState(false);
 
+  // Nguồn chuyển khoản: chờ tải xong cấu hình + lựa chọn máy nhớ rồi mới chọn sẵn (tránh tạo mã theo nguồn này rồi đổi).
+  const [saved, setSaved] = useState<string | null | undefined>(undefined);
+  const [source, setSource] = useState<string | null>(null);
+  const configSettled = !configQ.isPending;
+
   const banksQ = useQuery({ queryKey: ['erp', 'bank-accounts'], queryFn: getBankAccounts, staleTime: 10 * 60_000 });
   const accounts = useMemo(() => (banksQ.data ?? []).filter((a) => a.bin && a.accountNumber), [banksQ.data]);
-  const byAccount = config.transferSource === 'account';
+  const options = useMemo(() => sourceOptions(config), [config]);
+  const connection = source ? (config.connections.find((c) => sourceKey(c) === source) ?? null) : null;
+  const byAccount = source === BY_ACCOUNT && config.transferSource === 'account';
   const account = byAccount ? (accounts.find((a) => a.id === accountId) ?? accounts[0]) : undefined;
+  /** Lựa chọn kết nối gắn tài khoản của cửa hàng → hoá đơn ghi tài khoản đó (VA thì không có). */
+  const linkedAccount = connection?.bankAccountId ? (banksQ.data ?? []).find((a) => a.id === connection.bankAccountId) : undefined;
+
+  const dyn = useDynamicQr({ active: method === 'Transfer' && !!connection, amount: total, source: source ?? BY_ACCOUNT, connection, description: transferRef });
+  const paidQr = connection && dyn.state.phase === 'completed' ? dyn.state.qr : null;
+
+  useEffect(() => {
+    let alive = true;
+    prefs.get(POS_SOURCE_PREF_KEY).then(
+      (v) => alive && setSaved(v),
+      () => alive && setSaved(null)
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!configSettled || saved === undefined) return;
+    setSource((current) => resolveSource(current, config, saved));
+  }, [configSettled, saved, config]);
 
   useEffect(() => {
     setMethod((current) => resolvePosMethod(current, picked, config));
@@ -66,34 +112,51 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
     setGivenText('');
   }, [total]);
 
-  const ready = method === 'Cash' ? given >= total : method === 'Transfer' ? !!account && transferOk : true;
+  function pickSource(key: string) {
+    setSource(key);
+    setTransferOk(false);
+    void (key ? prefs.set(POS_SOURCE_PREF_KEY, key) : prefs.remove(POS_SOURCE_PREF_KEY)).catch(() => {});
+  }
+
+  const transferReady = connection ? dynamicQrReady(dyn.state, total) : !!account && transferOk;
+  const ready = method === 'Cash' ? given >= total : method === 'Transfer' ? transferReady : true;
+  const payAccount = method === 'Transfer' ? (connection ? linkedAccount : account) : undefined;
+  const payRef = method === 'Transfer' ? (paidQr ? qrTransactionRef(paidQr) : transferRef) : undefined;
   useEffect(() => {
-    onChange({
-      method,
-      ready,
-      account: method === 'Transfer' ? account : undefined,
-      transferRef: method === 'Transfer' ? transferRef : undefined,
-      cashGiven: method === 'Cash' ? given : undefined,
-    });
-  }, [method, ready, account, transferRef, given, onChange]);
+    onChange({ method, ready, account: payAccount, transferRef: payRef, cashGiven: method === 'Cash' ? given : undefined });
+  }, [method, ready, payAccount, payRef, given, onChange]);
 
   const qr = method === 'Transfer' && account ? vietQrUrl(account, total, transferRef) : null;
   const methods = METHODS.filter((m) => config.methods.includes(m.key));
 
-  // Màn hình khách: chọn chuyển khoản thì QR to cho khách quét trên màn phụ; đóng bảng / đổi cách trả thì ẩn.
+  // Màn hình khách: QR to cho khách quét trên màn phụ (mã động: ảnh máy chủ hoặc tự vẽ); đóng bảng / đổi cách trả thì ẩn.
+  const liveQr = method === 'Transfer' && connection && dyn.state.phase === 'active' ? dyn.state.qr : null;
+  const liveImage = useMemo(() => (liveQr ? liveQr.qrDataUrl || qrImageDataUrl(liveQr.qrPayload) : null), [liveQr?.qrDataUrl, liveQr?.qrPayload]);
   useEffect(() => {
-    customerDisplay.setQr(
-      qr
-        ? {
-            imageUrl: qr,
-            amount: total,
-            bankLine: [account?.shortName || account?.bankName, account?.accountNumber].filter(Boolean).join(' · ') || null,
-            note: transferRef || null,
-          }
-        : null
-    );
-  }, [qr, total, account?.shortName, account?.bankName, account?.accountNumber, transferRef]);
+    if (liveQr && liveImage) {
+      customerDisplay.setQr({
+        imageUrl: liveImage,
+        amount: liveQr.amount,
+        bankLine: [liveQr.bankName, liveQr.accountNumber].filter(Boolean).join(' · ') || null,
+        note: liveQr.paymentCode || null,
+      });
+    } else if (qr) {
+      customerDisplay.setQr({
+        imageUrl: qr,
+        amount: total,
+        bankLine: [account?.shortName || account?.bankName, account?.accountNumber].filter(Boolean).join(' · ') || null,
+        note: transferRef || null,
+      });
+    } else {
+      customerDisplay.setQr(null);
+    }
+  }, [liveQr?.amount, liveQr?.bankName, liveQr?.accountNumber, liveQr?.paymentCode, liveImage, qr, total, account?.shortName, account?.bankName, account?.accountNumber, transferRef]);
   useEffect(() => () => customerDisplay.setQr(null), []);
+  // Tiền về qua kết nối → màn hình khách "Cảm ơn quý khách" ngay, không chờ nhân viên bấm Hoàn tất.
+  useEffect(() => {
+    if (paidQr) customerDisplay.paid(qrPaidAmount(paidQr));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paidQr?.id]);
 
   return (
     <View className="gap-3">
@@ -164,63 +227,84 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
       ) : null}
 
       {method === 'Transfer' ? (
-        !byAccount ? (
+        config.transferSource === 'none' ? (
           <View className="flex-row items-start gap-2.5 rounded-2xl bg-warning-soft px-3.5 py-3">
             <Icon name="information-outline" size={18} tone="warning" />
-            <Text variant="bodySmall" className="flex-1 text-warning-text">
-              {config.transferSource === 'connectionOnly'
-                ? t('erp.transferConnectionOnly', { source: config.connections.map(connectionLabel).join(', ') })
-                : t('erp.transferNoSource')}
-            </Text>
+            <Text variant="bodySmall" className="flex-1 text-warning-text">{t('erp.transferNoSource')}</Text>
           </View>
-        ) : banksQ.isLoading ? (
+        ) : !configSettled || source === null ? (
           <Spinner />
-        ) : !account ? (
-          <Text variant="bodySmall" tone="warning">{t('erp.noBankAccount')}</Text>
         ) : (
-          <View className="gap-2.5 items-center">
-            {accounts.length > 1 ? (
-              <View className="flex-row flex-wrap gap-2 self-stretch">
-                {accounts.map((a) => (
-                  <Chip
-                    key={a.id}
-                    label={`${a.shortName || a.bankName || a.code} · ${a.accountNumber?.slice(-4)}`}
-                    selected={a.id === account.id}
-                    color="primary"
-                    onPress={() => {
-                      setAccountId(a.id);
-                      setTransferOk(false);
-                      setQrFailed(false);
-                    }}
-                  />
-                ))}
+          <View className="gap-3">
+            {options.length > 1 ? (
+              <View className="gap-1.5">
+                <Text variant="label" tone="muted">{t('erp.transferSource')}</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {options.map((o) => (
+                    <Chip
+                      key={o.key || 'by-account'}
+                      label={o.connection ? sourceChipLabel(o.connection) : t('erp.transferByAccount')}
+                      selected={o.key === source}
+                      color="primary"
+                      // Khách đã trả qua mã động → không đổi nguồn nữa.
+                      onPress={paidQr ? undefined : () => pickSource(o.key)}
+                    />
+                  ))}
+                </View>
               </View>
             ) : null}
-            <View className="rounded-2xl bg-white p-2" style={{ width: 236, height: 236 }}>
-              {qr && !qrFailed ? (
-                <Image source={{ uri: qr }} onError={() => setQrFailed(true)} style={{ width: 220, height: 220 }} resizeMode="contain" />
-              ) : (
-                <View className="flex-1 items-center justify-center">
-                  <Icon name="qrcode-remove" size={40} tone="faint" />
+            {connection ? (
+              <DynamicQrView dyn={dyn} total={total} connection={connection} />
+            ) : banksQ.isLoading ? (
+              <Spinner />
+            ) : !account ? (
+              <Text variant="bodySmall" tone="warning">{t('erp.noBankAccount')}</Text>
+            ) : (
+              <View className="gap-2.5 items-center">
+                {accounts.length > 1 ? (
+                  <View className="flex-row flex-wrap gap-2 self-stretch">
+                    {accounts.map((a) => (
+                      <Chip
+                        key={a.id}
+                        label={`${a.shortName || a.bankName || a.code} · ${a.accountNumber?.slice(-4)}`}
+                        selected={a.id === account.id}
+                        color="primary"
+                        onPress={() => {
+                          setAccountId(a.id);
+                          setTransferOk(false);
+                          setQrFailed(false);
+                        }}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+                <View className="rounded-2xl bg-white p-2" style={{ width: 236, height: 236 }}>
+                  {qr && !qrFailed ? (
+                    <Image source={{ uri: qr }} onError={() => setQrFailed(true)} style={{ width: 220, height: 220 }} resizeMode="contain" />
+                  ) : (
+                    <View className="flex-1 items-center justify-center">
+                      <Icon name="qrcode-remove" size={40} tone="faint" />
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-            <View className="items-center">
-              <Text variant="caption" tone="muted">{t('erp.transferTo')}</Text>
-              <Text variant="bodySmall" className="font-bold">{account.bankName || account.shortName} · {account.accountNumber}</Text>
-              {account.description ? <Text variant="caption" tone="muted">{account.description}</Text> : null}
-              <Text variant="caption" tone="primary" className="font-semibold mt-0.5">{t('erp.transferRef', { ref: transferRef })}</Text>
-            </View>
-            <Pressable
-              onPress={() => setTransferOk((v) => !v)}
-              className={cn('self-stretch flex-row items-center gap-2.5 px-3.5 py-3 rounded-2xl border', transferOk ? 'bg-success-soft border-success' : 'border-line dark:border-line-dark')}
-            >
-              <Icon name={transferOk ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} tone={transferOk ? 'success' : 'muted'} />
-              <View className="flex-1">
-                <Text variant="bodySmall" className="font-semibold">{t('erp.transferConfirm')}</Text>
-                <Text variant="caption" tone="muted">{t('erp.transferCheckHint')}</Text>
+                <View className="items-center">
+                  <Text variant="caption" tone="muted">{t('erp.transferTo')}</Text>
+                  <Text variant="bodySmall" className="font-bold">{account.bankName || account.shortName} · {account.accountNumber}</Text>
+                  {account.description ? <Text variant="caption" tone="muted">{account.description}</Text> : null}
+                  <Text variant="caption" tone="primary" className="font-semibold mt-0.5">{t('erp.transferRef', { ref: transferRef })}</Text>
+                </View>
+                <Pressable
+                  onPress={() => setTransferOk((v) => !v)}
+                  className={cn('self-stretch flex-row items-center gap-2.5 px-3.5 py-3 rounded-2xl border', transferOk ? 'bg-success-soft border-success' : 'border-line dark:border-line-dark')}
+                >
+                  <Icon name={transferOk ? 'checkbox-marked' : 'checkbox-blank-outline'} size={22} tone={transferOk ? 'success' : 'muted'} />
+                  <View className="flex-1">
+                    <Text variant="bodySmall" className="font-semibold">{t('erp.transferConfirm')}</Text>
+                    <Text variant="caption" tone="muted">{t('erp.transferCheckHint')}</Text>
+                  </View>
+                </Pressable>
               </View>
-            </Pressable>
+            )}
           </View>
         )
       ) : null}

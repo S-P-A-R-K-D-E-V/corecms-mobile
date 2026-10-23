@@ -206,6 +206,38 @@ export interface IPosPaymentConnectionsResponse {
   defaultKey?: string | null;
 }
 
+/** POST payment/qr/create — QR qua kết nối S Payment (tiền về là tự xác nhận). */
+export interface ICreateQrPaymentRequest {
+  connectionId: string;
+  /** Chỉ khi lựa chọn gắn tài khoản ngân hàng của cửa hàng (không gửi với VA). */
+  bankAccountId?: string;
+  amount: number;
+  description?: string;
+}
+
+/**
+ * Mã QR ở quầy (POST payment/qr/create, GET payment/qr/{id}/status). paymentCode / expiresAt / qrPayload / amountReceived
+ * chỉ có khi core-be bật S Payment — luôn có với mã tạo qua kết nối.
+ */
+export interface IQrPayment {
+  id: string;
+  amount: number;
+  /** INIT | PENDING | COMPLETED | CANCELLED | ERRORCORRECTED | EXPIRED */
+  status: string;
+  traceNumber?: string | null;
+  qrDataUrl?: string | null;
+  /** Chuỗi EMVCo — tự vẽ QR khi không có qrDataUrl. */
+  qrPayload?: string | null;
+  /** Nội dung chuyển khoản bắt buộc (SP + 7 ký tự) — ghi vào hoá đơn để core-be gắn mã với hoá đơn. */
+  paymentCode?: string | null;
+  expiresAt?: string | null;
+  amountReceived?: number | null;
+  bankName?: string | null;
+  accountNumber?: string | null;
+  /** Kết nối đã dùng (chỉ có ở kết quả tạo mã). */
+  connectionId?: string | null;
+}
+
 export interface ICreateSalePayment {
   method: PaymentMethod;
   amount: number;

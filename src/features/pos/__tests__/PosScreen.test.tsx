@@ -4,11 +4,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getBankAccounts, getCategories, getProducts, getWarehouses, submitSale } from 'src/api/erp';
-import { getPosPaymentConnections } from 'src/api/payment-qr';
+import { cancelQrPayment, createQrPayment, getPosPaymentConnections, getQrPaymentStatus } from 'src/api/payment-qr';
 import { confirm, toast } from 'src/components/overlay';
 import { useLocaleStore } from 'src/i18n';
 import { useWorkingBranch } from 'src/features/branch/working-branch';
 import type { IBranchLocation } from 'src/types/corecms-api';
+import type { IQrPayment } from 'src/types/erp';
 
 import { useCart } from '../cart-store';
 import { PosScreen } from '../PosScreen';
@@ -44,7 +45,12 @@ jest.mock('src/api/erp', () => ({
   getBankAccounts: jest.fn(),
   submitSale: jest.fn(),
 }));
-jest.mock('src/api/payment-qr', () => ({ getPosPaymentConnections: jest.fn() }));
+jest.mock('src/api/payment-qr', () => ({
+  getPosPaymentConnections: jest.fn(),
+  createQrPayment: jest.fn(),
+  getQrPaymentStatus: jest.fn(),
+  cancelQrPayment: jest.fn(),
+}));
 
 const mockedProducts = getProducts as jest.MockedFunction<typeof getProducts>;
 const mockedWarehouses = getWarehouses as jest.MockedFunction<typeof getWarehouses>;
@@ -52,10 +58,27 @@ const mockedCategories = getCategories as jest.MockedFunction<typeof getCategori
 const mockedBanks = getBankAccounts as jest.MockedFunction<typeof getBankAccounts>;
 const mockedSubmit = submitSale as jest.MockedFunction<typeof submitSale>;
 const mockedPosConnections = getPosPaymentConnections as jest.MockedFunction<typeof getPosPaymentConnections>;
+const mockedCreateQr = createQrPayment as jest.MockedFunction<typeof createQrPayment>;
+const mockedQrStatus = getQrPaymentStatus as jest.MockedFunction<typeof getQrPaymentStatus>;
+const mockedCancelQr = cancelQrPayment as jest.MockedFunction<typeof cancelQrPayment>;
 const mockedConfirm = confirm as jest.MockedFunction<typeof confirm>;
 
 const product = (id: string, name: string, basePrice: number) =>
   ({ id, code: id.toUpperCase(), name, categoryName: 'Kẹp tóc', hasVariants: false, basePrice, productType: 2, isActive: true, minQuantity: 0, maxQuantity: 0, inventories: [{ onHand: 5 }] }) as any;
+
+/** Mã QR động máy chủ trả khi tạo qua kết nối S Payment (chỉ có chuỗi EMVCo, không có ảnh). */
+const dynamicQr = (id: string, amount: number, patch: Partial<IQrPayment> = {}): IQrPayment => ({
+  id,
+  amount,
+  status: 'INIT',
+  paymentCode: 'SPABC2345',
+  qrPayload: '00020101021238570010A0000007270127000697042201139704229999020853037045802VN6304ABCD',
+  expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+  bankName: 'MB',
+  accountNumber: '9704229999',
+  connectionId: 'c1',
+  ...patch,
+});
 
 const branch = (id: string, name: string): IBranchLocation => ({ id, branchName: name, geofenceRadius: 100, isActive: true, createdDate: '2026-01-01T00:00:00Z' });
 
@@ -107,6 +130,9 @@ beforeEach(async () => {
   mockedBanks.mockReset().mockResolvedValue([]);
   // core-be cũ / chủ cửa hàng chưa cấu hình kênh POS: mọi phương thức như trước.
   mockedPosConnections.mockReset().mockResolvedValue({ enabled: false, connections: [] });
+  mockedCreateQr.mockReset();
+  mockedQrStatus.mockReset();
+  mockedCancelQr.mockReset().mockResolvedValue(undefined);
   mockedSubmit.mockReset();
   mockedConfirm.mockReset().mockResolvedValue(true);
   (toast.info as jest.Mock).mockClear();
@@ -289,16 +315,19 @@ describe('điện thoại: một cột + bảng trượt như trước', () => {
     expect(mockedSubmit.mock.calls[0]![0]).toMatchObject({ method: 'Transfer', payments: [{ method: 'Transfer', amount: 35_000, accountId: 7 }] });
   });
 
-  it('chủ cửa hàng tắt VietQR theo tài khoản (chỉ qua S Payment): chọn sẵn Thẻ, bấm Chuyển khoản thì báo tạo mã ở quầy web', async () => {
+  it('chủ cửa hàng tắt VietQR theo tài khoản (chỉ qua S Payment): tạo mã QR động, tiền về là tự xác nhận, hoá đơn ghi mã thanh toán', async () => {
     await setBranches([branch('b1', 'Chùa Láng')]);
     mockedPosConnections.mockResolvedValue({
       enabled: true,
+      // Số VA của ApiPay — không trùng tài khoản nào của cửa hàng (không có bankAccountId).
       connections: [{ id: 'c1', key: 'c1', provider: 'apipay', kind: 'bank_feed', displayName: 'ApiPay', accountNumber: '9704229999', bankName: 'MB', environment: 'live' }],
       configured: true,
       methods: ['BankTransfer', 'Card'],
       allowBankAccount: false,
       defaultKey: 'c1',
     });
+    mockedCreateQr.mockResolvedValue(dynamicQr('q1', 35_000));
+    mockedQrStatus.mockResolvedValue(dynamicQr('q1', 35_000, { status: 'INIT' }));
     mockedSubmit.mockResolvedValue({ status: 200, data: { id: 'inv-1' } });
     renderScreen();
 
@@ -306,15 +335,135 @@ describe('điện thoại: một cột + bảng trượt như trước', () => {
     fireEvent.press(screen.getByText('Thanh toán'));
     await goToPayment('Thanh toán · 35.000đ');
 
-    expect(await screen.findByText('Quẹt thẻ trên máy POS của cửa hàng, thành công rồi bấm Hoàn tất.')).toBeTruthy();
-    fireEvent.press(screen.getByText('Chuyển khoản'));
-    expect(await screen.findByText(/Cửa hàng chỉ nhận chuyển khoản qua S Payment \(ApiPay — MB 9704229999\)/)).toBeTruthy();
+    // Chuyển khoản chọn sẵn (app tạo được mã qua kết nối); chỉ một nguồn → không có chip chọn nguồn.
+    expect(await screen.findByText('SPABC2345')).toBeTruthy();
+    expect(mockedCreateQr).toHaveBeenCalledTimes(1);
+    expect(mockedCreateQr.mock.calls[0]![0]).toEqual({ connectionId: 'c1', amount: 35_000, description: expect.stringMatching(/^TT \d{6}$/) });
+    expect(screen.queryByText('Nhận tiền qua')).toBeNull();
     expect(screen.queryByText('Đã nhận đủ tiền chuyển khoản')).toBeNull();
+    expect(screen.getByText('Tiền về qua ApiPay là tự xác nhận — không cần tích tay.')).toBeTruthy();
+    // Máy chủ không trả ảnh → tự vẽ từ chuỗi EMVCo.
+    expect(screen.getByTestId('qr-payload-image')).toBeTruthy();
+    // Chưa có tiền → chưa hoàn tất được.
+    expect(screen.getByRole('button', { name: 'Hoàn tất bán' }).props.accessibilityState).toMatchObject({ disabled: true });
 
-    fireEvent.press(screen.getByText('Thẻ'));
+    // Còn chờ: kiểm tra vẫn chưa có tiền.
+    fireEvent.press(screen.getByText('Kiểm tra'));
+    await waitFor(() => expect(mockedQrStatus).toHaveBeenCalledWith('q1'));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Kiểm tra' }).props.accessibilityState).toMatchObject({ busy: false }));
+    expect(screen.getByText('Chờ khách chuyển khoản')).toBeTruthy();
+
+    // Tiền về đủ → tự xác nhận, không cần tích tay.
+    mockedQrStatus.mockResolvedValue(dynamicQr('q1', 35_000, { status: 'COMPLETED', amountReceived: 35_000 }));
+    fireEvent.press(screen.getByText('Kiểm tra'));
+    expect(await screen.findByText('Đã nhận 35.000đ qua chuyển khoản')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Hoàn tất bán' }).props.accessibilityState).toMatchObject({ disabled: false });
     fireEvent.press(screen.getByText('Hoàn tất bán'));
+
     expect(await screen.findByText('Đã bán xong')).toBeTruthy();
-    expect(mockedSubmit.mock.calls[0]![0]).toMatchObject({ method: 'Card' });
+    const request = mockedSubmit.mock.calls[0]![0];
+    expect(request).toMatchObject({ method: 'Transfer', payments: [{ method: 'Transfer', amount: 35_000, transactionRef: 'SPABC2345' }] });
+    expect(request.payments[0].accountId).toBeUndefined();
+    // Mã đã nhận tiền thì không huỷ khi đóng bảng.
+    expect(mockedCancelQr).not.toHaveBeenCalled();
+  });
+
+  it('đổi nguồn: theo tài khoản ↔ kết nối gắn tài khoản cửa hàng; huỷ mã, tạo mã mới; máy nhớ nguồn đã chọn', async () => {
+    await setBranches([branch('b1', 'Chùa Láng')]);
+    mockedPosConnections.mockResolvedValue({
+      enabled: true,
+      connections: [
+        {
+          id: 'c2',
+          key: 'c2:a1',
+          provider: 'vietinbank',
+          kind: 'bank_direct',
+          displayName: 'VietinBank',
+          accountNumber: '0123456789',
+          bankName: 'VietinBank',
+          environment: 'live',
+          bankAccountId: 'a1',
+        },
+      ],
+      configured: true,
+      methods: ['Cash', 'BankTransfer', 'Card'],
+      allowBankAccount: true,
+      defaultKey: '',
+    });
+    mockedBanks.mockResolvedValue([{ id: 'a1', kiotVietId: 7, bankName: 'VietinBank', shortName: 'VTB', bin: '970415', accountNumber: '0123456789' }]);
+    mockedCreateQr.mockImplementation(async (body) => dynamicQr(`q${mockedCreateQr.mock.calls.length}`, body.amount, { connectionId: 'c2' }));
+    mockedSubmit.mockResolvedValue({ status: 200, data: { id: 'inv-1' } });
+    renderScreen();
+
+    fireEvent.press(await screen.findByText('Kẹp tóc nơ'));
+    fireEvent.press(screen.getByText('Thanh toán'));
+    await goToPayment('Thanh toán · 35.000đ');
+
+    // Mặc định chủ cửa hàng đặt: theo tài khoản (VietQR tĩnh + tích tay), chưa tạo mã động.
+    fireEvent.press(screen.getByText('Chuyển khoản'));
+    expect(await screen.findByText('Đã nhận đủ tiền chuyển khoản')).toBeTruthy();
+    expect(screen.getByText('Nhận tiền qua')).toBeTruthy();
+    expect(mockedCreateQr).not.toHaveBeenCalled();
+
+    // Chọn kết nối → mã động vào đúng tài khoản của lựa chọn; máy nhớ lựa chọn.
+    fireEvent.press(screen.getByText('VietinBank — VietinBank 0123456789'));
+    expect(await screen.findByText('SPABC2345')).toBeTruthy();
+    expect(mockedCreateQr.mock.calls[0]![0]).toMatchObject({ connectionId: 'c2', bankAccountId: 'a1', amount: 35_000 });
+    expect(screen.queryByText('Đã nhận đủ tiền chuyển khoản')).toBeNull();
+    await waitFor(async () => expect(await AsyncStorage.getItem('pref.posPaymentSource')).toBe('c2:a1'));
+
+    // Huỷ mã → tạo mã mới.
+    fireEvent.press(screen.getByText('Huỷ mã'));
+    expect(await screen.findByText('Mã QR đã huỷ.')).toBeTruthy();
+    expect(mockedCancelQr).toHaveBeenLastCalledWith('q1');
+    fireEvent.press(screen.getByText('Tạo mã mới'));
+    expect(await screen.findByText('SPABC2345')).toBeTruthy();
+    expect(mockedCreateQr).toHaveBeenCalledTimes(2);
+
+    // Về theo tài khoản: mã đang chờ bị huỷ; quay lại kết nối thì tạo mã mới.
+    fireEvent.press(screen.getByText('Theo tài khoản'));
+    expect(await screen.findByText('Đã nhận đủ tiền chuyển khoản')).toBeTruthy();
+    await waitFor(() => expect(mockedCancelQr).toHaveBeenLastCalledWith('q2'));
+    fireEvent.press(screen.getByText('VietinBank — VietinBank 0123456789'));
+    expect(await screen.findByText('SPABC2345')).toBeTruthy();
+    expect(mockedCreateQr).toHaveBeenCalledTimes(3);
+
+    mockedQrStatus.mockResolvedValue(dynamicQr('q3', 35_000, { status: 'COMPLETED', amountReceived: 35_000 }));
+    fireEvent.press(screen.getByText('Kiểm tra'));
+    expect(await screen.findByText('Đã nhận 35.000đ qua chuyển khoản')).toBeTruthy();
+    fireEvent.press(screen.getByText('Hoàn tất bán'));
+
+    expect(await screen.findByText('Đã bán xong')).toBeTruthy();
+    expect(mockedSubmit.mock.calls[0]![0]).toMatchObject({
+      method: 'Transfer',
+      payments: [{ method: 'Transfer', amount: 35_000, accountId: 7, transactionRef: 'SPABC2345' }],
+    });
+  });
+
+  it('chưa có mặc định: chọn sẵn nguồn máy đã nhớ (kết nối) và tạo mã ngay khi chọn Chuyển khoản', async () => {
+    await setBranches([branch('b1', 'Chùa Láng')]);
+    await AsyncStorage.setItem('pref.posPaymentSource', 'c1');
+    // Chủ cửa hàng chưa lưu cấu hình kênh: mọi phương thức, kết nối dùng được vẫn chọn được (như web).
+    mockedPosConnections.mockResolvedValue({
+      enabled: true,
+      connections: [{ id: 'c1', key: 'c1', provider: 'apipay', kind: 'bank_feed', displayName: 'ApiPay', accountNumber: '9704229999', bankName: 'MB', environment: 'test' }],
+    });
+    mockedCreateQr.mockResolvedValue(dynamicQr('q1', 35_000));
+    renderScreen();
+
+    fireEvent.press(await screen.findByText('Kẹp tóc nơ'));
+    fireEvent.press(screen.getByText('Thanh toán'));
+    await goToPayment('Thanh toán · 35.000đ');
+
+    expect(mockedCreateQr).not.toHaveBeenCalled(); // đang chọn Tiền mặt
+    fireEvent.press(screen.getByText('Chuyển khoản'));
+    expect(await screen.findByText('SPABC2345')).toBeTruthy();
+    expect(screen.getByText('ApiPay — MB 9704229999 · Thử nghiệm')).toBeTruthy();
+    expect(screen.getByText('Tiền về qua ApiPay (Thử nghiệm) là tự xác nhận — không cần tích tay.')).toBeTruthy();
+
+    // Đổi sang Tiền mặt: mã đang chờ bị huỷ.
+    fireEvent.press(screen.getByText('Tiền mặt'));
+    await waitFor(() => expect(mockedCancelQr).toHaveBeenCalledWith('q1'));
   });
 });
 

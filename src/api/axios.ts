@@ -435,7 +435,12 @@ export const endpoints = {
   },
   suppliers: { list: '/suppliers' },
   bankAccounts: { list: '/bank-accounts' },
-  paymentQr: { connections: '/payment/qr/connections' },
+  paymentQr: {
+    connections: '/payment/qr/connections',
+    create: '/payment/qr/create',
+    status: (id: string) => `/payment/qr/${id}/status`,
+    cancel: (id: string) => `/payment/qr/${id}/cancel`,
+  },
   // ── F&B: thực đơn, sơ đồ bàn, đơn mở, phiếu bar (contract F&B POS v1) ──
   fnb: {
     menu: '/fnb/menu',

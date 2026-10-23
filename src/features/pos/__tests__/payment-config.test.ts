@@ -36,12 +36,24 @@ describe('posPaymentConfig', () => {
   it('core-be cũ / chưa cấu hình / chưa tải / lỗi: mọi phương thức, chuyển khoản theo tài khoản như trước', () => {
     expect(posPaymentConfig(undefined)).toEqual(DEFAULT_POS_PAYMENT_CONFIG);
     expect(posPaymentConfig(null)).toEqual(DEFAULT_POS_PAYMENT_CONFIG);
-    expect(posPaymentConfig({ enabled: true, connections: [apipay] })).toEqual(DEFAULT_POS_PAYMENT_CONFIG);
-    // configured=false: bỏ qua cả methods / allowBankAccount nếu có.
-    expect(posPaymentConfig({ enabled: true, connections: [apipay], configured: false, methods: ['Card'], allowBankAccount: false })).toEqual(
-      DEFAULT_POS_PAYMENT_CONFIG
-    );
-    expect(DEFAULT_POS_PAYMENT_CONFIG).toEqual({ methods: ['Cash', 'Transfer', 'Card'], transferSource: 'account', connections: [] });
+    expect(posPaymentConfig({ enabled: false, connections: [] })).toEqual(DEFAULT_POS_PAYMENT_CONFIG);
+    expect(DEFAULT_POS_PAYMENT_CONFIG).toEqual({ methods: ['Cash', 'Transfer', 'Card'], transferSource: 'account', connections: [], defaultKey: null });
+  });
+
+  it('chưa cấu hình mà S Payment bật: kết nối dùng được vẫn là nguồn chuyển khoản (như quầy web), không có mặc định', () => {
+    expect(posPaymentConfig({ enabled: true, connections: [apipay] })).toEqual({ ...DEFAULT_POS_PAYMENT_CONFIG, connections: [apipay] });
+    // configured=false: bỏ qua methods / allowBankAccount / defaultKey nếu có.
+    expect(
+      posPaymentConfig({ enabled: true, connections: [apipay], configured: false, methods: ['Card'], allowBankAccount: false, defaultKey: 'c1' })
+    ).toEqual({ ...DEFAULT_POS_PAYMENT_CONFIG, connections: [apipay] });
+    // S Payment tắt: danh sách kết nối không dùng được.
+    expect(posPaymentConfig({ enabled: false, connections: [apipay] })).toEqual(DEFAULT_POS_PAYMENT_CONFIG);
+  });
+
+  it('nguồn mặc định chủ cửa hàng đặt: "" = theo tài khoản, khoá kết nối; thiếu = máy tự nhớ', () => {
+    expect(posPaymentConfig(configured({ defaultKey: '' })).defaultKey).toBe('');
+    expect(posPaymentConfig(configured({ defaultKey: 'c1', connections: [apipay] })).defaultKey).toBe('c1');
+    expect(posPaymentConfig(configured({ defaultKey: undefined })).defaultKey).toBeNull();
   });
 
   it("chỉ phương thức chủ cửa hàng bật, theo thứ tự của app; 'BankTransfer' là chuyển khoản", () => {
@@ -78,11 +90,15 @@ describe('chọn sẵn phương thức', () => {
     expect(defaultPosMethod(posPaymentConfig(configured({ methods: ['Card'] })))).toBe('Card');
   });
 
-  it('chuyển khoản app không tạo được mã (chỉ qua kết nối) thì bỏ qua khi chọn sẵn; chỉ còn nó thì vẫn chọn nó', () => {
-    const transferCard = posPaymentConfig(configured({ methods: ['BankTransfer', 'Card'], allowBankAccount: false, connections: [apipay] }));
-    expect(canCompleteOnApp('Transfer', transferCard)).toBe(false);
-    expect(canCompleteOnApp('Card', transferCard)).toBe(true);
-    expect(defaultPosMethod(transferCard)).toBe('Card');
+  it('chỉ qua kết nối: app tạo mã QR động nên vẫn hoàn tất được; chưa bật nguồn nào thì bỏ qua khi chọn sẵn', () => {
+    const viaConnection = posPaymentConfig(configured({ methods: ['BankTransfer', 'Card'], allowBankAccount: false, connections: [apipay] }));
+    expect(canCompleteOnApp('Transfer', viaConnection)).toBe(true);
+    expect(defaultPosMethod(viaConnection)).toBe('Transfer');
+    const noSource = posPaymentConfig(configured({ methods: ['BankTransfer', 'Card'], allowBankAccount: false, connections: [] }));
+    expect(canCompleteOnApp('Transfer', noSource)).toBe(false);
+    expect(canCompleteOnApp('Card', noSource)).toBe(true);
+    expect(defaultPosMethod(noSource)).toBe('Card');
+    // Chỉ còn chuyển khoản thì vẫn chọn nó (hiện lời báo chưa bật nguồn).
     const transferOnly = posPaymentConfig(configured({ methods: ['BankTransfer'], allowBankAccount: false }));
     expect(defaultPosMethod(transferOnly)).toBe('Transfer');
   });
