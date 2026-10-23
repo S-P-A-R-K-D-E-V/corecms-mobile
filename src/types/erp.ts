@@ -172,6 +172,40 @@ export interface IPagedSalesOrders {
 
 export type PaymentMethod = 'Cash' | 'Transfer' | 'Card';
 
+/** Nguồn chuyển khoản qua kết nối S Payment (ApiPay, ngân hàng trực tiếp…) chủ cửa hàng bật cho quầy — chỉ để hiển thị. */
+export interface IPosPaymentConnection {
+  id: string;
+  provider: string;
+  kind: string;
+  displayName: string;
+  bin?: string | null;
+  /** Tài khoản nhận (với ApiPay là số VA). */
+  accountNumber: string;
+  accountName?: string | null;
+  /** 'test' | 'live' */
+  environment: string;
+  bankAccountId?: string | null;
+  bankName?: string | null;
+  /** Khoá lựa chọn; core-be cũ không có thì dùng id. */
+  key?: string | null;
+}
+
+/**
+ * GET payment/qr/connections. Chủ cửa hàng lưu cấu hình kênh POS (web Thanh toán → Cài đặt → Phương thức theo kênh)
+ * thì `configured` = true kèm `methods` / `allowBankAccount` / `defaultKey`; core-be cũ / chưa cấu hình thì thiếu.
+ */
+export interface IPosPaymentConnectionsResponse {
+  enabled: boolean;
+  connections?: IPosPaymentConnection[] | null;
+  configured?: boolean;
+  /** 'Cash' | 'BankTransfer' | 'Card' | 'EWallet' */
+  methods?: string[] | null;
+  /** Cho tạo VietQR theo tài khoản ngân hàng (không qua kết nối). */
+  allowBankAccount?: boolean;
+  /** Nguồn chuyển khoản mặc định: '' = theo tài khoản, khoá kết nối, null = máy tự nhớ. */
+  defaultKey?: string | null;
+}
+
 export interface ICreateSalePayment {
   method: PaymentMethod;
   amount: number;

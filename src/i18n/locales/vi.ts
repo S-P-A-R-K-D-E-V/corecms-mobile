@@ -616,6 +616,8 @@ export const vi = {
     transferConfirm: 'Đã nhận đủ tiền chuyển khoản',
     transferCheckHint: 'Kiểm tra tài khoản đã nhận đủ tiền rồi mới hoàn tất.',
     noBankAccount: 'Chưa có tài khoản ngân hàng để nhận chuyển khoản.',
+    transferConnectionOnly: 'Cửa hàng chỉ nhận chuyển khoản qua S Payment ({source}) để tiền về là tự xác nhận. App chưa tạo được mã này — tạo mã ở quầy trên web hoặc chọn cách trả khác.',
+    transferNoSource: 'Chưa bật nguồn chuyển khoản cho quầy — chủ cửa hàng bật ở Thanh toán → Cài đặt → Phương thức theo kênh trên web.',
     cardHint: 'Quẹt thẻ trên máy POS của cửa hàng, thành công rồi bấm Hoàn tất.',
     complete: 'Hoàn tất bán',
     saleDone: 'Đã bán xong',

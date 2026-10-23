@@ -7,17 +7,20 @@ import { Text, Icon, Pressable, Chip, Spinner } from 'src/components/ui';
 import { cn } from 'src/components/ui/utils';
 import { brand, grey } from 'src/theme';
 import { getBankAccounts } from 'src/api/erp';
+import { getPosPaymentConnections } from 'src/api/payment-qr';
 import { t } from 'src/i18n';
 import type { IBankAccount, PaymentMethod } from 'src/types/erp';
 
 import { money } from 'src/features/erp/shared';
 import { cashSuggestions, vietQrUrl } from './payment-utils';
+import { connectionLabel, defaultPosMethod, posPaymentConfig, resolvePosMethod } from './payment-config';
 import { customerDisplay } from 'src/services/customer-display';
 
 // ----------------------------------------------------------------------
 // Thanh toán: tiền mặt (khách đưa → tiền thừa), chuyển khoản (ảnh VietQR theo tài khoản cửa hàng + số
 // tiền + nội dung; chưa có open banking để tự đối soát → nhân viên xác nhận đã nhận tiền), thẻ (quẹt
 // trên máy POS riêng). Chỉ là phương thức ghi nhận vào hoá đơn.
+// Phương thức hiện theo cấu hình kênh POS của chủ cửa hàng (payment-config.ts); chưa cấu hình / lỗi → như trước.
 // ----------------------------------------------------------------------
 
 export type PaymentState = {
@@ -38,7 +41,11 @@ const METHODS: { key: PaymentMethod; icon: string }[] = [
 export function PaymentPanel({ total, transferRef, onChange }: { total: number; transferRef: string; onChange: (s: PaymentState) => void }) {
   const { colorScheme } = useColorScheme();
   const dark = colorScheme === 'dark';
-  const [method, setMethod] = useState<PaymentMethod>('Cash');
+  const configQ = useQuery({ queryKey: ['payment', 'pos-connections'], queryFn: getPosPaymentConnections, staleTime: 5 * 60_000 });
+  const config = useMemo(() => posPaymentConfig(configQ.data), [configQ.data]);
+  const [method, setMethod] = useState<PaymentMethod>(() => defaultPosMethod(config));
+  /** Nhân viên đã tự bấm chọn phương thức — cấu hình tải xong không đổi lựa chọn đó (nếu còn hiện). */
+  const [picked, setPicked] = useState(false);
   const [given, setGiven] = useState<number>(total);
   const [givenText, setGivenText] = useState('');
   const [accountId, setAccountId] = useState<string | null>(null);
@@ -47,7 +54,12 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
 
   const banksQ = useQuery({ queryKey: ['erp', 'bank-accounts'], queryFn: getBankAccounts, staleTime: 10 * 60_000 });
   const accounts = useMemo(() => (banksQ.data ?? []).filter((a) => a.bin && a.accountNumber), [banksQ.data]);
-  const account = accounts.find((a) => a.id === accountId) ?? accounts[0];
+  const byAccount = config.transferSource === 'account';
+  const account = byAccount ? (accounts.find((a) => a.id === accountId) ?? accounts[0]) : undefined;
+
+  useEffect(() => {
+    setMethod((current) => resolvePosMethod(current, picked, config));
+  }, [config, picked]);
 
   useEffect(() => {
     setGiven(total);
@@ -66,6 +78,7 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
   }, [method, ready, account, transferRef, given, onChange]);
 
   const qr = method === 'Transfer' && account ? vietQrUrl(account, total, transferRef) : null;
+  const methods = METHODS.filter((m) => config.methods.includes(m.key));
 
   // Màn hình khách: chọn chuyển khoản thì QR to cho khách quét trên màn phụ; đóng bảng / đổi cách trả thì ẩn.
   useEffect(() => {
@@ -90,12 +103,15 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
       </View>
 
       <View className="flex-row gap-2">
-        {METHODS.map((m) => {
+        {methods.map((m) => {
           const on = method === m.key;
           return (
             <Pressable
               key={m.key}
-              onPress={() => setMethod(m.key)}
+              onPress={() => {
+                setMethod(m.key);
+                setPicked(true);
+              }}
               className={cn('flex-1 items-center gap-1 py-2.5 rounded-2xl border', on ? 'bg-primary-soft border-primary' : 'border-line dark:border-line-dark')}
             >
               <Icon name={m.icon as any} size={22} tone={on ? 'primary' : 'muted'} />
@@ -148,7 +164,16 @@ export function PaymentPanel({ total, transferRef, onChange }: { total: number; 
       ) : null}
 
       {method === 'Transfer' ? (
-        banksQ.isLoading ? (
+        !byAccount ? (
+          <View className="flex-row items-start gap-2.5 rounded-2xl bg-warning-soft px-3.5 py-3">
+            <Icon name="information-outline" size={18} tone="warning" />
+            <Text variant="bodySmall" className="flex-1 text-warning-text">
+              {config.transferSource === 'connectionOnly'
+                ? t('erp.transferConnectionOnly', { source: config.connections.map(connectionLabel).join(', ') })
+                : t('erp.transferNoSource')}
+            </Text>
+          </View>
+        ) : banksQ.isLoading ? (
           <Spinner />
         ) : !account ? (
           <Text variant="bodySmall" tone="warning">{t('erp.noBankAccount')}</Text>

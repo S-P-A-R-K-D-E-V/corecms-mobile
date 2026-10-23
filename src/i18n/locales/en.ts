@@ -615,6 +615,8 @@ export const en: Dict = {
     transferConfirm: 'Transfer received in full',
     transferCheckHint: 'Check the account received the full amount before completing.',
     noBankAccount: 'No bank account set up for transfers yet.',
+    transferConnectionOnly: 'This store only takes transfers through S Payment ({source}) so payments confirm themselves. The app cannot create that code yet — create it at the web counter or pick another method.',
+    transferNoSource: 'No transfer source is turned on for the counter — the owner can turn one on under Payments → Settings → Methods by channel on the web.',
     cardHint: 'Charge the card on the store terminal, then tap Complete.',
     complete: 'Complete sale',
     saleDone: 'Sale completed',

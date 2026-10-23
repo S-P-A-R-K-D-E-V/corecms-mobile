@@ -4,13 +4,16 @@ import { router } from 'expo-router';
 
 import { toast } from 'src/components/overlay';
 import { t } from 'src/i18n';
-import { getStoreCode } from 'src/services/store-config';
+import { openInAppBrowser } from 'src/features/assistant/links';
+import { getStoreCode, getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 import { decidePushTap } from 'src/services/push-store';
+import { onlineOrderWebUrl } from 'src/services/push-links';
 
 // ----------------------------------------------------------------------
 // Chạm vào thông báo đẩy (app đang mở / chạy nền / mở app từ thông báo).
-//   Cùng cửa hàng (hoặc push cũ chưa có storeCode): giữ hành vi cũ — chỉ mở app (app chưa điều hướng theo link
-//   của push).
+//   Cùng cửa hàng (hoặc push cũ chưa có storeCode): mở app; mã đăng nhập máy quầy mở màn hiện mã; đơn online đã
+//   thanh toán mở trang Đơn online trên web của cửa hàng (app chưa có màn này — push-links.ts). Loại khác chưa
+//   điều hướng theo link của push.
 //   Cửa hàng khác (máy còn đăng ký ở cửa hàng cũ): KHÔNG mở theo link — báo đây là thông báo của cửa hàng nào,
 //   đăng nhập cửa hàng đó để xem. So với cửa hàng đã nhớ (StoreProfile.code), kể cả khi đang đăng xuất.
 // ----------------------------------------------------------------------
@@ -39,7 +42,11 @@ function handleResponse(response: Notifications.NotificationResponse) {
           at: String(date),
         },
       });
+      return;
     }
+    // Bản cửa hàng chưa gắn cửa hàng nào thì không có trang web để mở (gốc web mặc định không phải của cửa hàng).
+    const onlineOrderUrl = onlineOrderWebUrl(data, isMultiStore && !storeDomain() ? null : getWebOrigin());
+    if (onlineOrderUrl) openInAppBrowser(onlineOrderUrl);
     return;
   }
   // Đã báo: tải lại JS (bản cập nhật OTA) không báo lại lần chạm cũ.
