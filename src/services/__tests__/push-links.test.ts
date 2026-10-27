@@ -1,4 +1,4 @@
-import { onlineOrderWebUrl } from '../push-links';
+import { inspectionPushRoute, onlineOrderWebUrl } from '../push-links';
 
 // Push "đơn online đã thanh toán" → trang Đơn online trên web của cửa hàng đang gắn.
 
@@ -33,5 +33,23 @@ describe('onlineOrderWebUrl', () => {
     expect(onlineOrderWebUrl(paid, null)).toBeNull();
     expect(onlineOrderWebUrl(paid, 'javascript:alert(1)')).toBeNull();
     expect(onlineOrderWebUrl(paid, 'https://shop.vn/path')).toBeNull();
+  });
+});
+
+// Push kiểm tra cửa hàng (core-be StoreInspection) → màn trong app.
+describe('inspectionPushRoute', () => {
+  it('lỗi mới / quá hạn → lỗi của tôi; nhắc kiểm nhanh / báo cáo tuần → màn Kiểm tra cửa hàng', () => {
+    expect(inspectionPushRoute({ category: 'Inspection', type: 'inspection-fault', inspectionId: 'x' })).toBe('/inspection/faults');
+    expect(inspectionPushRoute(JSON.stringify({ type: 'inspection-overdue', count: 2 }))).toBe('/inspection/faults');
+    expect(inspectionPushRoute({ type: 'inspection-reminder', date: '2026-11-02' })).toBe('/inspection');
+    expect(inspectionPushRoute({ type: 'inspection-weekly' })).toBe('/inspection');
+    // Loại kiểm tra mới BE thêm sau → vẫn mở màn Kiểm tra cửa hàng.
+    expect(inspectionPushRoute({ type: 'inspection-something-new' })).toBe('/inspection');
+  });
+
+  it('push khác → không điều hướng', () => {
+    expect(inspectionPushRoute(paid)).toBeNull();
+    expect(inspectionPushRoute({ category: 'Shift' })).toBeNull();
+    expect(inspectionPushRoute(null)).toBeNull();
   });
 });

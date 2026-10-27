@@ -2,6 +2,7 @@ import {
   DEFAULT_PINS,
   FEATURE_REGISTRY,
   FNB_POS_FEATURE,
+  SHIFT_SCHEDULING_FEATURE,
   MAX_PINS,
   availableFeatures,
   featureContext,
@@ -207,5 +208,21 @@ describe('tính năng đang phát triển', () => {
     expect(FEATURE_REGISTRY.find((f) => f.key === 'attendance')?.comingSoon).toBe(true);
     expect(availableFeatures(staff).map((f) => f.key)).not.toContain('attendance');
     expect(availableFeatures(owner).map((f) => f.key)).not.toContain('attendance');
+  });
+});
+
+// Kiểm tra cửa hàng: mọi nhân viên của cửa hàng có gói phân ca (core-be RequireFeature workforce.shift-scheduling).
+describe('kiểm tra cửa hàng', () => {
+  const keys = (u: any) => availableFeatures(u, featureContext(u)).map((f) => f.key);
+
+  it('cửa hàng có phân ca: nhân viên, quản lý, Admin đều thấy', () => {
+    for (const u of [staff, manager, owner]) {
+      expect(keys({ ...u, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] })).toContain('inspection');
+    }
+  });
+
+  it('gói không có phân ca hoặc chưa biết tính năng cửa hàng → ẩn', () => {
+    expect(keys({ ...staff, enabledFeatures: [] })).not.toContain('inspection');
+    expect(keys(staff)).not.toContain('inspection');
   });
 });

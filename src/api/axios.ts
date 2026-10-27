@@ -406,6 +406,18 @@ export const endpoints = {
     templateWeek: '/cleaning/templates/week',
     duplicateWeek: '/cleaning/templates/duplicate-week',
   },
+  // Kiểm tra cửa hàng (bảng kiểm do quản lý soạn trên web).
+  inspections: {
+    list: '/inspections',
+    details: (id: string) => `/inspections/${id}`,
+    shifts: '/inspections/shifts',
+    presignPhotos: (id: string) => `/inspections/${id}/photos/presign`,
+    results: (id: string) => `/inspections/${id}/results`,
+    submit: (id: string) => `/inspections/${id}/submit`,
+    faults: '/inspections/faults',
+    mine: '/inspections/me',
+    fix: (resultId: string) => `/inspections/results/${resultId}/fix`,
+  },
   // ── ERP trên app: hàng hoá, hoá đơn, nhập hàng, bán hàng ──
   products: {
     list: '/products',
