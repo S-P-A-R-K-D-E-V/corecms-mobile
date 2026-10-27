@@ -13,6 +13,9 @@ import { getShiftSchedules } from 'src/api/schedule';
 import { registerShift, unregisterShift, getMyShiftRegistrations, getRegistrationLock, type RegistrationLock } from 'src/api/shiftRegistration';
 import { extractApiError } from 'src/services/error';
 import type { IShiftSchedule, IShiftRegistration } from 'src/types/corecms-api';
+import type { ISalesTarget } from 'src/types/hr';
+import { getSalesTargets } from 'src/api/hr';
+import { fCompactVnd, fVnd, slotTargetFor } from 'src/features/hr/hr-rules';
 
 dayjs.extend(isoWeek);
 
@@ -52,6 +55,8 @@ export function RegisterShiftScreen() {
   const [selections, setSelections] = useState<Record<string, boolean>>({});
   const [note, setNote] = useState('');
   const [lock, setLock] = useState<RegistrationLock | null>(null);
+  // Target ca đã công bố (Quy chế Điều 9: xem target ca mình trước khi đăng ký).
+  const [targets, setTargets] = useState<ISalesTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,6 +110,8 @@ export function RegisterShiftScreen() {
         getRegistrationLock(from).catch(() => null),
       ]);
       setLock(lk);
+      // Máy chủ chưa có target (cửa hàng chưa công bố / bản cũ) thì đăng ký như trước.
+      setTargets(await getSalesTargets(from, to).catch(() => []));
       setSchedules(sched.filter((s) => s.isActive).sort((a, b) => a.startTime.localeCompare(b.startTime)));
       setRegistrations(regs);
       const initial: Record<string, boolean> = {};
@@ -272,6 +279,10 @@ export function RegisterShiftScreen() {
                             <View className="flex-1 min-w-0">
                               <Text variant="bodySmall" className="font-semibold" numberOfLines={1}>{sc.templateName}</Text>
                               <Text variant="caption" tone="muted">{sc.startTime}–{sc.endTime}</Text>
+                              {(() => {
+                                const slot = slotTargetFor(targets, d, sc.id, sc.startTime);
+                                return slot ? <Text variant="caption" tone="primary">Target ca {fVnd(slot.target)}</Text> : null;
+                              })()}
                             </View>
                             {weekKeys.length > 1 ? (
                               <Pressable onPress={() => toggleWeek(sc)} hitSlop={6} className="px-2 py-1 rounded-lg bg-primary-soft">
@@ -338,7 +349,12 @@ export function RegisterShiftScreen() {
                           className={cn('flex-1 h-11 rounded-xl items-center justify-center', !enabled && 'opacity-40')}
                           style={{ backgroundColor: sel ? color : `${color}1F` }}
                         >
-                          {sel ? <Icon name="check" size={18} color="#FFFFFF" /> : null}
+                          {sel ? (
+                            <Icon name="check" size={18} color="#FFFFFF" />
+                          ) : (() => {
+                            const slot = slotTargetFor(targets, d, sc.id, sc.startTime);
+                            return slot ? <Text tone="muted" className="text-[10px]">{fCompactVnd(slot.target)}</Text> : null;
+                          })()}
                         </Pressable>
                       );
                     })}

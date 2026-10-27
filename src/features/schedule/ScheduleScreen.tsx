@@ -22,6 +22,7 @@ import type { IMyScheduleItem, IShiftRegistration, IShiftPoolPost, PoolNeedType,
 import { CalendarStrip } from './CalendarStrip';
 import { useScheduleData } from './hooks';
 import { NEED_TYPE_LABEL, POOL_STATUS_LABEL, POOL_STATUS_TONE, NEED_OPTIONS, fmtMoney } from './constants';
+import { zoneLeadParts } from './zone-lead';
 
 dayjs.extend(isBetween);
 dayjs.extend(isToday);
@@ -76,7 +77,7 @@ function timeOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string)
 
 // Phụ đề ca được phân: giờ check-in/out (nếu có) + trạng thái chợ ca.
 function assignmentSub(a: IMyScheduleItem, pool?: IShiftPoolPost): string | undefined {
-  const parts: string[] = [];
+  const parts: string[] = zoneLeadParts(a);
   const tin = timePart(a.checkInTime);
   const tout = timePart(a.checkOutTime);
   if (tin) parts.push(`Vào ${tin}`);

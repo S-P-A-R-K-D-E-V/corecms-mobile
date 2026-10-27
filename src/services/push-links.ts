@@ -12,6 +12,32 @@ export const ONLINE_ORDER_PAID = 'online_order_paid';
 /** Mã đơn online (core-be NewCode: "W" + 8 ký tự) — chỉ nhận chữ số / chữ cái / - _ cho chắc. */
 const ORDER_CODE = /^[A-Za-z0-9_-]{1,40}$/;
 
+/**
+ * Push kiểm tra cửa hàng (core-be StoreInspection: data.type "inspection-*") → màn trong app. Lỗi mới / quá hạn → lỗi
+ * của tôi; nhắc kiểm nhanh, báo cáo tuần → màn Kiểm tra cửa hàng. Loại khác → null.
+ */
+export function inspectionPushRoute(data: unknown): string | null {
+  const d = pushDataRecord(data);
+  switch (d.type) {
+    case 'inspection-fault':
+    case 'inspection-overdue':
+      return '/inspection/faults';
+    case 'inspection-reminder':
+    case 'inspection-weekly':
+      return '/inspection';
+    default:
+      return typeof d.type === 'string' && d.type.startsWith('inspection-') ? '/inspection' : null;
+  }
+}
+
+/**
+ * Push nhân sự (core-be NotificationCategory.Hr: văn bản cần xác nhận, nhiệm vụ, biên bản, kết quả tháng) → màn Nhân sự.
+ * Push chỉ mang loại thông báo (không mang link), nên mở màn tổng có đếm việc cần làm. Loại khác → null.
+ */
+export function hrPushRoute(data: unknown): string | null {
+  return pushDataRecord(data).category === 'Hr' ? '/hr' : null;
+}
+
 /** URL trang Đơn online cho push "đơn online đã thanh toán"; push khác hoặc gốc web không phải http(s) → null. */
 export function onlineOrderWebUrl(data: unknown, webOrigin: string | null | undefined): string | null {
   const d = pushDataRecord(data);

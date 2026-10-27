@@ -92,6 +92,13 @@ export function usePushRegistration() {
         importance: Notifications.AndroidImportance.HIGH,
         lightColor: '#F59E0B',
       });
+      // Kiểm tra cửa hàng (nhắc kiểm nhanh, lỗi cần sửa). core-be chỉ gửi vào kênh này sau khi bản app có kênh đã phát
+      // hành (ExpoPushService.AppChannels) — trước đó vẫn vào "default".
+      Notifications.setNotificationChannelAsync('inspection', {
+        name: 'Kiểm tra cửa hàng',
+        importance: Notifications.AndroidImportance.HIGH,
+        lightColor: '#FFAB00',
+      });
     }
 
     (async () => {

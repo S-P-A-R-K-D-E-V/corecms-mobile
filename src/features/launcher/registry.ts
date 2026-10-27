@@ -55,6 +55,9 @@ export function hasStoreFeature(ctx: FeatureContext, key: string): boolean {
   return !!ctx.enabledFeatures && ctx.enabledFeatures.includes(key);
 }
 
+/** Kiểm tra cửa hàng đi theo gói có phân ca (core-be InspectionsController RequireFeature). */
+export const SHIFT_SCHEDULING_FEATURE = 'workforce.shift-scheduling';
+
 /** Khoá tính năng bán hàng F&B của gói cửa hàng. */
 export const FNB_POS_FEATURE = 'commerce.fnb.pos';
 
@@ -125,6 +128,17 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   // Kiểm quầy: ô hiện cho mọi nhân viên nội bộ; vào được hay không do cổng trong màn quyết định — Admin vào
   // thẳng, Staff/Manager phải có ca hôm nay + đang ở cửa hàng (BE chặn cùng luật).
   { key: 'shift-cash', label: 'Kiểm quầy', icon: 'cash-register', href: '/shift-cash', tone: 'success', group: 'personal', roles: SHIFT_CASH_ROLES, platformFeature: PLATFORM_FEATURES.shiftCash },
+  // Kiểm tra cửa hàng: mọi nhân viên (lỗi của mình; trưởng ca kiểm nhanh ca mình); kiểm đột xuất / tuần theo quyền trong màn.
+  {
+    key: 'inspection', label: 'Kiểm tra cửa hàng', icon: 'clipboard-check-outline', href: '/inspection', tone: 'warning', group: 'personal',
+    visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
+  },
+  // Nhân sự (Quy chế / Nội quy): xin nghỉ ca, văn bản cần xác nhận, nhiệm vụ, biên bản, điểm — phần của nhân viên; quản lý
+  // duyệt / giao / lập biên bản trên web. Đi theo gói phân ca như core-be (RequireFeature workforce.shift-scheduling).
+  {
+    key: 'hr', label: 'Nhân sự', icon: 'account-tie-outline', href: '/hr', tone: 'primary', group: 'personal',
+    visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
+  },
   // Bảng công đang làm lại — tạm đánh dấu "Sắp có" để không điều hướng vào màn dở dang.
   { key: 'attendance', label: 'Bảng công', icon: 'clipboard-text-clock', href: '/attendance', tone: 'primary', group: 'personal', comingSoon: true },
   { key: 'notifications', label: 'Thông báo', icon: 'bell-outline', href: '/notifications', tone: 'warning', group: 'personal' },

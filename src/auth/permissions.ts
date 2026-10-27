@@ -62,6 +62,16 @@ export const PERMISSIONS = {
     review: 'cleaning.review',
     penaltyManage: 'cleaning.penalty.manage',
   },
+  /**
+   * Kiểm tra cửa hàng — trưởng ca kiểm nhanh ca mình, người phụ trách đánh dấu đã sửa lỗi của mình không cần quyền.
+   * Mặc định: Admin, Manager (bảng kiểm chỉ Admin — làm trên web).
+   */
+  inspection: {
+    conduct: 'inspection.conduct',
+    spot: 'inspection.spot',
+    read: 'inspection.read',
+    manage: 'inspection.manage',
+  },
   /** Ca làm — lịch của mình, đăng ký / nhường / đổi ca của mình không cần quyền. */
   shift: {
     templateManage: 'shift.template.manage',

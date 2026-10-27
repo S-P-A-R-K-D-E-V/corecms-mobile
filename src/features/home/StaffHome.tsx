@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { Screen, SectionCard } from 'src/components/shared';
@@ -14,6 +14,10 @@ import { t } from 'src/i18n';
 import type { ICleaningTaskInstance, IMyScheduleItem } from 'src/types/corecms-api';
 
 import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
+import { SHIFT_SCHEDULING_FEATURE } from 'src/features/launcher/registry';
+import { getInspectionShifts, getOpenInspectionFaults } from 'src/api/inspection';
+import { shiftNeedingMyQuickCheck } from 'src/features/inspection/inspection-access';
+import { useHrPendingCounts } from 'src/features/hr/hooks';
 import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
@@ -228,6 +232,85 @@ function CleaningTasksCard() {
   );
 }
 
+// ── Kiểm tra cửa hàng: trưởng ca kiểm nhanh ca này + lỗi của mình cần sửa ─────────────
+
+function InspectionCard() {
+  const { user } = useAuthContext();
+  const enabled = !!user?.enabledFeatures?.includes(SHIFT_SCHEDULING_FEATURE);
+  const today = dayjs().format('YYYY-MM-DD');
+  const shifts = useQuery({
+    queryKey: ['inspection', 'shifts', today],
+    queryFn: () => getInspectionShifts(today),
+    enabled,
+    staleTime: 60_000,
+  });
+  const faults = useQuery({
+    queryKey: ['inspection', 'faults', 'open'],
+    queryFn: () => getOpenInspectionFaults('mine'),
+    enabled,
+    staleTime: 60_000,
+  });
+
+  const shift = shiftNeedingMyQuickCheck(shifts.data ?? [], dayjs());
+  const open = (faults.data ?? []).filter((f) => !f.fixedAt);
+  const overdue = open.filter((f) => f.isOverdue).length;
+  if (!shift && open.length === 0) return null;
+
+  return (
+    <SectionCard title={t('home.quickCheckTitle')} icon="clipboard-check-outline" bodyClassName="pt-0 gap-1">
+      {shift ? (
+        <Pressable
+          onPress={() => router.push((shift.quickInspectionId ? `/inspection/run/${shift.quickInspectionId}` : '/inspection') as any)}
+          className="flex-row items-center gap-2.5 py-1.5"
+        >
+          <Icon name="clipboard-check-outline" size={20} tone="primary" />
+          <Text variant="bodySmall" className="flex-1 font-semibold" tone="primary">
+            {t(shift.quickInspectionId ? 'home.quickCheckContinue' : 'home.quickCheckStart', { shift: shift.shiftName })}
+          </Text>
+          <Icon name="chevron-right" size={18} tone="muted" />
+        </Pressable>
+      ) : null}
+      {open.length > 0 ? (
+        <Pressable onPress={() => router.push('/inspection/faults' as any)} className="flex-row items-center gap-2.5 py-1.5">
+          <Icon name="alert-circle-outline" size={20} tone={overdue > 0 ? 'error' : 'warning'} />
+          <Text variant="bodySmall" className="flex-1">
+            {t('home.myFaults', { n: open.length })}
+            {overdue > 0 ? ` · ${t('home.myFaultsOverdue', { n: overdue })}` : ''}
+          </Text>
+          <Icon name="chevron-right" size={18} tone="muted" />
+        </Pressable>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+// ── Nhân sự: văn bản cần xác nhận, biên bản chờ ký, nhiệm vụ cần nộp ─────────────
+
+function HrCard() {
+  const { user } = useAuthContext();
+  const enabled = !!user?.enabledFeatures?.includes(SHIFT_SCHEDULING_FEATURE);
+  const counts = useHrPendingCounts(enabled);
+  const rows: { n: number; icon: IconName; tone: 'warning' | 'error' | 'primary'; text: string; href: string }[] = [
+    { n: counts.policies, icon: 'file-sign', tone: 'warning', text: `${counts.policies} văn bản cần đọc và xác nhận`, href: '/hr/policies' },
+    { n: counts.records, icon: 'file-document-edit-outline', tone: 'error', text: `${counts.records} biên bản chờ bạn ký`, href: '/hr/records' },
+    { n: counts.tasks, icon: 'checkbox-marked-circle-outline', tone: 'primary', text: `${counts.tasks} nhiệm vụ cần nộp`, href: '/hr/tasks' },
+  ];
+  const shown = rows.filter((r) => r.n > 0);
+  if (!enabled || shown.length === 0) return null;
+
+  return (
+    <SectionCard title="Nhân sự" icon="account-tie-outline" bodyClassName="pt-0 gap-1">
+      {shown.map((r) => (
+        <Pressable key={r.href} onPress={() => router.push(r.href as any)} className="flex-row items-center gap-2.5 py-1.5">
+          <Icon name={r.icon} size={20} tone={r.tone} />
+          <Text variant="bodySmall" className="flex-1">{r.text}</Text>
+          <Icon name="chevron-right" size={18} tone="muted" />
+        </Pressable>
+      ))}
+    </SectionCard>
+  );
+}
+
 // ── Số liệu trong kỳ ────────────────────────────────────────────────────
 
 function MiniStat({ value, label, tone }: { value: React.ReactNode; label: string; tone: 'primary' | 'success' | 'warning' | 'error' | 'info' | 'default' }) {
@@ -318,7 +401,7 @@ export function StaffHome() {
 
   const onRefresh = () =>
     qc.invalidateQueries(
-      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'admin', 'notifications'].includes(q.queryKey[0] as string) },
+      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'inspection', 'admin', 'notifications'].includes(q.queryKey[0] as string) },
       { throwOnError: true }
     );
 
@@ -331,6 +414,8 @@ export function StaffHome() {
       <View className="px-4 gap-3.5" style={{ marginTop: -HERO_OVERLAP - 14 }}>
         <FeatureGrid solid variant="staff" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
         <TodayShiftCard />
+        <InspectionCard />
+        <HrCard />
         <CleaningTasksCard />
         {/* Bảng hôm nay của cả nhóm: attendance.read (Manager, Admin mặc định; vai trò được cấp). */}
         {hasPermission(user, PERMISSIONS.attendance.read) ? <TeamTodayCard /> : null}

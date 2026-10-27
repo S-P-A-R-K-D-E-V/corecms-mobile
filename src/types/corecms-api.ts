@@ -224,6 +224,9 @@ export interface IMyScheduleItem {
   checkInTime?: string;
   checkOutTime?: string;
   workedHours?: number;
+  /** Khu phụ trách trong ca ("A".."D"); rỗng = chưa phân khu. */
+  zones?: string[] | null;
+  isShiftLead?: boolean;
 }
 
 // ======================================================================

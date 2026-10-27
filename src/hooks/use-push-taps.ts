@@ -7,13 +7,13 @@ import { t } from 'src/i18n';
 import { openInAppBrowser } from 'src/features/assistant/links';
 import { getStoreCode, getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 import { decidePushTap } from 'src/services/push-store';
-import { onlineOrderWebUrl } from 'src/services/push-links';
+import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl } from 'src/services/push-links';
 
 // ----------------------------------------------------------------------
 // Chạm vào thông báo đẩy (app đang mở / chạy nền / mở app từ thông báo).
-//   Cùng cửa hàng (hoặc push cũ chưa có storeCode): mở app; mã đăng nhập máy quầy mở màn hiện mã; đơn online đã
-//   thanh toán mở trang Đơn online trên web của cửa hàng (app chưa có màn này — push-links.ts). Loại khác chưa
-//   điều hướng theo link của push.
+//   Cùng cửa hàng (hoặc push cũ chưa có storeCode): mở app; mã đăng nhập máy quầy mở màn hiện mã; kiểm tra cửa hàng
+//   mở màn kiểm / lỗi của tôi; đơn online đã thanh toán mở trang Đơn online trên web của cửa hàng (app chưa có màn
+//   này — push-links.ts). Loại khác chưa điều hướng theo link của push.
 //   Cửa hàng khác (máy còn đăng ký ở cửa hàng cũ): KHÔNG mở theo link — báo đây là thông báo của cửa hàng nào,
 //   đăng nhập cửa hàng đó để xem. So với cửa hàng đã nhớ (StoreProfile.code), kể cả khi đang đăng xuất.
 // ----------------------------------------------------------------------
@@ -42,6 +42,18 @@ function handleResponse(response: Notifications.NotificationResponse) {
           at: String(date),
         },
       });
+      return;
+    }
+    // Kiểm tra cửa hàng: lỗi cần sửa → lỗi của tôi; nhắc kiểm nhanh / báo cáo tuần → màn Kiểm tra cửa hàng.
+    const inspectionRoute = inspectionPushRoute(data);
+    if (inspectionRoute) {
+      router.push(inspectionRoute as any);
+      return;
+    }
+    // Nhân sự: văn bản cần xác nhận, nhiệm vụ, biên bản, kết quả tháng → màn Nhân sự.
+    const hrRoute = hrPushRoute(data);
+    if (hrRoute) {
+      router.push(hrRoute as any);
       return;
     }
     // Bản cửa hàng chưa gắn cửa hàng nào thì không có trang web để mở (gốc web mặc định không phải của cửa hàng).
