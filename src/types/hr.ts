@@ -266,3 +266,29 @@ export interface ICompensation {
   status: 'Active' | 'Cancelled';
   cancelReason?: string | null;
 }
+
+// ── Dashboard hiệu suất & thu nhập (A3) ──────────────────────────────────
+
+/** Thưởng doanh số tuần của tôi: paidInPayroll = đã vào lương (không thì đang tính thử). */
+export interface IMyWeeklyBonus {
+  weekStart: string;
+  achievementPct: number;
+  fund: number;
+  myHours: number;
+  totalHours: number;
+  myAmount: number;
+  paidInPayroll: boolean;
+}
+
+/** Điểm một người trong tháng (quản lý xem). */
+export interface IStaffPerformanceScore extends IPerformanceScore {
+  userId: string;
+  fullName: string;
+}
+
+export interface IPerformanceMonth {
+  month: string;
+  computedAt?: string | null;
+  publishedAt?: string | null;
+  scores: IStaffPerformanceScore[];
+}

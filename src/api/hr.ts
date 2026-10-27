@@ -10,6 +10,8 @@ import type {
   IEmploymentContract,
   ISupportShiftOpening,
   ICompensation,
+  IMyWeeklyBonus,
+  IPerformanceMonth,
 } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
@@ -132,5 +134,17 @@ export async function reviewSupportClaim(claimId: string, approve: boolean, note
 /** Khoản bồi thường của tôi (chỉ xem). */
 export async function getMyCompensations(): Promise<ICompensation[]> {
   const response = await axios.get<ICompensation[]>(endpoints.hr.compensationsMine);
+  return response.data;
+}
+
+/** Thưởng doanh số tuần của tôi trong các tuần chứa [from, to] (yyyy-MM-dd). */
+export async function getMyWeeklyBonus(from: string, to: string): Promise<IMyWeeklyBonus[]> {
+  const response = await axios.get<IMyWeeklyBonus[]>(endpoints.hr.weeklyBonusMine, { params: { from, to } });
+  return response.data;
+}
+
+/** [Quản lý] Điểm từng người của một tháng (yyyy-MM-01). */
+export async function getPerformanceMonth(month: string): Promise<IPerformanceMonth> {
+  const response = await axios.get<IPerformanceMonth>(endpoints.hr.performanceMonth, { params: { month } });
   return response.data;
 }

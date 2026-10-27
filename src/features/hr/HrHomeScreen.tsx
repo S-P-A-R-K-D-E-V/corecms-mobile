@@ -61,8 +61,8 @@ export function HrHomeScreen() {
         <ListItem
           icon="chart-line"
           iconTone="info"
-          title="Điểm & xếp loại"
-          subtitle="Kết quả tháng đã công bố"
+          title="Điểm, lương & thưởng"
+          subtitle="Lương tạm tính, thưởng tuần, điểm các tháng"
           onPress={() => router.push('/hr/performance' as any)}
           showChevron
         />
