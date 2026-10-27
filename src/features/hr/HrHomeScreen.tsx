@@ -7,7 +7,8 @@ import { useHrPendingCounts } from './hooks';
 
 // ----------------------------------------------------------------------
 // Nhân sự (phần của nhân viên): xin nghỉ ca, văn bản cần đọc và xác nhận, nhiệm vụ + phiếu sáng kiến, biên bản cần ký,
-// điểm & xếp loại đã công bố. Quản lý duyệt / giao / lập biên bản / tính điểm trên web.
+// điểm & xếp loại đã công bố, hợp đồng của tôi (chỉ xem). Quản lý duyệt / giao / lập biên bản / tính điểm / soạn hợp
+// đồng trên web.
 // ----------------------------------------------------------------------
 
 function Count({ n, tone = 'primary' }: { n: number; tone?: 'primary' | 'error' }) {
@@ -63,6 +64,14 @@ export function HrHomeScreen() {
           title="Điểm & xếp loại"
           subtitle="Kết quả tháng đã công bố"
           onPress={() => router.push('/hr/performance' as any)}
+          showChevron
+        />
+        <ListItem
+          icon="file-document-outline"
+          iconTone="primary"
+          title="Hợp đồng của tôi"
+          subtitle="Xem hợp đồng và bản đã ký"
+          onPress={() => router.push('/hr/contracts' as any)}
           showChevron
         />
       </SectionCard>

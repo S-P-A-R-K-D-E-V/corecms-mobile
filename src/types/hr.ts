@@ -174,3 +174,38 @@ export interface IPerformanceScore {
   reviewResponse?: string | null;
   reviewDeadline?: string | null;
 }
+
+// ── Hợp đồng lao động (nhân viên chỉ xem của mình; Admin quản lý trên web) ───────────
+
+export type EmploymentContractType = 'Probation' | 'FixedTermUnder12Months' | 'FixedTerm12To36Months' | 'Indefinite' | 'Appendix';
+export type EmploymentContractStatus = 'Draft' | 'AwaitingSignature' | 'Signed' | 'Terminated' | 'Voided';
+
+export const CONTRACT_TYPE_LABEL: Record<EmploymentContractType, string> = {
+  Probation: 'Thử việc',
+  FixedTermUnder12Months: 'Xác định thời hạn dưới 12 tháng',
+  FixedTerm12To36Months: 'Xác định thời hạn 12–36 tháng',
+  Indefinite: 'Không xác định thời hạn',
+  Appendix: 'Phụ lục hợp đồng',
+};
+
+export const CONTRACT_STATUS_LABEL: Record<EmploymentContractStatus, string> = {
+  Draft: 'Nháp',
+  AwaitingSignature: 'Chờ ký giấy',
+  Signed: 'Đã ký',
+  Terminated: 'Đã chấm dứt',
+  Voided: 'Đã huỷ',
+};
+
+export interface IEmploymentContract {
+  id: string;
+  contractNumber?: string | null;
+  contractType: EmploymentContractType;
+  startDate: string;
+  endDate?: string | null;
+  jobTitle: string;
+  renderedBody: string;
+  status: EmploymentContractStatus;
+  signedOn?: string | null;
+  terminatedOn?: string | null;
+  files: { id: string; url: string; contentType: string; uploadedAt: string }[];
+}

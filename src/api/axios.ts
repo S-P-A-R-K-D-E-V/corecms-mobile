@@ -436,6 +436,8 @@ export const endpoints = {
     recordRefuse: (id: string) => `/hr-records/${id}/refuse`,
     performanceMine: '/performance/mine',
     reviewRequest: (id: string) => `/performance/${id}/review-request`,
+    contractsMine: '/employment-contracts/mine',
+    contract: (id: string) => `/employment-contracts/${id}`,
   },
   // ── ERP trên app: hàng hoá, hoá đơn, nhập hàng, bán hàng ──
   products: {

@@ -7,6 +7,7 @@ import type {
   ISalesTarget,
   IPolicyDocument,
   IPerformanceScore,
+  IEmploymentContract,
 } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
@@ -89,6 +90,12 @@ export async function refuseHrRecord(id: string, reason: string): Promise<IHrRec
 
 export async function getMyPerformance(): Promise<IPerformanceScore[]> {
   const response = await axios.get<IPerformanceScore[]>(endpoints.hr.performanceMine);
+  return response.data;
+}
+
+/** Hợp đồng lao động của tôi — chỉ xem (Admin soạn, in, ký giấy và tải bản ký trên web). */
+export async function getMyContracts(): Promise<IEmploymentContract[]> {
+  const response = await axios.get<IEmploymentContract[]>(endpoints.hr.contractsMine);
   return response.data;
 }
 
