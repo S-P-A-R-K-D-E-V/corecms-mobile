@@ -9,6 +9,7 @@ import type {
   IPerformanceScore,
   IEmploymentContract,
   ISupportShiftOpening,
+  ICompensation,
 } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
@@ -125,5 +126,11 @@ export async function withdrawSupportClaim(claimId: string): Promise<ISupportShi
 
 export async function reviewSupportClaim(claimId: string, approve: boolean, note?: string): Promise<ISupportShiftOpening> {
   const response = await axios.put<ISupportShiftOpening>(endpoints.hr.supportClaimReview(claimId), { approve, note: note || null });
+  return response.data;
+}
+
+/** Khoản bồi thường của tôi (chỉ xem). */
+export async function getMyCompensations(): Promise<ICompensation[]> {
+  const response = await axios.get<ICompensation[]>(endpoints.hr.compensationsMine);
   return response.data;
 }

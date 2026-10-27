@@ -7,13 +7,13 @@ import { Screen, AppHeader, SectionCard, Sheet } from 'src/components/shared';
 import { Text, Button, Badge, TextField } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
-import { getMyHrRecords, refuseHrRecord, signHrRecord } from 'src/api/hr';
+import { getMyCompensations, getMyHrRecords, refuseHrRecord, signHrRecord } from 'src/api/hr';
 import { HR_RECORD_STATUS_LABEL, HR_RECORD_TYPE_LABEL, type HrRecordStatus, type IHrRecord } from 'src/types/hr';
 import { fVnd } from './hr-rules';
 
 // ----------------------------------------------------------------------
 // Biên bản của tôi (Quy chế Chương VIII, Nội quy Điều 27): đọc, ghi ý kiến rồi ký; không đồng ý thì không ký và ghi rõ lý
-// do. Biên bản chỉ ghi nhận — không phạt tiền, không trừ lương.
+// do. Biên bản chỉ ghi nhận — không phạt tiền; bồi thường (nếu có) là khoản riêng Admin duyệt, chỉ hiện để xem.
 // ----------------------------------------------------------------------
 
 const STATUS_TONE: Record<HrRecordStatus, 'warning' | 'success' | 'error' | 'neutral'> = {
@@ -59,6 +59,12 @@ function RecordCard({ record: r, onSign, onRefuse }: { record: IHrRecord; onSign
 export function HrRecordsScreen() {
   const qc = useQueryClient();
   const query = useQuery({ queryKey: ['hr', 'records'], queryFn: getMyHrRecords });
+  // Bản backend cũ chưa có /hr-compensations → coi như không có khoản nào.
+  const compensationsQuery = useQuery({
+    queryKey: ['hr', 'compensations'],
+    queryFn: () => getMyCompensations().catch(() => []),
+  });
+  const compensations = compensationsQuery.data ?? [];
   const [action, setAction] = useState<{ record: IHrRecord; kind: 'sign' | 'refuse' } | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,11 +92,11 @@ export function HrRecordsScreen() {
   }
 
   return (
-    <Screen scroll refreshing={query.isFetching} onRefresh={query.refetch}>
+    <Screen scroll refreshing={query.isFetching} onRefresh={() => { query.refetch(); compensationsQuery.refetch(); }}>
       <AppHeader title="Biên bản" back />
       <Text variant="caption" tone="muted">
-        Biên bản chỉ ghi nhận sự việc — không phạt tiền, không trừ lương. Bạn được ghi ý kiến trước khi ký; không đồng ý thì
-        không ký và ghi rõ lý do.
+        Biên bản chỉ ghi nhận sự việc — không phạt tiền. Bạn được ghi ý kiến trước khi ký; không đồng ý thì không ký và ghi rõ
+        lý do.
       </Text>
 
       {query.isError ? (
@@ -105,6 +111,26 @@ export function HrRecordsScreen() {
       ) : (
         list.map((r) => <RecordCard key={r.id} record={r} onSign={() => open(r, 'sign')} onRefuse={() => open(r, 'refuse')} />)
       )}
+
+      {compensations.length > 0 ? (
+        <SectionCard title="Khoản bồi thường của tôi" bodyClassName="pt-0 gap-2">
+          <Text variant="caption" tone="muted">
+            Không phải phạt: trừ dần vào lương kỳ cuối tháng, mỗi tháng không quá 30% lương thực trả.
+          </Text>
+          {compensations.map((c) => (
+            <View key={c.id} className="gap-0.5">
+              <Text variant="bodySmall" className="font-semibold">
+                {HR_RECORD_TYPE_LABEL[c.recordType]} · {dayjs(c.recordDate).format('DD/MM/YYYY')}
+              </Text>
+              <Text variant="caption" tone="muted">
+                {c.status === 'Cancelled'
+                  ? `Đã huỷ${c.cancelReason ? ` — ${c.cancelReason}` : ''}`
+                  : `Bồi thường ${fVnd(c.amount)} · đã trừ ${fVnd(c.deducted)} · còn ${fVnd(c.remaining)}`}
+              </Text>
+            </View>
+          ))}
+        </SectionCard>
+      ) : null}
 
       <Sheet
         visible={!!action}

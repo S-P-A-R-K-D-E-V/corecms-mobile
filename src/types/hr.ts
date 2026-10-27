@@ -251,3 +251,18 @@ export interface ISupportShiftOpening {
   minimumPaidHours?: number | null;
   claims: ISupportShiftClaim[];
 }
+
+// ── Bồi thường thiệt hại (Quy chế Điều 25) — chỉ xem ───────────────────────
+
+/** Không phải phạt: trừ dần vào lương kỳ cuối tháng, mỗi tháng tối đa 30% lương thực trả. */
+export interface ICompensation {
+  id: string;
+  recordType: HrRecordType;
+  recordDate: string;
+  amount: number;
+  deducted: number;
+  remaining: number;
+  note?: string | null;
+  status: 'Active' | 'Cancelled';
+  cancelReason?: string | null;
+}
