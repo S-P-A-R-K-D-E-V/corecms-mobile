@@ -34,6 +34,10 @@ export interface IPolicyDocument {
   version: number;
   url?: string | null;
   summary?: string | null;
+  fileName?: string | null;
+  fileContentType?: string | null;
+  /** Link có chữ ký tới tệp văn bản ở kho riêng tư. */
+  fileUrl?: string | null;
   isActive: boolean;
   publishedAt: string;
   acknowledgedAt?: string | null;
@@ -208,4 +212,83 @@ export interface IEmploymentContract {
   signedOn?: string | null;
   terminatedOn?: string | null;
   files: { id: string; url: string; contentType: string; uploadedAt: string }[];
+}
+
+// ── Ca hỗ trợ mở trên chợ ca ─────────────────────────────────────────────
+
+export type SupportShiftOpeningStatus = 'Open' | 'Filled' | 'Cancelled';
+export type SupportShiftClaimStatus = 'Pending' | 'Approved' | 'Rejected' | 'Withdrawn';
+
+export const SUPPORT_CLAIM_STATUS_LABEL: Record<SupportShiftClaimStatus, string> = {
+  Pending: 'Chờ duyệt',
+  Approved: 'Đã duyệt',
+  Rejected: 'Từ chối',
+  Withdrawn: 'Đã rút',
+};
+
+export interface ISupportShiftClaim {
+  id: string;
+  staffId: string;
+  staffName: string;
+  status: SupportShiftClaimStatus;
+  note?: string | null;
+  reviewNote?: string | null;
+  createdAt: string;
+}
+
+/** Người không có quyền xếp ca chỉ nhận về đơn của chính mình trong `claims`. */
+export interface ISupportShiftOpening {
+  id: string;
+  shiftName: string;
+  startTime: string;
+  endTime: string;
+  date: string;
+  slots: number;
+  approvedCount: number;
+  note?: string | null;
+  status: SupportShiftOpeningStatus;
+  fixedHourlyRate?: number | null;
+  minimumPaidHours?: number | null;
+  claims: ISupportShiftClaim[];
+}
+
+// ── Bồi thường thiệt hại (Quy chế Điều 25) — chỉ xem ───────────────────────
+
+/** Không phải phạt: trừ dần vào lương kỳ cuối tháng, mỗi tháng tối đa 30% lương thực trả. */
+export interface ICompensation {
+  id: string;
+  recordType: HrRecordType;
+  recordDate: string;
+  amount: number;
+  deducted: number;
+  remaining: number;
+  note?: string | null;
+  status: 'Active' | 'Cancelled';
+  cancelReason?: string | null;
+}
+
+// ── Dashboard hiệu suất & thu nhập (A3) ──────────────────────────────────
+
+/** Thưởng doanh số tuần của tôi: paidInPayroll = đã vào lương (không thì đang tính thử). */
+export interface IMyWeeklyBonus {
+  weekStart: string;
+  achievementPct: number;
+  fund: number;
+  myHours: number;
+  totalHours: number;
+  myAmount: number;
+  paidInPayroll: boolean;
+}
+
+/** Điểm một người trong tháng (quản lý xem). */
+export interface IStaffPerformanceScore extends IPerformanceScore {
+  userId: string;
+  fullName: string;
+}
+
+export interface IPerformanceMonth {
+  month: string;
+  computedAt?: string | null;
+  publishedAt?: string | null;
+  scores: IStaffPerformanceScore[];
 }

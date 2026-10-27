@@ -31,11 +31,18 @@ const STATUS_TONE: Record<EmploymentContractStatus, 'neutral' | 'warning' | 'suc
 
 const d = (iso?: string | null) => (iso ? dayjs(iso).format('DD/MM/YYYY') : '');
 
+/** Bỏ dấu định dạng in (`[[NGAT_TRANG]]`, `[[CHU_KY]]`) khi hiện nội dung trên app. */
+export function readableBody(body: string): string {
+  return body
+    .replace(/^[ \t]*\[\[NGAT_TRANG\]\][ \t]*$/gm, '')
+    .replace(/^[ \t]*\[\[CHU_KY\]\][ \t]*$/gm, 'NGƯỜI LAO ĐỘNG — NGƯỜI SỬ DỤNG LAO ĐỘNG\n(ký, ghi rõ họ tên trên bản giấy)');
+}
+
 function ContractCard({ contract: c }: { contract: IEmploymentContract }) {
   const [open, setOpen] = useState(false);
   return (
     <SectionCard
-      title={`Hợp đồng số ${c.contractNumber ?? ''}`}
+      title={c.contractNumber ? `Hợp đồng số ${c.contractNumber}` : CONTRACT_TYPE_LABEL[c.contractType]}
       right={<Badge tone={STATUS_TONE[c.status]}>{CONTRACT_STATUS_LABEL[c.status]}</Badge>}
       bodyClassName="pt-0 gap-2"
     >
@@ -63,7 +70,7 @@ function ContractCard({ contract: c }: { contract: IEmploymentContract }) {
       <Button size="sm" variant="ghost" icon={open ? 'chevron-up' : 'chevron-down'} onPress={() => setOpen((v) => !v)}>
         {open ? 'Ẩn nội dung' : 'Xem nội dung hợp đồng'}
       </Button>
-      {open ? <Text variant="bodySmall">{c.renderedBody}</Text> : null}
+      {open ? <Text variant="bodySmall">{readableBody(c.renderedBody)}</Text> : null}
     </SectionCard>
   );
 }

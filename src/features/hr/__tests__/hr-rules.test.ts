@@ -75,3 +75,13 @@ describe('đề nghị xem xét lại', () => {
     expect(canRequestReview('2026-12-07T17:00:00Z', '2026-12-05T01:00:00Z', now)).toBe(false);
   });
 });
+
+describe('nội dung hợp đồng trên app', () => {
+  it('bỏ dấu định dạng in', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { readableBody } = require('../HrContractsScreen');
+    const text = readableBody('Điều 9. Thi hành\n[[NGAT_TRANG]]\n[[CHU_KY]]');
+    expect(text).not.toContain('[[');
+    expect(text).toContain('NGƯỜI SỬ DỤNG LAO ĐỘNG');
+  });
+});

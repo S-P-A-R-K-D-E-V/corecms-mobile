@@ -130,6 +130,8 @@ export const PERMISSIONS = {
     passwordReset: 'user.password.reset',
     delete: 'user.delete',
   },
+  /** Nhân sự — quản lý xem hiệu suất từng người (mặc định Admin + Quản lý). */
+  hr: { performanceRead: 'hr.performance.read' },
 } as const;
 
 const A = PERMISSIONS.analytics;

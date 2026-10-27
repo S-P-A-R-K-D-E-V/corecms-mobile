@@ -8,6 +8,10 @@ import type {
   IPolicyDocument,
   IPerformanceScore,
   IEmploymentContract,
+  ISupportShiftOpening,
+  ICompensation,
+  IMyWeeklyBonus,
+  IPerformanceMonth,
 } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
@@ -101,5 +105,46 @@ export async function getMyContracts(): Promise<IEmploymentContract[]> {
 
 export async function requestPerformanceReview(id: string, note: string): Promise<IPerformanceScore> {
   const response = await axios.post<IPerformanceScore>(endpoints.hr.reviewRequest(id), { note });
+  return response.data;
+}
+
+// ── Ca hỗ trợ mở trên chợ ca ───────────────────────────────────────────
+
+/** Ca hỗ trợ từ hôm nay tới 14 ngày tới (mặc định của BE). */
+export async function getSupportShifts(): Promise<ISupportShiftOpening[]> {
+  const response = await axios.get<ISupportShiftOpening[]>(endpoints.hr.supportShifts);
+  return response.data;
+}
+
+export async function claimSupportShift(id: string): Promise<ISupportShiftOpening> {
+  const response = await axios.post<ISupportShiftOpening>(endpoints.hr.supportShiftClaim(id), { note: null });
+  return response.data;
+}
+
+export async function withdrawSupportClaim(claimId: string): Promise<ISupportShiftOpening> {
+  const response = await axios.put<ISupportShiftOpening>(endpoints.hr.supportClaimWithdraw(claimId));
+  return response.data;
+}
+
+export async function reviewSupportClaim(claimId: string, approve: boolean, note?: string): Promise<ISupportShiftOpening> {
+  const response = await axios.put<ISupportShiftOpening>(endpoints.hr.supportClaimReview(claimId), { approve, note: note || null });
+  return response.data;
+}
+
+/** Khoản bồi thường của tôi (chỉ xem). */
+export async function getMyCompensations(): Promise<ICompensation[]> {
+  const response = await axios.get<ICompensation[]>(endpoints.hr.compensationsMine);
+  return response.data;
+}
+
+/** Thưởng doanh số tuần của tôi trong các tuần chứa [from, to] (yyyy-MM-dd). */
+export async function getMyWeeklyBonus(from: string, to: string): Promise<IMyWeeklyBonus[]> {
+  const response = await axios.get<IMyWeeklyBonus[]>(endpoints.hr.weeklyBonusMine, { params: { from, to } });
+  return response.data;
+}
+
+/** [Quản lý] Điểm từng người của một tháng (yyyy-MM-01). */
+export async function getPerformanceMonth(month: string): Promise<IPerformanceMonth> {
+  const response = await axios.get<IPerformanceMonth>(endpoints.hr.performanceMonth, { params: { month } });
   return response.data;
 }

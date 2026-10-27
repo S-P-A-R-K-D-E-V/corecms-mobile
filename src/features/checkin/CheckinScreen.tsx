@@ -18,7 +18,7 @@ import { isPlatformFeatureDisabledError } from 'src/auth/platform-features';
 import { useQuery } from '@tanstack/react-query';
 
 import { smartCheckIn, smartCheckOut, checkIn, sendCheckinPhoto, getBranchLocations, getAttendanceSettings } from 'src/api/attendance';
-import { extractApiError } from 'src/services/error';
+import { extractApiError, hasApiErrorCode } from 'src/services/error';
 import { track, AnalyticsEvent } from 'src/services/analytics';
 import { t } from 'src/i18n';
 
@@ -454,6 +454,11 @@ export function CheckinScreen() {
     } catch (err: any) {
       haptics.error();
       toast.error(extractApiError(err), t('checkin.checkInFailed'));
+      // Còn nội quy / văn bản chưa xác nhận (máy chủ chặn chấm công vào): mở thẳng màn văn bản.
+      if (hasApiErrorCode(err, 'PolicyDocument.AcknowledgementRequired')) {
+        setModalOpen(false);
+        router.push('/hr/policies' as any);
+      }
       // Cửa hàng vừa đổi luồng chấm công (máy chủ trả Attendance.FaceRequired): nạp lại thiết lập để đổi nút.
       void settingsQ.refetch();
       // Chủ cửa hàng vừa tắt chấm công trên app với người này: nạp lại /users/me để tab chuyển sang báo đã tắt.
