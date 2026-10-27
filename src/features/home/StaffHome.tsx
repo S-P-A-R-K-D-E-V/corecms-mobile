@@ -17,6 +17,7 @@ import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { SHIFT_SCHEDULING_FEATURE } from 'src/features/launcher/registry';
 import { getInspectionShifts, getOpenInspectionFaults } from 'src/api/inspection';
 import { shiftNeedingMyQuickCheck } from 'src/features/inspection/inspection-access';
+import { useHrPendingCounts } from 'src/features/hr/hooks';
 import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
@@ -283,6 +284,33 @@ function InspectionCard() {
   );
 }
 
+// ── Nhân sự: văn bản cần xác nhận, biên bản chờ ký, nhiệm vụ cần nộp ─────────────
+
+function HrCard() {
+  const { user } = useAuthContext();
+  const enabled = !!user?.enabledFeatures?.includes(SHIFT_SCHEDULING_FEATURE);
+  const counts = useHrPendingCounts(enabled);
+  const rows: { n: number; icon: IconName; tone: 'warning' | 'error' | 'primary'; text: string; href: string }[] = [
+    { n: counts.policies, icon: 'file-sign', tone: 'warning', text: `${counts.policies} văn bản cần đọc và xác nhận`, href: '/hr/policies' },
+    { n: counts.records, icon: 'file-document-edit-outline', tone: 'error', text: `${counts.records} biên bản chờ bạn ký`, href: '/hr/records' },
+    { n: counts.tasks, icon: 'checkbox-marked-circle-outline', tone: 'primary', text: `${counts.tasks} nhiệm vụ cần nộp`, href: '/hr/tasks' },
+  ];
+  const shown = rows.filter((r) => r.n > 0);
+  if (!enabled || shown.length === 0) return null;
+
+  return (
+    <SectionCard title="Nhân sự" icon="account-tie-outline" bodyClassName="pt-0 gap-1">
+      {shown.map((r) => (
+        <Pressable key={r.href} onPress={() => router.push(r.href as any)} className="flex-row items-center gap-2.5 py-1.5">
+          <Icon name={r.icon} size={20} tone={r.tone} />
+          <Text variant="bodySmall" className="flex-1">{r.text}</Text>
+          <Icon name="chevron-right" size={18} tone="muted" />
+        </Pressable>
+      ))}
+    </SectionCard>
+  );
+}
+
 // ── Số liệu trong kỳ ────────────────────────────────────────────────────
 
 function MiniStat({ value, label, tone }: { value: React.ReactNode; label: string; tone: 'primary' | 'success' | 'warning' | 'error' | 'info' | 'default' }) {
@@ -387,6 +415,7 @@ export function StaffHome() {
         <FeatureGrid solid variant="staff" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
         <TodayShiftCard />
         <InspectionCard />
+        <HrCard />
         <CleaningTasksCard />
         {/* Bảng hôm nay của cả nhóm: attendance.read (Manager, Admin mặc định; vai trò được cấp). */}
         {hasPermission(user, PERMISSIONS.attendance.read) ? <TeamTodayCard /> : null}

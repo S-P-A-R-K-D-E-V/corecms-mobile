@@ -30,6 +30,14 @@ export function inspectionPushRoute(data: unknown): string | null {
   }
 }
 
+/**
+ * Push nhân sự (core-be NotificationCategory.Hr: văn bản cần xác nhận, nhiệm vụ, biên bản, kết quả tháng) → màn Nhân sự.
+ * Push chỉ mang loại thông báo (không mang link), nên mở màn tổng có đếm việc cần làm. Loại khác → null.
+ */
+export function hrPushRoute(data: unknown): string | null {
+  return pushDataRecord(data).category === 'Hr' ? '/hr' : null;
+}
+
 /** URL trang Đơn online cho push "đơn online đã thanh toán"; push khác hoặc gốc web không phải http(s) → null. */
 export function onlineOrderWebUrl(data: unknown, webOrigin: string | null | undefined): string | null {
   const d = pushDataRecord(data);

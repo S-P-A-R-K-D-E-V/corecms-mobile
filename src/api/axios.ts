@@ -418,6 +418,25 @@ export const endpoints = {
     mine: '/inspections/me',
     fix: (resultId: string) => `/inspections/results/${resultId}/fix`,
   },
+  // Nhân sự theo Quy chế / Nội quy (phần của nhân viên; quản lý dùng web).
+  hr: {
+    leave: '/shift-leave',
+    leaveMine: '/shift-leave/mine',
+    leaveCancel: (id: string) => `/shift-leave/${id}/cancel`,
+    policiesActive: '/policy-documents/active',
+    policiesPending: '/policy-documents/pending',
+    policyAcknowledge: (id: string) => `/policy-documents/${id}/acknowledge`,
+    targets: '/sales-targets',
+    tasksMine: '/work-tasks/mine',
+    taskInitiative: '/work-tasks/initiative',
+    taskPresign: (id: string) => `/work-tasks/${id}/photos/presign`,
+    taskSubmit: (id: string) => `/work-tasks/${id}/submit`,
+    recordsMine: '/hr-records/mine',
+    recordSign: (id: string) => `/hr-records/${id}/sign`,
+    recordRefuse: (id: string) => `/hr-records/${id}/refuse`,
+    performanceMine: '/performance/mine',
+    reviewRequest: (id: string) => `/performance/${id}/review-request`,
+  },
   // ── ERP trên app: hàng hoá, hoá đơn, nhập hàng, bán hàng ──
   products: {
     list: '/products',

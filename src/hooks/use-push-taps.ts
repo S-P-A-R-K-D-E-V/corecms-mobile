@@ -7,7 +7,7 @@ import { t } from 'src/i18n';
 import { openInAppBrowser } from 'src/features/assistant/links';
 import { getStoreCode, getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 import { decidePushTap } from 'src/services/push-store';
-import { inspectionPushRoute, onlineOrderWebUrl } from 'src/services/push-links';
+import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl } from 'src/services/push-links';
 
 // ----------------------------------------------------------------------
 // Chạm vào thông báo đẩy (app đang mở / chạy nền / mở app từ thông báo).
@@ -48,6 +48,12 @@ function handleResponse(response: Notifications.NotificationResponse) {
     const inspectionRoute = inspectionPushRoute(data);
     if (inspectionRoute) {
       router.push(inspectionRoute as any);
+      return;
+    }
+    // Nhân sự: văn bản cần xác nhận, nhiệm vụ, biên bản, kết quả tháng → màn Nhân sự.
+    const hrRoute = hrPushRoute(data);
+    if (hrRoute) {
+      router.push(hrRoute as any);
       return;
     }
     // Bản cửa hàng chưa gắn cửa hàng nào thì không có trang web để mở (gốc web mặc định không phải của cửa hàng).

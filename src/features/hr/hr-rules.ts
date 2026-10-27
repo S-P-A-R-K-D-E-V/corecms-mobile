@@ -1,0 +1,56 @@
+import dayjs, { type Dayjs } from 'dayjs';
+
+import type { IMyScheduleItem } from 'src/types/corecms-api';
+import type { ISalesTarget, ISalesTargetSlot } from 'src/types/hr';
+
+// ----------------------------------------------------------------------
+// Phần thuần của các màn Nhân sự (test được): luật báo trước 24 giờ, ca xin nghỉ được, target của một ca, tiền.
+// ----------------------------------------------------------------------
+
+/** Báo trước tối thiểu khi xin nghỉ ca (Nội quy Điều 7). */
+export const LEAVE_NOTICE_HOURS = 24;
+
+/** Số giờ còn tới giờ vào ca (giờ máy = giờ Việt Nam). */
+export function hoursUntilShift(date: string, startTime: string, now: Dayjs = dayjs()): number {
+  return dayjs(`${date}T${startTime.slice(0, 5)}:00`).diff(now, 'minute') / 60;
+}
+
+/** Ca sắp tới, chưa chấm công — xin nghỉ được; sắp xếp theo giờ vào. */
+export function leaveCandidates(schedule: IMyScheduleItem[], now: Dayjs = dayjs()): IMyScheduleItem[] {
+  return schedule
+    .filter((s) => !s.hasCheckedIn && hoursUntilShift(s.date, s.startTime, now) > 0)
+    .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
+}
+
+/** Target khung giờ của một ca (ngày + lịch ca); khớp giờ vào nếu lịch ca đổi phiên bản. */
+export function slotTargetFor(
+  targets: ISalesTarget[],
+  date: string,
+  shiftScheduleId: string,
+  startTime?: string
+): ISalesTargetSlot | null {
+  const slots = targets.flatMap((t) => t.slots).filter((s) => s.date === date);
+  return (
+    slots.find((s) => s.shiftScheduleId === shiftScheduleId) ??
+    (startTime ? slots.find((s) => s.start.slice(0, 5) === startTime.slice(0, 5)) : undefined) ??
+    null
+  );
+}
+
+/** 1.250.000đ */
+export function fVnd(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return `${Math.round(value).toLocaleString('vi-VN')}đ`;
+}
+
+/** Còn trong hạn đề nghị xem xét lại kết quả tháng (3 ngày làm việc từ khi công bố). */
+export function canRequestReview(reviewDeadline: string | null | undefined, requestedAt: string | null | undefined, now: Dayjs = dayjs()) {
+  return !requestedAt && !!reviewDeadline && dayjs(reviewDeadline).isAfter(now);
+}
+
+/** Gọn cho ô nhỏ: 3.150.000 → "3,2tr", 850.000 → "850k". */
+export function fCompactVnd(value: number): string {
+  if (value >= 1_000_000) return `${(Math.round(value / 100_000) / 10).toLocaleString('vi-VN')}tr`;
+  if (value >= 1_000) return `${Math.round(value / 1_000)}k`;
+  return `${Math.round(value)}đ`;
+}

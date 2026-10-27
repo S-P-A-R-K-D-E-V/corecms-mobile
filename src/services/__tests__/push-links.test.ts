@@ -1,4 +1,4 @@
-import { inspectionPushRoute, onlineOrderWebUrl } from '../push-links';
+import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl } from '../push-links';
 
 // Push "đơn online đã thanh toán" → trang Đơn online trên web của cửa hàng đang gắn.
 
@@ -51,5 +51,18 @@ describe('inspectionPushRoute', () => {
     expect(inspectionPushRoute(paid)).toBeNull();
     expect(inspectionPushRoute({ category: 'Shift' })).toBeNull();
     expect(inspectionPushRoute(null)).toBeNull();
+  });
+});
+
+// Push nhân sự (category "Hr") → màn Nhân sự; loại khác không đổi hướng.
+describe('hrPushRoute', () => {
+  it('push Hr → /hr, cả dạng chuỗi JSON của Android', () => {
+    expect(hrPushRoute({ category: 'Hr', storeCode: 'cici' })).toBe('/hr');
+    expect(hrPushRoute(JSON.stringify({ category: 'Hr' }))).toBe('/hr');
+  });
+
+  it('loại khác → null', () => {
+    expect(hrPushRoute({ category: 'Shift' })).toBeNull();
+    expect(hrPushRoute(null)).toBeNull();
   });
 });

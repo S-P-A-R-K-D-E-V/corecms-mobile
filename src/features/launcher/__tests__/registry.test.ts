@@ -226,3 +226,18 @@ describe('kiểm tra cửa hàng', () => {
     expect(keys(staff)).not.toContain('inspection');
   });
 });
+
+// Nhân sự: phần của nhân viên đi theo gói phân ca như core-be (RequireFeature workforce.shift-scheduling).
+describe('nhân sự', () => {
+  const keys = (u: any) => availableFeatures(u, featureContext(u)).map((f) => f.key);
+
+  it('cửa hàng có phân ca: mọi vai trò đều thấy', () => {
+    for (const u of [staff, manager, owner]) {
+      expect(keys({ ...u, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] })).toContain('hr');
+    }
+  });
+
+  it('gói không có phân ca → ẩn', () => {
+    expect(keys({ ...staff, enabledFeatures: [] })).not.toContain('hr');
+  });
+});
