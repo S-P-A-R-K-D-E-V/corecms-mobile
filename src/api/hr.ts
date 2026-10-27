@@ -8,6 +8,7 @@ import type {
   IPolicyDocument,
   IPerformanceScore,
   IEmploymentContract,
+  ISupportShiftOpening,
 } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
@@ -101,5 +102,28 @@ export async function getMyContracts(): Promise<IEmploymentContract[]> {
 
 export async function requestPerformanceReview(id: string, note: string): Promise<IPerformanceScore> {
   const response = await axios.post<IPerformanceScore>(endpoints.hr.reviewRequest(id), { note });
+  return response.data;
+}
+
+// ── Ca hỗ trợ mở trên chợ ca ───────────────────────────────────────────
+
+/** Ca hỗ trợ từ hôm nay tới 14 ngày tới (mặc định của BE). */
+export async function getSupportShifts(): Promise<ISupportShiftOpening[]> {
+  const response = await axios.get<ISupportShiftOpening[]>(endpoints.hr.supportShifts);
+  return response.data;
+}
+
+export async function claimSupportShift(id: string): Promise<ISupportShiftOpening> {
+  const response = await axios.post<ISupportShiftOpening>(endpoints.hr.supportShiftClaim(id), { note: null });
+  return response.data;
+}
+
+export async function withdrawSupportClaim(claimId: string): Promise<ISupportShiftOpening> {
+  const response = await axios.put<ISupportShiftOpening>(endpoints.hr.supportClaimWithdraw(claimId));
+  return response.data;
+}
+
+export async function reviewSupportClaim(claimId: string, approve: boolean, note?: string): Promise<ISupportShiftOpening> {
+  const response = await axios.put<ISupportShiftOpening>(endpoints.hr.supportClaimReview(claimId), { approve, note: note || null });
   return response.data;
 }

@@ -213,3 +213,41 @@ export interface IEmploymentContract {
   terminatedOn?: string | null;
   files: { id: string; url: string; contentType: string; uploadedAt: string }[];
 }
+
+// ── Ca hỗ trợ mở trên chợ ca ─────────────────────────────────────────────
+
+export type SupportShiftOpeningStatus = 'Open' | 'Filled' | 'Cancelled';
+export type SupportShiftClaimStatus = 'Pending' | 'Approved' | 'Rejected' | 'Withdrawn';
+
+export const SUPPORT_CLAIM_STATUS_LABEL: Record<SupportShiftClaimStatus, string> = {
+  Pending: 'Chờ duyệt',
+  Approved: 'Đã duyệt',
+  Rejected: 'Từ chối',
+  Withdrawn: 'Đã rút',
+};
+
+export interface ISupportShiftClaim {
+  id: string;
+  staffId: string;
+  staffName: string;
+  status: SupportShiftClaimStatus;
+  note?: string | null;
+  reviewNote?: string | null;
+  createdAt: string;
+}
+
+/** Người không có quyền xếp ca chỉ nhận về đơn của chính mình trong `claims`. */
+export interface ISupportShiftOpening {
+  id: string;
+  shiftName: string;
+  startTime: string;
+  endTime: string;
+  date: string;
+  slots: number;
+  approvedCount: number;
+  note?: string | null;
+  status: SupportShiftOpeningStatus;
+  fixedHourlyRate?: number | null;
+  minimumPaidHours?: number | null;
+  claims: ISupportShiftClaim[];
+}

@@ -12,9 +12,13 @@ import { getOpenPoolPosts, getMyPoolPosts, getMyClaims, claimShiftPoolPost, canc
 import { useAuthContext } from 'src/auth/auth-context';
 import { extractApiError } from 'src/services/error';
 import type { IShiftPoolPost } from 'src/types/corecms-api';
+import type { ISupportShiftClaim, ISupportShiftOpening } from 'src/types/hr';
+import { claimSupportShift, getSupportShifts, reviewSupportClaim, withdrawSupportClaim } from 'src/api/hr';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
+import { SupportShiftCard } from './SupportShiftCard';
 import { NEED_TYPE_LABEL, PARTIAL_SIDE_LABEL, POOL_STATUS_LABEL, POOL_STATUS_TONE, fmtMoney } from 'src/features/schedule/constants';
 
-type Tab = 'open' | 'mine' | 'claims';
+type Tab = 'open' | 'support' | 'mine' | 'claims';
 
 export function ShiftPoolScreen() {
   const insets = useSafeAreaInsets();
@@ -23,6 +27,8 @@ export function ShiftPoolScreen() {
   const [open, setOpen] = useState<IShiftPoolPost[]>([]);
   const [mine, setMine] = useState<IShiftPoolPost[]>([]);
   const [claims, setClaims] = useState<IShiftPoolPost[]>([]);
+  const [support, setSupport] = useState<ISupportShiftOpening[]>([]);
+  const canManage = hasPermission(user, PERMISSIONS.shift.assignmentManage);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -33,6 +39,8 @@ export function ShiftPoolScreen() {
       setOpen(o.filter((p) => p.posterId !== user?.id));
       setMine(m);
       setClaims(c);
+      // Ca hỗ trợ tải riêng: lỗi ở đây không làm hỏng chợ ca.
+      setSupport(await getSupportShifts().catch(() => []));
     } catch {
       toast.error('Không thể tải dữ liệu chợ ca.');
     } finally {
@@ -89,7 +97,24 @@ export function ShiftPoolScreen() {
     }
   }
 
+  async function onClaimSupport(o: ISupportShiftOpening) {
+    const ok = await confirm({
+      title: 'Nhận ca hỗ trợ',
+      message: `Nhận ${o.shiftName} ${o.startTime.slice(0, 5)}–${o.endTime.slice(0, 5)} ngày ${dayjs(o.date).format('DD/MM')}? Quản lý duyệt xong, ca vào lịch của bạn.`,
+      confirmText: 'Nhận',
+    });
+    if (ok) run(() => claimSupportShift(o.id));
+  }
+
+  async function onWithdrawSupport(claim: ISupportShiftClaim) {
+    const ok = await confirm({ title: 'Rút đơn', message: 'Rút đơn nhận ca hỗ trợ này?', confirmText: 'Rút đơn', destructive: true });
+    if (ok) run(() => withdrawSupportClaim(claim.id));
+  }
+
   const data = tab === 'open' ? open : tab === 'mine' ? mine : claims;
+  // Nhân viên chỉ cần ca còn nhận người hoặc ca mình đã nhận; quản lý thấy cả ca đã đủ / đã huỷ.
+  const supportList = canManage ? support : support.filter((o) => o.status === 'Open' || o.claims.length > 0);
+  const openSupport = support.filter((o) => o.status === 'Open').length;
 
   return (
     <View className="flex-1 bg-bg dark:bg-bg-dark" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
@@ -101,6 +126,7 @@ export function ShiftPoolScreen() {
           onChange={(k) => setTab(k as Tab)}
           segments={[
             { key: 'open', label: `Chợ ca (${open.length})` },
+            { key: 'support', label: `Hỗ trợ (${openSupport})` },
             { key: 'mine', label: `Tôi đăng (${mine.length})` },
             { key: 'claims', label: `Tôi nhận (${claims.length})` },
           ]}
@@ -109,6 +135,34 @@ export function ShiftPoolScreen() {
 
       {loading ? (
         <Loading />
+      ) : tab === 'support' ? (
+        <RefreshFlatList
+          data={supportList}
+          keyExtractor={(i) => i.id}
+          contentContainerClassName="px-4 pb-24 gap-3"
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); fetchData(); }}
+          renderItem={({ item, index }) => (
+            <Appear index={Math.min(index, 8)}>
+              <SupportShiftCard
+                opening={item}
+                userId={user?.id}
+                canManage={canManage}
+                busy={busy}
+                onClaim={onClaimSupport}
+                onWithdraw={onWithdrawSupport}
+                onReview={(c, approve, note) => run(() => reviewSupportClaim(c.id, approve, note))}
+              />
+            </Appear>
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon="account-clock-outline"
+              title="Chưa có ca hỗ trợ nào"
+              description="Khi đông khách, quản lý đăng ca hỗ trợ ở đây — ai rảnh thì nhận. Tối đa 10 ca hỗ trợ / tháng."
+            />
+          }
+        />
       ) : (
         <RefreshFlatList
           data={data}
