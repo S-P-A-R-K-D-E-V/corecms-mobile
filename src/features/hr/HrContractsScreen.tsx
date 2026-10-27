@@ -42,7 +42,7 @@ function ContractCard({ contract: c }: { contract: IEmploymentContract }) {
   const [open, setOpen] = useState(false);
   return (
     <SectionCard
-      title={`Hợp đồng số ${c.contractNumber ?? ''}`}
+      title={c.contractNumber ? `Hợp đồng số ${c.contractNumber}` : CONTRACT_TYPE_LABEL[c.contractType]}
       right={<Badge tone={STATUS_TONE[c.status]}>{CONTRACT_STATUS_LABEL[c.status]}</Badge>}
       bodyClassName="pt-0 gap-2"
     >
