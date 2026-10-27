@@ -7,6 +7,7 @@ import { Text, Button, Badge } from 'src/components/ui';
 import { confirm, toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { openInAppBrowser } from 'src/features/assistant/links';
+import { getStorageUrl } from 'src/api/axios';
 import { acknowledgePolicyDocument, getPolicyDocuments } from 'src/api/hr';
 import type { IPolicyDocument } from 'src/types/hr';
 
@@ -32,6 +33,16 @@ function DocumentCard({ doc, onAcknowledge }: { doc: IPolicyDocument; onAcknowle
         {doc.acknowledgedAt ? ` · bạn xác nhận ${dayjs(doc.acknowledgedAt).format('HH:mm DD/MM')}` : ''}
       </Text>
       {doc.summary ? <Text variant="bodySmall">{doc.summary}</Text> : null}
+      {doc.fileUrl ? (
+        <Button
+          size="sm"
+          variant="outline"
+          icon={doc.fileContentType === 'application/pdf' ? 'file-pdf-box' : 'image-outline'}
+          onPress={() => openInAppBrowser(getStorageUrl(doc.fileUrl))}
+        >
+          Mở tệp văn bản
+        </Button>
+      ) : null}
       {doc.url ? (
         <Button size="sm" variant="outline" icon="open-in-new" onPress={() => openInAppBrowser(doc.url!)}>
           Đọc văn bản đầy đủ

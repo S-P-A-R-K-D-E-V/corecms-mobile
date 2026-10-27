@@ -34,6 +34,10 @@ export interface IPolicyDocument {
   version: number;
   url?: string | null;
   summary?: string | null;
+  fileName?: string | null;
+  fileContentType?: string | null;
+  /** Link có chữ ký tới tệp văn bản ở kho riêng tư. */
+  fileUrl?: string | null;
   isActive: boolean;
   publishedAt: string;
   acknowledgedAt?: string | null;
