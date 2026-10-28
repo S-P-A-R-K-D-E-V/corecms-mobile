@@ -10,6 +10,7 @@ import { softShadow, brand } from 'src/theme';
 import type { IPayrollShiftItem } from 'src/types/corecms-api';
 import { useMyPayroll, usePayrollShiftDetails, fmtMoney } from './hooks';
 import { PenaltyDetailSheet } from './PenaltyDetailSheet';
+import { PayrollComplaintCard } from './PayrollComplaintCard';
 
 // Nhãn hiển thị cho đối chiếu đổi ca/làm hộ — khớp đúng danh sách trên core-fe
 // (src/components/shift-cross-check-badge).
@@ -241,6 +242,8 @@ export function PayrollDetailScreen() {
           </View>
         </SectionCard>
       ) : null}
+
+      {rec ? <PayrollComplaintCard payrollRecordId={rec.id} /> : null}
 
       <SectionCard title="Chi tiết ca làm" icon="calendar-clock" bodyClassName="pt-0">
         {isLoading ? (

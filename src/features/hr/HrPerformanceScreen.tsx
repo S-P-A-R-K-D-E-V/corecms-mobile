@@ -7,7 +7,7 @@ import { Screen, AppHeader, SectionCard, Sheet } from 'src/components/shared';
 import { Text, Button, Badge, TextField, SegmentedControl } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
-import { getMyPerformance, getMyWeeklyBonus, getPerformanceMonth, requestPerformanceReview } from 'src/api/hr';
+import { getMyBonusPrograms, getMyPerformance, getMyWeeklyBonus, getPerformanceMonth, requestPerformanceReview } from 'src/api/hr';
 import { getMyCurrentEstimate } from 'src/api/home';
 import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
@@ -172,6 +172,41 @@ function WeeklyBonusCard() {
   );
 }
 
+/** Thưởng theo đơn (hoa hồng đơn online…) của tháng này và tháng trước — ẩn khi cửa hàng chưa có chương trình nào. */
+function BonusProgramsCard() {
+  const months = [dayjs().startOf('month'), dayjs().subtract(1, 'month').startOf('month')].map((m) => m.format('YYYY-MM-DD'));
+  // Backend cũ chưa có /bonus-programs → coi như không có chương trình.
+  const q = useQuery({
+    queryKey: ['hr', 'bonus-programs', months[0]],
+    queryFn: async () => (await Promise.all(months.map((m) => getMyBonusPrograms(m).catch(() => [])))).flat(),
+  });
+  const rows = q.data ?? [];
+  if (rows.length === 0) return null;
+  return (
+    <SectionCard title="Thưởng theo đơn" bodyClassName="pt-0 gap-1.5">
+      <Text variant="caption" tone="muted">
+        Đơn được tính khi hết hạn đổi trả, trả vào lương kỳ cuối tháng. Đơn không có người chốt chia cho người đang làm ca lúc bán.
+      </Text>
+      {rows.map((r) => (
+        <View key={`${r.programId}-${r.month}`} className="flex-row items-center justify-between gap-2">
+          <View className="flex-1">
+            <Text variant="bodySmall">{r.name}</Text>
+            <Text variant="caption" tone="muted">
+              Tháng {dayjs(r.month).format('MM/YYYY')} · {r.orders} đơn
+            </Text>
+          </View>
+          <View className="items-end">
+            <Text variant="bodySmall" className="font-semibold">{fVnd(r.amount)}</Text>
+            <Badge tone={r.paidAmount > 0 ? 'success' : 'neutral'}>
+              {r.paidAmount >= r.amount ? 'Vào lương' : r.paidAmount > 0 ? `Vào lương ${fVnd(r.paidAmount)}` : 'Tính thử'}
+            </Badge>
+          </View>
+        </View>
+      ))}
+    </SectionCard>
+  );
+}
+
 /** Điểm 6 tháng gần nhất dạng thanh ngang (thang 0–100). */
 function ScoreTrend({ scores }: { scores: IPerformanceScore[] }) {
   const recent = [...scores].sort((a, b) => a.month.localeCompare(b.month)).slice(-6);
@@ -299,6 +334,7 @@ export function HrPerformanceScreen() {
         <>
           <EarningsCard />
           <WeeklyBonusCard />
+          <BonusProgramsCard />
           <ScoreTrend scores={list} />
           <Text variant="caption" tone="muted">
             Điểm dùng để xếp lịch tham khảo, không quyết định thứ tự đăng ký ca. Xếp loại tính theo tỷ lệ đạt target của các ca

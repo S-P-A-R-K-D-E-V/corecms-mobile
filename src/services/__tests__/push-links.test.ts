@@ -1,4 +1,4 @@
-import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl } from '../push-links';
+import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl, stockCheckPushRoute } from '../push-links';
 
 // Push "đơn online đã thanh toán" → trang Đơn online trên web của cửa hàng đang gắn.
 
@@ -64,5 +64,18 @@ describe('hrPushRoute', () => {
   it('loại khác → null', () => {
     expect(hrPushRoute({ category: 'Shift' })).toBeNull();
     expect(hrPushRoute(null)).toBeNull();
+  });
+});
+
+// Push kiểm hàng ca (data.type "shift-stock-check") → màn Kiểm hàng ca.
+describe('stockCheckPushRoute', () => {
+  it('push kiểm hàng ca → /hr/stock-check', () => {
+    expect(stockCheckPushRoute({ type: 'shift-stock-check', checkId: 'k1' })).toBe('/hr/stock-check');
+    expect(stockCheckPushRoute(JSON.stringify({ type: 'shift-stock-check' }))).toBe('/hr/stock-check');
+  });
+
+  it('loại khác → null', () => {
+    expect(stockCheckPushRoute({ type: 'inspection-fault' })).toBeNull();
+    expect(stockCheckPushRoute(undefined)).toBeNull();
   });
 });

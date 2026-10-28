@@ -292,3 +292,90 @@ export interface IPerformanceMonth {
   publishedAt?: string | null;
   scores: IStaffPerformanceScore[];
 }
+
+// ── Khiếu nại phiếu lương (Quy chế Điều 12.3) ───────────────────────────
+
+export type PayrollComplaintStatus = 'Pending' | 'Accepted' | 'Rejected' | 'Withdrawn';
+
+export const PAYROLL_COMPLAINT_STATUS_LABEL: Record<PayrollComplaintStatus, string> = {
+  Pending: 'Chờ trả lời',
+  Accepted: 'Có sai sót',
+  Rejected: 'Phiếu đúng',
+  Withdrawn: 'Đã rút',
+};
+
+export interface IPayrollComplaint {
+  id: string;
+  payrollRecordId: string;
+  fromDate: string;
+  toDate: string;
+  content: string;
+  status: PayrollComplaintStatus;
+  replyDueOn: string;
+  isOverdue: boolean;
+  reply?: string | null;
+  repliedAt?: string | null;
+  createdAt: string;
+}
+
+export interface IPayrollComplaintWindow {
+  receivedOn: string;
+  deadline: string;
+  isOpen: boolean;
+  pendingComplaintId?: string | null;
+}
+
+// ── Chương trình thưởng theo đơn (Quy chế Điều 4, 14a.4) ────────────────
+
+export interface IMyBonusProgram {
+  programId: string;
+  name: string;
+  mode: 'PercentOfRevenue' | 'FixedPerOrder' | 'PercentByCategory';
+  month: string;
+  orders: number;
+  amount: number;
+  paidOrders: number;
+  paidAmount: number;
+}
+
+// ── Kiểm hàng khu vực mỗi ca (Quy chế Điều 24.3) ────────────────────────
+
+export type ShiftStockCheckStatus = 'Draft' | 'Pending' | 'Completed' | 'Cancelled';
+
+export const SHIFT_STOCK_CHECK_STATUS_LABEL: Record<ShiftStockCheckStatus, string> = {
+  Draft: 'Chưa nộp',
+  Pending: 'Đã nộp',
+  Completed: 'Quản lý đã xem',
+  Cancelled: 'Đã huỷ',
+};
+
+export interface IShiftStockCheckLine {
+  lineId: string;
+  productId: string;
+  productCode: string;
+  productName: string;
+  unit?: string | null;
+  countedQuantity?: number | null;
+  /** Tồn máy — null khi đếm mù (nhân viên). */
+  systemQuantity?: number | null;
+  /** Đếm − máy (âm = thiếu) — chỉ quản lý thấy. */
+  variance?: number | null;
+}
+
+export interface IShiftStockCheck {
+  id: string;
+  code: string;
+  areaName: string;
+  title?: string | null;
+  shiftDate?: string | null;
+  status: ShiftStockCheckStatus;
+  dueAt?: string | null;
+  isOverdue: boolean;
+  submittedByName?: string | null;
+  reviewedByName?: string | null;
+  blind: boolean;
+  totalLines: number;
+  countedLines: number;
+  varianceLines?: number | null;
+  lines?: IShiftStockCheckLine[] | null;
+}
