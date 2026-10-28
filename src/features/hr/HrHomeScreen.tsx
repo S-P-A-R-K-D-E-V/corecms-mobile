@@ -35,7 +35,7 @@ export function HrHomeScreen() {
           icon="calendar-remove-outline"
           iconTone="primary"
           title="Xin nghỉ ca"
-          subtitle={counts.leaves > 0 ? `${counts.leaves} đơn chờ duyệt` : 'Báo trước ít nhất 24 giờ'}
+          subtitle={counts.leaves > 0 ? `${counts.leaves} đơn chờ duyệt` : 'Xin nghỉ một ca đã xếp'}
           right={<Count n={counts.leaves} />}
           onPress={() => router.push('/hr/leave' as any)}
           showChevron

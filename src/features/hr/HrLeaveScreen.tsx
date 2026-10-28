@@ -11,10 +11,11 @@ import { getMySchedule } from 'src/api/schedule';
 import { cancelShiftLeave, createShiftLeave, getMyShiftLeaves } from 'src/api/hr';
 import { SHIFT_LEAVE_STATUS_LABEL, type IShiftLeave, type ShiftLeaveStatus } from 'src/types/hr';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
-import { LEAVE_NOTICE_HOURS, hoursUntilShift, leaveCandidates } from './hr-rules';
+import { hoursUntilShift, leaveCandidates } from './hr-rules';
+import { useActiveHrRules } from './hooks';
 
 // ----------------------------------------------------------------------
-// Xin nghỉ một ca đã xếp (Nội quy Điều 7): báo trước ít nhất 24 giờ; ốm đau / việc gia đình khẩn cấp thì đánh dấu khẩn
+// Xin nghỉ một ca đã xếp: báo trước theo luật của cửa hàng (trống = không yêu cầu); ốm đau / việc gia đình khẩn cấp thì đánh dấu khẩn
 // cấp và ghi rõ lý do. Đơn được duyệt thì ca được gỡ khỏi lịch, không tính vắng.
 // ----------------------------------------------------------------------
 
@@ -38,7 +39,7 @@ function LeaveCard({ leave, onCancel }: { leave: IShiftLeave; onCancel: () => vo
       <Text variant="bodySmall">{leave.reason}</Text>
       <View className="flex-row gap-1.5">
         {leave.isEmergency ? <Badge tone="error">Khẩn cấp</Badge> : null}
-        {leave.isLateNotice ? <Badge tone="warning">Báo dưới 24 giờ</Badge> : null}
+        {leave.isLateNotice ? <Badge tone="warning">Báo muộn</Badge> : null}
       </View>
       {leave.reviewNote ? <Text variant="caption" tone="muted">Ghi chú duyệt: {leave.reviewNote}</Text> : null}
       {leave.status === 'Pending' ? (
@@ -51,6 +52,7 @@ function LeaveCard({ leave, onCancel }: { leave: IShiftLeave; onCancel: () => vo
 }
 
 function CreateSheet({ visible, onClose, onDone }: { visible: boolean; onClose: () => void; onDone: () => void }) {
+  const noticeHours = useActiveHrRules()?.leaveMinNoticeHours ?? null;
   const [picked, setPicked] = useState<IMyScheduleItem | null>(null);
   const [reason, setReason] = useState('');
   const [emergency, setEmergency] = useState(false);
@@ -64,7 +66,7 @@ function CreateSheet({ visible, onClose, onDone }: { visible: boolean; onClose: 
     enabled: visible,
   });
   const shifts = useMemo(() => leaveCandidates(schedule.data ?? []), [schedule.data]);
-  const lateNotice = !!picked && hoursUntilShift(picked.date, picked.startTime) < LEAVE_NOTICE_HOURS;
+  const lateNotice = !!picked && noticeHours != null && hoursUntilShift(picked.date, picked.startTime) < noticeHours;
 
   function close() {
     setPicked(null);
@@ -97,7 +99,7 @@ function CreateSheet({ visible, onClose, onDone }: { visible: boolean; onClose: 
       onClose={busy ? () => {} : close}
       footer={
         <Button loading={busy} disabled={busy || !picked || !reason.trim() || (lateNotice && !emergency)} onPress={submit}>
-          {lateNotice && !emergency ? 'Dưới 24 giờ — cần đánh dấu khẩn cấp' : 'Gửi đơn'}
+          {lateNotice && !emergency ? `Dưới ${noticeHours} giờ — cần đánh dấu khẩn cấp` : 'Gửi đơn'}
         </Button>
       }
     >
@@ -123,7 +125,7 @@ function CreateSheet({ visible, onClose, onDone }: { visible: boolean; onClose: 
         })}
         {lateNotice ? (
           <Text variant="caption" tone="warning" className="font-semibold">
-            Còn dưới 24 giờ tới giờ ca. Chỉ xin được khi ốm đau hoặc việc gia đình khẩn cấp — đánh dấu khẩn cấp và ghi rõ lý do.
+            Còn dưới {noticeHours} giờ tới giờ ca. Chỉ xin được khi ốm đau hoặc việc gia đình khẩn cấp — đánh dấu khẩn cấp và ghi rõ lý do.
           </Text>
         ) : null}
         <TextField label="Lý do" placeholder="Vd: ốm, việc gia đình…" value={reason} onChangeText={setReason} multiline />
@@ -141,6 +143,7 @@ function CreateSheet({ visible, onClose, onDone }: { visible: boolean; onClose: 
 
 export function HrLeaveScreen() {
   const qc = useQueryClient();
+  const noticeHours = useActiveHrRules()?.leaveMinNoticeHours ?? null;
   const [creating, setCreating] = useState(false);
   const query = useQuery({ queryKey: ['hr', 'leave'], queryFn: getMyShiftLeaves });
   const list = query.data ?? [];
@@ -159,7 +162,7 @@ export function HrLeaveScreen() {
     <Screen scroll refreshing={query.isFetching} onRefresh={query.refetch}>
       <AppHeader title="Xin nghỉ ca" back />
       <Text variant="caption" tone="muted">
-        Xin nghỉ ca đã xếp phải báo trước ít nhất 24 giờ và được duyệt. Được duyệt thì ca được gỡ khỏi lịch, không tính vắng.
+        {noticeHours ? `Xin nghỉ ca đã xếp phải báo trước ít nhất ${noticeHours} giờ và được duyệt.` : 'Xin nghỉ ca đã xếp cần được duyệt.'} Được duyệt thì ca được gỡ khỏi lịch, không tính vắng.
       </Text>
       <Button icon="calendar-remove-outline" onPress={() => setCreating(true)}>
         Xin nghỉ một ca

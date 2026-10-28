@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 
-import { getMyHrRecords, getMyShiftLeaves, getMyShiftStockChecks, getMyWorkTasks, getPolicyDocuments } from 'src/api/hr';
+import {
+  getActiveHrRules,
+  getMyHrRecords,
+  getMyShiftLeaves,
+  getMyShiftStockChecks,
+  getMyWorkTasks,
+  getPolicyDocuments,
+} from 'src/api/hr';
 
 /**
  * Việc nhân sự đang chờ mình: văn bản chưa xác nhận, biên bản chờ ký, nhiệm vụ cần nộp, đơn nghỉ chờ duyệt, phiếu kiểm hàng ca
@@ -27,4 +34,10 @@ export function useHrPendingCounts(enabled = true) {
     refetch: () => Promise.all([policies.refetch(), records.refetch(), tasks.refetch(), leaves.refetch(), stockChecks.refetch()]),
     isFetching: policies.isFetching || records.isFetching || tasks.isFetching || leaves.isFetching || stockChecks.isFetching,
   };
+}
+
+/** Luật nhân sự đang bật của cửa hàng (ít đổi — giữ 10 phút). null = chưa tải / backend cũ. */
+export function useActiveHrRules() {
+  const query = useQuery({ queryKey: ['hr', 'rules'], queryFn: getActiveHrRules, staleTime: 600_000 });
+  return query.data ?? null;
 }

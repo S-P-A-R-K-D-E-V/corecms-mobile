@@ -14,10 +14,11 @@ import {
   withdrawPayrollComplaint,
 } from 'src/api/hr';
 import { PAYROLL_COMPLAINT_STATUS_LABEL, type IPayrollComplaint, type PayrollComplaintStatus } from 'src/types/hr';
+import { useActiveHrRules } from 'src/features/hr/hooks';
 
 // ----------------------------------------------------------------------
-// Khiếu nại phiếu lương (Quy chế Điều 12.3): trong 3 ngày làm việc kể từ ngày nhận phiếu (không tính Chủ nhật); quản lý trả
-// lời trong 3 ngày làm việc. Có sai sót thì bảng lương được tính lại — khiếu nại không tự đổi tiền.
+// Khiếu nại phiếu lương: trong hạn cửa hàng đặt (Cấu hình luật) kể từ ngày nhận phiếu (không tính Chủ nhật); quản lý trả
+// lời trong cùng hạn. Cửa hàng tắt khiếu nại thì không hiện thẻ. Có sai sót thì bảng lương được tính lại — khiếu nại không tự đổi tiền.
 // ----------------------------------------------------------------------
 
 const STATUS_TONE: Record<PayrollComplaintStatus, 'warning' | 'info' | 'success' | 'neutral'> = {
@@ -53,6 +54,7 @@ function ComplaintRow({ c, onWithdraw, busy }: { c: IPayrollComplaint; onWithdra
 
 /** Thẻ khiếu nại trên màn Chi tiết lương: nút gửi (khi còn hạn) + các khiếu nại của phiếu này. */
 export function PayrollComplaintCard({ payrollRecordId }: { payrollRecordId: string }) {
+  const rules = useActiveHrRules();
   const qc = useQueryClient();
   // Backend cũ chưa có /payroll-complaints, hoặc phiếu chưa gửi cho nhân viên → ẩn thẻ.
   const windowQuery = useQuery({
@@ -69,7 +71,9 @@ export function PayrollComplaintCard({ payrollRecordId }: { payrollRecordId: str
 
   const win = windowQuery.data;
   const mine = (mineQuery.data ?? []).filter((c) => c.payrollRecordId === payrollRecordId);
-  if (!win && mine.length === 0) return null;
+  // Cửa hàng không bật khiếu nại phiếu lương: chỉ còn hiện khiếu nại cũ (nếu có).
+  const complaintsOff = rules != null && rules.complaintWorkingDays == null;
+  if ((!win || complaintsOff) && mine.length === 0) return null;
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['payroll', 'complaint-window', payrollRecordId] });
@@ -80,7 +84,7 @@ export function PayrollComplaintCard({ payrollRecordId }: { payrollRecordId: str
     setBusy('file');
     try {
       await filePayrollComplaint(payrollRecordId, text.trim());
-      toast.success('Đã gửi khiếu nại — quản lý trả lời trong 3 ngày làm việc.');
+      toast.success('Đã gửi khiếu nại — quản lý sẽ trả lời.');
       setOpen(false);
       setText('');
       refresh();
@@ -108,10 +112,10 @@ export function PayrollComplaintCard({ payrollRecordId }: { payrollRecordId: str
 
   return (
     <SectionCard title="Khiếu nại phiếu lương" icon="message-alert-outline" bodyClassName="pt-0 gap-2">
-      {win ? (
+      {win && !complaintsOff ? (
         <Text variant="caption" tone="muted">
           {win.isOpen
-            ? `Thấy sai sót? Gửi khiếu nại đến hết ngày ${dayjs(win.deadline).format('DD/MM')} (3 ngày làm việc kể từ ngày nhận phiếu).`
+            ? `Thấy sai sót? Gửi khiếu nại đến hết ngày ${dayjs(win.deadline).format('DD/MM')}.`
             : `Đã hết hạn khiếu nại (${dayjs(win.deadline).format('DD/MM')}) — trao đổi trực tiếp với quản lý.`}
         </Text>
       ) : null}

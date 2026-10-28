@@ -159,7 +159,7 @@ export function ShiftPoolScreen() {
             <EmptyState
               icon="account-clock-outline"
               title="Chưa có ca hỗ trợ nào"
-              description="Khi đông khách, quản lý đăng ca hỗ trợ ở đây — ai rảnh thì nhận. Tối đa 10 ca hỗ trợ / tháng."
+              description="Khi đông khách, quản lý đăng ca hỗ trợ ở đây — ai rảnh thì nhận."
             />
           }
         />
