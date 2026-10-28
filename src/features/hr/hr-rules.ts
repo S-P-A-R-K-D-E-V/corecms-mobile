@@ -54,3 +54,21 @@ export function fCompactVnd(value: number): string {
   if (value >= 1_000) return `${Math.round(value / 1_000)}k`;
   return `${Math.round(value)}đ`;
 }
+
+/** Số đếm nhập tay: "" → null (xoá số đếm), số ≥ 0 (dấu phẩy thập phân được) → số, còn lại → undefined (sai). */
+export function parseCount(text: string): number | null | undefined {
+  const t = text.trim().replace(',', '.');
+  if (t === '') return null;
+  const n = Number(t);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+/** Dòng phiếu kiểm ca có ô nhập khác số đã lưu — gửi lên khi lưu / nộp (quantity undefined = nhập sai). */
+export function changedCounts(
+  lines: { lineId: string; countedQuantity?: number | null }[],
+  texts: Record<string, string>,
+): { lineId: string; quantity: number | null | undefined }[] {
+  return lines
+    .filter((l) => (texts[l.lineId] ?? '') !== (l.countedQuantity == null ? '' : String(l.countedQuantity)))
+    .map((l) => ({ lineId: l.lineId, quantity: parseCount(texts[l.lineId] ?? '') }));
+}

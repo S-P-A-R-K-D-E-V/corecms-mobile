@@ -446,6 +446,18 @@ export const endpoints = {
     supportShiftClaim: (id: string) => `/support-shifts/${id}/claims`,
     supportClaimWithdraw: (claimId: string) => `/support-shifts/claims/${claimId}/withdraw`,
     supportClaimReview: (claimId: string) => `/support-shifts/claims/${claimId}/review`,
+    // Khiếu nại phiếu lương (Quy chế Đ12.3): gửi / rút trong 3 ngày làm việc.
+    complaintsMine: '/payroll-complaints/mine',
+    complaints: '/payroll-complaints',
+    complaintWindow: (payrollRecordId: string) => `/payroll-complaints/window/${payrollRecordId}`,
+    complaintWithdraw: (id: string) => `/payroll-complaints/${id}/withdraw`,
+    // Chương trình thưởng theo đơn — phần của tôi.
+    bonusProgramsMine: '/bonus-programs/mine',
+    // Kiểm hàng khu vực mỗi ca: người làm ca đếm mù + nộp; quản lý (stocktake.read) xem lệch, xác nhận đã xem.
+    stockChecksMine: '/shift-stock-checks/mine',
+    stockCheckCounts: (id: string) => `/shift-stock-checks/${id}/counts`,
+    stockCheckSubmit: (id: string) => `/shift-stock-checks/${id}/submit`,
+    stockCheckReview: (id: string) => `/shift-stock-checks/${id}/review`,
   },
   // ── ERP trên app: hàng hoá, hoá đơn, nhập hàng, bán hàng ──
   products: {

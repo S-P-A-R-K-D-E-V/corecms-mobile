@@ -59,6 +59,15 @@ export function HrHomeScreen() {
           showChevron
         />
         <ListItem
+          icon="clipboard-check-outline"
+          iconTone="warning"
+          title="Kiểm hàng ca"
+          subtitle={counts.stockChecks > 0 ? `${counts.stockChecks} phiếu cần đếm hôm nay` : 'Đếm khu hàng của ca mình'}
+          right={<Count n={counts.stockChecks} tone="error" />}
+          onPress={() => router.push('/hr/stock-check' as any)}
+          showChevron
+        />
+        <ListItem
           icon="chart-line"
           iconTone="info"
           title="Điểm, lương & thưởng"

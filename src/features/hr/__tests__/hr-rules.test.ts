@@ -1,6 +1,15 @@
 import dayjs from 'dayjs';
 
-import { canRequestReview, fCompactVnd, fVnd, hoursUntilShift, leaveCandidates, slotTargetFor } from '../hr-rules';
+import {
+  canRequestReview,
+  changedCounts,
+  fCompactVnd,
+  fVnd,
+  hoursUntilShift,
+  leaveCandidates,
+  parseCount,
+  slotTargetFor,
+} from '../hr-rules';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
 import type { ISalesTarget } from 'src/types/hr';
 
@@ -83,5 +92,27 @@ describe('nội dung hợp đồng trên app', () => {
     const text = readableBody('Điều 9. Thi hành\n[[NGAT_TRANG]]\n[[CHU_KY]]');
     expect(text).not.toContain('[[');
     expect(text).toContain('NGƯỜI SỬ DỤNG LAO ĐỘNG');
+  });
+});
+
+describe('kiểm hàng ca: số đếm', () => {
+  it('ô trống = xoá số đếm, dấu phẩy thập phân, số âm / chữ là sai', () => {
+    expect(parseCount('')).toBeNull();
+    expect(parseCount(' 4 ')).toBe(4);
+    expect(parseCount('1,5')).toBe(1.5);
+    expect(parseCount('-1')).toBeUndefined();
+    expect(parseCount('abc')).toBeUndefined();
+  });
+
+  it('chỉ gửi dòng có ô nhập khác số đã lưu', () => {
+    const lines = [
+      { lineId: 'a', countedQuantity: 4 },
+      { lineId: 'b', countedQuantity: null },
+      { lineId: 'c', countedQuantity: 2 },
+    ];
+    expect(changedCounts(lines, { a: '4', b: '3', c: '' })).toEqual([
+      { lineId: 'b', quantity: 3 },
+      { lineId: 'c', quantity: null },
+    ]);
   });
 });

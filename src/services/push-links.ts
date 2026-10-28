@@ -30,6 +30,11 @@ export function inspectionPushRoute(data: unknown): string | null {
   }
 }
 
+/** Push kiểm hàng khu vực mỗi ca (core-be ShiftStockCheck: data.type "shift-stock-check") → màn Kiểm hàng ca. Loại khác → null. */
+export function stockCheckPushRoute(data: unknown): string | null {
+  return pushDataRecord(data).type === 'shift-stock-check' ? '/hr/stock-check' : null;
+}
+
 /**
  * Push nhân sự (core-be NotificationCategory.Hr: văn bản cần xác nhận, nhiệm vụ, biên bản, kết quả tháng) → màn Nhân sự.
  * Push chỉ mang loại thông báo (không mang link), nên mở màn tổng có đếm việc cần làm. Loại khác → null.

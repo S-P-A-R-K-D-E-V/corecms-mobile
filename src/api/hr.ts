@@ -12,6 +12,10 @@ import type {
   ICompensation,
   IMyWeeklyBonus,
   IPerformanceMonth,
+  IPayrollComplaint,
+  IPayrollComplaintWindow,
+  IMyBonusProgram,
+  IShiftStockCheck,
 } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
@@ -146,5 +150,63 @@ export async function getMyWeeklyBonus(from: string, to: string): Promise<IMyWee
 /** [Quản lý] Điểm từng người của một tháng (yyyy-MM-01). */
 export async function getPerformanceMonth(month: string): Promise<IPerformanceMonth> {
   const response = await axios.get<IPerformanceMonth>(endpoints.hr.performanceMonth, { params: { month } });
+  return response.data;
+}
+
+// ── Khiếu nại phiếu lương (Quy chế Điều 12.3) ───────────────────────────
+
+export async function getMyPayrollComplaints(): Promise<IPayrollComplaint[]> {
+  const response = await axios.get<IPayrollComplaint[]>(endpoints.hr.complaintsMine);
+  return response.data;
+}
+
+export async function getPayrollComplaintWindow(payrollRecordId: string): Promise<IPayrollComplaintWindow> {
+  const response = await axios.get<IPayrollComplaintWindow>(endpoints.hr.complaintWindow(payrollRecordId));
+  return response.data;
+}
+
+export async function filePayrollComplaint(payrollRecordId: string, content: string): Promise<IPayrollComplaint> {
+  const response = await axios.post<IPayrollComplaint>(endpoints.hr.complaints, { payrollRecordId, content });
+  return response.data;
+}
+
+export async function withdrawPayrollComplaint(id: string): Promise<IPayrollComplaint> {
+  const response = await axios.put<IPayrollComplaint>(endpoints.hr.complaintWithdraw(id));
+  return response.data;
+}
+
+// ── Chương trình thưởng theo đơn ────────────────────────────────────────
+
+/** Phần của tôi trong các chương trình đang bật, tháng của `month` (yyyy-MM-dd; mặc định tháng này). */
+export async function getMyBonusPrograms(month?: string): Promise<IMyBonusProgram[]> {
+  const response = await axios.get<IMyBonusProgram[]>(endpoints.hr.bonusProgramsMine, { params: { month } });
+  return response.data;
+}
+
+// ── Kiểm hàng khu vực mỗi ca ────────────────────────────────────────────
+
+/** Phiếu của các ca hôm nay mà tôi làm (quản lý: mọi phiếu hôm nay, có tồn máy + lệch). */
+export async function getMyShiftStockChecks(): Promise<IShiftStockCheck[]> {
+  const response = await axios.get<IShiftStockCheck[]>(endpoints.hr.stockChecksMine);
+  return response.data;
+}
+
+/** quantity = null → xoá số đếm của dòng. */
+export async function saveShiftStockCounts(
+  id: string,
+  entries: { lineId: string; quantity: number | null }[],
+): Promise<IShiftStockCheck> {
+  const response = await axios.put<IShiftStockCheck>(endpoints.hr.stockCheckCounts(id), { entries });
+  return response.data;
+}
+
+export async function submitShiftStockCheck(id: string): Promise<IShiftStockCheck> {
+  const response = await axios.post<IShiftStockCheck>(endpoints.hr.stockCheckSubmit(id));
+  return response.data;
+}
+
+/** [Quản lý] Đã xem (phiếu đã nộp) / huỷ. */
+export async function reviewShiftStockCheck(id: string, action: 'acknowledge' | 'cancel'): Promise<IShiftStockCheck> {
+  const response = await axios.post<IShiftStockCheck>(endpoints.hr.stockCheckReview(id), { action });
   return response.data;
 }
