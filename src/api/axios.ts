@@ -428,7 +428,6 @@ export const endpoints = {
     policyAcknowledge: (id: string) => `/policy-documents/${id}/acknowledge`,
     targets: '/sales-targets',
     tasksMine: '/work-tasks/mine',
-    taskInitiative: '/work-tasks/initiative',
     taskPresign: (id: string) => `/work-tasks/${id}/photos/presign`,
     taskSubmit: (id: string) => `/work-tasks/${id}/submit`,
     recordsMine: '/hr-records/mine',

@@ -12,7 +12,10 @@ import { getMyCleaningChecklist, completeCleaningTask, type CleaningPhotoFile } 
 import { imagePickerQuality, pickedImage, prepareAttachment } from 'src/features/chat/attachment-prepare';
 import type { ICleaningTaskInstance, CleaningTaskStatus } from 'src/types/corecms-api';
 import { cleaningVideoFile, firstRejectedCleaningMedia, isAcceptedCleaningMedia } from './cleaning-media';
+import { AssignedTasksSection } from './AssignedTasksSection';
 
+// ----------------------------------------------------------------------
+// Việc của tôi: việc theo ca của ngày (ai làm ca đó đều thấy, xong thì gửi ảnh, quản lý chấm) + việc giao riêng cho tôi.
 // ----------------------------------------------------------------------
 
 const MAX_PHOTOS = 5;
@@ -196,7 +199,7 @@ export function CleaningChecklistScreen() {
     setSubmitting(true);
     try {
       await completeCleaningTask(pickerTask.id, pendingPhotos);
-      toast.success('Đã ghi nhận hoàn thành, chờ Quản lý chấm điểm.');
+      toast.success('Đã ghi nhận xong, chờ quản lý chấm.');
       closePicker();
       qc.invalidateQueries({ queryKey: ['cleaning', 'my-checklist'] });
     } catch (err: any) {
@@ -207,8 +210,16 @@ export function CleaningChecklistScreen() {
   }
 
   return (
-    <Screen scroll refreshing={isFetching} onRefresh={refetch}>
-      <AppHeader title="Checklist vệ sinh" back />
+    <Screen
+      scroll
+      refreshing={isFetching}
+      onRefresh={() => {
+        refetch();
+        qc.invalidateQueries({ queryKey: ['hr', 'tasks'] });
+      }}
+    >
+      <AppHeader title="Việc của tôi" back />
+      <Text variant="subtitle">Việc theo ca</Text>
 
       <View className="flex-row items-center justify-between gap-2 py-1">
         <Pressable
@@ -229,13 +240,13 @@ export function CleaningChecklistScreen() {
       {isError ? (
         <View className="py-10 items-center gap-3">
           <Text variant="bodySmall" tone="error">
-            Không tải được checklist vệ sinh: {extractApiError(error)}
+            Không tải được việc theo ca: {extractApiError(error)}
           </Text>
           <Button size="sm" variant="outline" onPress={() => refetch()}>Thử lại</Button>
         </View>
       ) : shifts.length === 0 ? (
         <View className="py-10 items-center">
-          <Text variant="bodySmall" tone="muted">Không có checklist vệ sinh cho ca nào trong ngày này.</Text>
+          <Text variant="bodySmall" tone="muted">Không có việc theo ca nào trong ngày này.</Text>
         </View>
       ) : (
         shifts.map((shift) => (
@@ -259,6 +270,8 @@ export function CleaningChecklistScreen() {
           </SectionCard>
         ))
       )}
+
+      <AssignedTasksSection />
 
       <Sheet
         visible={!!pickerTask}

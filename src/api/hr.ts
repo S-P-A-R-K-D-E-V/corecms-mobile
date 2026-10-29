@@ -60,14 +60,9 @@ export async function getMyWorkTasks(month?: string): Promise<IWorkTask[]> {
   return response.data;
 }
 
-export async function createInitiative(title: string, description: string): Promise<IWorkTask> {
-  const response = await axios.post<IWorkTask>(endpoints.hr.taskInitiative, { title, description });
-  return response.data;
-}
-
 export type LocalPhoto = { uri: string; type: string };
 
-/** Tải một ảnh trên máy lên kho riêng tư của nhiệm vụ, trả object key. */
+/** Tải một ảnh trên máy lên kho riêng tư của việc giao riêng, trả object key. */
 export async function uploadWorkTaskPhoto(taskId: string, photo: LocalPhoto): Promise<string> {
   const presign = await axios.post<{ objectKey: string; uploadUrl: string }[]>(endpoints.hr.taskPresign(taskId), {
     files: [{ contentType: photo.type }],

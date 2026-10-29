@@ -46,7 +46,7 @@ export function CleaningChecklistSummaryCard() {
         <Icon name="broom" size={20} tone="primary" />
       </View>
       <View className="flex-1">
-        <Text className="font-semibold text-[14px]">Checklist vệ sinh ca này</Text>
+        <Text className="font-semibold text-[14px]">Việc theo ca này</Text>
         <Text variant="caption" tone="muted">
           {doneCount}/{tasks.length} đầu việc đã xong
           {failedCount > 0 ? ` · ${failedCount} không đạt` : ''}

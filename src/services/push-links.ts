@@ -36,7 +36,20 @@ export function stockCheckPushRoute(data: unknown): string | null {
 }
 
 /**
- * Push nhân sự (core-be NotificationCategory.Hr: văn bản cần xác nhận, nhiệm vụ, biên bản, kết quả tháng) → màn Nhân sự.
+ * Push việc được giao (core-be NotificationCategory.Cleaning) → màn trong app. Người chấm (data.type "cleaning-review": việc
+ * theo ca đã làm xong) → Theo dõi việc theo ca; người duyệt việc giao riêng ("work-task-review") duyệt trên web → không mở
+ * màn nào; còn lại (việc mới, kết quả duyệt / chấm, phạt) → Việc của tôi. Loại khác → null.
+ */
+export function workPushRoute(data: unknown): string | null {
+  const d = pushDataRecord(data);
+  if (d.category !== 'Cleaning') return null;
+  if (d.type === 'cleaning-review') return '/manage/cleaning';
+  if (d.type === 'work-task-review') return null;
+  return '/cleaning';
+}
+
+/**
+ * Push nhân sự (core-be NotificationCategory.Hr: văn bản cần xác nhận, biên bản, kết quả tháng) → màn Nhân sự.
  * Push chỉ mang loại thông báo (không mang link), nên mở màn tổng có đếm việc cần làm. Loại khác → null.
  */
 export function hrPushRoute(data: unknown): string | null {
