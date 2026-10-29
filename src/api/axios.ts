@@ -451,6 +451,14 @@ export const endpoints = {
     contract: (id: string) => `/employment-contracts/${id}`,
     contractSign: (id: string) => `/employment-contracts/${id}/sign`,
     compensationsMine: '/hr-compensations/mine',
+    // Vi phạm & điểm trừ (chỉ điểm, không có tiền): của tôi + khiếu nại; quản lý xem điểm cả cửa hàng và ghi tay.
+    violationsMine: '/hr-violations/mine',
+    violationComplaint: (id: string) => `/hr-violations/${id}/complaint`,
+    violationCatalog: '/hr-violations/catalog',
+    violationSummary: '/hr-violations/summary',
+    violations: '/hr-violations',
+    violationCancel: (id: string) => `/hr-violations/${id}/cancel`,
+    violationPolicy: '/hr-violations/policy',
     // Ca hỗ trợ mở trên chợ ca: ai cũng nhận / rút; quản lý (shift.assignment.manage) duyệt được trên app.
     supportShifts: '/support-shifts',
     supportShiftClaim: (id: string) => `/support-shifts/${id}/claims`,

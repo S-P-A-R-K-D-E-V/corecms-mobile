@@ -131,7 +131,13 @@ export const PERMISSIONS = {
     delete: 'user.delete',
   },
   /** Nhân sự — quản lý xem hiệu suất từng người (mặc định Admin + Quản lý). */
-  hr: { performanceRead: 'hr.performance.read' },
+  hr: {
+    performanceRead: 'hr.performance.read',
+    /** Ghi / huỷ vi phạm theo danh mục điểm trừ, xem điểm trừ của mọi người (mặc định Admin + Quản lý). */
+    violationManage: 'hr.violation.manage',
+    /** Luật nhân sự của cửa hàng (chỉ Admin) — trên app: bật / tắt tính điểm trừ vào thưởng tuần. */
+    ruleManage: 'hr.rule.manage',
+  },
 } as const;
 
 const A = PERMISSIONS.analytics;

@@ -277,6 +277,10 @@ export interface IMyWeeklyBonus {
   totalHours: number;
   myAmount: number;
   paidInPayroll: boolean;
+  /** Phần chia theo giờ trước khi áp điểm trừ; trống = cửa hàng không áp điểm trừ vào thưởng. */
+  baseAmount?: number | null;
+  appliedPct?: number | null;
+  deductionPoints?: number | null;
 }
 
 /** Điểm một người trong tháng (quản lý xem). */
@@ -404,4 +408,86 @@ export interface ISignContractRequest {
   width: number;
   height: number;
   agree: true;
+}
+
+// ── Vi phạm & điểm trừ (/hr-violations) — chỉ có điểm, không có khoản tiền ─────────────
+
+export type ViolationComponent = 'Discipline' | 'Reconciliation';
+export type ViolationEntryStatus = 'Active' | 'Disputed' | 'Cancelled';
+
+export const VIOLATION_STATUS_LABEL: Record<ViolationEntryStatus, string> = {
+  Active: 'Đang tính',
+  Disputed: 'Đang khiếu nại',
+  Cancelled: 'Đã huỷ',
+};
+
+export interface IViolationPolicy {
+  effectiveFrom: string;
+  halfBonusFromPoints?: number | null;
+  halfBonusPct?: number | null;
+  noBonusFromPoints?: number | null;
+  notCompleteFromPoints?: number | null;
+  updatedAt?: string;
+  /** Bật: thưởng doanh số tuần nhận theo % của ngưỡng điểm trừ. */
+  appliesToBonus?: boolean;
+}
+
+export interface IViolationRule {
+  id: string;
+  groupName: string;
+  name: string;
+  points: number;
+  autoSource: string;
+  extraAction?: string | null;
+  isActive: boolean;
+}
+
+export interface IViolationEntry {
+  id: string;
+  userId: string;
+  fullName: string;
+  occurredOn: string;
+  shiftName?: string | null;
+  quantity: number;
+  points: number;
+  ruleName: string;
+  groupName: string;
+  component: ViolationComponent;
+  losesWeeklyBonus: boolean;
+  losesMonthlyBonus: boolean;
+  note?: string | null;
+  isAuto: boolean;
+  status: ViolationEntryStatus;
+  complaintText?: string | null;
+  complainedAt?: string | null;
+  resolutionNote?: string | null;
+  complaintDeadline?: string | null;
+}
+
+export interface IViolationSummary {
+  userId: string;
+  fullName: string;
+  points: number;
+  disciplinePoints: number;
+  reconciliationPoints: number;
+  count: number;
+  disputed: number;
+  /** % thưởng doanh số tuần theo ngưỡng; null = cửa hàng không đặt ngưỡng. */
+  weeklyBonusPct?: number | null;
+  notComplete: boolean;
+  losesMonthlyBonus: boolean;
+  weeksWithoutBonus: string[];
+}
+
+export interface IMyViolations {
+  month: string;
+  policy: IViolationPolicy | null;
+  summary: IViolationSummary;
+  entries: IViolationEntry[];
+}
+
+export interface IViolationMonth {
+  month: string;
+  policy: IViolationPolicy | null;
+  rows: IViolationSummary[];
 }

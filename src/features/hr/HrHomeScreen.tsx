@@ -1,5 +1,9 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+
+import { getMyViolations } from 'src/api/hr';
+import { monthOf } from './hr-rules';
 
 import { Screen, AppHeader, SectionCard, ListItem } from 'src/components/shared';
 import { Text, CountBadge } from 'src/components/ui';
@@ -17,6 +21,13 @@ function Count({ n, tone = 'primary' }: { n: number; tone?: 'primary' | 'error' 
 
 export function HrHomeScreen() {
   const counts = useHrPendingCounts();
+  // Bản backend cũ chưa có /hr-violations → hiện dòng mô tả.
+  const month = monthOf();
+  const myViolations = useQuery({
+    queryKey: ['hr', 'violations', 'mine', month],
+    queryFn: () => getMyViolations(month),
+    retry: false,
+  });
 
   return (
     <Screen scroll refreshing={counts.isFetching} onRefresh={counts.refetch}>
@@ -56,6 +67,18 @@ export function HrHomeScreen() {
           subtitle={counts.records > 0 ? `${counts.records} biên bản chờ ký` : 'Không có biên bản chờ ký'}
           right={<Count n={counts.records} tone="error" />}
           onPress={() => router.push('/hr/records' as any)}
+          showChevron
+        />
+        <ListItem
+          icon="alert-circle-outline"
+          iconTone="error"
+          title="Vi phạm & điểm trừ"
+          subtitle={
+            myViolations.data
+              ? `Tháng này trừ ${myViolations.data.summary.points} điểm · ${myViolations.data.summary.count} lần`
+              : 'Điểm trừ của tôi, khiếu nại'
+          }
+          onPress={() => router.push('/hr/violations' as any)}
           showChevron
         />
         <ListItem

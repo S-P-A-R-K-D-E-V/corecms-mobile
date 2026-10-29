@@ -9,9 +9,12 @@ import {
   leaveCandidates,
   parseCount,
   slotTargetFor,
+  monthOf,
+  bonusText,
+  canComplain,
 } from '../hr-rules';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
-import type { ISalesTarget } from 'src/types/hr';
+import type { ISalesTarget, IViolationEntry } from 'src/types/hr';
 
 // Phần thuần của các màn Nhân sự: luật báo trước 24 giờ (Nội quy Điều 7), ca xin nghỉ được, target một ca (Quy chế Điều
 // 9), hạn đề nghị xem xét lại (Điều 20).
@@ -114,5 +117,45 @@ describe('kiểm hàng ca: số đếm', () => {
       { lineId: 'b', quantity: 3 },
       { lineId: 'c', quantity: null },
     ]);
+  });
+});
+
+// Vi phạm & điểm trừ: mức thưởng tuần theo tổng điểm trừ, hạn khiếu nại.
+describe('điểm trừ', () => {
+  const entry = (over: Partial<IViolationEntry> = {}): IViolationEntry => ({
+    id: 'e1',
+    userId: 'lan',
+    fullName: 'Lan',
+    occurredOn: '2026-11-02',
+    quantity: 1,
+    points: 4,
+    ruleName: 'Đi muộn trên 15 phút',
+    groupName: 'Giờ giấc',
+    component: 'Discipline',
+    losesWeeklyBonus: false,
+    losesMonthlyBonus: false,
+    isAuto: true,
+    status: 'Active',
+    complaintDeadline: '2026-11-06',
+    ...over,
+  });
+
+  it('monthOf lấy ngày đầu tháng', () => {
+    expect(monthOf(dayjs('2026-11-17'))).toBe('2026-11-01');
+  });
+
+  it('bonusText theo ngưỡng; không đặt ngưỡng thì không hiện', () => {
+    expect(bonusText({ weeklyBonusPct: null, notComplete: false, losesMonthlyBonus: false })).toBeNull();
+    expect(bonusText({ weeklyBonusPct: 100, notComplete: false, losesMonthlyBonus: false })).toBe('Nhận đủ thưởng tuần');
+    expect(bonusText({ weeklyBonusPct: 50, notComplete: false, losesMonthlyBonus: false })).toBe('Nhận 50% thưởng tuần');
+    expect(bonusText({ weeklyBonusPct: 0, notComplete: true, losesMonthlyBonus: false })).toBe('Không nhận thưởng · Không hoàn thành');
+  });
+
+  it('canComplain: đang tính, chưa khiếu nại, trong hạn', () => {
+    expect(canComplain(entry(), '2026-11-06')).toBe(true);
+    expect(canComplain(entry(), '2026-11-07')).toBe(false);
+    expect(canComplain(entry({ complaintDeadline: null }), '2027-01-01')).toBe(true);
+    expect(canComplain(entry({ complainedAt: '2026-11-03T00:00:00Z' }), '2026-11-04')).toBe(false);
+    expect(canComplain(entry({ status: 'Cancelled' }), '2026-11-04')).toBe(false);
   });
 });
