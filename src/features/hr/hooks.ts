@@ -2,16 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 
 import {
   getActiveHrRules,
+  getMyContracts,
   getMyHrRecords,
   getMyShiftLeaves,
   getMyShiftStockChecks,
   getMyWorkTasks,
   getPolicyDocuments,
 } from 'src/api/hr';
+import { awaitingMySignature } from './contract-text';
 
 /**
  * Việc nhân sự đang chờ mình: văn bản chưa xác nhận, biên bản chờ ký, nhiệm vụ cần nộp, đơn nghỉ chờ duyệt, phiếu kiểm hàng ca
- * hôm nay chưa nộp.
+ * hôm nay chưa nộp. Hợp đồng đã chốt chờ mình ký.
  */
 export function useHrPendingCounts(enabled = true) {
   const policies = useQuery({ queryKey: ['hr', 'policies', 'pending'], queryFn: () => getPolicyDocuments(true), enabled, staleTime: 60_000 });
@@ -25,14 +27,24 @@ export function useHrPendingCounts(enabled = true) {
     enabled,
     staleTime: 60_000,
   });
+  // Cửa hàng không bật hợp đồng / backend cũ → coi như không có hợp đồng chờ ký.
+  const contracts = useQuery({
+    queryKey: ['hr', 'contracts'],
+    queryFn: () => getMyContracts().catch(() => []),
+    enabled,
+    staleTime: 60_000,
+  });
   return {
     policies: policies.data?.length ?? 0,
     records: (records.data ?? []).filter((r) => r.status === 'AwaitingSignature').length,
     tasks: (tasks.data ?? []).filter((t) => t.status === 'Assigned' || t.status === 'Rejected').length,
     leaves: (leaves.data ?? []).filter((l) => l.status === 'Pending').length,
     stockChecks: (stockChecks.data ?? []).filter((c) => c.status === 'Draft' && c.blind).length,
-    refetch: () => Promise.all([policies.refetch(), records.refetch(), tasks.refetch(), leaves.refetch(), stockChecks.refetch()]),
-    isFetching: policies.isFetching || records.isFetching || tasks.isFetching || leaves.isFetching || stockChecks.isFetching,
+    contracts: (contracts.data ?? []).filter(awaitingMySignature).length,
+    refetch: () =>
+      Promise.all([policies.refetch(), records.refetch(), tasks.refetch(), leaves.refetch(), stockChecks.refetch(), contracts.refetch()]),
+    isFetching:
+      policies.isFetching || records.isFetching || tasks.isFetching || leaves.isFetching || stockChecks.isFetching || contracts.isFetching,
   };
 }
 

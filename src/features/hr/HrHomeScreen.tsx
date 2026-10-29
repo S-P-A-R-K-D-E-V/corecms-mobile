@@ -7,7 +7,7 @@ import { useHrPendingCounts } from './hooks';
 
 // ----------------------------------------------------------------------
 // Nhân sự (phần của nhân viên): xin nghỉ ca, văn bản cần đọc và xác nhận, nhiệm vụ + phiếu sáng kiến, biên bản cần ký,
-// điểm & xếp loại đã công bố, hợp đồng của tôi (chỉ xem). Quản lý duyệt / giao / lập biên bản / tính điểm / soạn hợp
+// điểm & xếp loại đã công bố, hợp đồng của tôi (đọc và ký). Quản lý duyệt / giao / lập biên bản / tính điểm / soạn hợp
 // đồng trên web.
 // ----------------------------------------------------------------------
 
@@ -79,7 +79,8 @@ export function HrHomeScreen() {
           icon="file-document-outline"
           iconTone="primary"
           title="Hợp đồng của tôi"
-          subtitle="Xem hợp đồng và bản đã ký"
+          subtitle={counts.contracts > 0 ? `${counts.contracts} hợp đồng chờ bạn ký` : 'Xem và ký hợp đồng'}
+          right={<Count n={counts.contracts} tone="error" />}
           onPress={() => router.push('/hr/contracts' as any)}
           showChevron
         />

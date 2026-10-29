@@ -9,6 +9,7 @@ import type {
   IPolicyDocument,
   IPerformanceScore,
   IEmploymentContract,
+  ISignContractRequest,
   ISupportShiftOpening,
   ICompensation,
   IMyWeeklyBonus,
@@ -97,9 +98,15 @@ export async function getMyPerformance(): Promise<IPerformanceScore[]> {
   return response.data;
 }
 
-/** Hợp đồng lao động của tôi — chỉ xem (Admin soạn, in, ký giấy và tải bản ký trên web). */
+/** Hợp đồng lao động của tôi (Admin soạn trên web; nhân viên đọc và ký trên app / web). */
 export async function getMyContracts(): Promise<IEmploymentContract[]> {
   const response = await axios.get<IEmploymentContract[]>(endpoints.hr.contractsMine);
+  return response.data;
+}
+
+/** Nhân viên ký hợp đồng đang chờ ký: nét vẽ chữ ký (server tự dựng SVG) + đồng ý lời cam kết. */
+export async function signContract(id: string, body: ISignContractRequest): Promise<IEmploymentContract> {
+  const response = await axios.post<IEmploymentContract>(endpoints.hr.contractSign(id), body);
   return response.data;
 }
 
