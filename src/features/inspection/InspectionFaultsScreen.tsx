@@ -25,7 +25,7 @@ type Tab = 'open' | 'month' | 'all';
 
 const fmt = (iso: string | null) => (iso ? dayjs(iso).format('HH:mm DD/MM') : '');
 
-function FaultCard({ fault, canFix, onFix }: { fault: IInspectionFault; canFix: boolean; onFix: () => void }) {
+export function FaultCard({ fault, canFix, onFix }: { fault: IInspectionFault; canFix: boolean; onFix: () => void }) {
   return (
     <SectionCard
       title={`${fault.itemCode} · ${fault.itemTitle}`}
@@ -61,7 +61,7 @@ function FaultCard({ fault, canFix, onFix }: { fault: IInspectionFault; canFix: 
   );
 }
 
-function FixSheet({ fault, onClose, onDone }: { fault: IInspectionFault | null; onClose: () => void; onDone: () => void }) {
+export function FixSheet({ fault, onClose, onDone }: { fault: IInspectionFault | null; onClose: () => void; onDone: () => void }) {
   const [note, setNote] = useState('');
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const [busy, setBusy] = useState<string | null>(null);

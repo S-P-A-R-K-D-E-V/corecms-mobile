@@ -4,7 +4,13 @@ import { Image, View } from 'react-native';
 import { Text, Badge, Icon, Pressable, cn } from 'src/components/ui';
 import { getStorageUrl } from 'src/api/axios';
 import { ImageViewer } from 'src/features/chat/ImageViewer';
-import { INSPECTION_OUTCOME_LABEL, type IInspectionPhoto, type InspectionLevel, type InspectionOutcome } from 'src/types/inspection';
+import {
+  INSPECTION_OUTCOME_LABEL,
+  type IInspectionPhoto,
+  type IShiftWorkPhoto,
+  type InspectionLevel,
+  type InspectionOutcome,
+} from 'src/types/inspection';
 import type { DraftPhoto } from './inspection-draft';
 
 // ----------------------------------------------------------------------
@@ -65,6 +71,10 @@ export function OutcomeButtons({
     </View>
   );
 }
+
+/** Ảnh việc nhân viên đã làm trong ca → dạng PhotoStrip đọc được (chỉ dùng url). */
+export const toStripPhotos = (photos: readonly IShiftWorkPhoto[]): IInspectionPhoto[] =>
+  photos.map((p) => ({ id: p.id, url: p.url, uploadedAt: p.uploadedAt, kind: 'Fault' as const }));
 
 /** Ảnh đã lên server + ảnh trên máy chưa gửi; chạm để xem to, ảnh trên máy có nút bỏ. */
 export function PhotoStrip({

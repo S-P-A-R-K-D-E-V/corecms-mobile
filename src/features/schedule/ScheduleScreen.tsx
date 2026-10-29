@@ -440,8 +440,8 @@ export function ScheduleScreen() {
         >
           Đăng ký ca
         </Button>
-        <Button size="sm" variant="outline" icon="broom" onPress={() => router.push('/cleaning' as any)}>
-          Việc theo ca
+        <Button size="sm" variant="outline" icon="checkbox-marked-circle-outline" onPress={() => router.push('/cleaning' as any)}>
+          Công việc
         </Button>
       </View>
       {/* 7-day agenda */}

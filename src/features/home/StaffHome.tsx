@@ -11,7 +11,8 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { isAdminUser } from 'src/auth/roles';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { t } from 'src/i18n';
-import type { ICleaningTaskInstance, IMyScheduleItem } from 'src/types/corecms-api';
+import type { IMyScheduleItem } from 'src/types/corecms-api';
+import { todayWorkRows } from 'src/features/work/work-rows';
 
 import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { SHIFT_SCHEDULING_FEATURE } from 'src/features/launcher/registry';
@@ -31,6 +32,7 @@ import {
   usePeriodReport,
   usePeriodSchedule,
   useTodayCleaning,
+  useTodayShiftWork,
   useUpcomingSchedule,
 } from './hooks';
 
@@ -173,7 +175,7 @@ function TodayShiftCard() {
   );
 }
 
-// ── Việc vệ sinh hôm nay ────────────────────────────────────────────────
+// ── Việc trong ca hôm nay (hạng mục tự làm + việc theo lịch cũ) ─────────────
 
 const TASK_ICON: Record<string, { icon: IconName; tone: 'faint' | 'success' | 'error' | 'primary' }> = {
   Pending: { icon: 'checkbox-blank-circle-outline', tone: 'faint' },
@@ -183,9 +185,10 @@ const TASK_ICON: Record<string, { icon: IconName; tone: 'faint' | 'success' | 'e
 };
 
 function CleaningTasksCard() {
-  const { data, isError } = useTodayCleaning();
-  const tasks: ICleaningTaskInstance[] = (data ?? []).flatMap((s) => s.tasks);
-  if (isError || tasks.length === 0) return null;
+  const legacy = useTodayCleaning();
+  const work = useTodayShiftWork();
+  const tasks = todayWorkRows(work.data, legacy.data);
+  if (tasks.length === 0) return null;
 
   const done = tasks.filter((x) => x.status !== 'Pending').length;
   const pct = Math.round((done / tasks.length) * 100);
@@ -196,7 +199,7 @@ function CleaningTasksCard() {
     <Pressable onPress={() => router.push('/cleaning' as any)}>
       <SectionCard
         title={t('home.cleaningToday')}
-        icon="broom"
+        icon="checkbox-marked-circle-outline"
         right={
           <Text variant="caption" tone={done === tasks.length ? 'success' : 'muted'} className="font-semibold">
             {t('home.cleaningProgress', { done, total: tasks.length })}
@@ -402,7 +405,7 @@ export function StaffHome() {
 
   const onRefresh = () =>
     qc.invalidateQueries(
-      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'inspection', 'admin', 'notifications'].includes(q.queryKey[0] as string) },
+      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'shift-work', 'corrective-actions', 'inspection', 'admin', 'notifications'].includes(q.queryKey[0] as string) },
       { throwOnError: true }
     );
 
