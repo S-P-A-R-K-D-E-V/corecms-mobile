@@ -6,6 +6,7 @@ import type {
   IViolationRule,
   IViolationEntry,
   IViolationMonth,
+  IViolationPolicy,
   IHrRecord,
   IShiftLeave,
   IWorkTask,
@@ -268,5 +269,18 @@ export async function createViolations(body: {
 
 export async function cancelViolation(id: string, note: string): Promise<IViolationEntry> {
   const response = await axios.put<IViolationEntry>(endpoints.hr.violationCancel(id), { note });
+  return response.data;
+}
+
+/** Cách tính điểm trừ (Admin, hr.rule.manage) — app chỉ dùng để bật / tắt nhanh "tính vào thưởng tuần". */
+export async function saveViolationPolicy(policy: IViolationPolicy, appliesToBonus: boolean): Promise<IViolationPolicy> {
+  const response = await axios.put<IViolationPolicy>(endpoints.hr.violationPolicy, {
+    effectiveFrom: policy.effectiveFrom,
+    halfBonusFromPoints: policy.halfBonusFromPoints ?? null,
+    halfBonusPct: policy.halfBonusPct ?? null,
+    noBonusFromPoints: policy.noBonusFromPoints ?? null,
+    notCompleteFromPoints: policy.notCompleteFromPoints ?? null,
+    appliesToBonus,
+  });
   return response.data;
 }

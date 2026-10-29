@@ -458,6 +458,7 @@ export const endpoints = {
     violationSummary: '/hr-violations/summary',
     violations: '/hr-violations',
     violationCancel: (id: string) => `/hr-violations/${id}/cancel`,
+    violationPolicy: '/hr-violations/policy',
     // Ca hỗ trợ mở trên chợ ca: ai cũng nhận / rút; quản lý (shift.assignment.manage) duyệt được trên app.
     supportShifts: '/support-shifts',
     supportShiftClaim: (id: string) => `/support-shifts/${id}/claims`,

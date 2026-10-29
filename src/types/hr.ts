@@ -277,6 +277,10 @@ export interface IMyWeeklyBonus {
   totalHours: number;
   myAmount: number;
   paidInPayroll: boolean;
+  /** Phần chia theo giờ trước khi áp điểm trừ; trống = cửa hàng không áp điểm trừ vào thưởng. */
+  baseAmount?: number | null;
+  appliedPct?: number | null;
+  deductionPoints?: number | null;
 }
 
 /** Điểm một người trong tháng (quản lý xem). */
@@ -423,6 +427,9 @@ export interface IViolationPolicy {
   halfBonusPct?: number | null;
   noBonusFromPoints?: number | null;
   notCompleteFromPoints?: number | null;
+  updatedAt?: string;
+  /** Bật: thưởng doanh số tuần nhận theo % của ngưỡng điểm trừ. */
+  appliesToBonus?: boolean;
 }
 
 export interface IViolationRule {

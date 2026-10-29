@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { Switch, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
@@ -15,12 +15,14 @@ import {
   getViolationRules,
   getViolations,
   getViolationSummary,
+  saveViolationPolicy,
 } from 'src/api/hr';
 import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import {
   VIOLATION_STATUS_LABEL,
   type IViolationEntry,
+  type IViolationPolicy,
   type IViolationRule,
   type IViolationSummary,
   type ViolationEntryStatus,
@@ -60,8 +62,45 @@ function MonthSwitch({ month, onChange }: { month: string; onChange: (m: string)
   );
 }
 
-function SummaryBlock({ summary }: { summary: IViolationSummary }) {
-  const bonus = bonusText(summary);
+/** Mức thưởng theo điểm trừ, kèm ghi chú khi cửa hàng chưa bật tính vào thưởng. */
+function bonusWithState(s: IViolationSummary, policy: IViolationPolicy | null | undefined): string | null {
+  const label = bonusText(s);
+  if (!label) return null;
+  return policy?.appliesToBonus ? label : `${label} (chưa tính vào thưởng)`;
+}
+
+/** Bật / tắt nhanh tính điểm trừ vào thưởng tuần (Admin). */
+function BonusToggle({ policy, onChanged }: { policy: IViolationPolicy; onChanged: () => void }) {
+  const [busy, setBusy] = useState(false);
+  async function toggle(on: boolean) {
+    setBusy(true);
+    try {
+      await saveViolationPolicy(policy, on);
+      toast.success(on ? 'Đã bật: thưởng tuần nhận theo điểm trừ.' : 'Đã tắt: điểm trừ chỉ để xem.');
+      onChanged();
+    } catch (err) {
+      toast.error(extractApiError(err), 'Chưa lưu được');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <SectionCard title="Thưởng doanh số tuần" bodyClassName="pt-0 gap-1">
+      <View className="flex-row items-center gap-3">
+        <View className="flex-1">
+          <Text variant="bodySmall" className="font-semibold">Tính điểm trừ vào thưởng tuần</Text>
+          <Text variant="caption" tone="muted">
+            Bật: mỗi người nhận % thưởng tuần theo điểm trừ của tháng; phần không nhận chia lại cho người nhận đủ.
+          </Text>
+        </View>
+        <Switch value={!!policy.appliesToBonus} disabled={busy} onValueChange={toggle} accessibilityLabel="Tính điểm trừ vào thưởng tuần" />
+      </View>
+    </SectionCard>
+  );
+}
+
+function SummaryBlock({ summary, policy }: { summary: IViolationSummary; policy: IViolationPolicy | null }) {
+  const bonus = bonusWithState(summary, policy);
   return (
     <SectionCard title="Điểm trừ tháng này" bodyClassName="pt-0 gap-1.5">
       <View className="flex-row items-end gap-2">
@@ -200,7 +239,7 @@ function MineTab({ month }: { month: string }) {
 
   return (
     <>
-      <SummaryBlock summary={summary} />
+      <SummaryBlock summary={summary} policy={query.data.policy} />
       {entries.length === 0 ? (
         <View className="py-6 items-center">
           <Text variant="bodySmall" tone="muted">Tháng này bạn không bị trừ điểm nào.</Text>
@@ -340,7 +379,7 @@ function CreateSheet({
   );
 }
 
-function TeamTab({ month, canManage }: { month: string; canManage: boolean }) {
+function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage: boolean; canEditPolicy: boolean }) {
   const qc = useQueryClient();
   const summaryQuery = useQuery({ queryKey: ['hr', 'violations', 'summary', month], queryFn: () => getViolationSummary(month) });
   const entriesQuery = useQuery({ queryKey: ['hr', 'violations', 'list', month], queryFn: () => getViolations(month) });
@@ -376,6 +415,7 @@ function TeamTab({ month, canManage }: { month: string; canManage: boolean }) {
 
   return (
     <>
+      {canEditPolicy && summaryQuery.data?.policy ? <BonusToggle policy={summaryQuery.data.policy} onChanged={refresh} /> : null}
       {canManage && summaryQuery.data?.policy ? (
         <Button icon="plus" onPress={() => setCreating(true)}>Ghi vi phạm</Button>
       ) : null}
@@ -393,7 +433,7 @@ function TeamTab({ month, canManage }: { month: string; canManage: boolean }) {
               <Text variant="bodySmall" className={selected === r.userId ? 'font-bold' : 'font-medium'}>{r.fullName}</Text>
               <Text variant="caption" tone="muted">
                 {r.count} lần{r.disputed > 0 ? ` · ${r.disputed} khiếu nại` : ''}
-                {bonusText(r) ? ` · ${bonusText(r)}` : ''}
+                {bonusWithState(r, summaryQuery.data?.policy) ? ` · ${bonusWithState(r, summaryQuery.data?.policy)}` : ''}
               </Text>
             </View>
             <Text variant="body" className="font-bold" tone={r.points > 0 ? 'error' : 'muted'}>{r.points}</Text>
@@ -433,6 +473,7 @@ export function HrViolationsScreen() {
   const { user } = useAuthContext();
   const canManage = hasPermission(user, PERMISSIONS.hr.violationManage);
   const canSeeTeam = canManage || hasPermission(user, PERMISSIONS.hr.performanceRead);
+  const canEditPolicy = hasPermission(user, PERMISSIONS.hr.ruleManage);
   const [tab, setTab] = useState<'mine' | 'team'>('mine');
   const [month, setMonth] = useState(monthOf());
 
@@ -454,7 +495,11 @@ export function HrViolationsScreen() {
         />
       ) : null}
       <MonthSwitch month={month} onChange={setMonth} />
-      {tab === 'team' && canSeeTeam ? <TeamTab month={month} canManage={canManage} /> : <MineTab month={month} />}
+      {tab === 'team' && canSeeTeam ? (
+        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} />
+      ) : (
+        <MineTab month={month} />
+      )}
     </Screen>
   );
 }

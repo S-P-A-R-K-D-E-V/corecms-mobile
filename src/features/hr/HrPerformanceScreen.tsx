@@ -117,7 +117,7 @@ function DeductionsCard() {
   const query = useQuery({ queryKey: ['hr', 'violations', 'mine', month], queryFn: () => getMyViolations(month), retry: false });
   if (!query.data?.policy) return null;
   const s = query.data.summary;
-  const bonus = bonusText(s);
+  const bonus = bonusText(s) && !query.data.policy.appliesToBonus ? `${bonusText(s)} (chưa tính vào thưởng)` : bonusText(s);
   return (
     <SectionCard title="Điểm trừ tháng này" bodyClassName="pt-0 gap-1">
       <View className="flex-row items-end gap-2">
@@ -186,6 +186,13 @@ function WeeklyBonusCard() {
               <Text variant="caption" tone="muted">
                 Quỹ {fVnd(w.fund)} · bạn {num(w.myHours)}/{num(w.totalHours)} giờ
               </Text>
+              {w.appliedPct != null && w.appliedPct < 100 ? (
+                <Text variant="caption" tone="warning">
+                  Nhận {w.appliedPct}% do điểm trừ ({w.deductionPoints ?? 0} điểm) · chia theo giờ {fVnd(w.baseAmount ?? 0)}
+                </Text>
+              ) : w.baseAmount != null && w.myAmount > w.baseAmount ? (
+                <Text variant="caption" tone="muted">Gồm phần chia lại {fVnd(w.myAmount - w.baseAmount)}</Text>
+              ) : null}
             </View>
             <View className="items-end">
               <Text variant="bodySmall" className="font-semibold">{fVnd(w.myAmount)}</Text>
