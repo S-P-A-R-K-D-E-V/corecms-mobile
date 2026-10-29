@@ -296,6 +296,7 @@ function HrCard() {
   const rows: { n: number; icon: IconName; tone: 'warning' | 'error' | 'primary'; text: string; href: string }[] = [
     { n: counts.policies, icon: 'file-sign', tone: 'warning', text: `${counts.policies} văn bản cần đọc và xác nhận`, href: '/hr/policies' },
     { n: counts.records, icon: 'file-document-edit-outline', tone: 'error', text: `${counts.records} biên bản chờ bạn ký`, href: '/hr/records' },
+    { n: counts.contracts, icon: 'file-sign', tone: 'error', text: `${counts.contracts} hợp đồng chờ bạn ký`, href: '/hr/contracts' },
     { n: counts.tasks, icon: 'checkbox-marked-circle-outline', tone: 'primary', text: `${counts.tasks} việc giao riêng cần nộp`, href: '/cleaning' },
     { n: counts.stockChecks, icon: 'clipboard-check-outline', tone: 'warning', text: `${counts.stockChecks} phiếu kiểm hàng ca cần đếm`, href: '/hr/stock-check' },
   ];

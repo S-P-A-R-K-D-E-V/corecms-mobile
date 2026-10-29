@@ -170,7 +170,7 @@ export interface IPerformanceScore {
   reviewDeadline?: string | null;
 }
 
-// ── Hợp đồng lao động (nhân viên chỉ xem của mình; Admin quản lý trên web) ───────────
+// ── Hợp đồng lao động (nhân viên xem + ký điện tử của mình; Admin soạn trên web) ───────────
 
 export type EmploymentContractType = 'Probation' | 'FixedTermUnder12Months' | 'FixedTerm12To36Months' | 'Indefinite' | 'Appendix';
 export type EmploymentContractStatus = 'Draft' | 'AwaitingSignature' | 'Signed' | 'Terminated' | 'Voided';
@@ -185,7 +185,7 @@ export const CONTRACT_TYPE_LABEL: Record<EmploymentContractType, string> = {
 
 export const CONTRACT_STATUS_LABEL: Record<EmploymentContractStatus, string> = {
   Draft: 'Nháp',
-  AwaitingSignature: 'Chờ ký giấy',
+  AwaitingSignature: 'Chờ ký',
   Signed: 'Đã ký',
   Terminated: 'Đã chấm dứt',
   Voided: 'Đã huỷ',
@@ -203,6 +203,14 @@ export interface IEmploymentContract {
   signedOn?: string | null;
   terminatedOn?: string | null;
   files: { id: string; url: string; contentType: string; uploadedAt: string }[];
+  /** Nội dung là HTML (mẫu mới); renderedBody khi đó là HTML — app hiện bodyText. */
+  isHtml?: boolean;
+  /** Chữ thuần dựng từ nội dung (server) — app hiện thay renderedBody. */
+  bodyText?: string | null;
+  /** Nhân viên đã ký điện tử (vẽ chữ ký + cam kết) — trạng thái vẫn AwaitingSignature, chờ cửa hàng ký. */
+  employeeSignedAt?: string | null;
+  /** SVG chữ ký do server dựng từ nét vẽ. */
+  employeeSignatureSvg?: string | null;
 }
 
 // ── Ca hỗ trợ mở trên chợ ca ─────────────────────────────────────────────
@@ -383,4 +391,17 @@ export interface IHrRules {
   leaveMinNoticeHours: number | null;
   recordCashThreshold: number | null;
   performanceEnabled: boolean;
+}
+
+/** Lời cam kết khi nhân viên ký hợp đồng trên app / web (cố định, khớp core-be). */
+export const CONTRACT_SIGN_CONSENT = 'Tôi cam kết thông tin hồ sơ là đúng và đồng ý với nội dung hợp đồng.';
+
+/** Nét vẽ chữ ký: mỗi nét là danh sách điểm [x, y] trong khung ký. */
+export type SignatureStroke = [number, number][];
+
+export interface ISignContractRequest {
+  strokes: SignatureStroke[];
+  width: number;
+  height: number;
+  agree: true;
 }

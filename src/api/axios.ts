@@ -449,6 +449,7 @@ export const endpoints = {
     reviewRequest: (id: string) => `/performance/${id}/review-request`,
     contractsMine: '/employment-contracts/mine',
     contract: (id: string) => `/employment-contracts/${id}`,
+    contractSign: (id: string) => `/employment-contracts/${id}/sign`,
     compensationsMine: '/hr-compensations/mine',
     // Ca hỗ trợ mở trên chợ ca: ai cũng nhận / rút; quản lý (shift.assignment.manage) duyệt được trên app.
     supportShifts: '/support-shifts',
