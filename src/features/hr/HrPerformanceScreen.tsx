@@ -13,11 +13,12 @@ import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { PERFORMANCE_RATING_LABEL, type IPerformanceScore, type PerformanceRating } from 'src/types/hr';
 import { canRequestReview, fVnd } from './hr-rules';
+import { useActiveHrRules } from './hooks';
 
 // ----------------------------------------------------------------------
 // Điểm, lương & thưởng (A3): lương tạm tính kỳ này, thưởng doanh số tuần của tôi, điểm các tháng; quản lý (hr.performance.read)
-// xem điểm từng người. Điểm hiệu suất + xếp loại tháng đã công bố (Quy chế Chương V, VI), kèm số liệu từng ca. Xếp loại
-// theo tỷ lệ đạt target chuẩn hoá (bình quân theo giờ các ca đã làm). Có 3 ngày làm việc từ khi công bố để đề nghị xem xét lại (Điều 20).
+// xem điểm từng người. Thưởng tuần / điểm chỉ hiện khi cửa hàng bật (Cấu hình luật). Điểm hiệu suất + xếp loại tháng đã công
+// bố, kèm số liệu từng ca; đề nghị xem xét lại trong hạn backend trả về.
 // ----------------------------------------------------------------------
 
 /** Tháng chạy thử: để làm quen, chưa dùng làm căn cứ đánh giá. */
@@ -31,13 +32,12 @@ const RATING_TONE: Record<PerformanceRating, 'neutral' | 'error' | 'info' | 'suc
   Excellent: 'primary',
 };
 
-const COMPONENTS: { key: keyof IPerformanceScore; label: string; max: string }[] = [
-  { key: 'salesPoints', label: 'Doanh số', max: '40' },
-  { key: 'qualityPoints', label: 'Chất lượng bán', max: '15' },
-  { key: 'taskPoints', label: 'Nhiệm vụ', max: '20' },
-  { key: 'disciplinePoints', label: 'Kỷ luật', max: '15' },
-  { key: 'reconciliationPoints', label: 'Đối soát', max: '10' },
-  { key: 'initiativePoints', label: 'Sáng kiến', max: '+5' },
+// Điểm nhiệm vụ và sáng kiến đã bỏ (chủ tịch 2026-10-28); phần của chúng chia lại cho các thành phần còn lại.
+const COMPONENTS: { key: keyof IPerformanceScore; label: string }[] = [
+  { key: 'salesPoints', label: 'Doanh số' },
+  { key: 'qualityPoints', label: 'Chất lượng bán' },
+  { key: 'disciplinePoints', label: 'Kỷ luật' },
+  { key: 'reconciliationPoints', label: 'Đối soát' },
 ];
 
 const num = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('vi-VN', { maximumFractionDigits: 1 }));
@@ -63,7 +63,7 @@ function ScoreCard({ score: s, onReview }: { score: IPerformanceScore; onReview:
       {s.ratingReason ? <Text variant="bodySmall">{s.ratingReason}</Text> : null}
       <View className="flex-row flex-wrap gap-1.5">
         {COMPONENTS.map((c) => (
-          <Badge key={c.key} tone="neutral">{`${c.label} ${num(s[c.key] as number)}/${c.max}`}</Badge>
+          <Badge key={c.key} tone="neutral">{`${c.label} ${num(s[c.key] as number)}`}</Badge>
         ))}
       </View>
       <Text variant="caption" tone="muted">
@@ -143,9 +143,6 @@ function WeeklyBonusCard() {
   const weeks = q.data ?? [];
   return (
     <SectionCard title="Thưởng doanh số tuần" bodyClassName="pt-0 gap-1.5">
-      <Text variant="caption" tone="muted">
-        Quỹ 3% phần vượt target tới 110%, 5% phần trên 110%, chia theo giờ làm. Doanh thu bỏ đơn online và hàng giảm từ 30%.
-      </Text>
       {q.isLoading ? (
         <Text variant="caption" tone="muted">Đang tải…</Text>
       ) : weeks.length === 0 ? (
@@ -280,6 +277,10 @@ function TeamPerformance() {
 
 export function HrPerformanceScreen() {
   const qc = useQueryClient();
+  const rules = useActiveHrRules();
+  // Backend cũ (chưa có luật theo cửa hàng) → hiện như trước.
+  const weeklyBonusOn = rules?.weeklyBonusEnabled ?? true;
+  const performanceOn = rules?.performanceEnabled ?? true;
   const { user } = useAuthContext();
   const canSeeTeam = hasPermission(user, PERMISSIONS.hr.performanceRead);
   const [tab, setTab] = useState<'mine' | 'team'>('mine');
@@ -333,17 +334,13 @@ export function HrPerformanceScreen() {
       ) : (
         <>
           <EarningsCard />
-          <WeeklyBonusCard />
+          {weeklyBonusOn ? <WeeklyBonusCard /> : null}
           <BonusProgramsCard />
-          <ScoreTrend scores={list} />
-          <Text variant="caption" tone="muted">
-            Điểm dùng để xếp lịch tham khảo, không quyết định thứ tự đăng ký ca. Xếp loại tính theo tỷ lệ đạt target của các ca
-            bạn làm, nên ca vắng không bị so sánh bất lợi với ca đông.
-          </Text>
+          {performanceOn ? <ScoreTrend scores={list} /> : null}
         </>
       )}
 
-      {tab === 'team' && canSeeTeam ? null : query.isError ? (
+      {(tab === 'team' && canSeeTeam) || !performanceOn ? null : query.isError ? (
         <View className="py-10 items-center gap-3">
           <Text variant="bodySmall" tone="error">Không tải được kết quả: {extractApiError(query.error)}</Text>
           <Button size="sm" variant="outline" fullWidth={false} onPress={() => query.refetch()}>Thử lại</Button>

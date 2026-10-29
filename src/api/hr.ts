@@ -1,6 +1,7 @@
 import axios, { endpoints } from './axios';
 import { putFileToPresignedUrl } from 'src/services/upload/presigned-put';
 import type {
+  IHrRules,
   IHrRecord,
   IShiftLeave,
   IWorkTask,
@@ -209,4 +210,14 @@ export async function submitShiftStockCheck(id: string): Promise<IShiftStockChec
 export async function reviewShiftStockCheck(id: string, action: 'acknowledge' | 'cancel'): Promise<IShiftStockCheck> {
   const response = await axios.post<IShiftStockCheck>(endpoints.hr.stockCheckReview(id), { action });
   return response.data;
+}
+
+/** Luật nhân sự đang bật của cửa hàng; backend cũ chưa có → null (giữ cách hiện cũ). */
+export async function getActiveHrRules(): Promise<IHrRules | null> {
+  try {
+    const response = await axios.get<IHrRules>(endpoints.hr.rulesActive);
+    return response.data;
+  } catch {
+    return null;
+  }
 }

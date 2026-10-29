@@ -453,6 +453,8 @@ export const endpoints = {
     complaintWithdraw: (id: string) => `/payroll-complaints/${id}/withdraw`,
     // Chương trình thưởng theo đơn — phần của tôi.
     bonusProgramsMine: '/bonus-programs/mine',
+    // Luật nhân sự riêng của cửa hàng đang bật (để ẩn phần cửa hàng tắt).
+    rulesActive: '/hr-rule-settings/active',
     // Kiểm hàng khu vực mỗi ca: người làm ca đếm mù + nộp; quản lý (stocktake.read) xem lệch, xác nhận đã xem.
     stockChecksMine: '/shift-stock-checks/mine',
     stockCheckCounts: (id: string) => `/shift-stock-checks/${id}/counts`,

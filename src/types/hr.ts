@@ -379,3 +379,17 @@ export interface IShiftStockCheck {
   varianceLines?: number | null;
   lines?: IShiftStockCheckLine[] | null;
 }
+
+// ── Luật nhân sự riêng của cửa hàng (/hr-rule-settings/active) — trống / false = cửa hàng tắt luật đó ──
+
+export interface IHrRules {
+  weeklyBonusEnabled: boolean;
+  targetGrowthPct: number | null;
+  complaintWorkingDays: number | null;
+  supportShiftMonthlyCap: number | null;
+  /** "HH:mm:ss" */
+  supportShiftLatestEnd: string | null;
+  leaveMinNoticeHours: number | null;
+  recordCashThreshold: number | null;
+  performanceEnabled: boolean;
+}
