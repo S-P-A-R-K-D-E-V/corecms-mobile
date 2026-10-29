@@ -75,7 +75,7 @@ export function CleaningWeekOverviewScreen() {
 
   return (
     <Screen scroll refreshing={isFetching} onRefresh={refetch}>
-      <AppHeader title="Theo dõi tuần vệ sinh" back />
+      <AppHeader title="Theo dõi việc theo ca" back />
 
       <View className="flex-row items-center justify-between gap-2 py-1">
         <Pressable

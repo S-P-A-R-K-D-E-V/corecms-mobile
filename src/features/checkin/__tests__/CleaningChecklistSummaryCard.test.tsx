@@ -91,7 +91,7 @@ describe('CleaningChecklistSummaryCard', () => {
 
     renderWithClient(<CleaningChecklistSummaryCard />);
 
-    expect(await screen.findByText('Checklist vệ sinh ca này')).toBeTruthy();
+    expect(await screen.findByText('Việc theo ca này')).toBeTruthy();
     expect(screen.getByText('1/2 đầu việc đã xong')).toBeTruthy();
   });
 });

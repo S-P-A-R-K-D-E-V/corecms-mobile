@@ -58,6 +58,9 @@ export function hasStoreFeature(ctx: FeatureContext, key: string): boolean {
 /** Kiểm tra cửa hàng đi theo gói có phân ca (core-be InspectionsController RequireFeature). */
 export const SHIFT_SCHEDULING_FEATURE = 'workforce.shift-scheduling';
 
+/** Việc được giao (việc theo ca của core-be CleaningController RequireFeature). */
+export const CLEANING_FEATURE = 'workforce.cleaning';
+
 /** Khoá tính năng bán hàng F&B của gói cửa hàng. */
 export const FNB_POS_FEATURE = 'commerce.fnb.pos';
 
@@ -133,8 +136,13 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
     key: 'inspection', label: 'Kiểm tra cửa hàng', icon: 'clipboard-check-outline', href: '/inspection', tone: 'warning', group: 'personal',
     visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
   },
-  // Nhân sự (Quy chế / Nội quy): xin nghỉ ca, văn bản cần xác nhận, nhiệm vụ, biên bản, điểm — phần của nhân viên; quản lý
-  // duyệt / giao / lập biên bản trên web. Đi theo gói phân ca như core-be (RequireFeature workforce.shift-scheduling).
+  // Việc được giao: việc theo ca + việc giao riêng cho mình (màn /cleaning). Giao, chấm, duyệt: ô quản lý / web.
+  {
+    key: 'my-work', label: 'Việc được giao', icon: 'checkbox-marked-circle-outline', href: '/cleaning', tone: 'warning', group: 'personal',
+    platformFeature: PLATFORM_FEATURES.cleaningTasks, visible: (_u, ctx) => hasStoreFeature(ctx, CLEANING_FEATURE),
+  },
+  // Nhân sự: xin nghỉ ca, văn bản cần xác nhận, biên bản, điểm — phần của nhân viên; quản lý duyệt / lập biên bản
+  // trên web. Đi theo gói phân ca như core-be (RequireFeature workforce.shift-scheduling).
   {
     key: 'hr', label: 'Nhân sự', icon: 'account-tie-outline', href: '/hr', tone: 'primary', group: 'personal',
     visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
@@ -154,12 +162,12 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', tone: 'warning', group: 'manage', visible: (user) => hasAnyPermission(user, MANAGE_SCREEN_PERMISSIONS.approvals) },
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', tone: 'info', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.assignShift },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.coverShift },
-  { key: 'cleaning-week', label: 'Theo dõi vệ sinh', icon: 'broom', href: '/manage/cleaning', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningReview },
-  { key: 'cleaning-review', label: 'Đánh giá vệ sinh', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningReview },
-  // Vệ sinh theo quyền cleaning.* (mặc định Manager, Admin): theo dõi / chấm cần cleaning.read, đầu việc / checklist tuần
+  { key: 'cleaning-week', label: 'Theo dõi việc theo ca', icon: 'broom', href: '/manage/cleaning', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningReview },
+  { key: 'cleaning-review', label: 'Chấm việc theo ca', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningReview },
+  // Việc theo ca theo quyền cleaning.* (mặc định Manager, Admin): theo dõi / chấm cần cleaning.read, đầu việc / checklist tuần
   // cần cleaning.template.manage.
   { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningTemplates },
-  { key: 'cleaning-builder', label: 'Xây dựng checklist', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningTemplates },
+  { key: 'cleaning-builder', label: 'Lịch việc theo ca', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningTemplates },
 
   // ── Quản trị (Admin) — báo cáo theo quyền analytics.* (vai trò tuỳ chỉnh "Kế toán" thấy được) ─────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
@@ -222,6 +230,6 @@ export type LauncherVariant = 'staff' | 'admin';
  * thấy bán hàng + ca, Manager/Admin-kiêm-ca thấy thêm việc quản lý.
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
-  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'shift-cash', 'shift-pool', 'notifications', 'assign-shift', 'cleaning-week'],
+  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'shift-cash', 'shift-pool', 'my-work', 'notifications', 'assign-shift', 'cleaning-week'],
   admin: ['purchase-orders', 'revenue-report', 'break-even-report', 'team-schedule', 'approvals', 'payroll-cycle', 'attendance-report', 'users'],
 };

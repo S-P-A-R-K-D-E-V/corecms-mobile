@@ -65,15 +65,6 @@ export interface ISalesTarget {
 export type WorkTaskGroup = 'Content' | 'Inbox' | 'Packing' | 'Display' | 'Initiative' | 'Other';
 export type WorkTaskStatus = 'Assigned' | 'Submitted' | 'Approved' | 'Rejected' | 'Cancelled';
 
-export const WORK_TASK_GROUP_LABEL: Record<WorkTaskGroup, string> = {
-  Content: 'Đăng nội dung',
-  Inbox: 'Trả lời khách',
-  Packing: 'Đóng gói đơn online',
-  Display: 'Trang trí, trưng bày',
-  Initiative: 'Sáng kiến',
-  Other: 'Khác',
-};
-
 export const WORK_TASK_STATUS_LABEL: Record<WorkTaskStatus, string> = {
   Assigned: 'Đang làm',
   Submitted: 'Chờ duyệt',

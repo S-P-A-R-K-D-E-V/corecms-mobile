@@ -1,4 +1,4 @@
-import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl, stockCheckPushRoute } from '../push-links';
+import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl, stockCheckPushRoute, workPushRoute } from '../push-links';
 
 // Push "đơn online đã thanh toán" → trang Đơn online trên web của cửa hàng đang gắn.
 
@@ -51,6 +51,21 @@ describe('inspectionPushRoute', () => {
     expect(inspectionPushRoute(paid)).toBeNull();
     expect(inspectionPushRoute({ category: 'Shift' })).toBeNull();
     expect(inspectionPushRoute(null)).toBeNull();
+  });
+});
+
+// Push việc được giao (category "Cleaning") → Việc của tôi; người chấm → Theo dõi việc theo ca; người duyệt việc riêng → không mở.
+describe('workPushRoute', () => {
+  it('việc mới / kết quả duyệt → /cleaning, cả dạng chuỗi JSON của Android', () => {
+    expect(workPushRoute({ category: 'Cleaning', storeCode: 'cici' })).toBe('/cleaning');
+    expect(workPushRoute(JSON.stringify({ category: 'Cleaning' }))).toBe('/cleaning');
+  });
+
+  it('người chấm, người duyệt việc riêng, loại khác', () => {
+    expect(workPushRoute({ category: 'Cleaning', type: 'cleaning-review' })).toBe('/manage/cleaning');
+    expect(workPushRoute({ category: 'Cleaning', type: 'work-task-review' })).toBeNull();
+    expect(workPushRoute({ category: 'Hr' })).toBeNull();
+    expect(workPushRoute(null)).toBeNull();
   });
 });
 

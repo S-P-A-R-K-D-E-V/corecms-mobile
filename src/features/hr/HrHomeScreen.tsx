@@ -43,10 +43,10 @@ export function HrHomeScreen() {
         <ListItem
           icon="checkbox-marked-circle-outline"
           iconTone="success"
-          title="Nhiệm vụ & sáng kiến"
-          subtitle={counts.tasks > 0 ? `${counts.tasks} nhiệm vụ cần nộp` : 'Không có nhiệm vụ đang làm'}
+          title="Việc được giao"
+          subtitle={counts.tasks > 0 ? `${counts.tasks} việc giao riêng cần nộp` : 'Việc theo ca và việc giao riêng cho bạn'}
           right={<Count n={counts.tasks} />}
-          onPress={() => router.push('/hr/tasks' as any)}
+          onPress={() => router.push('/cleaning' as any)}
           showChevron
         />
         <ListItem

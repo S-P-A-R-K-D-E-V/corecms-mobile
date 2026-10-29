@@ -255,7 +255,7 @@ export function CleaningReviewScreen() {
 
   return (
     <Screen scroll refreshing={isFetching} onRefresh={refetch}>
-      <AppHeader title="Đánh giá vệ sinh" back />
+      <AppHeader title="Chấm việc theo ca" back />
 
       <View className="flex-row items-center justify-between gap-2 py-1">
         <Pressable
@@ -346,7 +346,7 @@ export function CleaningReviewScreen() {
       {/* Áp phạt */}
       <Sheet
         visible={!!penaltyTask}
-        title={penaltyTask ? `Phạt vệ sinh: ${penaltyTask.name}` : ''}
+        title={penaltyTask ? `Phạt việc không đạt: ${penaltyTask.name}` : ''}
         onClose={() => setPenaltyTask(null)}
         footer={
           <Button loading={busy} disabled={loadingStaff} onPress={handleSubmitPenalty}>

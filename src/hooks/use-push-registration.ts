@@ -88,7 +88,7 @@ export function usePushRegistration() {
         lightColor: '#22C55E',
       });
       Notifications.setNotificationChannelAsync('cleaning', {
-        name: 'Vệ sinh',
+        name: 'Việc được giao',
         importance: Notifications.AndroidImportance.HIGH,
         lightColor: '#F59E0B',
       });
