@@ -418,6 +418,16 @@ export const endpoints = {
     mine: '/inspections/me',
     fix: (resultId: string) => `/inspections/results/${resultId}/fix`,
   },
+  // Công việc: hạng mục nhân viên tự làm trong ca (ảnh vào kho riêng tư) + sửa tận gốc giao cho mình.
+  shiftWork: {
+    mine: '/shift-work/mine',
+    presignPhotos: '/shift-work/photos/presign',
+    complete: '/shift-work/complete',
+  },
+  correctiveActions: {
+    mine: '/corrective-actions/mine',
+    done: (id: string) => `/corrective-actions/${id}/done`,
+  },
   // Nhân sự theo Quy chế / Nội quy (phần của nhân viên; quản lý dùng web).
   hr: {
     leave: '/shift-leave',

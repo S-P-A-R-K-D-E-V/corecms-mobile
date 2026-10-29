@@ -130,24 +130,28 @@ describe('ngữ cảnh hiện tiện ích: loại hình chi nhánh + tính năng
   });
 });
 
-// Vệ sinh theo quyền cleaning.* (Core-be CleaningController; mặc định Manager, Admin).
-describe('vệ sinh — khớp quyền core-be', () => {
-  const keys = (u: any) => availableFeatures(u).map((f) => f.key);
-  const CLEANING_KEYS = ['cleaning-week', 'cleaning-review', 'cleaning-tasks', 'cleaning-builder'];
+// Công việc: một ô "Công việc" (Việc của tôi) cho mọi nhân viên có gói phân ca hoặc gói vệ sinh cũ; các ô quản lý vệ sinh
+// cũ đã bỏ (giao việc, hạng mục, lịch làm trên web).
+describe('công việc — một ô cho mọi nhân viên', () => {
+  const keys = (u: any, ctx?: any) => availableFeatures(u, ctx).map((f) => f.key);
 
-  it('quản lý và Admin thấy cả 4 ô, nhân viên thường không', () => {
-    for (const user of [manager, owner]) {
-      expect(keys(user)).toEqual(expect.arrayContaining(CLEANING_KEYS));
+  it('ô quản lý vệ sinh cũ không còn, kể cả quản lý có quyền cleaning.*', () => {
+    for (const user of [staff, manager, owner]) {
+      ['cleaning-week', 'cleaning-review', 'cleaning-tasks', 'cleaning-builder'].forEach((k) => expect(keys(user)).not.toContain(k));
     }
-    CLEANING_KEYS.forEach((key) => expect(keys(staff)).not.toContain(key));
   });
 
-  it('vai trò tuỳ chỉnh "Tổ trưởng vệ sinh" chỉ có cleaning.read + review: thấy theo dõi / chấm, không thấy đầu việc', () => {
-    const lead = { ...staff, permissions: ['cleaning.read', 'cleaning.review'] };
+  it('ô Công việc hiện khi cửa hàng có gói phân ca hoặc gói vệ sinh cũ', () => {
+    const shift = { ...staff, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+    const cleaningOnly = { ...staff, enabledFeatures: ['workforce.cleaning'] };
+    const none = { ...staff, enabledFeatures: [] };
+    expect(keys(shift, featureContext(shift))).toContain('my-work');
+    expect(keys(cleaningOnly, featureContext(cleaningOnly))).toContain('my-work');
+    expect(keys(none, featureContext(none))).not.toContain('my-work');
+  });
 
-    expect(keys(lead)).toEqual(expect.arrayContaining(['cleaning-week', 'cleaning-review']));
-    expect(keys(lead)).not.toContain('cleaning-tasks');
-    expect(keys(lead)).not.toContain('cleaning-builder');
+  it('ghim cũ của ô đã bỏ không làm hỏng lưới Dùng nhanh', () => {
+    expect(visiblePins(['cleaning-week', 'pos'], manager).map((f) => f.key)).toEqual(['pos']);
   });
 });
 

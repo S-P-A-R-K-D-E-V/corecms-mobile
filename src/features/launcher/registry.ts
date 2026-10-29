@@ -131,15 +131,17 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   // Kiểm quầy: ô hiện cho mọi nhân viên nội bộ; vào được hay không do cổng trong màn quyết định — Admin vào
   // thẳng, Staff/Manager phải có ca hôm nay + đang ở cửa hàng (BE chặn cùng luật).
   { key: 'shift-cash', label: 'Kiểm quầy', icon: 'cash-register', href: '/shift-cash', tone: 'success', group: 'personal', roles: SHIFT_CASH_ROLES, platformFeature: PLATFORM_FEATURES.shiftCash },
-  // Kiểm tra cửa hàng: mọi nhân viên (lỗi của mình; trưởng ca kiểm nhanh ca mình); kiểm đột xuất / tuần theo quyền trong màn.
+  // Kiểm tra ca (phần kiểm của Công việc): trưởng ca kiểm nhanh ca mình; kiểm đột xuất / tuần theo quyền trong màn.
   {
-    key: 'inspection', label: 'Kiểm tra cửa hàng', icon: 'clipboard-check-outline', href: '/inspection', tone: 'warning', group: 'personal',
+    key: 'inspection', label: 'Kiểm tra ca', icon: 'clipboard-check-outline', href: '/inspection', tone: 'warning', group: 'personal',
     visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
   },
-  // Việc được giao: việc theo ca + việc giao riêng cho mình (màn /cleaning). Giao, chấm, duyệt: ô quản lý / web.
+  // Công việc của tôi (màn /cleaning): việc trong ca, lỗi cần sửa, việc giao riêng + sửa tận gốc, việc theo lịch cũ. Giao việc,
+  // hạng mục, lịch: web. Gói có phân ca (hạng mục, kiểm tra) hoặc gói vệ sinh cũ.
   {
-    key: 'my-work', label: 'Việc được giao', icon: 'checkbox-marked-circle-outline', href: '/cleaning', tone: 'warning', group: 'personal',
-    platformFeature: PLATFORM_FEATURES.cleaningTasks, visible: (_u, ctx) => hasStoreFeature(ctx, CLEANING_FEATURE),
+    key: 'my-work', label: 'Công việc', icon: 'checkbox-marked-circle-outline', href: '/cleaning', tone: 'warning', group: 'personal',
+    platformFeature: PLATFORM_FEATURES.cleaningTasks,
+    visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE) || hasStoreFeature(ctx, CLEANING_FEATURE),
   },
   // Nhân sự: xin nghỉ ca, văn bản cần xác nhận, biên bản, điểm — phần của nhân viên; quản lý duyệt / lập biên bản
   // trên web. Đi theo gói phân ca như core-be (RequireFeature workforce.shift-scheduling).
@@ -162,12 +164,6 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', tone: 'warning', group: 'manage', visible: (user) => hasAnyPermission(user, MANAGE_SCREEN_PERMISSIONS.approvals) },
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', tone: 'info', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.assignShift },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.coverShift },
-  { key: 'cleaning-week', label: 'Theo dõi việc theo ca', icon: 'broom', href: '/manage/cleaning', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningReview },
-  { key: 'cleaning-review', label: 'Chấm việc theo ca', icon: 'clipboard-check-outline', href: '/manage/cleaning-review', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningReview },
-  // Việc theo ca theo quyền cleaning.* (mặc định Manager, Admin): theo dõi / chấm cần cleaning.read, đầu việc / checklist tuần
-  // cần cleaning.template.manage.
-  { key: 'cleaning-tasks', label: 'Thư viện đầu việc', icon: 'clipboard-list-outline', href: '/manage/cleaning-tasks', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningTemplates },
-  { key: 'cleaning-builder', label: 'Lịch việc theo ca', icon: 'calendar-edit', href: '/manage/cleaning-builder', tone: 'warning', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.cleaningTemplates },
 
   // ── Quản trị (Admin) — báo cáo theo quyền analytics.* (vai trò tuỳ chỉnh "Kế toán" thấy được) ─────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
@@ -230,6 +226,6 @@ export type LauncherVariant = 'staff' | 'admin';
  * thấy bán hàng + ca, Manager/Admin-kiêm-ca thấy thêm việc quản lý.
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
-  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'shift-cash', 'shift-pool', 'my-work', 'notifications', 'assign-shift', 'cleaning-week'],
+  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'shift-cash', 'shift-pool', 'my-work', 'notifications', 'assign-shift'],
   admin: ['purchase-orders', 'revenue-report', 'break-even-report', 'team-schedule', 'approvals', 'payroll-cycle', 'attendance-report', 'users'],
 };

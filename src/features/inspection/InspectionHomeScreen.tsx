@@ -136,7 +136,7 @@ export function InspectionHomeScreen() {
 
   return (
     <Screen scroll refreshing={shifts.isFetching} onRefresh={() => Promise.all([shifts.refetch(), faults.refetch()])}>
-      <AppHeader title="Kiểm tra cửa hàng" back />
+      <AppHeader title="Kiểm tra ca" back />
 
       <Pressable onPress={() => router.push('/inspection/faults' as any)}>
         <SectionCard

@@ -11,7 +11,7 @@ import { extractApiError } from 'src/services/error';
 import { prefs } from 'src/services/storage';
 import { useAuthContext } from 'src/auth/auth-context';
 import { getInspection, saveInspectionResults, submitInspection, uploadInspectionPhoto } from 'src/api/inspection';
-import { INSPECTION_TYPE_LABEL, type IInspection, type InspectionOutcome } from 'src/types/inspection';
+import { INSPECTION_TYPE_LABEL, type IInspection, type IShiftWorkCompletion, type InspectionOutcome } from 'src/types/inspection';
 import {
   buildRows,
   draftKey,
@@ -29,7 +29,7 @@ import {
   type InspectionRow,
 } from './inspection-draft';
 import { captureInspectionPhoto, discardInspectionPhoto, discardInspectionPhotos } from './inspection-photos';
-import { LevelBadge, OutcomeButtons, PhotoRules, PhotoStrip } from './inspection-ui';
+import { LevelBadge, OutcomeButtons, PhotoRules, PhotoStrip, toStripPhotos } from './inspection-ui';
 
 // ----------------------------------------------------------------------
 // Chạy checklist của một lượt kiểm. Mỗi lần chấm là ghi bản nháp xuống máy (inspection-draft); "Lưu" / "Nộp" mới
@@ -44,6 +44,7 @@ function RowCard({
   entry,
   editable,
   staffName,
+  completion,
   onOutcome,
   onNote,
   onCapture,
@@ -53,6 +54,8 @@ function RowCard({
   entry: DraftEntry | undefined;
   editable: boolean;
   staffName: (id: string | null) => string | null;
+  /** Nhân viên trong ca đã làm hạng mục này (ai, lúc nào, ảnh) — người kiểm xem trước khi chấm. */
+  completion?: IShiftWorkCompletion;
   onOutcome: (o: InspectionOutcome) => void;
   onNote: (note: string) => void;
   onCapture: () => void;
@@ -75,6 +78,15 @@ function RowCard({
           </Text>
           <Text variant="caption" tone="muted">Đạt khi: {item.passCriteria}</Text>
           {item.zones.length > 0 ? <Text variant="caption" tone="faint">Khu {item.zones.join(', ')}</Text> : null}
+          {completion ? (
+            <View className="gap-1 pt-1">
+              <Text variant="caption" tone="primary" className="font-semibold">
+                Đã làm: {completion.completedByName} lúc {fmtTime(completion.completedAt)}
+              </Text>
+              {completion.note ? <Text variant="caption" tone="muted">{completion.note}</Text> : null}
+              <PhotoStrip server={toStripPhotos(completion.photos)} />
+            </View>
+          ) : null}
           {row.observedStaffId ? (
             <Text variant="caption" tone="primary" className="font-semibold">
               {row.observedStaffName ?? 'Nhân viên'} · Lượt {row.observationIndex + 1}
@@ -140,6 +152,10 @@ export function InspectionRunScreen({ id }: { id: string }) {
   const editable = !!data && data.summary.status === 'Draft' && data.summary.inspectorId === user?.id;
   const staffNames = useMemo(() => new Map((data?.zoneOwners.staff ?? []).map((s) => [s.staffId, s.name])), [data]);
   const staffName = (sid: string | null) => (sid ? staffNames.get(sid) ?? null : null);
+  const completions = useMemo(
+    () => new Map((data?.completions ?? []).map((c) => [c.itemId, c.completion] as const)),
+    [data]
+  );
 
   // Nạp bản nháp trên máy một lần khi có dữ liệu lượt kiểm.
   useEffect(() => {
@@ -320,6 +336,7 @@ export function InspectionRunScreen({ id }: { id: string }) {
                     entry={entries[row.key]}
                     editable={editable && !busy}
                     staffName={staffName}
+                    completion={row.observedStaffId ? undefined : completions.get(row.item.id)}
                     onOutcome={(o) => setOutcome(row, o)}
                     onNote={(note) => update(row.key, { note })}
                     onCapture={() => void capture(row)}

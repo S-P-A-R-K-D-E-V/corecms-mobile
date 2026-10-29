@@ -7,9 +7,11 @@ import { getRevenueReport, getBreakEvenAnalysis } from 'src/api/reports';
 import { getMySchedule } from 'src/api/schedule';
 import { getMyAttendanceReport } from 'src/api/attendance';
 import { getMyCleaningChecklist } from 'src/api/cleaning';
+import { getMyShiftWork } from 'src/api/inspection';
 import { t } from 'src/i18n';
 import { PLATFORM_FEATURES } from 'src/auth/platform-features';
 import { usePlatformFeatureAllowed } from 'src/auth/use-platform-feature';
+import { useAuthContext } from 'src/auth/auth-context';
 
 // ----------------------------------------------------------------------
 // Dữ liệu trang chủ. API mới (today-board, my-current-estimate) có thể chưa có trên core-be đang chạy
@@ -134,6 +136,20 @@ export function useTodayCleaning() {
     queryFn: () => getMyCleaningChecklist(today),
     staleTime: MINUTE,
     enabled,
+  });
+}
+
+/** Việc trong ca hôm nay (hạng mục nhân viên tự làm) — cùng key với màn Việc của tôi. Gói không có phân ca thì không gọi. */
+export function useTodayShiftWork() {
+  const today = ymd(dayjs());
+  const { user } = useAuthContext();
+  const allowed = usePlatformFeatureAllowed(PLATFORM_FEATURES.cleaningTasks);
+  return useQuery({
+    queryKey: ['shift-work', 'mine', today],
+    queryFn: () => getMyShiftWork(today),
+    staleTime: MINUTE,
+    retry: retryUnless404,
+    enabled: allowed && !!user?.enabledFeatures?.includes('workforce.shift-scheduling'),
   });
 }
 

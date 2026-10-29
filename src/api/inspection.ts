@@ -1,10 +1,13 @@
 import axios, { endpoints } from './axios';
 import { putFileToPresignedUrl } from 'src/services/upload/presigned-put';
 import type {
+  ICorrectiveAction,
   IInspection,
   IInspectionFault,
   IInspectionResultInput,
   IInspectionShift,
+  IShiftWorkItem,
+  IShiftWorkShift,
   InspectionType,
 } from 'src/types/inspection';
 
@@ -69,4 +72,47 @@ export async function getMyInspectionFaults(month?: string): Promise<IInspection
 
 export async function fixInspectionResult(resultId: string, note: string | null, fixedPhotoKeys: string[]): Promise<void> {
   await axios.post(endpoints.inspections.fix(resultId), { note, fixedPhotoKeys });
+}
+
+// ── Công việc trong ca: hạng mục nhân viên tự làm, chụp ảnh khi xong ───────────────────────────
+
+/** Hạng mục tự làm của các ca của tôi trong ngày (kèm ai đã làm, kết quả kiểm của ca). */
+export async function getMyShiftWork(date: string): Promise<IShiftWorkShift[]> {
+  const response = await axios.get<IShiftWorkShift[]>(endpoints.shiftWork.mine, { params: { date } });
+  return response.data;
+}
+
+/** Tải một ảnh việc đã làm lên kho riêng tư của ca, trả object key. */
+export async function uploadShiftWorkPhoto(shiftScheduleId: string, date: string, photo: LocalPhoto): Promise<string> {
+  const presign = await axios.post<{ objectKey: string; uploadUrl: string }[]>(endpoints.shiftWork.presignPhotos, {
+    shiftScheduleId,
+    date,
+    files: [{ contentType: photo.type }],
+  });
+  const [target] = presign.data;
+  await putFileToPresignedUrl(target.uploadUrl, photo.uri, photo.type);
+  return target.objectKey;
+}
+
+export async function completeShiftWork(input: {
+  date: string;
+  shiftScheduleId: string;
+  itemId: string;
+  note: string | null;
+  photoKeys: string[];
+}): Promise<IShiftWorkItem> {
+  const response = await axios.post<IShiftWorkItem>(endpoints.shiftWork.complete, input);
+  return response.data;
+}
+
+// ── Sửa tận gốc giao cho tôi ───────────────────────────────────────────
+
+export async function getMyCorrectiveActions(): Promise<ICorrectiveAction[]> {
+  const response = await axios.get<ICorrectiveAction[]>(endpoints.correctiveActions.mine);
+  return response.data;
+}
+
+export async function markCorrectiveActionDone(id: string, note: string | null): Promise<ICorrectiveAction> {
+  const response = await axios.put<ICorrectiveAction>(endpoints.correctiveActions.done(id), { note });
+  return response.data;
 }
