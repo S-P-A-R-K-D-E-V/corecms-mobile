@@ -1,7 +1,7 @@
 import dayjs, { type Dayjs } from 'dayjs';
 
 import type { IMyScheduleItem } from 'src/types/corecms-api';
-import type { ISalesTarget, ISalesTargetSlot } from 'src/types/hr';
+import type { ISalesTarget, ISalesTargetSlot, IViolationEntry, IViolationSummary } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
 // Phần thuần của các màn Nhân sự (test được): luật báo trước 24 giờ, ca xin nghỉ được, target của một ca, tiền.
@@ -71,4 +71,24 @@ export function changedCounts(
   return lines
     .filter((l) => (texts[l.lineId] ?? '') !== (l.countedQuantity == null ? '' : String(l.countedQuantity)))
     .map((l) => ({ lineId: l.lineId, quantity: parseCount(texts[l.lineId] ?? '') }));
+}
+
+// ── Vi phạm & điểm trừ ───────────────────────────────────────────────
+
+/** Ngày đầu tháng (YYYY-MM-DD) — tham số month của /hr-violations. */
+export function monthOf(date: Dayjs = dayjs()): string {
+  return date.startOf('month').format('YYYY-MM-DD');
+}
+
+/** Thưởng doanh số tuần theo tổng điểm trừ; null khi cửa hàng không đặt ngưỡng. */
+export function bonusText(s: Pick<IViolationSummary, 'weeklyBonusPct' | 'notComplete' | 'losesMonthlyBonus'>): string | null {
+  if (s.weeklyBonusPct == null) return s.losesMonthlyBonus ? 'Mất thưởng tháng' : null;
+  if (s.weeklyBonusPct >= 100) return 'Nhận đủ thưởng tuần';
+  if (s.weeklyBonusPct <= 0) return s.notComplete ? 'Không nhận thưởng · Không hoàn thành' : 'Không nhận thưởng tuần';
+  return `Nhận ${s.weeklyBonusPct}% thưởng tuần`;
+}
+
+/** Còn khiếu nại được: đang tính, chưa khiếu nại, chưa quá hạn (hạn trống = không giới hạn). */
+export function canComplain(e: IViolationEntry, today: string = dayjs().format('YYYY-MM-DD')): boolean {
+  return e.status === 'Active' && !e.complainedAt && (!e.complaintDeadline || e.complaintDeadline >= today);
 }

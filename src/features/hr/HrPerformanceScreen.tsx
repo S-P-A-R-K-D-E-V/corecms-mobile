@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
@@ -7,12 +8,19 @@ import { Screen, AppHeader, SectionCard, Sheet } from 'src/components/shared';
 import { Text, Button, Badge, TextField, SegmentedControl } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
-import { getMyBonusPrograms, getMyPerformance, getMyWeeklyBonus, getPerformanceMonth, requestPerformanceReview } from 'src/api/hr';
+import {
+  getMyBonusPrograms,
+  getMyPerformance,
+  getMyViolations,
+  getMyWeeklyBonus,
+  getPerformanceMonth,
+  requestPerformanceReview,
+} from 'src/api/hr';
 import { getMyCurrentEstimate } from 'src/api/home';
 import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { PERFORMANCE_RATING_LABEL, type IPerformanceScore, type PerformanceRating } from 'src/types/hr';
-import { canRequestReview, fVnd } from './hr-rules';
+import { bonusText, canRequestReview, fVnd, monthOf } from './hr-rules';
 import { useActiveHrRules } from './hooks';
 
 // ----------------------------------------------------------------------
@@ -102,6 +110,27 @@ function ScoreCard({ score: s, onReview }: { score: IPerformanceScore; onReview:
 }
 
 // ── Dashboard (A3): lương tạm tính, thưởng tuần, điểm các tháng; quản lý xem từng người ──────────────────────────────
+
+/** Điểm trừ tháng này theo danh mục vi phạm — chỉ hiện khi cửa hàng có danh mục (backend cũ: ẩn). */
+function DeductionsCard() {
+  const month = monthOf();
+  const query = useQuery({ queryKey: ['hr', 'violations', 'mine', month], queryFn: () => getMyViolations(month), retry: false });
+  if (!query.data?.policy) return null;
+  const s = query.data.summary;
+  const bonus = bonusText(s);
+  return (
+    <SectionCard title="Điểm trừ tháng này" bodyClassName="pt-0 gap-1">
+      <View className="flex-row items-end gap-2">
+        <Text variant="title" tone={s.points > 0 ? 'error' : 'success'}>{s.points}</Text>
+        <Text variant="caption" tone="muted" className="mb-1">điểm · {s.count} lần</Text>
+      </View>
+      {bonus ? <Text variant="bodySmall">{bonus}</Text> : null}
+      <Button size="sm" variant="ghost" icon="chevron-right" onPress={() => router.push('/hr/violations' as any)}>
+        Xem từng lần, khiếu nại
+      </Button>
+    </SectionCard>
+  );
+}
 
 function EarningsCard() {
   const q = useQuery({ queryKey: ['payroll', 'current-estimate'], queryFn: getMyCurrentEstimate });
@@ -333,6 +362,7 @@ export function HrPerformanceScreen() {
         <TeamPerformance />
       ) : (
         <>
+          <DeductionsCard />
           <EarningsCard />
           {weeklyBonusOn ? <WeeklyBonusCard /> : null}
           <BonusProgramsCard />

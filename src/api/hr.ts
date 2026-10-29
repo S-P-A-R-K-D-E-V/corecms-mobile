@@ -2,6 +2,10 @@ import axios, { endpoints } from './axios';
 import { putFileToPresignedUrl } from 'src/services/upload/presigned-put';
 import type {
   IHrRules,
+  IMyViolations,
+  IViolationRule,
+  IViolationEntry,
+  IViolationMonth,
   IHrRecord,
   IShiftLeave,
   IWorkTask,
@@ -222,4 +226,47 @@ export async function getActiveHrRules(): Promise<IHrRules | null> {
   } catch {
     return null;
   }
+}
+
+// ── Vi phạm & điểm trừ ───────────────────────────────────────────────
+
+export async function getMyViolations(month: string): Promise<IMyViolations> {
+  const response = await axios.get<IMyViolations>(endpoints.hr.violationsMine, { params: { month } });
+  return response.data;
+}
+
+export async function complainViolation(id: string, text: string): Promise<IViolationEntry> {
+  const response = await axios.post<IViolationEntry>(endpoints.hr.violationComplaint(id), { text });
+  return response.data;
+}
+
+export async function getViolationRules(): Promise<IViolationRule[]> {
+  const response = await axios.get<{ rules: IViolationRule[] }>(endpoints.hr.violationCatalog);
+  return response.data.rules;
+}
+
+export async function getViolationSummary(month: string): Promise<IViolationMonth> {
+  const response = await axios.get<IViolationMonth>(endpoints.hr.violationSummary, { params: { month } });
+  return response.data;
+}
+
+export async function getViolations(month: string): Promise<IViolationEntry[]> {
+  const response = await axios.get<IViolationEntry[]>(endpoints.hr.violations, { params: { month } });
+  return response.data;
+}
+
+export async function createViolations(body: {
+  ruleId: string;
+  userIds: string[];
+  occurredOn: string;
+  quantity: number;
+  note: string;
+}): Promise<IViolationEntry[]> {
+  const response = await axios.post<IViolationEntry[]>(endpoints.hr.violations, body);
+  return response.data;
+}
+
+export async function cancelViolation(id: string, note: string): Promise<IViolationEntry> {
+  const response = await axios.put<IViolationEntry>(endpoints.hr.violationCancel(id), { note });
+  return response.data;
 }
