@@ -13,6 +13,7 @@ import type {
   ISalesTarget,
   IPolicyDocument,
   IPerformanceScore,
+  IMyProvisionalPerformance,
   IEmploymentContract,
   ISignContractRequest,
   ISupportShiftOpening,
@@ -112,6 +113,11 @@ export async function getMyContracts(): Promise<IEmploymentContract[]> {
 /** Nhân viên ký hợp đồng đang chờ ký: nét vẽ chữ ký (server tự dựng SVG) + đồng ý lời cam kết. */
 export async function signContract(id: string, body: ISignContractRequest): Promise<IEmploymentContract> {
   const response = await axios.post<IEmploymentContract>(endpoints.hr.contractSign(id), body);
+  return response.data;
+}
+
+export async function getMyProvisionalPerformance(): Promise<IMyProvisionalPerformance> {
+  const response = await axios.get<IMyProvisionalPerformance>(endpoints.hr.performanceMineCurrent);
   return response.data;
 }
 

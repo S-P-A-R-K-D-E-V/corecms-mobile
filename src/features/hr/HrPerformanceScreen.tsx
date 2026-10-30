@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
@@ -19,8 +19,9 @@ import {
 import { getMyCurrentEstimate } from 'src/api/home';
 import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
-import { PERFORMANCE_RATING_LABEL, type IPerformanceScore, type PerformanceRating } from 'src/types/hr';
-import { bonusText, canRequestReview, fVnd, monthOf } from './hr-rules';
+import { PERFORMANCE_RATING_LABEL, type IPerformanceScore } from 'src/types/hr';
+import { bonusText, canRequestReview, fVnd, monthOf, rankScores } from './hr-rules';
+import { MyScoreCard, RATING_TONE, num } from './HrScoreCards';
 import { useActiveHrRules } from './hooks';
 
 // ----------------------------------------------------------------------
@@ -32,14 +33,6 @@ import { useActiveHrRules } from './hooks';
 /** Tháng chạy thử: để làm quen, chưa dùng làm căn cứ đánh giá. */
 const TRIAL_MONTHS = ['2026-11-01', '2026-12-01'];
 
-const RATING_TONE: Record<PerformanceRating, 'neutral' | 'error' | 'info' | 'success' | 'primary'> = {
-  NotRated: 'neutral',
-  NotComplete: 'error',
-  Complete: 'info',
-  Good: 'success',
-  Excellent: 'primary',
-};
-
 // Điểm nhiệm vụ và sáng kiến đã bỏ (chủ tịch 2026-10-28); phần của chúng chia lại cho các thành phần còn lại.
 const COMPONENTS: { key: keyof IPerformanceScore; label: string }[] = [
   { key: 'salesPoints', label: 'Doanh số' },
@@ -47,8 +40,6 @@ const COMPONENTS: { key: keyof IPerformanceScore; label: string }[] = [
   { key: 'disciplinePoints', label: 'Kỷ luật' },
   { key: 'reconciliationPoints', label: 'Đối soát' },
 ];
-
-const num = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString('vi-VN', { maximumFractionDigits: 1 }));
 
 function ScoreCard({ score: s, onReview }: { score: IPerformanceScore; onReview: () => void }) {
   const [showShifts, setShowShifts] = useState(false);
@@ -259,11 +250,11 @@ function ScoreTrend({ scores }: { scores: IPerformanceScore[] }) {
   );
 }
 
-function TeamPerformance() {
-  const [month, setMonth] = useState(() => dayjs().subtract(1, 'month').startOf('month'));
+function TeamPerformance({ initialMonth }: { initialMonth?: string }) {
+  const [month, setMonth] = useState(() => (initialMonth ? dayjs(initialMonth) : dayjs()).startOf('month'));
   const key = month.format('YYYY-MM-01');
   const q = useQuery({ queryKey: ['hr', 'performance-month', key], queryFn: () => getPerformanceMonth(key) });
-  const scores = [...(q.data?.scores ?? [])].sort((a, b) => b.total - a.total);
+  const scores = rankScores(q.data?.scores ?? []);
   return (
     <>
       <View className="flex-row items-center justify-between">
@@ -286,16 +277,18 @@ function TeamPerformance() {
         {q.data?.publishedAt
           ? `Đã công bố ${dayjs(q.data.publishedAt).format('DD/MM')}`
           : q.data?.computedAt
-            ? 'Đã tính, chưa công bố — nhân viên chưa thấy'
+            ? month.isSame(dayjs(), 'month')
+              ? `Tạm tính tới hôm qua, cập nhật ${dayjs(q.data.computedAt).format('HH:mm DD/MM')}`
+              : 'Đã tính, chưa công bố'
             : 'Chưa tính điểm tháng này'}
       </Text>
       {q.isError ? (
         <Text variant="bodySmall" tone="error">Không tải được: {extractApiError(q.error)}</Text>
       ) : (
-        scores.map((s) => (
+        scores.map(({ score: s, rank }) => (
           <SectionCard
             key={s.id}
-            title={s.fullName}
+            title={rank ? `${rank}. ${s.fullName}` : s.fullName}
             right={<Badge tone={RATING_TONE[s.rating]}>{PERFORMANCE_RATING_LABEL[s.rating]}</Badge>}
             bodyClassName="pt-0 gap-1"
           >
@@ -319,7 +312,8 @@ export function HrPerformanceScreen() {
   const performanceOn = rules?.performanceEnabled ?? true;
   const { user } = useAuthContext();
   const canSeeTeam = hasPermission(user, PERMISSIONS.hr.performanceRead);
-  const [tab, setTab] = useState<'mine' | 'team'>('mine');
+  const params = useLocalSearchParams<{ tab?: string; month?: string }>();
+  const [tab, setTab] = useState<'mine' | 'team'>(params.tab === 'team' ? 'team' : 'mine');
   const query = useQuery({ queryKey: ['hr', 'performance'], queryFn: getMyPerformance });
   const [reviewing, setReviewing] = useState<IPerformanceScore | null>(null);
   const [note, setNote] = useState('');
@@ -366,9 +360,10 @@ export function HrPerformanceScreen() {
       ) : null}
 
       {tab === 'team' && canSeeTeam ? (
-        <TeamPerformance />
+        <TeamPerformance initialMonth={params.month} />
       ) : (
         <>
+          <MyScoreCard />
           <DeductionsCard />
           <EarningsCard />
           {weeklyBonusOn ? <WeeklyBonusCard /> : null}

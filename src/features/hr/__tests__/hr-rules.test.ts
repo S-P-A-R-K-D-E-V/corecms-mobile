@@ -12,9 +12,10 @@ import {
   monthOf,
   bonusText,
   canComplain,
+  rankScores,
 } from '../hr-rules';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
-import type { ISalesTarget, IViolationEntry } from 'src/types/hr';
+import type { ISalesTarget, IStaffPerformanceScore, IViolationEntry } from 'src/types/hr';
 
 // Phần thuần của các màn Nhân sự: luật báo trước 24 giờ (Nội quy Điều 7), ca xin nghỉ được, target một ca (Quy chế Điều
 // 9), hạn đề nghị xem xét lại (Điều 20).
@@ -157,5 +158,30 @@ describe('điểm trừ', () => {
     expect(canComplain(entry({ complaintDeadline: null }), '2027-01-01')).toBe(true);
     expect(canComplain(entry({ complainedAt: '2026-11-03T00:00:00Z' }), '2026-11-04')).toBe(false);
     expect(canComplain(entry({ status: 'Cancelled' }), '2026-11-04')).toBe(false);
+  });
+});
+
+describe('rankScores', () => {
+  const score = (id: string, total: number, over: Partial<IStaffPerformanceScore> = {}) =>
+    ({ id, total, shiftCount: 12, isDefaultScore: false, ...over }) as IStaffPerformanceScore;
+
+  it('xếp theo điểm, bằng điểm cùng hạng, người chưa có ca hoặc điểm mặc định không có hạng', () => {
+    const rows = rankScores([
+      score('moi', 90, { isDefaultScore: true }),
+      score('b', 80),
+      score('a', 85),
+      score('c', 80),
+      score('d', 60),
+      score('khongca', 95, { shiftCount: 0 }),
+    ]);
+
+    expect(rows.map((r) => [r.score.id, r.rank])).toEqual([
+      ['a', 1],
+      ['b', 2],
+      ['c', 2],
+      ['d', 4],
+      ['moi', null],
+      ['khongca', null],
+    ]);
   });
 });
