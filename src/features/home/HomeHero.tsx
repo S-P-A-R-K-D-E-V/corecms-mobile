@@ -139,7 +139,7 @@ export function HeroAmount({ value, hidden, onToggle, size = 30 }: { value: stri
       <Text
         tone="inverse"
         className="font-bold"
-        style={{ fontSize: size, lineHeight: size + 6, fontVariant: ['tabular-nums'], letterSpacing: hidden ? 2 : -0.4 }}
+        style={{ flexShrink: 1, fontSize: size, lineHeight: size + 6, fontVariant: ['tabular-nums'], letterSpacing: hidden ? 2 : -0.4 }}
         numberOfLines={1}
         adjustsFontSizeToFit
       >

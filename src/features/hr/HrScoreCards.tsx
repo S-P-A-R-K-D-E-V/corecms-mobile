@@ -1,10 +1,10 @@
-import { View } from 'react-native';
+import { PixelRatio, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { SectionCard } from 'src/components/shared';
-import { Text, Badge, Divider, Pressable } from 'src/components/ui';
+import { Text, Badge, Divider, Pressable, ProgressRing } from 'src/components/ui';
 import { useAuthContext } from 'src/auth/auth-context';
 import { SHIFT_SCHEDULING_FEATURE } from 'src/features/launcher/registry';
 import { getMyPerformance, getMyProvisionalPerformance, getMyViolations, getPerformanceMonth } from 'src/api/hr';
@@ -36,7 +36,42 @@ function useScoresOn() {
   return !!user?.enabledFeatures?.includes(SHIFT_SCHEDULING_FEATURE) && !!rules?.performanceEnabled;
 }
 
-/** @param linkToDetail true ở trang chủ: bấm vào mở màn Điểm, lương & thưởng. */
+/**
+ * Vòng điểm tạm tính cạnh lương dự kiến trên trang chủ nhân viên. Đầy ở 100 điểm (điểm có thể vượt 100, số ở giữa vẫn là điểm
+ * thật). Chưa có điểm thì không hiện. Luôn hiện, không theo nút mắt của lương (chủ tịch 2026-10-30).
+ */
+export function HeroScoreRing() {
+  const on = useScoresOn();
+  const { width } = useWindowDimensions();
+  const compact = width < 360 || PixelRatio.getFontScale() > 1.3;
+  const size = compact ? 60 : 72;
+  const query = useQuery({ queryKey: ['hr', 'performance-provisional'], queryFn: getMyProvisionalPerformance, enabled: on, retry: false });
+  const score = query.data?.score;
+  if (!on || !score) return null;
+
+  return (
+    <Pressable
+      onPress={() => router.push('/hr/performance' as any)}
+      accessibilityLabel={`Điểm tạm tính ${num(score.total)}, xem chi tiết`}
+      className="items-center gap-1"
+    >
+      <ProgressRing size={size} stroke={compact ? 6 : 7} progress={score.total / 100} color="#FFFFFF" trackColor="rgba(255,255,255,0.22)">
+        <Text
+          tone="inverse"
+          className="font-bold"
+          style={{ fontSize: compact ? 15 : 18, fontVariant: ['tabular-nums'], maxWidth: size - 16 }}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {num(score.total)}
+        </Text>
+      </ProgressRing>
+      <Text variant="caption" style={{ color: 'rgba(255,255,255,0.72)' }} numberOfLines={1}>Điểm tạm tính</Text>
+    </Pressable>
+  );
+}
+
+/** @param linkToDetail true ở trang chủ: bấm vào mở màn Điểm, lương & thưởng; số điểm đã có ở vòng điểm nên không lặp lại. */
 export function MyScoreCard({ linkToDetail = false }: { linkToDetail?: boolean }) {
   const on = useScoresOn();
   const month = monthOf();
@@ -64,14 +99,17 @@ export function MyScoreCard({ linkToDetail = false }: { linkToDetail?: boolean }
     >
       {score ? (
         <>
-          <View className="flex-row items-end gap-2">
-            <Text variant="title">{num(score.total)}</Text>
-            <Text variant="caption" tone="muted" className="mb-1">
-              điểm tạm tính{score.isDefaultScore ? ' (mặc định)' : ''}
-            </Text>
-          </View>
+          {linkToDetail ? null : (
+            <View className="flex-row items-end gap-2">
+              <Text variant="title">{num(score.total)}</Text>
+              <Text variant="caption" tone="muted" className="mb-1">
+                điểm tạm tính{score.isDefaultScore ? ' (mặc định)' : ''}
+              </Text>
+            </View>
+          )}
           <Text variant="bodySmall">
             {score.shiftCount} ca · đạt target {score.targetAchievementPct == null ? '—' : `${num(score.targetAchievementPct)}%`}
+            {linkToDetail && score.isDefaultScore ? ' · điểm mặc định' : ''}
           </Text>
         </>
       ) : (
