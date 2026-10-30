@@ -163,16 +163,17 @@ describe('điểm trừ', () => {
 
 describe('rankScores', () => {
   const score = (id: string, total: number, over: Partial<IStaffPerformanceScore> = {}) =>
-    ({ id, total, shiftCount: 12, isDefaultScore: false, ...over }) as IStaffPerformanceScore;
+    ({ id, total, shiftCount: 12, isDefaultScore: false, rating: 'Complete', ...over }) as IStaffPerformanceScore;
 
-  it('xếp theo điểm, bằng điểm cùng hạng, người chưa có ca hoặc điểm mặc định không có hạng', () => {
+  it('chỉ người đã xếp loại có hạng, bằng điểm cùng hạng; chưa xếp loại đứng sau, chưa có ca đứng cuối', () => {
     const rows = rankScores([
       score('moi', 90, { isDefaultScore: true }),
       score('b', 80),
       score('a', 85),
       score('c', 80),
       score('d', 60),
-      score('khongca', 95, { shiftCount: 0 }),
+      score('khongca', 100, { shiftCount: 0, rating: 'NotRated' }),
+      score('itca', 101, { shiftCount: 2, rating: 'NotRated' }),
     ]);
 
     expect(rows.map((r) => [r.score.id, r.rank])).toEqual([
@@ -180,6 +181,7 @@ describe('rankScores', () => {
       ['b', 2],
       ['c', 2],
       ['d', 4],
+      ['itca', null],
       ['moi', null],
       ['khongca', null],
     ]);

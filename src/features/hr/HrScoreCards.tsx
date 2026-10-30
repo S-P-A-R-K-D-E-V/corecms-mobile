@@ -47,7 +47,7 @@ export function HeroScoreRing() {
   const size = compact ? 60 : 72;
   const query = useQuery({ queryKey: ['hr', 'performance-provisional'], queryFn: getMyProvisionalPerformance, enabled: on, retry: false });
   const score = query.data?.score;
-  if (!on || !score) return null;
+  if (!on || !score || score.shiftCount === 0) return null;
 
   return (
     <Pressable
@@ -85,7 +85,8 @@ export function MyScoreCard({ linkToDetail = false }: { linkToDetail?: boolean }
   });
   if (!on || !current.data) return null;
 
-  const { score, computedAt } = current.data;
+  const { computedAt } = current.data;
+  const score = current.data.score && current.data.score.shiftCount > 0 ? current.data.score : null;
   const lastPublished = linkToDetail ? published.data?.[0] : undefined;
   if (!score && !lastPublished) return null;
   const deductions = linkToDetail && violations.data?.policy ? violations.data.summary.points : null;
@@ -166,7 +167,7 @@ export function StaffRankingCard() {
               <Text variant="bodySmall" className="font-semibold" numberOfLines={1}>{s.fullName}</Text>
               <Text variant="caption" tone="muted" numberOfLines={1}>{PERFORMANCE_RATING_LABEL[s.rating]}</Text>
             </View>
-            <Text variant="bodySmall" className="font-semibold">{num(s.total)} điểm</Text>
+            <Text variant="bodySmall" className="font-semibold">{s.shiftCount > 0 ? `${num(s.total)} điểm` : '—'}</Text>
           </View>
         </View>
       ))}
