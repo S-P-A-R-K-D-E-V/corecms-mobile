@@ -292,7 +292,7 @@ function TeamPerformance({ initialMonth }: { initialMonth?: string }) {
             right={<Badge tone={RATING_TONE[s.rating]}>{PERFORMANCE_RATING_LABEL[s.rating]}</Badge>}
             bodyClassName="pt-0 gap-1"
           >
-            <Text variant="bodySmall" className="font-semibold">{num(s.total)} điểm</Text>
+            <Text variant="bodySmall" className="font-semibold">{s.shiftCount > 0 ? `${num(s.total)} điểm` : 'Chưa làm ca nào'}</Text>
             <Text variant="caption" tone="muted">
               {s.shiftCount} ca · {num(s.hoursWorked)} giờ · đạt target{' '}
               {s.targetAchievementPct == null ? '—' : `${num(s.targetAchievementPct)}%`} · đi muộn {s.lateCount}

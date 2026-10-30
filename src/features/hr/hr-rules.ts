@@ -7,17 +7,22 @@ import type { ISalesTarget, ISalesTargetSlot, IStaffPerformanceScore, IViolation
 // Phần thuần của các màn Nhân sự (test được): luật báo trước 24 giờ, ca xin nghỉ được, target của một ca, tiền.
 // ----------------------------------------------------------------------
 
-/** Xếp hạng theo tổng điểm, bằng điểm cùng hạng. Chưa có ca hoặc điểm mặc định (người mới) không có hạng, đứng cuối. */
+/** Xếp hạng theo tổng điểm, bằng điểm cùng hạng. Chỉ người đã có xếp loại mới có hạng (không tính điểm mặc định của người mới); người còn lại đứng sau, người chưa làm ca nào đứng cuối. */
 export function rankScores(scores: IStaffPerformanceScore[]): { score: IStaffPerformanceScore; rank: number | null }[] {
-  const isRanked = (s: IStaffPerformanceScore) => s.shiftCount > 0 && !s.isDefaultScore;
-  const ranked = scores.filter(isRanked).sort((a, b) => b.total - a.total);
+  const isRanked = (s: IStaffPerformanceScore) => s.rating !== 'NotRated' && !s.isDefaultScore;
+  const byTotal = (a: IStaffPerformanceScore, b: IStaffPerformanceScore) => b.total - a.total;
+  const ranked = scores.filter(isRanked).sort(byTotal);
+  const others = scores.filter((s) => !isRanked(s));
   let rank = 0;
   return [
     ...ranked.map((score, i) => {
       if (i === 0 || score.total !== ranked[i - 1].total) rank = i + 1;
       return { score, rank };
     }),
-    ...scores.filter((s) => !isRanked(s)).map((score) => ({ score, rank: null })),
+    ...[...others.filter((s) => s.shiftCount > 0).sort(byTotal), ...others.filter((s) => s.shiftCount === 0)].map((score) => ({
+      score,
+      rank: null,
+    })),
   ];
 }
 
