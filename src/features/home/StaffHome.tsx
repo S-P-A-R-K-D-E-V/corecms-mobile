@@ -19,7 +19,7 @@ import { SHIFT_SCHEDULING_FEATURE } from 'src/features/launcher/registry';
 import { getInspectionShifts, getOpenInspectionFaults } from 'src/api/inspection';
 import { shiftNeedingMyQuickCheck } from 'src/features/inspection/inspection-access';
 import { useHrPendingCounts } from 'src/features/hr/hooks';
-import { MyScoreCard, StaffRankingCard } from 'src/features/hr/HrScoreCards';
+import { HeroScoreRing, MyScoreCard, StaffRankingCard } from 'src/features/hr/HrScoreCards';
 import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
@@ -55,29 +55,34 @@ function StaffBalance() {
 
   return (
     <View>
-      <Pressable onPress={() => router.push('/(tabs)/payroll' as any)} className="flex-row items-center gap-1">
-        <HeroLabel>
-          {t('home.salaryEstimate')}
-          {e?.cycleName ? ` · ${e.cycleName}` : period ? ` · ${period}` : ''}
-        </HeroLabel>
-        <Icon name="chevron-right" size={16} color="rgba(255,255,255,0.72)" />
-      </Pressable>
+      <View className="flex-row items-start gap-3">
+        <View className="flex-1">
+          <Pressable onPress={() => router.push('/(tabs)/payroll' as any)} className="flex-row items-center gap-1">
+            <HeroLabel>
+              {t('home.salaryEstimate')}
+              {e?.cycleName ? ` · ${e.cycleName}` : period ? ` · ${period}` : ''}
+            </HeroLabel>
+            <Icon name="chevron-right" size={16} color="rgba(255,255,255,0.72)" />
+          </Pressable>
 
-      {est.isLoading ? (
-        <View style={{ height: 36, width: 180, borderRadius: 10, marginTop: 4, backgroundColor: 'rgba(255,255,255,0.18)' }} />
-      ) : e?.configured ? (
-        <HeroAmount value={fmtMoney(e.estimatedSalary)} hidden={!showSalary} onToggle={() => toggle('salary')} />
-      ) : (
-        <HeroAmount value="—" />
-      )}
+          {est.isLoading ? (
+            <View style={{ height: 36, width: 180, borderRadius: 10, marginTop: 4, backgroundColor: 'rgba(255,255,255,0.18)' }} />
+          ) : e?.configured ? (
+            <HeroAmount value={fmtMoney(e.estimatedSalary)} hidden={!showSalary} onToggle={() => toggle('salary')} />
+          ) : (
+            <HeroAmount value="—" />
+          )}
 
-      {est.isError ? (
-        <HeroChip icon="information-outline">{t('home.salaryUnavailable')}</HeroChip>
-      ) : e && !e.configured ? (
-        <HeroChip icon="information-outline">{t('home.salaryNotConfigured')}</HeroChip>
-      ) : e ? (
-        <HeroChip icon="calendar-check-outline">{t('home.salaryAsOf', { date: fmtDay(e.asOf) })}</HeroChip>
-      ) : null}
+          {est.isError ? (
+            <HeroChip icon="information-outline">{t('home.salaryUnavailable')}</HeroChip>
+          ) : e && !e.configured ? (
+            <HeroChip icon="information-outline">{t('home.salaryNotConfigured')}</HeroChip>
+          ) : e ? (
+            <HeroChip icon="calendar-check-outline">{t('home.salaryAsOf', { date: fmtDay(e.asOf) })}</HeroChip>
+          ) : null}
+        </View>
+        <HeroScoreRing />
+      </View>
 
       {e ? (
         <HeroStats
