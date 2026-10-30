@@ -1,11 +1,25 @@
 import dayjs, { type Dayjs } from 'dayjs';
 
 import type { IMyScheduleItem } from 'src/types/corecms-api';
-import type { ISalesTarget, ISalesTargetSlot, IViolationEntry, IViolationSummary } from 'src/types/hr';
+import type { ISalesTarget, ISalesTargetSlot, IStaffPerformanceScore, IViolationEntry, IViolationSummary } from 'src/types/hr';
 
 // ----------------------------------------------------------------------
 // Phần thuần của các màn Nhân sự (test được): luật báo trước 24 giờ, ca xin nghỉ được, target của một ca, tiền.
 // ----------------------------------------------------------------------
+
+/** Xếp hạng theo tổng điểm, bằng điểm cùng hạng. Chưa có ca hoặc điểm mặc định (người mới) không có hạng, đứng cuối. */
+export function rankScores(scores: IStaffPerformanceScore[]): { score: IStaffPerformanceScore; rank: number | null }[] {
+  const isRanked = (s: IStaffPerformanceScore) => s.shiftCount > 0 && !s.isDefaultScore;
+  const ranked = scores.filter(isRanked).sort((a, b) => b.total - a.total);
+  let rank = 0;
+  return [
+    ...ranked.map((score, i) => {
+      if (i === 0 || score.total !== ranked[i - 1].total) rank = i + 1;
+      return { score, rank };
+    }),
+    ...scores.filter((s) => !isRanked(s)).map((score) => ({ score, rank: null })),
+  ];
+}
 
 /** Báo trước tối thiểu khi xin nghỉ ca (Nội quy Điều 7). */
 export const LEAVE_NOTICE_HOURS = 24;

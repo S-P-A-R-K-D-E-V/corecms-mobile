@@ -444,6 +444,7 @@ export const endpoints = {
     recordSign: (id: string) => `/hr-records/${id}/sign`,
     recordRefuse: (id: string) => `/hr-records/${id}/refuse`,
     performanceMine: '/performance/mine',
+    performanceMineCurrent: '/performance/mine/current',
     performanceMonth: '/performance',
     weeklyBonusMine: '/sales-targets/weekly-bonus/mine',
     reviewRequest: (id: string) => `/performance/${id}/review-request`,

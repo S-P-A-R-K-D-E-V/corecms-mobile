@@ -12,6 +12,7 @@ import type { IRecentOrder, ITopSellingProduct } from 'src/types/corecms-api';
 import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { RevenueChart } from 'src/features/admin-dashboard/RevenueChart';
 import { isCancelledStatus } from 'src/features/erp/shared';
+import { StaffRankingCard } from 'src/features/hr/HrScoreCards';
 import { useDashboardSummary, useRevenueReport, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
 import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
@@ -242,7 +243,7 @@ export function OwnerHome() {
 
   const onRefresh = () =>
     // throwOnError: lỗi tải lại → linh vật báo "Không tải được" thay vì "Đã cập nhật".
-    qc.invalidateQueries({ predicate: (q) => ['admin', 'home', 'notifications'].includes(q.queryKey[0] as string) }, { throwOnError: true });
+    qc.invalidateQueries({ predicate: (q) => ['admin', 'home', 'notifications', 'hr'].includes(q.queryKey[0] as string) }, { throwOnError: true });
 
   return (
     <Screen scroll padded={false} edges={['left', 'right']} header={<HomeTopBar />} refreshing={summary.isRefetching} onRefresh={onRefresh}>
@@ -256,6 +257,7 @@ export function OwnerHome() {
         <LowStockBanner />
         <BreakEvenCard />
         <TeamTodayCard />
+        <StaffRankingCard />
         <RecentSalesCard />
         <RevenueWeekCard />
         <TopProductsCard />

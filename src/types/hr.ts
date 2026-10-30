@@ -289,6 +289,13 @@ export interface IStaffPerformanceScore extends IPerformanceScore {
   fullName: string;
 }
 
+/** Điểm tạm tính tháng này của tôi: số liệu tới hôm qua, chưa công bố; chưa tính được thì score = null. */
+export interface IMyProvisionalPerformance {
+  month: string;
+  computedAt?: string | null;
+  score?: IPerformanceScore | null;
+}
+
 export interface IPerformanceMonth {
   month: string;
   computedAt?: string | null;

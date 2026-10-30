@@ -19,6 +19,7 @@ import { SHIFT_SCHEDULING_FEATURE } from 'src/features/launcher/registry';
 import { getInspectionShifts, getOpenInspectionFaults } from 'src/api/inspection';
 import { shiftNeedingMyQuickCheck } from 'src/features/inspection/inspection-access';
 import { useHrPendingCounts } from 'src/features/hr/hooks';
+import { MyScoreCard, StaffRankingCard } from 'src/features/hr/HrScoreCards';
 import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
@@ -406,7 +407,7 @@ export function StaffHome() {
 
   const onRefresh = () =>
     qc.invalidateQueries(
-      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'shift-work', 'corrective-actions', 'inspection', 'admin', 'notifications'].includes(q.queryKey[0] as string) },
+      { predicate: (q) => ['home', 'attendance', 'schedule', 'cleaning', 'shift-work', 'corrective-actions', 'inspection', 'admin', 'notifications', 'hr'].includes(q.queryKey[0] as string) },
       { throwOnError: true }
     );
 
@@ -421,9 +422,11 @@ export function StaffHome() {
         <TodayShiftCard />
         <InspectionCard />
         <HrCard />
+        <MyScoreCard linkToDetail />
         <CleaningTasksCard />
         {/* Bảng hôm nay của cả nhóm: attendance.read (Manager, Admin mặc định; vai trò được cấp). */}
         {hasPermission(user, PERMISSIONS.attendance.read) ? <TeamTodayCard /> : null}
+        {hasPermission(user, PERMISSIONS.hr.performanceRead) ? <StaffRankingCard /> : null}
         {isAdminUser(user) ? <StoreRevenueMini /> : null}
         <PeriodStatsCard />
       </View>
