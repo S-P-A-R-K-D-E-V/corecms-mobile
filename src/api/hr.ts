@@ -5,6 +5,7 @@ import type {
   IMyViolations,
   IViolationRule,
   IViolationEntry,
+  IViolationShift,
   IViolationMonth,
   IViolationPolicy,
   IHrRecord,
@@ -280,6 +281,16 @@ export async function createViolations(body: {
 
 export async function cancelViolation(id: string, note: string): Promise<IViolationEntry> {
   const response = await axios.put<IViolationEntry>(endpoints.hr.violationCancel(id), { note });
+  return response.data;
+}
+
+export async function resolveViolation(id: string, keep: boolean, note: string): Promise<IViolationEntry> {
+  const response = await axios.put<IViolationEntry>(endpoints.hr.violationResolve(id), { keep, note });
+  return response.data;
+}
+
+export async function getViolationShift(id: string): Promise<IViolationShift> {
+  const response = await axios.get<IViolationShift>(endpoints.hr.violationShift(id));
   return response.data;
 }
 

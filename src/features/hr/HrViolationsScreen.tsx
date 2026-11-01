@@ -14,9 +14,12 @@ import {
   getMyViolations,
   getViolationRules,
   getViolations,
+  getViolationShift,
   getViolationSummary,
+  resolveViolation,
   saveViolationPolicy,
 } from 'src/api/hr';
+import { AdjustAttendanceSheet, type AdjustTarget } from 'src/features/manage/AdjustAttendanceSheet';
 import { useAuthContext } from 'src/auth/auth-context';
 import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import {
@@ -33,7 +36,8 @@ import { bonusText, canComplain, fVnd, monthOf, occurrenceText, ruleMoney } from
 // Vi phạm & điểm trừ: mỗi lần vi phạm trừ điểm theo danh mục của cửa hàng; tiền hiện kèm chỉ là mô phỏng — không phạt tiền,
 // không trừ lương, tổng điểm tháng quyết định % thưởng được nhận. Nhân viên xem điểm trừ tháng
 // của mình, từng lần (hệ thống tự ghi hoặc quản lý ghi kèm căn cứ) và khiếu nại trong hạn. Quản lý (hr.violation.manage /
-// hr.performance.read) xem điểm cả cửa hàng; người có hr.violation.manage ghi tay, huỷ. Sửa danh mục, trả lời khiếu nại: web.
+// hr.performance.read) xem điểm cả cửa hàng; người có hr.violation.manage ghi tay, huỷ, trả lời khiếu nại và sửa chấm công đúng ca
+// bị khiếu nại (cần thêm attendance.adjust). Sửa danh mục: web.
 // ----------------------------------------------------------------------
 
 const STATUS_TONE: Record<ViolationEntryStatus, 'error' | 'warning' | 'neutral'> = {
@@ -133,11 +137,15 @@ function EntryCard({
   showName,
   onComplain,
   onCancel,
+  onFixShift,
+  onResolve,
 }: {
   entry: IViolationEntry;
   showName?: boolean;
   onComplain?: () => void;
   onCancel?: () => void;
+  onFixShift?: () => void;
+  onResolve?: (keep: boolean) => void;
 }) {
   return (
     <SectionCard
@@ -170,6 +178,19 @@ function EntryCard({
       ) : null}
       {onCancel && e.status === 'Active' ? (
         <Button size="sm" variant="ghost" action="error" onPress={onCancel}>Huỷ điểm trừ</Button>
+      ) : null}
+      {e.status === 'Disputed' && onFixShift && e.attendanceAssignmentId ? (
+        <Button size="sm" variant="outline" icon="account-clock" onPress={onFixShift}>Sửa chấm công ca này</Button>
+      ) : null}
+      {e.status === 'Disputed' && onResolve ? (
+        <View className="flex-row gap-2">
+          <View className="flex-1">
+            <Button size="sm" variant="outline" onPress={() => onResolve(true)}>Giữ điểm trừ</Button>
+          </View>
+          <View className="flex-1">
+            <Button size="sm" onPress={() => onResolve(false)}>Chấp nhận</Button>
+          </View>
+        </View>
       ) : null}
     </SectionCard>
   );
@@ -402,7 +423,17 @@ function CreateSheet({
   );
 }
 
-function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage: boolean; canEditPolicy: boolean }) {
+function TeamTab({
+  month,
+  canManage,
+  canEditPolicy,
+  canAdjust,
+}: {
+  month: string;
+  canManage: boolean;
+  canEditPolicy: boolean;
+  canAdjust: boolean;
+}) {
   const qc = useQueryClient();
   const summaryQuery = useQuery({ queryKey: ['hr', 'violations', 'summary', month], queryFn: () => getViolationSummary(month) });
   const entriesQuery = useQuery({ queryKey: ['hr', 'violations', 'list', month], queryFn: () => getViolations(month) });
@@ -410,7 +441,12 @@ function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage
   const [creating, setCreating] = useState(false);
   const [cancelling, setCancelling] = useState<IViolationEntry | null>(null);
   const rows = summaryQuery.data?.rows ?? [];
-  const entries = (entriesQuery.data ?? []).filter((e) => !selected || e.userId === selected);
+  // Khiếu nại đang chờ trả lời lên đầu, còn lại giữ thứ tự.
+  const entries = (entriesQuery.data ?? [])
+    .filter((e) => !selected || e.userId === selected)
+    .sort((a, b) => Number(b.status === 'Disputed') - Number(a.status === 'Disputed'));
+  const [resolving, setResolving] = useState<{ entry: IViolationEntry; keep: boolean } | null>(null);
+  const [fixing, setFixing] = useState<AdjustTarget | null>(null);
 
   function refresh() {
     qc.invalidateQueries({ queryKey: ['hr', 'violations'] });
@@ -425,6 +461,37 @@ function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage
       refresh();
     } catch (err) {
       toast.error(extractApiError(err), 'Chưa huỷ được');
+    }
+  }
+
+  async function resolve(note: string) {
+    if (!resolving) return;
+    try {
+      await resolveViolation(resolving.entry.id, resolving.keep, note);
+      toast.success('Đã trả lời khiếu nại — nhân viên được báo.');
+      setResolving(null);
+      refresh();
+    } catch (err) {
+      toast.error(extractApiError(err), 'Chưa lưu được');
+    }
+  }
+
+  async function openShift(entry: IViolationEntry) {
+    try {
+      const s = await getViolationShift(entry.id);
+      setFixing({
+        shiftAssignmentId: s.shiftAssignmentId,
+        staffId: s.staffId,
+        staffName: s.staffName,
+        shiftName: s.shiftName ?? 'Ca làm',
+        date: s.date,
+        startTime: s.startTime.slice(0, 5),
+        endTime: s.endTime.slice(0, 5),
+        checkInTime: s.checkInTime,
+        checkOutTime: s.checkOutTime,
+      });
+    } catch (err) {
+      toast.error(extractApiError(err), 'Không mở được ca làm');
     }
   }
 
@@ -467,7 +534,14 @@ function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage
         <Button size="sm" variant="ghost" onPress={() => setSelected(null)}>Xem của mọi người</Button>
       ) : null}
       {entries.map((e) => (
-        <EntryCard key={e.id} entry={e} showName onCancel={canManage ? () => setCancelling(e) : undefined} />
+        <EntryCard
+          key={e.id}
+          entry={e}
+          showName
+          onCancel={canManage ? () => setCancelling(e) : undefined}
+          onFixShift={canManage && canAdjust ? () => openShift(e) : undefined}
+          onResolve={canManage ? (keep) => setResolving({ entry: e, keep }) : undefined}
+        />
       ))}
       <CreateSheet
         visible={creating}
@@ -488,6 +562,21 @@ function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage
         onClose={() => setCancelling(null)}
         onSubmit={cancel}
       />
+      <TextSheet
+        visible={!!resolving}
+        title={resolving?.keep ? 'Giữ điểm trừ' : 'Chấp nhận khiếu nại (huỷ điểm trừ)'}
+        label="Trả lời nhân viên"
+        hint={resolving ? `${resolving.entry.fullName}: ${resolving.entry.complaintText ?? ''}` : ''}
+        confirm={resolving?.keep ? 'Giữ điểm trừ' : 'Huỷ điểm trừ'}
+        onClose={() => setResolving(null)}
+        onSubmit={resolve}
+      />
+      <AdjustAttendanceSheet
+        target={fixing}
+        visible={!!fixing}
+        onClose={() => setFixing(null)}
+        savedMessage="Đã lưu chấm công. Khiếu nại vẫn mở cho tới khi bạn trả lời."
+      />
     </>
   );
 }
@@ -498,7 +587,9 @@ export function HrViolationsScreen() {
   const canManage = hasPermission(user, PERMISSIONS.hr.violationManage);
   const canSeeTeam = canManage || hasPermission(user, PERMISSIONS.hr.performanceRead);
   const canEditPolicy = hasPermission(user, PERMISSIONS.hr.ruleManage);
-  const [tab, setTab] = useState<'mine' | 'team'>('mine');
+  const canAdjust = hasPermission(user, PERMISSIONS.attendance.adjust);
+  // Quản lý vào từ thông báo khiếu nại thì thấy ngay danh sách cả cửa hàng, như trên web.
+  const [tab, setTab] = useState<'mine' | 'team'>(canManage ? 'team' : 'mine');
   const [month, setMonth] = useState(monthOf());
 
   return (
@@ -520,7 +611,7 @@ export function HrViolationsScreen() {
       ) : null}
       <MonthSwitch month={month} onChange={setMonth} />
       {tab === 'team' && canSeeTeam ? (
-        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} />
+        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} canAdjust={canAdjust} />
       ) : (
         <MineTab month={month} />
       )}
