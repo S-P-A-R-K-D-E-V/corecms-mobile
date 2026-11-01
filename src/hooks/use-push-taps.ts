@@ -8,12 +8,13 @@ import { openInAppBrowser } from 'src/features/assistant/links';
 import { getStoreCode, getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 import { decidePushTap } from 'src/services/push-store';
 import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl, stockCheckPushRoute, workPushRoute } from 'src/services/push-links';
+import { notificationAppRoute } from 'src/services/notification-links';
 
 // ----------------------------------------------------------------------
 // Chạm vào thông báo đẩy (app đang mở / chạy nền / mở app từ thông báo).
 //   Cùng cửa hàng (hoặc push cũ chưa có storeCode): mở app; mã đăng nhập máy quầy mở màn hiện mã; kiểm tra cửa hàng
 //   mở màn kiểm / lỗi của tôi; đơn online đã thanh toán mở trang Đơn online trên web của cửa hàng (app chưa có màn
-//   này — push-links.ts). Loại khác chưa điều hướng theo link của push.
+//   này — push-links.ts). Push có data.actionUrl mở màn tương ứng; còn lại mở trang chi tiết thông báo.
 //   Cửa hàng khác (máy còn đăng ký ở cửa hàng cũ): KHÔNG mở theo link — báo đây là thông báo của cửa hàng nào,
 //   đăng nhập cửa hàng đó để xem. So với cửa hàng đã nhớ (StoreProfile.code), kể cả khi đang đăng xuất.
 // ----------------------------------------------------------------------
@@ -44,6 +45,12 @@ function handleResponse(response: Notifications.NotificationResponse) {
       });
       return;
     }
+    // Push có đường dẫn tới trang tính năng (data.actionUrl): mở đúng màn đó, cụ thể hơn các quy tắc theo loại bên dưới.
+    const linkRoute = notificationAppRoute(data.actionUrl);
+    if (linkRoute) {
+      router.push(linkRoute as any);
+      return;
+    }
     // Kiểm tra cửa hàng: lỗi cần sửa → lỗi của tôi; nhắc kiểm nhanh / báo cáo tuần → màn Kiểm tra cửa hàng.
     const inspectionRoute = inspectionPushRoute(data);
     if (inspectionRoute) {
@@ -70,7 +77,12 @@ function handleResponse(response: Notifications.NotificationResponse) {
     }
     // Bản cửa hàng chưa gắn cửa hàng nào thì không có trang web để mở (gốc web mặc định không phải của cửa hàng).
     const onlineOrderUrl = onlineOrderWebUrl(data, isMultiStore && !storeDomain() ? null : getWebOrigin());
-    if (onlineOrderUrl) openInAppBrowser(onlineOrderUrl);
+    if (onlineOrderUrl) {
+      openInAppBrowser(onlineOrderUrl);
+      return;
+    }
+    // Còn lại: trang chi tiết thông báo (có nút mở trên web nếu thông báo có đường dẫn).
+    if (typeof data.notificationId === 'string') router.push(`/notification/${data.notificationId}` as any);
     return;
   }
   // Đã báo: tải lại JS (bản cập nhật OTA) không báo lại lần chạm cũ.
