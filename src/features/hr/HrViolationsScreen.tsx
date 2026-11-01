@@ -27,10 +27,11 @@ import {
   type IViolationSummary,
   type ViolationEntryStatus,
 } from 'src/types/hr';
-import { bonusText, canComplain, monthOf } from './hr-rules';
+import { bonusText, canComplain, fVnd, monthOf, occurrenceText, ruleMoney } from './hr-rules';
 
 // ----------------------------------------------------------------------
-// Vi phạm & điểm trừ: mỗi lần vi phạm chỉ trừ điểm theo danh mục của cửa hàng — không phạt tiền. Nhân viên xem điểm trừ tháng
+// Vi phạm & điểm trừ: mỗi lần vi phạm trừ điểm theo danh mục của cửa hàng; tiền hiện kèm chỉ là mô phỏng — không phạt tiền,
+// không trừ lương, tổng điểm tháng quyết định % thưởng được nhận. Nhân viên xem điểm trừ tháng
 // của mình, từng lần (hệ thống tự ghi hoặc quản lý ghi kèm căn cứ) và khiếu nại trong hạn. Quản lý (hr.violation.manage /
 // hr.performance.read) xem điểm cả cửa hàng; người có hr.violation.manage ghi tay, huỷ. Sửa danh mục, trả lời khiếu nại: web.
 // ----------------------------------------------------------------------
@@ -90,7 +91,7 @@ function BonusToggle({ policy, onChanged }: { policy: IViolationPolicy; onChange
         <View className="flex-1">
           <Text variant="bodySmall" className="font-semibold">Tính điểm trừ vào thưởng tuần</Text>
           <Text variant="caption" tone="muted">
-            Bật: mỗi người nhận % thưởng tuần theo điểm trừ của tháng; phần không nhận chia lại cho người nhận đủ.
+            Bật: mỗi người nhận % thưởng tuần theo điểm trừ của tháng; phần bị trừ giữ lại cho cửa hàng.
           </Text>
         </View>
         <Switch value={!!policy.appliesToBonus} disabled={busy} onValueChange={toggle} accessibilityLabel="Tính điểm trừ vào thưởng tuần" />
@@ -113,6 +114,11 @@ function SummaryBlock({ summary, policy }: { summary: IViolationSummary; policy:
         {summary.count} lần{summary.disputed > 0 ? ` · ${summary.disputed} đang khiếu nại` : ''}
       </Text>
       {bonus ? <Text variant="bodySmall" className="font-semibold">{bonus}</Text> : null}
+      {policy?.simulatedAmountPerPoint != null || (summary.simulatedAmount ?? 0) > 0 ? (
+        <Text variant="caption" tone="muted">
+          Tiền mô phỏng {fVnd(summary.simulatedAmount ?? 0)} — chỉ để thấy mức độ, không trừ lương.
+        </Text>
+      ) : null}
       {summary.weeksWithoutBonus.length > 0 ? (
         <Text variant="caption" tone="warning">
           Mất thưởng tuần bắt đầu {summary.weeksWithoutBonus.map((w) => dayjs(w).format('DD/MM')).join(', ')}
@@ -146,7 +152,13 @@ function EntryCard({
         {e.quantity > 1 ? ` · ${e.quantity} lần` : ''}
         {e.losesWeeklyBonus ? ' · mất thưởng tuần' : ''}
         {e.losesMonthlyBonus ? ' · mất thưởng tháng' : ''}
+        {e.simulatedAmount ? ` · mô phỏng ${fVnd(e.simulatedAmount)}` : ''}
       </Text>
+      {occurrenceText(e) ? (
+        <Text variant="caption" tone={e.escalationAction ? 'error' : 'muted'} className="font-semibold">
+          {occurrenceText(e)}
+        </Text>
+      ) : null}
       {e.note ? <Text variant="bodySmall">Căn cứ: {e.note}</Text> : null}
       <Text variant="caption" tone="muted">{e.isAuto ? 'Hệ thống tự ghi' : 'Quản lý ghi'}</Text>
       {e.complaintText ? <Text variant="caption" tone="warning">Khiếu nại: {e.complaintText}</Text> : null}
@@ -263,11 +275,14 @@ function MineTab({ month }: { month: string }) {
 function CreateSheet({
   visible,
   staff,
+  perPoint,
   onClose,
   onCreated,
 }: {
   visible: boolean;
   staff: { id: string; name: string }[];
+  /** Tiền mô phỏng mỗi điểm của cửa hàng (chỉ hiển thị). */
+  perPoint?: number | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -319,7 +334,9 @@ function CreateSheet({
       onClose={busy ? () => {} : onClose}
       footer={
         <Button loading={busy} disabled={busy || !valid} onPress={submit}>
-          {rule && valid ? `Ghi nhận (trừ ${rule.points * qty} điểm / người)` : 'Ghi nhận'}
+          {rule && valid
+            ? `Ghi nhận (trừ ${rule.points * qty} điểm / người${(ruleMoney(rule, perPoint, qty) ?? 0) > 0 ? ` · mô phỏng ${fVnd(ruleMoney(rule, perPoint, qty))}` : ''})`
+            : 'Ghi nhận'}
         </Button>
       }
     >
@@ -339,6 +356,12 @@ function CreateSheet({
         ))}
         {rule && rule.autoSource !== 'None' ? (
           <Text variant="caption" tone="warning">Hành vi này hệ thống đã tự ghi theo dữ liệu — chỉ ghi tay khi hệ thống không có dữ liệu.</Text>
+        ) : null}
+        {rule?.escalationSteps ? (
+          <Text variant="caption" tone="muted">
+            Tái phạm trong {rule.escalationWindowMonths ?? 1} tháng: {rule.escalationSteps.split('\n').join('; ')} — hệ thống báo quản lý
+            khi chạm bậc.
+          </Text>
         ) : null}
         <Text variant="caption" tone="muted">Nhân viên</Text>
         <View className="flex-row flex-wrap gap-1.5">
@@ -449,6 +472,7 @@ function TeamTab({ month, canManage, canEditPolicy }: { month: string; canManage
       <CreateSheet
         visible={creating}
         staff={rows.map((r) => ({ id: r.userId, name: r.fullName }))}
+        perPoint={summaryQuery.data?.policy?.simulatedAmountPerPoint}
         onClose={() => setCreating(false)}
         onCreated={() => {
           setCreating(false);

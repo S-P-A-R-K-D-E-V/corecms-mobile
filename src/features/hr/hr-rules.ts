@@ -56,6 +56,26 @@ export function slotTargetFor(
   );
 }
 
+/** "Lần 2 trong tháng · Khiển trách" — chỉ khi hành vi có bậc tái phạm. */
+export function occurrenceText(
+  e: { occurrence?: number | null; occurrenceWindowMonths?: number | null; escalationAction?: string | null },
+): string | null {
+  if (e.occurrence == null) return null;
+  const window = e.occurrenceWindowMonths === 1 ? 'trong tháng' : `trong ${e.occurrenceWindowMonths ?? 1} tháng`;
+  return `Lần ${e.occurrence} ${window}${e.escalationAction ? ` · ${e.escalationAction}` : ''}`;
+}
+
+/** Tiền mô phỏng mỗi lần của hành vi; null = không hiện. */
+export function ruleMoney(
+  r: { points: number; simulatedAmount?: number | null },
+  perPoint: number | null | undefined,
+  qty = 1,
+): number | null {
+  if (r.simulatedAmount != null) return r.simulatedAmount * qty;
+  if (perPoint != null) return r.points * qty * perPoint;
+  return null;
+}
+
 /** 1.250.000đ */
 export function fVnd(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—';
