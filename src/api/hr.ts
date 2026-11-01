@@ -79,8 +79,13 @@ export async function uploadWorkTaskPhoto(taskId: string, photo: LocalPhoto): Pr
   return target.objectKey;
 }
 
-export async function submitWorkTask(id: string, note: string | null, photoKeys: string[]): Promise<IWorkTask> {
-  const response = await axios.put<IWorkTask>(endpoints.hr.taskSubmit(id), { note, photoKeys });
+export async function submitWorkTask(
+  id: string,
+  note: string | null,
+  photoKeys: string[],
+  lateReason: string | null = null,
+): Promise<IWorkTask> {
+  const response = await axios.put<IWorkTask>(endpoints.hr.taskSubmit(id), { note, photoKeys, lateReason });
   return response.data;
 }
 

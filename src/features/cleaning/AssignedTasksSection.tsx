@@ -56,10 +56,20 @@ function TaskCard({ task, onSubmit }: { task: IWorkTask; onSubmit: () => void })
   );
 }
 
+/** Có hạn, đã quá hạn và chưa nộp lần nào (hoặc backend báo trễ). */
+export function isOverdue(task: Pick<IWorkTask, 'dueAt' | 'submittedAt' | 'late'> | null, now = Date.now()): boolean {
+  if (!task) return false;
+  if (task.late) return true;
+  return !!task.dueAt && !task.submittedAt && new Date(task.dueAt).getTime() < now;
+}
+
 function SubmitSheet({ task, onClose, onDone }: { task: IWorkTask | null; onClose: () => void; onDone: () => void }) {
   const [note, setNote] = useState('');
+  const [lateReason, setLateReason] = useState('');
   const [photos, setPhotos] = useState<DraftPhoto[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  // Nộp lần đầu sau hạn: quy chế trừ 2 điểm nếu không ghi lý do trễ.
+  const askLateReason = isOverdue(task);
   // Phiếu sáng kiến cũ (tạo từ app bản trước) không bắt buộc ảnh.
   const needPhoto = task?.group !== 'Initiative' && (task?.photos.length ?? 0) === 0 && photos.length === 0;
 
@@ -67,6 +77,7 @@ function SubmitSheet({ task, onClose, onDone }: { task: IWorkTask | null; onClos
     photos.forEach((p) => void discardInspectionPhoto(p.uri));
     setPhotos([]);
     setNote('');
+    setLateReason('');
     onClose();
   }
 
@@ -86,10 +97,11 @@ function SubmitSheet({ task, onClose, onDone }: { task: IWorkTask | null; onClos
         setPhotos((prev) => prev.map((x, j) => (j === i ? { ...x, key: keys[i] } : x)));
       }
       setBusy('Đang nộp…');
-      await submitWorkTask(task.id, note.trim() || null, keys);
+      await submitWorkTask(task.id, note.trim() || null, keys, lateReason.trim() || null);
       photos.forEach((p) => void discardInspectionPhoto(p.uri));
       setPhotos([]);
       setNote('');
+      setLateReason('');
       toast.success('Đã nộp — chờ quản lý duyệt.');
       onDone();
     } catch (err) {
@@ -113,6 +125,19 @@ function SubmitSheet({ task, onClose, onDone }: { task: IWorkTask | null; onClos
       <View className="gap-3">
         <PhotoRules />
         <TextField placeholder="Ghi chú (không bắt buộc)" value={note} onChangeText={setNote} multiline />
+        {askLateReason ? (
+          <View className="gap-1">
+            <TextField
+              label="Lý do trễ hạn"
+              placeholder="VD: chờ hàng về, đổi ca…"
+              value={lateReason}
+              onChangeText={setLateReason}
+              maxLength={500}
+              multiline
+            />
+            <Text variant="caption" tone="warning">Việc đã quá hạn. Không ghi lý do trễ sẽ bị trừ 2 điểm theo quy chế.</Text>
+          </View>
+        ) : null}
         <PhotoStrip
           server={[]}
           local={photos}

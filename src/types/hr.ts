@@ -85,6 +85,10 @@ export interface IWorkTask {
   implemented: boolean;
   createdAt: string;
   photos: { id: string; url: string; uploadedAt: string }[];
+  /** Lý do trễ hạn — có thì không bị ghi vi phạm "trễ, không ghi lý do". */
+  lateReason?: string | null;
+  rejectCount?: number;
+  late?: boolean;
 }
 
 export type HrRecordType = 'CashDiscrepancy' | 'StockDiscrepancy' | 'Violation' | 'Warning';
