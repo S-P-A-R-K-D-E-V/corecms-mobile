@@ -46,10 +46,12 @@ export function AdjustAttendanceSheet({
   target,
   visible,
   onClose,
+  savedMessage,
 }: {
   target: AdjustTarget | null;
   visible: boolean;
   onClose: () => void;
+  savedMessage?: string;
 }) {
   const mutation = useAdjustAttendanceTime();
   const [checkIn, setCheckIn] = useState('');
@@ -91,7 +93,7 @@ export function AdjustAttendanceSheet({
         note: note.trim() || undefined,
       });
       haptics.success();
-      toast.success('Đã cập nhật chấm công.', 'Điều chỉnh thành công');
+      toast.success(savedMessage ?? 'Đã cập nhật chấm công.', 'Điều chỉnh thành công');
       onClose();
     } catch (err) {
       haptics.error();
