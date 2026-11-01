@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import isToday from 'dayjs/plugin/isToday';
@@ -13,6 +14,7 @@ import { getNotifications, markAsRead, markAllAsRead, deleteNotification, delete
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
 import { useNotificationSettings } from 'src/hooks/use-notification-settings';
 import { confirm, toast } from 'src/components/overlay';
+import { notificationAppRoute } from 'src/services/notification-links';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -33,11 +35,11 @@ function formatTime(iso: string) {
   return d.format('DD/MM/YYYY HH:mm');
 }
 
-function NotificationRow({ item, onRead, onDelete }: { item: INotification; onRead: (id: string) => void; onDelete: (id: string) => void }) {
+function NotificationRow({ item, onOpen, onDelete }: { item: INotification; onOpen: (item: INotification) => void; onDelete: (id: string) => void }) {
   const ti = TYPE_ICON[item.type] ?? TYPE_ICON.default;
   return (
     <Pressable
-      onPress={() => { if (!item.isRead) onRead(item.id); }}
+      onPress={() => onOpen(item)}
       className={cn(
         'flex-row items-start gap-3 p-3.5 rounded-2xl border',
         // Chưa đọc: nền hồng nhạt CHỈ ở light; dark dùng soft alpha — bg-primary-50
@@ -100,6 +102,12 @@ export function NotificationsScreen() {
       setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     } catch {}
   }, []);
+
+  // Có màn tính năng tương ứng thì mở thẳng, không thì mở trang chi tiết.
+  const handleOpen = useCallback((item: INotification) => {
+    if (!item.isRead) handleRead(item.id);
+    router.push((notificationAppRoute(item.actionUrl) ?? `/notification/${item.id}`) as any);
+  }, [handleRead]);
 
   const handleReadAll = useCallback(async () => {
     try {
@@ -173,7 +181,7 @@ export function NotificationsScreen() {
           ListEmptyComponent={<EmptyState icon="bell-outline" title="Không có thông báo nào" description="Khi có thông báo mới, chúng sẽ hiển thị ở đây" />}
           renderItem={({ item, index }) => (
             <Appear index={Math.min(index, 8)}>
-              <NotificationRow item={item} onRead={handleRead} onDelete={handleDelete} />
+              <NotificationRow item={item} onOpen={handleOpen} onDelete={handleDelete} />
             </Appear>
           )}
         />

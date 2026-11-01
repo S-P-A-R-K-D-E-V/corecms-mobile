@@ -21,7 +21,9 @@ export interface IUnreadCountResponse {
 
 // BE trả về wrapper phân trang (NotificationListResponse), không phải mảng phẳng.
 interface RawNotification {
-  notificationId: string;
+  id?: string;
+  /** Tên trường cũ, giữ để app vẫn đọc được nếu API trả theo tên này. */
+  notificationId?: string;
   title: string;
   message: string;
   category: string;
@@ -42,7 +44,7 @@ interface NotificationListResponse {
 
 function mapNotification(r: RawNotification): INotification {
   return {
-    id: r.notificationId,
+    id: (r.id ?? r.notificationId)!,
     title: r.title,
     body: r.message,
     type: r.category,
@@ -62,6 +64,11 @@ export async function getNotifications(page = 1, pageSize = 50): Promise<INotifi
     params: { page, pageSize },
   });
   return (response.data?.items ?? []).map(mapNotification);
+}
+
+export async function getNotification(id: string): Promise<INotification> {
+  const response = await axios.get<RawNotification>(endpoints.notifications.detail(id));
+  return mapNotification(response.data);
 }
 
 export async function getUnreadCount(): Promise<number> {
