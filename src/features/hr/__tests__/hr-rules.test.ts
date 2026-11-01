@@ -7,6 +7,8 @@ import {
   fVnd,
   hoursUntilShift,
   leaveCandidates,
+  occurrenceText,
+  ruleMoney,
   parseCount,
   slotTargetFor,
   monthOf,
@@ -185,5 +187,22 @@ describe('rankScores', () => {
       ['moi', null],
       ['khongca', null],
     ]);
+  });
+});
+
+describe('Tiền mô phỏng & tái phạm', () => {
+  it('ruleMoney: số tiền riêng ghi đè điểm × đơn giá; 0 = không quy ra tiền; không đơn giá = không hiện', () => {
+    expect(ruleMoney({ points: 3 }, 10000, 2)).toBe(60000);
+    expect(ruleMoney({ points: 5, simulatedAmount: 0 }, 10000)).toBe(0);
+    expect(ruleMoney({ points: 5, simulatedAmount: 25000 }, 10000, 2)).toBe(50000);
+    expect(ruleMoney({ points: 5 }, null)).toBeNull();
+  });
+
+  it('occurrenceText: trong tháng / N tháng, chưa tới bậc thì không có việc', () => {
+    expect(occurrenceText({ occurrence: null })).toBeNull();
+    expect(occurrenceText({ occurrence: 1, occurrenceWindowMonths: 1 })).toBe('Lần 1 trong tháng');
+    expect(occurrenceText({ occurrence: 3, occurrenceWindowMonths: 12, escalationAction: 'Sa thải' })).toBe(
+      'Lần 3 trong 12 tháng · Sa thải',
+    );
   });
 });

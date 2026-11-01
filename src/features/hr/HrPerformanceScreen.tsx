@@ -218,6 +218,11 @@ function BonusProgramsCard() {
             <Text variant="caption" tone="muted">
               Tháng {dayjs(r.month).format('MM/YYYY')} · {r.orders} đơn
             </Text>
+            {r.appliedPct != null && r.appliedPct < 100 ? (
+              <Text variant="caption" tone="warning">
+                Nhận {r.appliedPct}% của {fVnd(r.baseAmount ?? 0)} vì {r.deductionPoints ?? 0} điểm trừ trong tháng
+              </Text>
+            ) : null}
           </View>
           <View className="items-end">
             <Text variant="bodySmall" className="font-semibold">{fVnd(r.amount)}</Text>

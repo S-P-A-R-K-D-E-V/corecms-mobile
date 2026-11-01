@@ -346,6 +346,11 @@ export interface IMyBonusProgram {
   amount: number;
   paidOrders: number;
   paidAmount: number;
+  /** Tiền trước khi áp điểm trừ; trống = chương trình không áp điểm trừ. */
+  baseAmount?: number | null;
+  /** % nhận theo điểm trừ của tháng (phần bị trừ giữ lại cửa hàng). */
+  appliedPct?: number | null;
+  deductionPoints?: number | null;
 }
 
 // ── Kiểm hàng khu vực mỗi ca (Quy chế Điều 24.3) ────────────────────────
@@ -435,8 +440,10 @@ export interface IViolationPolicy {
   noBonusFromPoints?: number | null;
   notCompleteFromPoints?: number | null;
   updatedAt?: string;
-  /** Bật: thưởng doanh số tuần nhận theo % của ngưỡng điểm trừ. */
+  /** Bật: thưởng doanh số tuần nhận theo % của ngưỡng điểm trừ; phần bị trừ giữ lại cửa hàng. */
   appliesToBonus?: boolean;
+  /** Tiền mô phỏng mỗi điểm — chỉ hiển thị, không trừ lương. */
+  simulatedAmountPerPoint?: number | null;
 }
 
 export interface IViolationRule {
@@ -447,6 +454,9 @@ export interface IViolationRule {
   autoSource: string;
   extraAction?: string | null;
   isActive: boolean;
+  simulatedAmount?: number | null;
+  escalationSteps?: string | null;
+  escalationWindowMonths?: number | null;
 }
 
 export interface IViolationEntry {
@@ -469,6 +479,12 @@ export interface IViolationEntry {
   complainedAt?: string | null;
   resolutionNote?: string | null;
   complaintDeadline?: string | null;
+  /** Tiền mô phỏng chụp lúc ghi — không trừ lương. */
+  simulatedAmount?: number | null;
+  /** Lần thứ mấy trong khoảng đếm tái phạm; trống = luật không đếm. */
+  occurrence?: number | null;
+  occurrenceWindowMonths?: number | null;
+  escalationAction?: string | null;
 }
 
 export interface IViolationSummary {
@@ -484,6 +500,8 @@ export interface IViolationSummary {
   notComplete: boolean;
   losesMonthlyBonus: boolean;
   weeksWithoutBonus: string[];
+  /** Tổng tiền mô phỏng tháng — chỉ hiển thị. */
+  simulatedAmount?: number;
 }
 
 export interface IMyViolations {
