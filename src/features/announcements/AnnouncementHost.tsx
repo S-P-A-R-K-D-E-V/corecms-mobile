@@ -14,7 +14,8 @@ import { getStoreCode, getWebOrigin, isMultiStore, storeDomain } from 'src/servi
 import { blur, brand } from 'src/theme';
 import { BrandScope } from 'src/theme/BrandScope';
 
-import { announcementBlocks, announcementCta, isAnnouncementPush, mergeQueue, plainSpans, shouldCheck } from './announcement-logic';
+import { AnnouncementImage, ZoomedAnnouncementImage, type ZoomedImage } from './AnnouncementImage';
+import { announcementBlocks, announcementCta, isAnnouncementPush, mergeQueue, plainSpans, scrollMaxHeight, shouldCheck } from './announcement-logic';
 
 // ----------------------------------------------------------------------
 // Popup thông báo trên app: hỏi API khi mở app, khi quay lại app (có giãn cách) và khi có push thông báo. Hiện lần lượt từng cái. Bắt buộc
@@ -99,6 +100,7 @@ export function AnnouncementHost() {
 
   const [queue, setQueue] = useState<IPendingAnnouncement[]>([]);
   const [busy, setBusy] = useState(false);
+  const [zoomed, setZoomed] = useState<ZoomedImage | null>(null);
   const lastCheckAt = useRef(0);
   const handled = useRef(new Set<string>());
   const seenSent = useRef(new Set<string>());
@@ -156,6 +158,7 @@ export function AnnouncementHost() {
   }, [currentId]);
 
   const finish = useCallback((id: string) => {
+    setZoomed(null);
     handled.current.add(id);
     setQueue((list) => list.filter((a) => a.id !== id));
   }, []);
@@ -193,6 +196,10 @@ export function AnnouncementHost() {
     // Bắt buộc xác nhận: nút Back của Android và chạm ngoài không đóng, chỉ nút "Đã hiểu".
     if (!current.requireAck) finish(current.id);
   };
+  const handleBack = () => {
+    if (zoomed) setZoomed(null);
+    else dismiss();
+  };
   const openCta = async () => {
     if (!cta || !(await acknowledge(current))) return;
     if (cta.kind === 'app') router.push(cta.route as any);
@@ -200,7 +207,7 @@ export function AnnouncementHost() {
   };
 
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
+    <Modal visible transparent animationType="fade" onRequestClose={handleBack}>
       <BrandScope>
         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.45)' }} />
         <Pressable testID="announcement-backdrop" className="flex-1 items-center justify-center px-6" onPress={dismiss}>
@@ -222,8 +229,17 @@ export function AnnouncementHost() {
                 </View>
               </View>
 
-              <ScrollView style={{ maxHeight: height * 0.5 }} showsVerticalScrollIndicator>
+              <ScrollView style={{ maxHeight: scrollMaxHeight(height, !!current.imageUrl) }} showsVerticalScrollIndicator>
                 <Body markdown={current.bodyMarkdown} />
+                {current.imageUrl ? (
+                  <AnnouncementImage
+                    key={current.id}
+                    announcementId={current.id}
+                    url={current.imageUrl}
+                    title={current.title}
+                    onZoom={setZoomed}
+                  />
+                ) : null}
               </ScrollView>
 
               {current.requireAck ? (
@@ -245,6 +261,7 @@ export function AnnouncementHost() {
             </GlassView>
           </Pressable>
         </Pressable>
+        {zoomed ? <ZoomedAnnouncementImage image={zoomed} title={current.title} onClose={() => setZoomed(null)} /> : null}
       </BrandScope>
     </Modal>
   );

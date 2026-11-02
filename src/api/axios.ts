@@ -433,6 +433,7 @@ export const endpoints = {
     pending: '/announcements/pending',
     seen: (id: string) => `/announcements/${id}/seen`,
     ack: (id: string) => `/announcements/${id}/ack`,
+    imageUrl: (id: string) => `/announcements/${id}/image-url`,
   },
   // Nhân sự theo Quy chế / Nội quy (phần của nhân viên; quản lý dùng web).
   hr: {

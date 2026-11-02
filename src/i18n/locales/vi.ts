@@ -1183,6 +1183,11 @@ export const vi = {
     ackHint: 'Bấm "Đã hiểu" để xác nhận bạn đã đọc thông báo này.',
     ackFailed: 'Chưa xác nhận được, thử lại nhé.',
     more: 'còn {count} thông báo nữa',
+    imageAlt: 'Ảnh đính kèm: {title}',
+    imageZoom: 'Chạm để xem toàn màn hình',
+    imageClose: 'Đóng ảnh',
+    imageFailed: 'Không tải được ảnh đính kèm.',
+    imageRetry: 'Thử lại',
     severity: {
       Info: 'Thông tin',
       Warn: 'Lưu ý',

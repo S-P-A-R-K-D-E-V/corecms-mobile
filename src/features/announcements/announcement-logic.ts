@@ -45,6 +45,19 @@ export function announcementCta(
   return url ? { kind: 'web', url } : null;
 }
 
+/** Tỉ lệ khung tạm khi ảnh chưa tải xong. */
+export const FALLBACK_IMAGE_RATIO = 16 / 9;
+
+/** Rộng / cao để ảnh rộng bằng khung mà không cắt. Kích thước lạ thì null. */
+export function imageRatio(width: number | undefined, height: number | undefined): number | null {
+  return width && height && width > 0 && height > 0 ? width / height : null;
+}
+
+/** Chiều cao tối đa vùng cuộn: có ảnh thì rộng hơn để đọc ảnh dài, vẫn chừa chỗ cho tiêu đề và nút. */
+export function scrollMaxHeight(screenHeight: number, hasImage: boolean): number {
+  return screenHeight * (hasImage ? 0.6 : 0.5);
+}
+
 const HTML_TAG = /<\/?[a-zA-Z][^>]*>/g;
 
 /** Nội dung → các khối. React Native không dựng HTML nên thẻ HTML thô bị bỏ cho giống web. */
