@@ -58,6 +58,11 @@ export function scrollMaxHeight(screenHeight: number, hasImage: boolean): number
   return screenHeight * (hasImage ? 0.6 : 0.5);
 }
 
+/** Có nút "Xem chi tiết" khi có ảnh, hoặc khi nội dung dài hơn khung popup. */
+export function needsDetail(hasImage: boolean, contentHeight: number, viewportHeight: number): boolean {
+  return hasImage || (viewportHeight > 0 && contentHeight > viewportHeight + 1);
+}
+
 const HTML_TAG = /<\/?[a-zA-Z][^>]*>/g;
 
 /** Nội dung → các khối. React Native không dựng HTML nên thẻ HTML thô bị bỏ cho giống web. */
