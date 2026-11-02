@@ -1178,6 +1178,17 @@ export const vi = {
     otherStoreTitle: 'Thông báo của cửa hàng khác',
     otherStore: 'Thông báo này của cửa hàng {store}. Đăng nhập cửa hàng đó để xem.',
   },
+  announcement: {
+    understood: 'Đã hiểu',
+    ackHint: 'Bấm "Đã hiểu" để xác nhận bạn đã đọc thông báo này.',
+    ackFailed: 'Chưa xác nhận được, thử lại nhé.',
+    more: 'còn {count} thông báo nữa',
+    severity: {
+      Info: 'Thông tin',
+      Warn: 'Lưu ý',
+      Critical: 'Khẩn',
+    },
+  },
   payment: {
     Cash: 'Tiền mặt',
     Card: 'Thẻ',
