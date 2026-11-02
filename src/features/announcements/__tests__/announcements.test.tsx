@@ -5,9 +5,11 @@ import {
   CHECK_INTERVAL_MS,
   announcementBlocks,
   announcementCta,
+  imageRatio,
   isAnnouncementPush,
   mergeQueue,
   plainSpans,
+  scrollMaxHeight,
   shouldCheck,
 } from '../announcement-logic';
 import { AnnouncementHost } from '../AnnouncementHost';
@@ -24,6 +26,7 @@ const mockCounter: { current: any } = { current: null };
 const mockGetPending = jest.fn();
 const mockSeen = jest.fn();
 const mockAck = jest.fn();
+const mockImageUrl = jest.fn();
 const mockPush = jest.fn();
 const mockOpenBrowser = jest.fn();
 const mockToastError = jest.fn();
@@ -51,7 +54,10 @@ jest.mock('src/api/announcements', () => ({
   getPendingAnnouncements: (...args: unknown[]) => mockGetPending(...args),
   markAnnouncementSeen: (...args: unknown[]) => mockSeen(...args),
   acknowledgeAnnouncement: (...args: unknown[]) => mockAck(...args),
+  getAnnouncementImageUrl: (...args: unknown[]) => mockImageUrl(...args),
 }));
+jest.mock('src/api/axios', () => ({ getStorageUrl: (p: string) => `https://shop.vn/media/${p}` }));
+jest.mock('react-native-safe-area-context', () => ({ useSafeAreaInsets: () => ({ top: 20, bottom: 10, left: 0, right: 0 }) }));
 jest.mock('src/components/overlay', () => ({ toast: { error: (...args: unknown[]) => mockToastError(...args) } }));
 jest.mock('src/features/assistant/links', () => ({
   isHttpUrl: (u: unknown) => typeof u === 'string' && u.startsWith('http'),
@@ -91,6 +97,7 @@ beforeEach(() => {
   mockGetPending.mockReset().mockResolvedValue([]);
   mockSeen.mockReset().mockResolvedValue(undefined);
   mockAck.mockReset().mockResolvedValue(undefined);
+  mockImageUrl.mockReset().mockResolvedValue(null);
   mockPush.mockReset();
   mockOpenBrowser.mockReset();
   mockToastError.mockReset();
@@ -139,6 +146,97 @@ describe('phần thuần', () => {
       { text: 'https://evil.example' },
     ]);
     expect(plainSpans('**đậm**')).toEqual([{ text: 'đậm', bold: true }]);
+  });
+});
+
+describe('ảnh đính kèm', () => {
+  const SIGNED = 'announcements/x/a.png?exp=1&sig=s';
+  const RN = jest.requireActual('react-native');
+  const images = (view: { UNSAFE_getAllByType: (t: any) => any[] }) => view.UNSAFE_getAllByType(RN.Image);
+  const loaded = (image: any, width = 1040, height = 5358) =>
+    act(() => image.props.onLoad({ nativeEvent: { source: { width, height } } }));
+
+  it('tỉ lệ và vùng cuộn', () => {
+    expect(imageRatio(1040, 5358)).toBeCloseTo(0.194, 3);
+    expect(imageRatio(0, 10)).toBeNull();
+    expect(imageRatio(undefined, undefined)).toBeNull();
+    expect(scrollMaxHeight(800, false)).toBe(400);
+    expect(scrollMaxHeight(800, true)).toBe(480);
+  });
+
+  it('không có ảnh thì không có thẻ ảnh, vẫn như cũ', async () => {
+    mockGetPending.mockResolvedValue([item({ imageUrl: null })]);
+    render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+
+    expect(screen.queryByTestId('announcement-image')).toBeNull();
+    expect(mockImageUrl).not.toHaveBeenCalled();
+  });
+
+  it('ảnh dài: rộng bằng khung, đúng tỉ lệ, nằm trong vùng cuộn cùng nội dung', async () => {
+    mockGetPending.mockResolvedValue([item({ imageUrl: SIGNED })]);
+    const view = render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+    const [image] = images(view);
+
+    expect(image.props.source).toEqual({ uri: `https://shop.vn/media/${SIGNED}` });
+    expect(screen.getByLabelText('Ảnh đính kèm: Họp tối nay')).toBeTruthy();
+    loaded(image);
+
+    const style = images(view)[0].props.style;
+    expect(style.width).toBe('100%');
+    expect(style.aspectRatio).toBeCloseTo(1040 / 5358, 5);
+    expect(images(view)[0].props.resizeMode).toBe('contain');
+  });
+
+  it('chạm để xem toàn màn hình, nút Back chỉ đóng ảnh, popup bắt buộc xác nhận vẫn còn', async () => {
+    mockGetPending.mockResolvedValue([item({ requireAck: true, imageUrl: SIGNED })]);
+    const view = render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+    loaded(images(view)[0]);
+
+    fireEvent.press(screen.getByTestId('announcement-image'));
+    expect(screen.getByTestId('announcement-image-zoom')).toBeTruthy();
+
+    act(() => view.UNSAFE_getByType(RN.Modal).props.onRequestClose());
+    expect(screen.queryByTestId('announcement-image-zoom')).toBeNull();
+    expect(screen.getByText('Họp tối nay')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('announcement-image'));
+    fireEvent.press(screen.getByLabelText('Đóng ảnh'));
+    expect(screen.queryByTestId('announcement-image-zoom')).toBeNull();
+  });
+
+  it('link hết hạn: xin link mới một lần rồi hiện lại', async () => {
+    mockGetPending.mockResolvedValue([item({ imageUrl: SIGNED })]);
+    mockImageUrl.mockResolvedValue('announcements/x/a.png?exp=2&sig=t');
+    const view = render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+
+    await act(async () => images(view)[0].props.onError());
+
+    expect(mockImageUrl).toHaveBeenCalledWith('a1');
+    expect(images(view)[0].props.source.uri).toBe('https://shop.vn/media/announcements/x/a.png?exp=2&sig=t');
+    expect(screen.queryByText('Không tải được ảnh đính kèm.')).toBeNull();
+  });
+
+  it('ảnh lỗi hẳn: vẫn đọc được chữ, vẫn bấm được Đã hiểu, thử lại được', async () => {
+    mockGetPending.mockResolvedValue([item({ requireAck: true, imageUrl: SIGNED })]);
+    mockImageUrl.mockRejectedValue({ status: 500 });
+    const view = render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+
+    await act(async () => images(view)[0].props.onError());
+
+    expect(screen.getByText('Không tải được ảnh đính kèm.')).toBeTruthy();
+    expect(screen.getByText('21 giờ')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Thử lại'));
+    expect(images(view)).toHaveLength(1);
+
+    fireEvent.press(screen.getByText('Đã hiểu'));
+    await waitFor(() => expect(mockAck).toHaveBeenCalledWith('a1'));
+    await waitFor(() => expect(screen.queryByText('Họp tối nay')).toBeNull());
   });
 });
 

@@ -15,11 +15,19 @@ export type IPendingAnnouncement = {
   startAt: string;
   ctaLabel: string | null;
   ctaUrl: string | null;
+  /** Đường dẫn /media đã ký, có hạn; ghép bằng getStorageUrl. */
+  imageUrl?: string | null;
 };
 
 export async function getPendingAnnouncements(): Promise<IPendingAnnouncement[]> {
   const response = await axios.get<IPendingAnnouncement[]>(endpoints.announcements.pending);
   return response.data;
+}
+
+/** Link ảnh mới cho popup đang mở, khi link cũ đã hết hạn. */
+export async function getAnnouncementImageUrl(id: string): Promise<string | null> {
+  const response = await axios.get<{ imageUrl: string | null }>(endpoints.announcements.imageUrl(id));
+  return response.data.imageUrl;
 }
 
 export async function markAnnouncementSeen(id: string): Promise<void> {

@@ -1182,6 +1182,11 @@ export const en: Dict = {
     ackHint: 'Tap "Got it" to confirm you have read this announcement.',
     ackFailed: 'Could not confirm, please try again.',
     more: '{count} more',
+    imageAlt: 'Attached image: {title}',
+    imageZoom: 'Tap to view full screen',
+    imageClose: 'Close image',
+    imageFailed: 'Could not load the attached image.',
+    imageRetry: 'Retry',
     severity: {
       Info: 'Info',
       Warn: 'Notice',
