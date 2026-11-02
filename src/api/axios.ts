@@ -428,6 +428,12 @@ export const endpoints = {
     mine: '/corrective-actions/mine',
     done: (id: string) => `/corrective-actions/${id}/done`,
   },
+  // Popup thông báo (phần của nhân viên; tạo, sửa, xem ai đã đọc dùng web).
+  announcements: {
+    pending: '/announcements/pending',
+    seen: (id: string) => `/announcements/${id}/seen`,
+    ack: (id: string) => `/announcements/${id}/ack`,
+  },
   // Nhân sự theo Quy chế / Nội quy (phần của nhân viên; quản lý dùng web).
   hr: {
     leave: '/shift-leave',

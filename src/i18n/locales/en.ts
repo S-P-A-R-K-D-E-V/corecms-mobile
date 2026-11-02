@@ -1177,6 +1177,17 @@ export const en: Dict = {
     otherStoreTitle: 'Notification from another store',
     otherStore: 'This notification is from {store}. Sign in to that store to view it.',
   },
+  announcement: {
+    understood: 'Got it',
+    ackHint: 'Tap "Got it" to confirm you have read this announcement.',
+    ackFailed: 'Could not confirm, please try again.',
+    more: '{count} more',
+    severity: {
+      Info: 'Info',
+      Warn: 'Notice',
+      Critical: 'Urgent',
+    },
+  },
   payment: {
     Cash: 'Cash',
     Card: 'Card',

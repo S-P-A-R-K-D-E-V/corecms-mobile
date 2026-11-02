@@ -35,6 +35,7 @@ import { CounterSessionGuard } from 'src/features/counter/CounterSessionGuard';
 import { CounterRouteGuard } from 'src/features/counter/CounterRouteGuard';
 import { CounterApprovalWatcher } from 'src/features/counter/CounterApprovalWatcher';
 import { CustomerDisplayHost } from 'src/features/counter/CustomerDisplayHost';
+import { AnnouncementHost } from 'src/features/announcements/AnnouncementHost';
 import { hydrateLocale, useLocaleStore } from 'src/i18n';
 
 // Keep the native splash up until the Minimal font is ready.
@@ -153,6 +154,7 @@ export default function RootLayout() {
                 <LauncherHydrator />
                 <StatusBar style="auto" />
                 <Stack key={`${locale}-${palette.main}`} screenOptions={{ headerShown: false }} />
+                <AnnouncementHost />
                 <OverlayHost />
               </AuthProvider>
             </RemoteConfigProvider>
