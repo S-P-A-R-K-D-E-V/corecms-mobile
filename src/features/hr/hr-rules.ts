@@ -65,13 +65,13 @@ export function occurrenceText(
   return `Lần ${e.occurrence} ${window}${e.escalationAction ? ` · ${e.escalationAction}` : ''}`;
 }
 
-/** Tiền mô phỏng mỗi lần của hành vi; null = không hiện. */
+/** Tiền phạt mỗi lần của hành vi; null = không quy ra tiền. */
 export function ruleMoney(
-  r: { points: number; simulatedAmount?: number | null },
+  r: { points: number; fineAmount?: number | null },
   perPoint: number | null | undefined,
   qty = 1,
 ): number | null {
-  if (r.simulatedAmount != null) return r.simulatedAmount * qty;
+  if (r.fineAmount != null) return r.fineAmount * qty;
   if (perPoint != null) return r.points * qty * perPoint;
   return null;
 }

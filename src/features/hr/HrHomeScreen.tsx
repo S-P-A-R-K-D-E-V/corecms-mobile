@@ -110,8 +110,7 @@ export function HrHomeScreen() {
       </SectionCard>
       <View className="px-1">
         <Text variant="caption" tone="muted">
-          Cửa hàng không phạt tiền, không trừ lương thay cho kỷ luật. Biên bản chỉ ghi nhận sự việc; bạn được ghi ý kiến trước khi
-          ký.
+          Biên bản ghi nhận sự việc; bạn được ghi ý kiến trước khi ký. Tiền phạt và bồi thường trừ vào lương.
         </Text>
       </View>
     </Screen>

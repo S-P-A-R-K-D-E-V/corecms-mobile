@@ -13,7 +13,7 @@ import { fVnd } from './hr-rules';
 
 // ----------------------------------------------------------------------
 // Biên bản của tôi (Quy chế Chương VIII, Nội quy Điều 27): đọc, ghi ý kiến rồi ký; không đồng ý thì không ký và ghi rõ lý
-// do. Biên bản chỉ ghi nhận — không phạt tiền; bồi thường (nếu có) là khoản riêng Admin duyệt, chỉ hiện để xem.
+// do. Biên bản chỉ ghi nhận sự việc; bồi thường (nếu có) là khoản riêng Admin duyệt, chỉ hiện để xem.
 // ----------------------------------------------------------------------
 
 const STATUS_TONE: Record<HrRecordStatus, 'warning' | 'success' | 'error' | 'neutral'> = {
@@ -95,7 +95,7 @@ export function HrRecordsScreen() {
     <Screen scroll refreshing={query.isFetching} onRefresh={() => { query.refetch(); compensationsQuery.refetch(); }}>
       <AppHeader title="Biên bản" back />
       <Text variant="caption" tone="muted">
-        Biên bản chỉ ghi nhận sự việc — không phạt tiền. Bạn được ghi ý kiến trước khi ký; không đồng ý thì không ký và ghi rõ
+        Biên bản chỉ ghi nhận sự việc. Bạn được ghi ý kiến trước khi ký; không đồng ý thì không ký và ghi rõ
         lý do.
       </Text>
 
@@ -115,7 +115,7 @@ export function HrRecordsScreen() {
       {compensations.length > 0 ? (
         <SectionCard title="Khoản bồi thường của tôi" bodyClassName="pt-0 gap-2">
           <Text variant="caption" tone="muted">
-            Không phải phạt: trừ dần vào lương kỳ cuối tháng, mỗi tháng không quá 30% lương thực trả.
+            Trừ đủ một lần vào lương; lương không đủ thì phần thiếu chuyển sang kỳ sau.
           </Text>
           {compensations.map((c) => (
             <View key={c.id} className="gap-0.5">

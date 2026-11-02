@@ -165,7 +165,7 @@ export function InspectionFaultsScreen() {
       <AppHeader title="Lỗi kiểm tra" back />
       <SegmentedControl segments={segments} value={tab} onChange={(k) => setTab(k as Tab)} />
       <Text variant="caption" tone="muted">
-        Lỗi kiểm tra dùng để nhắc việc và kèm cặp, không trừ lương. Mục B sửa trong 15 phút, mục T sửa trong ca.
+        Mục không đạt có điểm trừ và tiền phạt trừ vào lương. Mục B sửa trong 15 phút, mục T sửa trong ca.
       </Text>
 
       {query.isError ? (

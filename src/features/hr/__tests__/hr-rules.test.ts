@@ -190,11 +190,11 @@ describe('rankScores', () => {
   });
 });
 
-describe('Tiền mô phỏng & tái phạm', () => {
+describe('Tiền phạt & tái phạm', () => {
   it('ruleMoney: số tiền riêng ghi đè điểm × đơn giá; 0 = không quy ra tiền; không đơn giá = không hiện', () => {
     expect(ruleMoney({ points: 3 }, 10000, 2)).toBe(60000);
-    expect(ruleMoney({ points: 5, simulatedAmount: 0 }, 10000)).toBe(0);
-    expect(ruleMoney({ points: 5, simulatedAmount: 25000 }, 10000, 2)).toBe(50000);
+    expect(ruleMoney({ points: 5, fineAmount: 0 }, 10000)).toBe(0);
+    expect(ruleMoney({ points: 5, fineAmount: 25000 }, 10000, 2)).toBe(50000);
     expect(ruleMoney({ points: 5 }, null)).toBeNull();
   });
 
