@@ -102,8 +102,8 @@ export function ViolationPointsCard() {
             Mốc: {marks.join(' / ')} điểm. Bấm để xem lỗi và khiếu nại.
           </Text>
         ) : null}
-        {(summary.simulatedAmount ?? 0) > 0 ? (
-          <Line label="Quy đổi điểm trừ (mô phỏng – không trừ)" value={fmtMoney(summary.simulatedAmount)} />
+        {(summary.fineAmount ?? 0) > 0 ? (
+          <Line label="Tiền phạt (trừ vào lương)" value={fmtMoney(summary.fineAmount)} />
         ) : null}
       </SectionCard>
     </Pressable>

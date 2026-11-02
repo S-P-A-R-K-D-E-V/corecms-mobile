@@ -16,6 +16,7 @@ const ITEM_TYPE_ICON: Record<string, IconNameLike> = {
   Penalty: 'clock-outline',
   ManualPenalty: 'pencil-outline',
   CleaningPenalty: 'broom',
+  ViolationFine: 'alert-circle-outline',
 };
 
 // Icon component nhận IconName riêng của app — khai kiểu lỏng để không phải import type nặng.

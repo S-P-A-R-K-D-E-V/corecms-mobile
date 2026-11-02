@@ -310,8 +310,8 @@ export async function saveViolationPolicy(policy: IViolationPolicy, appliesToBon
     noBonusFromPoints: policy.noBonusFromPoints ?? null,
     notCompleteFromPoints: policy.notCompleteFromPoints ?? null,
     appliesToBonus,
-    // PUT thay cả dòng: gửi lại đơn giá đang có, không thì tắt tiền mô phỏng.
-    simulatedAmountPerPoint: policy.simulatedAmountPerPoint ?? null,
+    // PUT thay cả dòng: gửi lại đơn giá đang có, không thì mất đơn giá tiền phạt.
+    fineAmountPerPoint: policy.fineAmountPerPoint ?? null,
   });
   return response.data;
 }

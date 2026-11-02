@@ -33,8 +33,8 @@ import {
 import { bonusText, canComplain, fVnd, monthOf, occurrenceText, ruleMoney } from './hr-rules';
 
 // ----------------------------------------------------------------------
-// Vi phạm & điểm trừ: mỗi lần vi phạm trừ điểm theo danh mục của cửa hàng; tiền hiện kèm chỉ là mô phỏng — không phạt tiền,
-// không trừ lương, tổng điểm tháng quyết định % thưởng được nhận. Nhân viên xem điểm trừ tháng
+// Vi phạm & điểm trừ: mỗi lần vi phạm trừ điểm theo danh mục của cửa hàng; tiền phạt hiện kèm trừ vào lương,
+// tổng điểm tháng quyết định % thưởng được nhận. Nhân viên xem điểm trừ tháng
 // của mình, từng lần (hệ thống tự ghi hoặc quản lý ghi kèm căn cứ) và khiếu nại trong hạn. Quản lý (hr.violation.manage /
 // hr.performance.read) xem điểm cả cửa hàng; người có hr.violation.manage ghi tay, huỷ, trả lời khiếu nại và sửa chấm công đúng ca
 // bị khiếu nại (cần thêm attendance.adjust). Sửa danh mục: web.
@@ -118,9 +118,9 @@ function SummaryBlock({ summary, policy }: { summary: IViolationSummary; policy:
         {summary.count} lần{summary.disputed > 0 ? ` · ${summary.disputed} đang khiếu nại` : ''}
       </Text>
       {bonus ? <Text variant="bodySmall" className="font-semibold">{bonus}</Text> : null}
-      {policy?.simulatedAmountPerPoint != null || (summary.simulatedAmount ?? 0) > 0 ? (
+      {policy?.fineAmountPerPoint != null || (summary.fineAmount ?? 0) > 0 ? (
         <Text variant="caption" tone="muted">
-          Tiền mô phỏng {fVnd(summary.simulatedAmount ?? 0)} — chỉ để thấy mức độ, không trừ lương.
+          Tiền phạt {fVnd(summary.fineAmount ?? 0)}, trừ vào lương.
         </Text>
       ) : null}
       {summary.weeksWithoutBonus.length > 0 ? (
@@ -160,7 +160,7 @@ function EntryCard({
         {e.quantity > 1 ? ` · ${e.quantity} lần` : ''}
         {e.losesWeeklyBonus ? ' · mất thưởng tuần' : ''}
         {e.losesMonthlyBonus ? ' · mất thưởng tháng' : ''}
-        {e.simulatedAmount ? ` · mô phỏng ${fVnd(e.simulatedAmount)}` : ''}
+        {e.fineAmount ? ` · phạt ${fVnd(e.fineAmount)}` : ''}
       </Text>
       {occurrenceText(e) ? (
         <Text variant="caption" tone={e.escalationAction ? 'error' : 'muted'} className="font-semibold">
@@ -302,7 +302,7 @@ function CreateSheet({
 }: {
   visible: boolean;
   staff: { id: string; name: string }[];
-  /** Tiền mô phỏng mỗi điểm của cửa hàng (chỉ hiển thị). */
+  /** Tiền phạt mỗi điểm của cửa hàng. */
   perPoint?: number | null;
   onClose: () => void;
   onCreated: () => void;
@@ -356,7 +356,7 @@ function CreateSheet({
       footer={
         <Button loading={busy} disabled={busy || !valid} onPress={submit}>
           {rule && valid
-            ? `Ghi nhận (trừ ${rule.points * qty} điểm / người${(ruleMoney(rule, perPoint, qty) ?? 0) > 0 ? ` · mô phỏng ${fVnd(ruleMoney(rule, perPoint, qty))}` : ''})`
+            ? `Ghi nhận (trừ ${rule.points * qty} điểm / người${(ruleMoney(rule, perPoint, qty) ?? 0) > 0 ? ` · phạt ${fVnd(ruleMoney(rule, perPoint, qty))}` : ''})`
             : 'Ghi nhận'}
         </Button>
       }
@@ -546,7 +546,7 @@ function TeamTab({
       <CreateSheet
         visible={creating}
         staff={rows.map((r) => ({ id: r.userId, name: r.fullName }))}
-        perPoint={summaryQuery.data?.policy?.simulatedAmountPerPoint}
+        perPoint={summaryQuery.data?.policy?.fineAmountPerPoint}
         onClose={() => setCreating(false)}
         onCreated={() => {
           setCreating(false);
@@ -596,7 +596,7 @@ export function HrViolationsScreen() {
     <Screen scroll onRefresh={() => qc.invalidateQueries({ queryKey: ['hr', 'violations'] })}>
       <AppHeader title="Vi phạm & điểm trừ" back />
       <Text variant="caption" tone="muted">
-        Vi phạm chỉ trừ điểm theo danh mục của cửa hàng — không phạt tiền, không trừ lương. Thấy chưa đúng thì bạn khiếu nại
+        Vi phạm trừ điểm theo danh mục của cửa hàng, tiền phạt trừ vào lương. Thấy chưa đúng thì bạn khiếu nại
         trong hạn.
       </Text>
       {canSeeTeam ? (
