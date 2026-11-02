@@ -20,6 +20,7 @@ import { getInspectionShifts, getOpenInspectionFaults } from 'src/api/inspection
 import { shiftNeedingMyQuickCheck } from 'src/features/inspection/inspection-access';
 import { useHrPendingCounts } from 'src/features/hr/hooks';
 import { HeroScoreRing, MyScoreCard, StaffRankingCard } from 'src/features/hr/HrScoreCards';
+import { QuarterBonusCard, ViolationPointsCard, WeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
 import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
@@ -428,6 +429,9 @@ export function StaffHome() {
         <InspectionCard />
         <HrCard />
         <MyScoreCard linkToDetail />
+        <WeeklyTargetCard />
+        <ViolationPointsCard />
+        <QuarterBonusCard />
         <CleaningTasksCard />
         {/* Bảng hôm nay của cả nhóm: attendance.read (Manager, Admin mặc định; vai trò được cấp). */}
         {hasPermission(user, PERMISSIONS.attendance.read) ? <TeamTodayCard /> : null}
