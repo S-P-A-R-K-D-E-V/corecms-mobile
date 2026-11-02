@@ -273,6 +273,24 @@ export interface ICompensation {
 // ── Dashboard hiệu suất & thu nhập (A3) ──────────────────────────────────
 
 /** Thưởng doanh số tuần của tôi: paidInPayroll = đã vào lương (không thì đang tính thử). */
+export type QuarterBonusStatus = 'Eligible' | 'AtRisk' | 'Lost';
+
+/** Thưởng hoàn thành quý của tôi (GET /quarter-bonuses/mine). */
+export interface IMyQuarterBonus {
+  quarterStart: string;
+  quarterEnd: string;
+  windowStart: string;
+  runStatus: 'Provisional' | 'Closed';
+  status: QuarterBonusStatus;
+  hours: number;
+  minHours: number;
+  maxMonthlyPoints: number;
+  monthlyPointsLimit: number;
+  policyAmount: number;
+  expectedAmount: number;
+  reasons: string[];
+}
+
 export interface IMyWeeklyBonus {
   weekStart: string;
   achievementPct: number;

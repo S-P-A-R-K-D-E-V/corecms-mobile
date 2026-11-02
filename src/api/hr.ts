@@ -20,6 +20,7 @@ import type {
   ISupportShiftOpening,
   ICompensation,
   IMyWeeklyBonus,
+  IMyQuarterBonus,
   IPerformanceMonth,
   IPayrollComplaint,
   IPayrollComplaintWindow,
@@ -165,6 +166,12 @@ export async function getMyCompensations(): Promise<ICompensation[]> {
 export async function getMyWeeklyBonus(from: string, to: string): Promise<IMyWeeklyBonus[]> {
   const response = await axios.get<IMyWeeklyBonus[]>(endpoints.hr.weeklyBonusMine, { params: { from, to } });
   return response.data;
+}
+
+/** Thưởng quý của tôi trong quý này; null = chưa có kết quả hoặc cửa hàng không áp dụng. */
+export async function getMyQuarterBonus(): Promise<IMyQuarterBonus | null> {
+  const response = await axios.get<IMyQuarterBonus | null>(endpoints.hr.quarterBonusMine);
+  return response.data || null;
 }
 
 /** [Quản lý] Điểm từng người của một tháng (yyyy-MM-01). */
