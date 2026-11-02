@@ -1,4 +1,4 @@
-import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, configure, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { AppState } from 'react-native';
 
 import {
@@ -8,6 +8,7 @@ import {
   imageRatio,
   isAnnouncementPush,
   mergeQueue,
+  needsDetail,
   plainSpans,
   scrollMaxHeight,
   shouldCheck,
@@ -237,6 +238,90 @@ describe('ảnh đính kèm', () => {
     fireEvent.press(screen.getByText('Đã hiểu'));
     await waitFor(() => expect(mockAck).toHaveBeenCalledWith('a1'));
     await waitFor(() => expect(screen.queryByText('Họp tối nay')).toBeNull());
+  });
+});
+
+describe('màn chi tiết', () => {
+  const RN = jest.requireActual('react-native');
+  const overflow = () => {
+    const scroll = screen.getByTestId('announcement-scroll');
+    fireEvent(scroll, 'layout', { nativeEvent: { layout: { height: 400 } } });
+    fireEvent(scroll, 'contentSizeChange', 300, 900);
+  };
+
+  it('khi nào có nút', () => {
+    expect(needsDetail(true, 0, 0)).toBe(true);
+    expect(needsDetail(false, 900, 400)).toBe(true);
+    expect(needsDetail(false, 300, 400)).toBe(false);
+    expect(needsDetail(false, 900, 0)).toBe(false);
+  });
+
+  it('nội dung ngắn, không ảnh: không có nút', async () => {
+    mockGetPending.mockResolvedValue([item()]);
+    render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+
+    fireEvent(screen.getByTestId('announcement-scroll'), 'layout', { nativeEvent: { layout: { height: 400 } } });
+    fireEvent(screen.getByTestId('announcement-scroll'), 'contentSizeChange', 300, 100);
+
+    expect(screen.queryByText('Xem chi tiết')).toBeNull();
+  });
+
+  it('vùng cuộn của popup không nằm trong Pressable nào', async () => {
+    mockGetPending.mockResolvedValue([item()]);
+    render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+
+    let node = screen.getByTestId('announcement-scroll').parent;
+    while (node) {
+      expect(node.type).not.toBe(RN.Pressable);
+      node = node.parent;
+    }
+  });
+
+  it('nội dung dài: mở chi tiết thấy đủ chữ và ảnh, Back quay về popup, popup bắt buộc xác nhận vẫn còn', async () => {
+    mockGetPending.mockResolvedValue([item({ requireAck: true, imageUrl: 'announcements/x/a.png?exp=1&sig=s' })]);
+    const view = render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+    overflow();
+
+    fireEvent.press(screen.getByText('Xem chi tiết'));
+
+    const detail = screen.getByTestId('announcement-detail');
+    expect(within(detail).getByText('21 giờ')).toBeTruthy();
+    expect(within(detail).getByTestId('announcement-image')).toBeTruthy();
+    expect(within(detail).getByText('Đã hiểu')).toBeTruthy();
+
+    act(() => view.UNSAFE_getByType(RN.Modal).props.onRequestClose());
+    expect(screen.queryByTestId('announcement-detail')).toBeNull();
+    expect(screen.getByText('Họp tối nay')).toBeTruthy();
+    expect(mockAck).not.toHaveBeenCalled();
+  });
+
+  it('Đã hiểu trong chi tiết: xác nhận rồi sang thông báo tiếp theo ở dạng popup', async () => {
+    mockGetPending.mockResolvedValue([item({ id: 'a', title: 'Thứ nhất', requireAck: true }), item({ id: 'b', title: 'Thứ hai' })]);
+    render(<AnnouncementHost />);
+    await screen.findByText('Thứ nhất');
+    overflow();
+
+    fireEvent.press(screen.getByText('Xem chi tiết'));
+    fireEvent.press(within(screen.getByTestId('announcement-detail')).getByText('Đã hiểu'));
+
+    expect(await screen.findByText('Thứ hai')).toBeTruthy();
+    expect(mockAck).toHaveBeenCalledWith('a');
+    expect(screen.queryByTestId('announcement-detail')).toBeNull();
+  });
+
+  it('nút Quay lại đóng chi tiết', async () => {
+    mockGetPending.mockResolvedValue([item({ requireAck: true })]);
+    render(<AnnouncementHost />);
+    await screen.findByText('Họp tối nay');
+    overflow();
+
+    fireEvent.press(screen.getByText('Xem chi tiết'));
+    fireEvent.press(screen.getByLabelText('Quay lại'));
+
+    expect(screen.queryByTestId('announcement-detail')).toBeNull();
   });
 });
 
