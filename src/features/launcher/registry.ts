@@ -170,6 +170,11 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
     allPermissions: MANAGE_SCREEN_PERMISSIONS.workTaskReview,
     visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
   },
+  // Việc theo ngày: mọi việc của một ngày theo người, đánh dấu xong / gỡ (một trong các quyền xem của GET /work-today).
+  {
+    key: 'work-day', label: 'Việc theo ngày', icon: 'calendar-check-outline', href: '/manage/work-day', tone: 'primary', group: 'manage',
+    visible: (u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE) && hasAnyPermission(u, MANAGE_SCREEN_PERMISSIONS.workDay),
+  },
 
   // ── Quản trị (Admin) — báo cáo theo quyền analytics.* (vai trò tuỳ chỉnh "Kế toán" thấy được) ─────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },

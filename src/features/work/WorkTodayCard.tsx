@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { SectionCard } from 'src/components/shared';
-import { Text, Badge, Avatar, Divider, Pressable, Skeleton, Icon } from 'src/components/ui';
+import { Text, Badge, Avatar, Button, Divider, Pressable, Skeleton, Icon } from 'src/components/ui';
 import { getStorageUrl } from 'src/api/axios';
 import { getWorkToday } from 'src/api/hr';
 import { useAuthContext } from 'src/auth/auth-context';
@@ -15,7 +15,8 @@ import { WORK_STATUS, canSeeWorkToday, donePct, itemRoute, itemSubtitle, progres
 
 // ----------------------------------------------------------------------
 // "Việc giao hôm nay" (dashboard chủ / quản lý): mỗi người bao nhiêu việc đã xong / chưa xong / quá hạn — việc trong ca, vệ sinh,
-// việc giao riêng. Bấm một người để xem từng việc; bấm việc giao riêng để xem và chấm. core-be chưa có /work-today (404) hoặc không có quyền → thẻ ẩn.
+// việc giao riêng. Bấm một người để xem từng việc; bấm việc giao riêng để xem và chấm; nút cuối mở Việc theo ngày (ngày khác,
+// đánh dấu xong / gỡ). core-be chưa có /work-today (404) hoặc không có quyền → thẻ ẩn.
 // ----------------------------------------------------------------------
 
 function PersonRow({ person }: { person: IWorkTodayPerson }) {
@@ -123,6 +124,11 @@ export function WorkTodayCard() {
           ))}
         </>
       )}
+      {!isLoading && data ? (
+        <Button size="sm" variant="outline" icon="calendar-check-outline" onPress={() => router.push('/manage/work-day' as any)} className="mt-2">
+          Việc theo ngày · đánh dấu xong / gỡ
+        </Button>
+      ) : null}
     </SectionCard>
   );
 }

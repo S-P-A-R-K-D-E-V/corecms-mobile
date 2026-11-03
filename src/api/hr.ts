@@ -89,6 +89,18 @@ export async function reviewWorkTask(id: string, approve: boolean, note: string 
   return response.data;
 }
 
+/** Quản lý đánh dấu xong khi người được giao chưa nộp (hoặc đang chờ chấm) — không cần ảnh. */
+export async function completeWorkTask(id: string): Promise<IWorkTask> {
+  const response = await axios.put<IWorkTask>(endpoints.hr.taskComplete(id));
+  return response.data;
+}
+
+/** Huỷ (gỡ) việc giao riêng — không báo người được giao. */
+export async function cancelWorkTask(id: string): Promise<IWorkTask> {
+  const response = await axios.put<IWorkTask>(endpoints.hr.taskCancel(id));
+  return response.data;
+}
+
 export type LocalPhoto = { uri: string; type: string };
 
 /** Tải một ảnh trên máy lên kho riêng tư của việc giao riêng, trả object key. */

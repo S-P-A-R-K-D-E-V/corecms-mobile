@@ -86,6 +86,12 @@ export async function reviewCleaningTask(
   return response.data;
 }
 
+/** Gỡ đầu việc khỏi ngày của nó: không hiện ở checklist nào, không tính (có phạt chưa huỷ thì core-be từ chối). */
+export async function skipCleaningTask(id: string): Promise<ICleaningTaskInstance> {
+  const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.skipTask(id));
+  return response.data;
+}
+
 export async function getShiftStaffForPenalty(id: string): Promise<IShiftStaffForPenalty[]> {
   const response = await axios.get<IShiftStaffForPenalty[]>(endpoints.cleaning.shiftStaff(id));
   return response.data;

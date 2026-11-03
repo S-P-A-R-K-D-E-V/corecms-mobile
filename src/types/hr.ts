@@ -587,6 +587,9 @@ export interface IWorkTodayItem {
   dueAt?: string | null;
   doneAt?: string | null;
   doneByName?: string | null;
+  /** Việc trong ca: ca + chi nhánh (Guid rỗng nếu không có) — để quản lý đánh dấu xong / gỡ. */
+  shiftScheduleId?: string | null;
+  branchKey?: string | null;
 }
 
 export interface IWorkTodayPerson {
