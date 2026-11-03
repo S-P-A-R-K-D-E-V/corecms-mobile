@@ -14,15 +14,16 @@ import { RevenueChart } from 'src/features/admin-dashboard/RevenueChart';
 import { isCancelledStatus } from 'src/features/erp/shared';
 import { StaffRankingCard } from 'src/features/hr/HrScoreCards';
 import { StoreWeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
+import { WorkTodayCard } from 'src/features/work/WorkTodayCard';
 import { useDashboardSummary, useRevenueReport, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
 import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
 import { TeamTodayCard } from './TeamTodayCard';
-import { useAmountVisibility, useBreakEvenToday, useMonthProfit, percentChange, timeAgo, HIDDEN_AMOUNT } from './hooks';
+import { useAmountVisibility, useMonthProfit, percentChange, timeAgo, HIDDEN_AMOUNT } from './hooks';
 
 // ----------------------------------------------------------------------
 // Trang chủ chủ cửa hàng: thẻ "số dư" = doanh thu tháng (so cùng kỳ tháng trước), lợi nhuận gộp ẩn mặc
-// định; Dùng nhanh (8 ghim); tiến độ hoà vốn ngày; nhân sự hôm nay; bán gần đây; doanh thu 7 ngày.
+// định; Dùng nhanh (8 ghim); target tuần; việc giao hôm nay; nhân sự hôm nay; bán gần đây; doanh thu 7 ngày.
 // ----------------------------------------------------------------------
 
 function monthName() {
@@ -83,55 +84,6 @@ function LowStockBanner() {
         <Text variant="caption" tone="warning">{t('home.lowStockHint')}</Text>
       </View>
       <Icon name="chevron-right" size={18} tone="warning" />
-    </Pressable>
-  );
-}
-
-function BreakEvenCard() {
-  const { data, isLoading, isError } = useBreakEvenToday();
-  if (isError) return null;
-
-  const target = data?.breakEvenRevenue ?? 0;
-  const actual = data?.actualRevenue ?? 0;
-  const pct = target > 0 ? Math.round((actual / target) * 100) : 0;
-  const reached = target > 0 && actual >= target;
-
-  return (
-    <Pressable onPress={() => router.push('/admin/break-even' as any)}>
-      <SectionCard
-        title={t('home.breakEvenToday')}
-        icon="target"
-        right={target > 0 ? <Text variant="caption" tone="muted">{t('home.breakEvenTarget', { amount: fmtCompact(target) })}</Text> : null}
-        bodyClassName="pt-0"
-      >
-        {isLoading ? (
-          <Skeleton width="100%" height={52} radius={12} />
-        ) : target <= 0 ? (
-          <Text variant="bodySmall" tone="muted">{t('home.breakEvenNotSet')}</Text>
-        ) : (
-          <View className="gap-2">
-            <View className="flex-row items-end justify-between">
-              <Text className="text-[26px] leading-[30px] font-bold" tone={reached ? 'success' : 'primary'}>
-                {pct}%
-              </Text>
-              <Text variant="bodySmall" tone={reached ? 'success' : 'muted'} className="font-semibold mb-0.5">
-                {reached
-                  ? t('home.breakEvenReached', { amount: fmtCompact(actual - target) })
-                  : t('home.breakEvenRemaining', { amount: fmtCompact(target - actual) })}
-              </Text>
-            </View>
-            <View className="h-2.5 rounded-full bg-ink/5 dark:bg-white/10 overflow-hidden">
-              <View
-                className={cn('h-full rounded-full', reached ? 'bg-success' : 'bg-primary')}
-                style={{ width: `${Math.min(100, Math.max(3, pct))}%` }}
-              />
-            </View>
-            <Text variant="caption" tone="muted">
-              {t('admin.revenueToday')}: {fmtMoney(actual)}
-            </Text>
-          </View>
-        )}
-      </SectionCard>
     </Pressable>
   );
 }
@@ -256,8 +208,8 @@ export function OwnerHome() {
       <View className="px-4 gap-3.5" style={{ marginTop: -HERO_OVERLAP - 14 }}>
         <FeatureGrid solid variant="admin" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
         <LowStockBanner />
-        <BreakEvenCard />
         <StoreWeeklyTargetCard />
+        <WorkTodayCard />
         <TeamTodayCard />
         <StaffRankingCard />
         <RecentSalesCard />

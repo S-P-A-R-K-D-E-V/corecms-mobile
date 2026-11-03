@@ -10,6 +10,7 @@ import { t } from 'src/i18n';
 
 import { TeamTodayCard } from 'src/features/home/TeamTodayCard';
 import { StoreWeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
+import { WorkTodayCard } from 'src/features/work/WorkTodayCard';
 
 import { RevenueChart } from './RevenueChart';
 import {
@@ -287,6 +288,7 @@ export function AdminDashboardScreen() {
       <RevenueSection days={days} />
       <StoreWeeklyTargetCard />
       <TeamTodayCard />
+      <WorkTodayCard />
       <PaymentMix days={days} />
       <TopProducts />
       <RecentOrders />

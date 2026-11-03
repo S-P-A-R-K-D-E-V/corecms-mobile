@@ -28,6 +28,7 @@ import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-da
 import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, HERO_OVERLAP } from './HomeHero';
 import { TeamTodayCard } from './TeamTodayCard';
 import { canSeeTeamToday } from './team-today';
+import { WorkTodayCard } from 'src/features/work/WorkTodayCard';
 import {
   useAmountVisibility,
   useMyEstimate,
@@ -437,6 +438,7 @@ export function StaffHome() {
         <CleaningTasksCard />
         {/* Bảng hôm nay của cả nhóm: attendance.read hoặc shift.assignment.read (Manager, Admin mặc định; vai trò được cấp). */}
         {canSeeTeamToday(user) ? <TeamTodayCard /> : null}
+        <WorkTodayCard />
         {hasPermission(user, PERMISSIONS.hr.performanceRead) ? <StaffRankingCard /> : null}
         {isAdminUser(user) ? <StoreRevenueMini /> : null}
         <PeriodStatsCard />

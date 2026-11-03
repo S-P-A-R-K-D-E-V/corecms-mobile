@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import dayjs from 'dayjs';
 
 import { getTodayBoard, getMyCurrentEstimate } from 'src/api/home';
-import { getRevenueReport, getBreakEvenAnalysis } from 'src/api/reports';
+import { getRevenueReport } from 'src/api/reports';
 import { getMySchedule } from 'src/api/schedule';
 import { getMyAttendanceReport } from 'src/api/attendance';
 import { getMyCleaningChecklist } from 'src/api/cleaning';
@@ -48,18 +48,6 @@ export function useMonthProfit(enabled = true) {
     queryKey: ['home', 'month-profit', from, to],
     queryFn: () => getRevenueReport({ fromDate: from, toDate: to, groupBy: 'day' }),
     staleTime: MINUTE,
-    enabled: enabled && reportsAllowed,
-  });
-}
-
-export function useBreakEvenToday(enabled = true) {
-  const today = ymd(dayjs());
-  const reportsAllowed = usePlatformFeatureAllowed(PLATFORM_FEATURES.reports);
-  return useQuery({
-    queryKey: ['home', 'break-even', today],
-    queryFn: () => getBreakEvenAnalysis({ period: 'day', targetDate: today }),
-    staleTime: MINUTE,
-    retry: retryUnless404,
     enabled: enabled && reportsAllowed,
   });
 }

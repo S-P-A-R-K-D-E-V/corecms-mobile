@@ -455,6 +455,7 @@ export const endpoints = {
     performanceMonth: '/performance',
     weeklyBonusMine: '/sales-targets/weekly-bonus/mine',
     weeklyBonusStore: '/sales-targets/weekly-bonus',
+    workToday: '/work-today',
     quarterBonusMine: '/quarter-bonuses/mine',
     reviewRequest: (id: string) => `/performance/${id}/review-request`,
     contractsMine: '/employment-contracts/mine',
