@@ -11,7 +11,8 @@ const APP_ROUTES: Record<string, string> = {
   '/dashboard/attendance/my-schedule': '/(tabs)/schedule',
   '/dashboard/attendance/requests': '/manage/approvals',
   '/dashboard/attendance/shift-registration': '/shift-register',
-  '/dashboard/cleaning/assigned': '/manage/cleaning-tasks',
+  // Chỉ thông báo "nhân viên đã nộp việc giao riêng" dẫn tới trang này (core-be WorkTaskFeature.ManageUrl).
+  '/dashboard/cleaning/assigned': '/manage/work-tasks',
   '/dashboard/cleaning/my-checklist': '/cleaning',
   '/dashboard/cleaning/review': '/manage/cleaning-review',
   '/dashboard/hr/contracts': '/hr/contracts',

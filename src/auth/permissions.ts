@@ -208,4 +208,6 @@ export const MANAGE_SCREEN_PERMISSIONS = {
   cleaningReview: [PERMISSIONS.cleaning.read],
   /** Thư viện đầu việc, xây checklist tuần. */
   cleaningTemplates: [PERMISSIONS.cleaning.templateManage],
+  /** Chấm việc giao riêng (xem việc của mọi người, Đạt / Trả lại). */
+  workTaskReview: [PERMISSIONS.hr.taskManage],
 } as const satisfies Record<string, readonly string[]>;

@@ -89,6 +89,12 @@ export interface IWorkTask {
   lateReason?: string | null;
   rejectCount?: number;
   late?: boolean;
+  /** Phần người duyệt (GET /work-tasks) — /mine cũng trả nhưng màn của nhân viên không dùng. */
+  assigneeId?: string;
+  assigneeName?: string;
+  submissionNote?: string | null;
+  reviewedAt?: string | null;
+  onTime?: boolean;
 }
 
 export type HrRecordType = 'CashDiscrepancy' | 'StockDiscrepancy' | 'Violation' | 'Warning';
