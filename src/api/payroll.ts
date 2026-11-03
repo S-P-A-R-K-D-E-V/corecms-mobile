@@ -90,9 +90,9 @@ export async function bulkFinalizePayroll(
 }
 
 /** [Admin/Manager] Preview cấu hình lương mọi NV tại 1 ngày (phát hiện thiếu config). */
-export async function getSalaryConfigPreview(fromDate: string): Promise<ISalaryConfigPreviewItem[]> {
+export async function getSalaryConfigPreview(fromDate: string, toDate?: string): Promise<ISalaryConfigPreviewItem[]> {
   const response = await axios.get<ISalaryConfigPreviewItem[]>(endpoints.payroll.salaryConfigPreview, {
-    params: { fromDate },
+    params: toDate && toDate >= fromDate ? { fromDate, toDate } : { fromDate },
   });
   return response.data;
 }

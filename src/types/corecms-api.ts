@@ -893,6 +893,17 @@ export interface ISalaryConfigPreviewItem {
   hasActiveConfig: boolean;
   activeConfig?: ISalaryConfigSummary;
   isStaff?: boolean;
+  /** Chỉ có khi gửi toDate: mọi mức lương áp trong kỳ, kèm khoảng ngày. */
+  periodConfigs?: ISalaryConfigPeriodSummary[];
+}
+
+export interface ISalaryConfigPeriodSummary {
+  id: string;
+  salaryType: string;
+  amount: number;
+  probationRate?: number;
+  from: string; // yyyy-MM-dd
+  to: string;
 }
 
 // --- Thanh toán lương (QR + đánh dấu đã trả) ---
