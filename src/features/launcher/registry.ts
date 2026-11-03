@@ -183,6 +183,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'break-even-report', label: 'Điểm hòa vốn', icon: 'target', href: '/admin/break-even', tone: 'info', group: 'admin', allPermissions: REPORT_SCREEN_PERMISSIONS.breakEven, platformFeature: PLATFORM_FEATURES.reports },
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', allPermissions: [PERMISSIONS.attendance.read] },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead], platformFeature: PLATFORM_FEATURES.payroll },
+  { key: 'payroll-complaints', label: 'Khiếu nại lương', icon: 'message-alert-outline', href: '/admin/payroll-complaints', tone: 'warning', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead, PERMISSIONS.payroll.complaintReview], platformFeature: PLATFORM_FEATURES.payroll },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', allPermissions: [PERMISSIONS.user.read] },
 ];
 

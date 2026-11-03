@@ -353,11 +353,18 @@ export const PAYROLL_COMPLAINT_STATUS_LABEL: Record<PayrollComplaintStatus, stri
   Withdrawn: 'Đã rút',
 };
 
+/** Quản lý trả lời: Accepted = có sai sót, Rejected = phiếu đúng. */
+export type PayrollComplaintOutcome = 'Accepted' | 'Rejected';
+
 export interface IPayrollComplaint {
   id: string;
+  staffId: string;
+  staffName: string;
   payrollRecordId: string;
   fromDate: string;
   toDate: string;
+  /** Tổng lương trên phiếu lúc nhân viên gửi. */
+  totalSalaryAtFiling: number;
   content: string;
   status: PayrollComplaintStatus;
   replyDueOn: string;

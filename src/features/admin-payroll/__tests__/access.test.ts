@@ -33,6 +33,7 @@ describe('payrollAccessFor', () => {
       canPublishCycle: false,
       canManagePenalty: true,
       canManageSalaryConfig: true,
+      canReviewComplaints: false,
     });
   });
 
@@ -49,5 +50,23 @@ describe('tiện ích "Chu kỳ lương"', () => {
     expect(isFeatureVisible(tile, user({ role: 'Manager', roles: ['Manager'], permissions: MANAGER_DEFAULTS }))).toBe(true);
     expect(isFeatureVisible(tile, user({ role: 'Staff', roles: ['Staff'], permissions: ['payroll.records.read'] }))).toBe(true);
     expect(isFeatureVisible(tile, user({ role: 'Staff', roles: ['Staff'] }))).toBe(false);
+  });
+});
+
+describe('khiếu nại phiếu lương (payroll.complaint.review)', () => {
+  const tile = getFeature('payroll-complaints')!;
+
+  it('Quản lý mặc định xem và trả lời được; thiếu quyền xem bảng lương thì không', () => {
+    const manager = user({ role: 'Manager', roles: ['Manager'], permissions: [...MANAGER_DEFAULTS, 'payroll.complaint.review'] });
+    expect(payrollAccessFor(manager).canReviewComplaints).toBe(true);
+    expect(isFeatureVisible(tile, manager)).toBe(true);
+    const reviewOnly = user({ role: 'Staff', roles: ['Staff'], permissions: ['payroll.complaint.review'] });
+    expect(payrollAccessFor(reviewOnly).canReviewComplaints).toBe(false);
+    expect(isFeatureVisible(tile, reviewOnly)).toBe(false);
+  });
+
+  it('nhân viên thường không thấy ô; Admin thấy', () => {
+    expect(isFeatureVisible(tile, user({ role: 'Staff', roles: ['Staff'] }))).toBe(false);
+    expect(isFeatureVisible(tile, user({ role: 'Admin', roles: ['Admin'] }))).toBe(true);
   });
 });

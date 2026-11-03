@@ -490,6 +490,8 @@ export const endpoints = {
     complaints: '/payroll-complaints',
     complaintWindow: (payrollRecordId: string) => `/payroll-complaints/window/${payrollRecordId}`,
     complaintWithdraw: (id: string) => `/payroll-complaints/${id}/withdraw`,
+    // Quản lý (payroll.complaint.review): trả lời "Có sai sót" / "Phiếu đúng".
+    complaintReply: (id: string) => `/payroll-complaints/${id}/reply`,
     // Chương trình thưởng theo đơn — phần của tôi.
     bonusProgramsMine: '/bonus-programs/mine',
     // Luật nhân sự riêng của cửa hàng đang bật (để ẩn phần cửa hàng tắt).
