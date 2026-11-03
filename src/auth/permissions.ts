@@ -139,6 +139,8 @@ export const PERMISSIONS = {
     ruleManage: 'hr.rule.manage',
     /** Target doanh thu tuần + thưởng tuần tính thử của cả cửa hàng (chỉ Admin). */
     targetManage: 'hr.target.manage',
+    /** Giao, duyệt việc giao riêng; xem việc của mọi người (mặc định Admin + Quản lý). */
+    taskManage: 'hr.task.manage',
   },
 } as const;
 

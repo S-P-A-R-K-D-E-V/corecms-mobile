@@ -564,3 +564,38 @@ export interface IViolationMonth {
   policy: IViolationPolicy | null;
   rows: IViolationSummary[];
 }
+
+/** GET /work-today — "Việc giao hôm nay": việc trong ca, vệ sinh, giao riêng của một ngày theo từng người. */
+export type WorkTodaySource = 'shift_work' | 'cleaning' | 'work_task';
+export type WorkTodayStatus = 'done' | 'waiting_review' | 'pending' | 'overdue' | 'failed';
+
+export interface IWorkTodayItem {
+  source: WorkTodaySource;
+  id: string;
+  title: string;
+  /** Ca / khu vực / "Bị trả lại". */
+  context?: string | null;
+  status: WorkTodayStatus;
+  dueAt?: string | null;
+  doneAt?: string | null;
+  doneByName?: string | null;
+}
+
+export interface IWorkTodayPerson {
+  staffId: string;
+  staffName: string;
+  avatarUrl?: string | null;
+  total: number;
+  /** Xong + chờ chấm. */
+  done: number;
+  pending: number;
+  /** Quá hạn + không đạt. */
+  overdue: number;
+  items: IWorkTodayItem[];
+}
+
+export interface IWorkToday {
+  date: string;
+  counts: { people: number; total: number; done: number; pending: number; overdue: number };
+  people: IWorkTodayPerson[];
+}

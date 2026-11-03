@@ -21,6 +21,7 @@ import type {
   ICompensation,
   IMyWeeklyBonus,
   IStoreWeeklyBonus,
+  IWorkToday,
   IMyQuarterBonus,
   IPerformanceMonth,
   IPayrollComplaint,
@@ -320,5 +321,11 @@ export async function saveViolationPolicy(policy: IViolationPolicy, appliesToBon
     // PUT thay cả dòng: gửi lại đơn giá đang có, không thì mất đơn giá tiền phạt.
     fineAmountPerPoint: policy.fineAmountPerPoint ?? null,
   });
+  return response.data;
+}
+
+/** Việc giao trong ngày (giờ VN, mặc định hôm nay) theo từng người — cần hr.task.manage, inspection.read hoặc cleaning.read. */
+export async function getWorkToday(date?: string): Promise<IWorkToday> {
+  const response = await axios.get<IWorkToday>(endpoints.hr.workToday, { params: date ? { date } : undefined });
   return response.data;
 }
