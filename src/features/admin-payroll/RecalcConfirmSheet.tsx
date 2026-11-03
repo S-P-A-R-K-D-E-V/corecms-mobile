@@ -7,7 +7,7 @@ import { Button, Text, Badge, Icon, Skeleton, Divider, Pressable, TextField, Seg
 import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
-import type { SalaryType } from 'src/types/corecms-api';
+import type { ISalaryConfigPeriodSummary, SalaryType } from 'src/types/corecms-api';
 
 import { useSalaryConfigPreview, useRecalculateMany, useUpsertSalaryConfig } from './hooks';
 
@@ -34,16 +34,19 @@ export function RecalcConfirmSheet({
   visible,
   onClose,
   fromDate,
+  toDate,
   targets,
   onDone,
 }: {
   visible: boolean;
   onClose: () => void;
   fromDate?: string;
+  /** Ngày cuối kỳ — có thì hiện mọi mức lương áp trong kỳ, không chỉ mức của ngày đầu. */
+  toDate?: string;
   targets: RecalcTarget[];
   onDone?: () => void;
 }) {
-  const previewQ = useSalaryConfigPreview(visible ? fromDate : undefined);
+  const previewQ = useSalaryConfigPreview(visible ? fromDate : undefined, toDate);
   const recalcM = useRecalculateMany();
   const upsertM = useUpsertSalaryConfig();
 
@@ -51,7 +54,7 @@ export function RecalcConfirmSheet({
   const [edit, setEdit] = useState<EditState | null>(null);
 
   const configByUser = useMemo(() => {
-    const m = new Map<string, { hasActiveConfig: boolean; activeConfig?: any }>();
+    const m = new Map<string, { hasActiveConfig: boolean; activeConfig?: any; periodConfigs?: ISalaryConfigPeriodSummary[] }>();
     for (const it of previewQ.data ?? []) m.set(it.userId, it);
     return m;
   }, [previewQ.data]);
@@ -146,6 +149,7 @@ export function RecalcConfirmSheet({
             {targets.map((t, i) => {
               const cfg = configByUser.get(t.userId)?.activeConfig;
               const has = configByUser.get(t.userId)?.hasActiveConfig;
+              const periods = configByUser.get(t.userId)?.periodConfigs;
               const isEditing = editing === t.userId;
               return (
                 <View key={t.recordId}>
@@ -154,7 +158,14 @@ export function RecalcConfirmSheet({
                     <View className="flex-row items-center gap-2">
                       <View className="flex-1">
                         <Text variant="bodySmall" className="font-medium" numberOfLines={1}>{t.userName}</Text>
-                        {has && cfg ? (
+                        {periods && periods.length > 1 ? (
+                          periods.map((p) => (
+                            <Text key={p.id} variant="caption" tone="muted">
+                              {Number(p.amount).toLocaleString('vi-VN')} {UNIT[p.salaryType] ?? ''}
+                              {p.probationRate != null ? ` · TV ${p.probationRate}%` : ''} · {dayjs(p.from).format('DD/MM')}–{dayjs(p.to).format('DD/MM')}
+                            </Text>
+                          ))
+                        ) : has && cfg ? (
                           <Text variant="caption" tone="muted">
                             {Number(cfg.amount).toLocaleString('vi-VN')} {UNIT[cfg.salaryType] ?? ''}
                             {cfg.probationRate != null ? ` · TV ${cfg.probationRate}%` : ''} · từ {dayjs(cfg.effectiveFrom).format('DD/MM/YYYY')}

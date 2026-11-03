@@ -180,10 +180,10 @@ export function useBulkFinalize() {
 
 // ── Preview cấu hình + tính lại theo danh sách (loop) ──────────────────
 
-export function useSalaryConfigPreview(fromDate?: string) {
+export function useSalaryConfigPreview(fromDate?: string, toDate?: string) {
   return useQuery({
-    queryKey: ['admin', 'salary-config-preview', fromDate],
-    queryFn: () => getSalaryConfigPreview(fromDate!),
+    queryKey: ['admin', 'salary-config-preview', fromDate, toDate],
+    queryFn: () => getSalaryConfigPreview(fromDate!, toDate),
     enabled: !!fromDate,
     staleTime: MINUTE,
   });

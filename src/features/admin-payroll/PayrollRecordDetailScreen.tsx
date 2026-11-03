@@ -18,6 +18,7 @@ import { RecalcConfirmSheet } from './RecalcConfirmSheet';
 import { PaymentQRSheet } from './PaymentQRSheet';
 import { WaivePenaltySheet, waivableViolation } from './WaivePenaltySheet';
 import { usePayrollAccess } from './access';
+import { salaryPeriods } from './salary-periods';
 import { PenaltyDetailSheet } from '../payroll/PenaltyDetailSheet';
 
 // ----------------------------------------------------------------------
@@ -194,7 +195,12 @@ export function PayrollRecordDetailScreen() {
   // Trạng thái chốt: khởi tạo từ param, cập nhật sau khi thao tác.
   const [finalized, setFinalized] = useState(params.finalized === 'true');
 
+  // Mức hôm nay chỉ dùng làm "Hiện tại" khi đặt mức mới; thẻ hiện mức của chính kỳ này.
   const config = useMemo(() => activeConfig(salaryQ.data), [salaryQ.data]);
+  const periods = useMemo(
+    () => (data ? salaryPeriods(salaryQ.data, dayjs(data.fromDate).format('YYYY-MM-DD'), dayjs(data.toDate).format('YYYY-MM-DD')) : []),
+    [salaryQ.data, data]
+  );
   const paid = paymentQ.data?.status === 'Paid';
 
   async function toggleFinalize() {
@@ -290,10 +296,24 @@ export function PayrollRecordDetailScreen() {
 
           {salaryQ.isLoading ? (
             <Skeleton width="70%" height={16} />
+          ) : periods.length > 0 ? (
+            <View className="gap-1">
+              {periods.length > 1 ? <Text variant="caption" tone="muted">Kỳ này có {periods.length} mức lương:</Text> : null}
+              {periods.map((p) => (
+                <Text key={p.config.id} variant="bodySmall">
+                  <Text className="font-semibold text-primary">{Number(p.config.amount).toLocaleString('vi-VN')} {SALARY_UNIT[p.config.salaryType] ?? ''}</Text>
+                  {p.config.probationRate != null ? ` · thử việc ${p.config.probationRate}%` : ''} · {dayjs(p.from).format('DD/MM')}–{dayjs(p.to).format('DD/MM/YYYY')}
+                </Text>
+              ))}
+              {config && !periods.some((p) => p.config.id === config.id) ? (
+                <Text variant="caption" tone="muted">
+                  Mức hiện tại: {Number(config.amount).toLocaleString('vi-VN')} {SALARY_UNIT[config.salaryType] ?? ''} từ {dayjs(config.effectiveFrom).format('DD/MM/YYYY')}, không áp cho kỳ này
+                </Text>
+              ) : null}
+            </View>
           ) : config ? (
-            <Text variant="bodySmall">
-              <Text className="font-semibold text-primary">{Number(config.amount).toLocaleString('vi-VN')} {SALARY_UNIT[config.salaryType] ?? ''}</Text>
-              {config.probationRate != null ? ` · thử việc ${config.probationRate}%` : ''} · từ {dayjs(config.effectiveFrom).format('DD/MM/YYYY')}
+            <Text variant="bodySmall" tone="warning">
+              Kỳ này chưa có cấu hình lương. Mức hiện tại {Number(config.amount).toLocaleString('vi-VN')} {SALARY_UNIT[config.salaryType] ?? ''} chỉ áp từ {dayjs(config.effectiveFrom).format('DD/MM/YYYY')}.
             </Text>
           ) : (
             <Text variant="bodySmall" tone="warning">Chưa có cấu hình lương — hãy đặt mức trước khi tính.</Text>
@@ -391,6 +411,7 @@ export function PayrollRecordDetailScreen() {
           visible={recalcOpen}
           onClose={() => setRecalcOpen(false)}
           fromDate={dayjs(data.fromDate).format('YYYY-MM-DD')}
+          toDate={dayjs(data.toDate).format('YYYY-MM-DD')}
           targets={[{ recordId, userId: data.userId, userName: data.userName }]}
           onDone={() => setFinalized(false)}
         />

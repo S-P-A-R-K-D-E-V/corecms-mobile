@@ -245,6 +245,7 @@ export function PayrollCycleDetailScreen() {
           visible={recalcOpen}
           onClose={() => setRecalcOpen(false)}
           fromDate={dayjs(data.fromDate).format('YYYY-MM-DD')}
+          toDate={dayjs(data.toDate).format('YYYY-MM-DD')}
           targets={pendingTargets}
         />
       ) : null}
