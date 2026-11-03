@@ -226,17 +226,25 @@ export async function getMyShiftStockChecks(): Promise<IShiftStockCheck[]> {
   return response.data;
 }
 
-/** quantity = null → xoá số đếm của dòng. */
+/**
+ * quantity = null → xoá số đếm của dòng. note = ghi chú của người làm ca (mã hàng tag hỏng / thiếu / sai giá):
+ * undefined = giữ nguyên, '' = xoá.
+ */
 export async function saveShiftStockCounts(
   id: string,
   entries: { lineId: string; quantity: number | null }[],
+  note?: string,
 ): Promise<IShiftStockCheck> {
-  const response = await axios.put<IShiftStockCheck>(endpoints.hr.stockCheckCounts(id), { entries });
+  const response = await axios.put<IShiftStockCheck>(endpoints.hr.stockCheckCounts(id), { entries, note });
   return response.data;
 }
 
-export async function submitShiftStockCheck(id: string): Promise<IShiftStockCheck> {
-  const response = await axios.post<IShiftStockCheck>(endpoints.hr.stockCheckSubmit(id));
+/** note: undefined = giữ ghi chú đã lưu, '' = xoá. */
+export async function submitShiftStockCheck(id: string, note?: string): Promise<IShiftStockCheck> {
+  const response = await axios.post<IShiftStockCheck>(
+    endpoints.hr.stockCheckSubmit(id),
+    note === undefined ? undefined : { note },
+  );
   return response.data;
 }
 

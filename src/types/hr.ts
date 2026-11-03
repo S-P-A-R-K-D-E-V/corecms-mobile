@@ -426,6 +426,8 @@ export interface IShiftStockCheck {
   countedLines: number;
   varianceLines?: number | null;
   lines?: IShiftStockCheckLine[] | null;
+  /** Ghi chú của người làm ca (mã hàng tag hỏng / thiếu / sai giá…); backend cũ không có. */
+  crewNote?: string | null;
 }
 
 // ── Luật nhân sự riêng của cửa hàng (/hr-rule-settings/active) — trống / false = cửa hàng tắt luật đó ──

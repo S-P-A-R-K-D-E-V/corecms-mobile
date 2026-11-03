@@ -112,6 +112,15 @@ export function changedCounts(
     .map((l) => ({ lineId: l.lineId, quantity: parseCount(texts[l.lineId] ?? '') }));
 }
 
+/** Ghi chú của người làm ca — khớp ShiftStockCheckRules.MaxCrewNoteLength (core-be). */
+export const CREW_NOTE_MAX = 1000;
+
+/** Ghi chú phiếu kiểm ca cần gửi lên: undefined = không đổi (backend giữ nguyên), '' = xoá. */
+export function crewNoteChange(saved: string | null | undefined, text: string): string | undefined {
+  const next = text.trim();
+  return next === (saved ?? '') ? undefined : next;
+}
+
 // ── Vi phạm & điểm trừ ───────────────────────────────────────────────
 
 /** Ngày đầu tháng (YYYY-MM-DD) — tham số month của /hr-violations. */
