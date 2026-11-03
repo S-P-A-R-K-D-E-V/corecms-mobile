@@ -13,6 +13,7 @@ import { FeatureGrid } from 'src/features/launcher/FeatureGrid';
 import { RevenueChart } from 'src/features/admin-dashboard/RevenueChart';
 import { isCancelledStatus } from 'src/features/erp/shared';
 import { StaffRankingCard } from 'src/features/hr/HrScoreCards';
+import { StoreWeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
 import { useDashboardSummary, useRevenueReport, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
 import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
@@ -256,6 +257,7 @@ export function OwnerHome() {
         <FeatureGrid solid variant="admin" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
         <LowStockBanner />
         <BreakEvenCard />
+        <StoreWeeklyTargetCard />
         <TeamTodayCard />
         <StaffRankingCard />
         <RecentSalesCard />

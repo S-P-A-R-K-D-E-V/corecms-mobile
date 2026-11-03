@@ -1476,11 +1476,49 @@ export interface ITodayBoardItem {
   lateMinutes: number;
   checkInTime?: string | null;
   checkOutTime?: string | null;
+  /** Các trường dưới có từ core-be bổ sung "đổi ca / làm hộ" — core-be cũ không trả. */
+  shiftTemplateId?: string | null;
+  shiftType?: 'Main' | 'Extra' | null;
+  shiftColor?: string | null;
+  /** Ca đã đổi chủ hôm nay: swap = hai người đổi ca, cover = nhận làm thay trọn ca. */
+  change?: ITodayBoardChange | null;
+  /** Người làm hộ một phần ca này (đã duyệt). */
+  partialCovers?: ITodayBoardPartialCover[] | null;
+}
+
+export interface ITodayBoardChange {
+  kind: 'swap' | 'cover';
+  otherStaffId: string;
+  otherStaffName: string;
+  directed: boolean;
+}
+
+export interface ITodayBoardPartialCover {
+  postId: string;
+  staffId: string;
+  staffName: string;
+  avatarUrl?: string | null;
+  side: PartialCoverSide;
+  /** Giờ VN "HH:mm"; null = chưa biết. */
+  from?: string | null;
+  to?: string | null;
+  /** true = theo chấm công thật; false = giờ ước tính. */
+  isActual: boolean;
+  status: 'upcoming' | 'working' | 'done';
 }
 
 export interface ITodayBoard {
   date: string;
-  counts: { working: number; done: number; notIn: number; absent: number; upcoming: number; late: number };
+  counts: {
+    working: number;
+    done: number;
+    notIn: number;
+    absent: number;
+    upcoming: number;
+    late: number;
+    partialCovers?: number;
+    changed?: number;
+  };
   items: ITodayBoardItem[];
 }
 

@@ -5,11 +5,13 @@ import dayjs from 'dayjs';
 
 import { SectionCard } from 'src/components/shared';
 import { Text, Badge, Pressable } from 'src/components/ui';
-import { getMyQuarterBonus, getMyViolations, getMyWeeklyBonus } from 'src/api/hr';
+import { getMyQuarterBonus, getMyViolations, getMyWeeklyBonus, getStoreWeeklyBonus } from 'src/api/hr';
+import { useAuthContext } from 'src/auth/auth-context';
+import { PERMISSIONS, hasPermission } from 'src/auth/permissions';
 import { fmtMoney } from 'src/features/admin-dashboard/hooks';
 import type { QuarterBonusStatus } from 'src/types/hr';
 
-import { monthOf } from './hr-rules';
+import { monthOf, storeTargetSummary } from './hr-rules';
 
 // ----------------------------------------------------------------------
 // Thẻ trang chủ nhân viên: target tuần của cửa hàng, điểm trừ tháng, thưởng quý. Tiền quy đổi từ điểm trừ chỉ để thấy mức độ, không trừ
@@ -72,6 +74,43 @@ export function WeeklyTargetCard() {
           Tuần này chỉ tính thử, chưa vào lương.
         </Text>
       )}
+    </SectionCard>
+  );
+}
+
+/**
+ * Target tuần của cả cửa hàng cho Admin (hr.target.manage): target, doanh thu tính thưởng tới hiện tại, % đạt — số liệu
+ * của màn thưởng tuần tính thử, không tự tính lại. Tuần chưa có target / cửa hàng tắt thưởng tuần thì không hiện.
+ */
+export function StoreWeeklyTargetCard() {
+  const { user } = useAuthContext();
+  const today = dayjs().format('YYYY-MM-DD');
+  const query = useQuery({
+    queryKey: ['hr', 'weekly-bonus', 'store', today],
+    queryFn: () => getStoreWeeklyBonus(today, today),
+    enabled: hasPermission(user, PERMISSIONS.hr.targetManage),
+    retry: false,
+    staleTime: 60_000,
+  });
+  const week = query.data?.[0];
+  if (!week) return null;
+  const s = storeTargetSummary(week);
+
+  return (
+    <SectionCard title="Target tuần cửa hàng" icon="target" right={<Text variant="caption" tone="muted">{s.week}</Text>} bodyClassName="pt-0 gap-2">
+      <View className="flex-row items-end gap-2">
+        <Text variant="title" tone={s.reached ? 'success' : 'default'}>
+          {s.pct}%
+        </Text>
+        <Text variant="caption" tone="muted" className="mb-1">
+          đạt target tuần
+        </Text>
+      </View>
+      <Bar pct={s.pct} tone={s.reached ? 'bg-success' : 'bg-primary'} />
+      <Line label="Target tuần" value={fmtMoney(week.target)} />
+      <Line label="Doanh thu tính target tới hiện tại" value={fmtMoney(week.revenue)} />
+      <Line label={s.reached ? 'Đã vượt target' : 'Còn thiếu'} value={fmtMoney(s.gap)} />
+      <Line label="Quỹ thưởng tuần tạm tính" value={fmtMoney(week.fund)} />
     </SectionCard>
   );
 }

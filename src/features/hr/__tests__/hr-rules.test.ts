@@ -15,6 +15,7 @@ import {
   bonusText,
   canComplain,
   rankScores,
+  storeTargetSummary,
 } from '../hr-rules';
 import type { IMyScheduleItem } from 'src/types/corecms-api';
 import type { ISalesTarget, IStaffPerformanceScore, IViolationEntry } from 'src/types/hr';
@@ -204,5 +205,20 @@ describe('Tiền phạt & tái phạm', () => {
     expect(occurrenceText({ occurrence: 3, occurrenceWindowMonths: 12, escalationAction: 'Sa thải' })).toBe(
       'Lần 3 trong 12 tháng · Sa thải',
     );
+  });
+});
+
+describe('target tuần cửa hàng', () => {
+  it('giữ nguyên % đạt của core-be, thêm tuần và số còn thiếu / đã vượt', () => {
+    expect(storeTargetSummary({ weekStart: '2026-11-02', target: 70_000_000, revenue: 52_500_000, achievementPct: 75 })).toEqual({
+      pct: 75,
+      week: '02/11 – 08/11',
+      reached: false,
+      gap: 17_500_000,
+    });
+    expect(storeTargetSummary({ weekStart: '2026-11-02', target: 70_000_000, revenue: 77_000_000, achievementPct: 110 })).toMatchObject({
+      reached: true,
+      gap: 7_000_000,
+    });
   });
 });

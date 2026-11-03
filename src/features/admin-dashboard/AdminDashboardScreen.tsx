@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
@@ -8,12 +8,14 @@ import { Card, Text, Badge, Icon, Skeleton, SegmentedControl, CountUp } from 'sr
 import type { IRecentOrder, ITopSellingProduct, IPaymentMethodReport } from 'src/types/corecms-api';
 import { t } from 'src/i18n';
 
+import { TeamTodayCard } from 'src/features/home/TeamTodayCard';
+import { StoreWeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
+
 import { RevenueChart } from './RevenueChart';
 import {
   useDashboardSummary,
   useRevenueReport,
   usePaymentMix,
-  useTodayAttendance,
   fmtMoney,
   fmtCompact,
 } from './hooks';
@@ -136,36 +138,6 @@ function RevenueSection({ days }: { days: number }) {
           </View>
           <RevenueChart periods={data.periods} />
         </>
-      )}
-    </Card>
-  );
-}
-
-function AttendanceToday() {
-  const { data, isLoading, isError, refetch } = useTodayAttendance();
-
-  const stats = useMemo(() => {
-    const rows = data ?? [];
-    return {
-      present: rows.reduce((s, r) => s + (r.presentShifts ?? 0), 0),
-      late: rows.reduce((s, r) => s + (r.lateCount ?? 0), 0),
-      absent: rows.reduce((s, r) => s + (r.absentShifts ?? 0), 0),
-    };
-  }, [data]);
-
-  return (
-    <Card className="p-4">
-      <SectionTitle icon="account-clock" title={t('admin.attendanceToday')} hint={dayjs().format('DD/MM')} />
-      {isLoading ? (
-        <Skeleton width="100%" height={78} radius={12} />
-      ) : isError ? (
-        <ErrorView onRetry={refetch} />
-      ) : (
-        <View className="flex-row gap-3">
-          <StatCard value={stats.present} label={t('admin.present')} tone="success" />
-          <StatCard value={stats.late} label={t('admin.late')} tone="warning" />
-          <StatCard value={stats.absent} label={t('admin.absent')} tone="error" />
-        </View>
       )}
     </Card>
   );
@@ -313,7 +285,8 @@ export function AdminDashboardScreen() {
 
       <KpiGrid />
       <RevenueSection days={days} />
-      <AttendanceToday />
+      <StoreWeeklyTargetCard />
+      <TeamTodayCard />
       <PaymentMix days={days} />
       <TopProducts />
       <RecentOrders />

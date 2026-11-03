@@ -20,13 +20,14 @@ import { getInspectionShifts, getOpenInspectionFaults } from 'src/api/inspection
 import { shiftNeedingMyQuickCheck } from 'src/features/inspection/inspection-access';
 import { useHrPendingCounts } from 'src/features/hr/hooks';
 import { HeroScoreRing, MyScoreCard, StaffRankingCard } from 'src/features/hr/HrScoreCards';
-import { QuarterBonusCard, ViolationPointsCard, WeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
+import { QuarterBonusCard, StoreWeeklyTargetCard, ViolationPointsCard, WeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
 import { useCheckinData } from 'src/features/checkin/hooks';
 import { getCheckInWindow, formatTime } from 'src/features/checkin/utils';
 import { useDashboardSummary, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
 import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, HERO_OVERLAP } from './HomeHero';
 import { TeamTodayCard } from './TeamTodayCard';
+import { canSeeTeamToday } from './team-today';
 import {
   useAmountVisibility,
   useMyEstimate,
@@ -430,11 +431,12 @@ export function StaffHome() {
         <HrCard />
         <MyScoreCard linkToDetail />
         <WeeklyTargetCard />
+        <StoreWeeklyTargetCard />
         <ViolationPointsCard />
         <QuarterBonusCard />
         <CleaningTasksCard />
-        {/* Bảng hôm nay của cả nhóm: attendance.read (Manager, Admin mặc định; vai trò được cấp). */}
-        {hasPermission(user, PERMISSIONS.attendance.read) ? <TeamTodayCard /> : null}
+        {/* Bảng hôm nay của cả nhóm: attendance.read hoặc shift.assignment.read (Manager, Admin mặc định; vai trò được cấp). */}
+        {canSeeTeamToday(user) ? <TeamTodayCard /> : null}
         {hasPermission(user, PERMISSIONS.hr.performanceRead) ? <StaffRankingCard /> : null}
         {isAdminUser(user) ? <StoreRevenueMini /> : null}
         <PeriodStatsCard />

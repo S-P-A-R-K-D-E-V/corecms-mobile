@@ -137,6 +137,8 @@ export const PERMISSIONS = {
     violationManage: 'hr.violation.manage',
     /** Luật nhân sự của cửa hàng (chỉ Admin) — trên app: bật / tắt tính điểm trừ vào thưởng tuần. */
     ruleManage: 'hr.rule.manage',
+    /** Target doanh thu tuần + thưởng tuần tính thử của cả cửa hàng (chỉ Admin). */
+    targetManage: 'hr.target.manage',
   },
 } as const;
 
