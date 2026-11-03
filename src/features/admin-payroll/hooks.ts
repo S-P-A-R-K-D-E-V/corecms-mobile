@@ -17,6 +17,8 @@ import {
   waivePenalty,
 } from 'src/api/payroll';
 import { getUserSalaryConfigs, versionedUpsertSalaryConfig } from 'src/api/salary';
+import { getPayrollComplaints, replyPayrollComplaint } from 'src/api/hr';
+import type { PayrollComplaintOutcome } from 'src/types/hr';
 import type {
   IBatchPayrollCalculationRequest,
   IBulkFinalizePayrollRequest,
@@ -231,5 +233,26 @@ export function useMarkPaid() {
       qc.invalidateQueries({ queryKey: ['admin', 'payroll-payment', id] });
       invalidatePayroll(qc);
     },
+  });
+}
+
+// ── Khiếu nại phiếu lương (quản lý) ───────────────────────────────────
+
+/** Khiếu nại của mọi người — 'pending' = chờ trả lời, 'all' = tất cả. `enabled` = có quyền payroll.complaint.review. */
+export function usePayrollComplaints(scope: 'pending' | 'all', enabled = true) {
+  return useQuery({
+    queryKey: ['admin', 'payroll-complaints', scope],
+    queryFn: () => getPayrollComplaints(scope === 'pending' ? 'Pending' : undefined),
+    enabled,
+    staleTime: MINUTE,
+  });
+}
+
+export function useReplyPayrollComplaint() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, outcome, reply }: { id: string; outcome: PayrollComplaintOutcome; reply: string }) =>
+      replyPayrollComplaint(id, outcome, reply),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'payroll-complaints'] }),
   });
 }

@@ -7,7 +7,7 @@ import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared'
 import { Card, Text, Badge, Button, Icon, Pressable, Skeleton } from 'src/components/ui';
 import type { IPayrollCycle } from 'src/types/corecms-api';
 
-import { usePayrollCycles } from './hooks';
+import { usePayrollCycles, usePayrollComplaints } from './hooks';
 import { CreateCycleSheet } from './CreateCycleSheet';
 import { usePayrollAccess } from './access';
 
@@ -52,7 +52,8 @@ function CycleCard({ cycle }: { cycle: IPayrollCycle }) {
 export function PayrollCyclesScreen() {
   const { data, isLoading, isError, refetch, isFetching } = usePayrollCycles();
   // Tạo kỳ kèm tạo bảng lương hàng loạt: payroll.cycle.manage + payroll.recalculate (mặc định chỉ Admin).
-  const { canCreateCycle } = usePayrollAccess();
+  const { canCreateCycle, canReviewComplaints } = usePayrollAccess();
+  const pendingComplaints = usePayrollComplaints('pending', canReviewComplaints).data?.length ?? 0;
   const [creating, setCreating] = useState(false);
 
   return (
@@ -65,6 +66,22 @@ export function PayrollCyclesScreen() {
       />
 
       {canCreateCycle ? <Button fullWidth icon="plus" onPress={() => setCreating(true)}>Tạo chu kỳ lương</Button> : null}
+
+      {canReviewComplaints ? (
+        <Pressable onPress={() => router.push('/admin/payroll-complaints' as any)}>
+          <Card className="p-4 flex-row items-center gap-3">
+            <Icon name="message-alert-outline" size={20} tone={pendingComplaints > 0 ? 'warning' : 'muted'} />
+            <View className="flex-1">
+              <Text variant="subtitle">Khiếu nại phiếu lương</Text>
+              <Text variant="caption" tone="muted">
+                {pendingComplaints > 0 ? `${pendingComplaints} khiếu nại đang chờ trả lời` : 'Không có khiếu nại đang chờ'}
+              </Text>
+            </View>
+            {pendingComplaints > 0 ? <Badge tone="warning">{pendingComplaints}</Badge> : null}
+            <Icon name="chevron-right" size={16} tone="faint" />
+          </Card>
+        </Pressable>
+      ) : null}
 
       {isLoading ? (
         <View className="gap-3">

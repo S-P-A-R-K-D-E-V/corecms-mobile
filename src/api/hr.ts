@@ -27,6 +27,8 @@ import type {
   IPerformanceMonth,
   IPayrollComplaint,
   IPayrollComplaintWindow,
+  PayrollComplaintStatus,
+  PayrollComplaintOutcome,
   IMyBonusProgram,
   IShiftStockCheck,
 } from 'src/types/hr';
@@ -237,6 +239,22 @@ export async function filePayrollComplaint(payrollRecordId: string, content: str
 
 export async function withdrawPayrollComplaint(id: string): Promise<IPayrollComplaint> {
   const response = await axios.put<IPayrollComplaint>(endpoints.hr.complaintWithdraw(id));
+  return response.data;
+}
+
+/** [Quản lý] Khiếu nại của mọi người; status = 'Pending' chỉ lấy khiếu nại chờ trả lời. */
+export async function getPayrollComplaints(status?: PayrollComplaintStatus): Promise<IPayrollComplaint[]> {
+  const response = await axios.get<IPayrollComplaint[]>(endpoints.hr.complaints, { params: status ? { status } : undefined });
+  return response.data;
+}
+
+/** [Quản lý] Trả lời: Accepted = có sai sót, Rejected = phiếu đúng. Không tự đổi tiền trên phiếu. */
+export async function replyPayrollComplaint(
+  id: string,
+  outcome: PayrollComplaintOutcome,
+  reply: string
+): Promise<IPayrollComplaint> {
+  const response = await axios.put<IPayrollComplaint>(endpoints.hr.complaintReply(id), { outcome, reply });
   return response.data;
 }
 

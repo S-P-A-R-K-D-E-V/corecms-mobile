@@ -24,6 +24,8 @@ export function payrollAccessFor(user: AuthUser | null | undefined) {
     canMarkPaid: records(P.markPaid),
     canPublishCycle: records(P.cyclePublish),
     canManagePenalty: records(P.penaltyManage),
+    /** Hộp thư khiếu nại phiếu lương + trả lời (payroll.complaint.review, mặc định Admin + Quản lý). */
+    canReviewComplaints: records(P.complaintReview),
     canManageSalaryConfig: hasAllPermissions(user, [P.salaryConfigRead, P.salaryConfigManage]),
   };
 }

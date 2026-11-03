@@ -20,6 +20,7 @@ import { WaivePenaltySheet, waivableViolation } from './WaivePenaltySheet';
 import { usePayrollAccess } from './access';
 import { salaryPeriods } from './salary-periods';
 import { PenaltyDetailSheet } from '../payroll/PenaltyDetailSheet';
+import { RecordComplaintsCard } from './PayrollComplaintsScreen';
 
 // ----------------------------------------------------------------------
 // Chi tiết bảng lương 1 nhân viên: cấu hình lương cá nhân + tính lại + chốt;
@@ -192,8 +193,9 @@ export function PayrollRecordDetailScreen() {
   const [recalcOpen, setRecalcOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [penaltyDetailOpen, setPenaltyDetailOpen] = useState(false);
-  // Trạng thái chốt: khởi tạo từ param, cập nhật sau khi thao tác.
-  const [finalized, setFinalized] = useState(params.finalized === 'true');
+  // Trạng thái chốt: từ param (mở từ bảng lương kỳ) hoặc từ phiếu trong kỳ (mở từ khiếu nại), cập nhật sau khi thao tác.
+  const [finalizedSet, setFinalized] = useState<boolean | null>(params.finalized ? params.finalized === 'true' : null);
+  const finalized = finalizedSet ?? rec?.isFinalized ?? false;
 
   // Mức hôm nay chỉ dùng làm "Hiện tại" khi đặt mức mới; thẻ hiện mức của chính kỳ này.
   const config = useMemo(() => activeConfig(salaryQ.data), [salaryQ.data]);
@@ -284,6 +286,9 @@ export function PayrollRecordDetailScreen() {
           ) : null}
         </Card>
       ) : null}
+
+      {/* Khiếu nại của nhân viên về phiếu này — sửa ở dưới rồi trả lời */}
+      {recordId ? <RecordComplaintsCard recordId={recordId} /> : null}
 
       {/* Cấu hình lương + hành động */}
       {data ? (

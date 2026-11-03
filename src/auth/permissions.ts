@@ -48,6 +48,8 @@ export const PERMISSIONS = {
     policyManage: 'payroll.policy.manage',
     salaryConfigRead: 'payroll.salary-config.read',
     salaryConfigManage: 'payroll.salary-config.manage',
+    /** Xem, trả lời khiếu nại phiếu lương của nhân viên (cần kèm xem bảng lương) — mặc định Admin + Quản lý. */
+    complaintReview: 'payroll.complaint.review',
   },
   /** Chấm công — tự chấm công, việc của chính mình không cần quyền. */
   attendance: {

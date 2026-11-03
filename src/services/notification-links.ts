@@ -26,7 +26,7 @@ const APP_ROUTES: Record<string, string> = {
   '/dashboard/inspection/my-faults': '/inspection/faults',
   '/dashboard/late-cover/my-requests': '/shift-pool',
   '/dashboard/late-cover/pending': '/manage/approvals',
-  '/dashboard/payroll/complaints': '/(tabs)/admin/payroll',
+  '/dashboard/payroll/complaints': '/(tabs)/admin/payroll-complaints',
   '/dashboard/payroll/my-payroll': '/(tabs)/payroll',
   '/dashboard/pos/inventory/shift-checks': '/hr/stock-check',
   '/dashboard/pos/report/dashboard': '/(tabs)/admin',

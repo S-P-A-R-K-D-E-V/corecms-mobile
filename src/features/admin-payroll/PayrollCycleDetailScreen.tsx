@@ -12,7 +12,8 @@ import { cn } from 'src/components/ui/utils';
 import { fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 import type { IPayrollRecord } from 'src/types/corecms-api';
 
-import { usePayrollByCycle, useBulkFinalize, useSetCycleVisibility } from './hooks';
+import { usePayrollByCycle, useBulkFinalize, useSetCycleVisibility, usePayrollComplaints } from './hooks';
+import { pendingByRecord } from './complaints';
 import { RecalcConfirmSheet, type RecalcTarget } from './RecalcConfirmSheet';
 import { usePayrollAccess } from './access';
 
@@ -21,7 +22,7 @@ import { usePayrollAccess } from './access';
 // theo nhân viên; nút "Tính lại toàn kỳ" (recalculate-cycle).
 // ----------------------------------------------------------------------
 
-function RecordCard({ r, cycleId }: { r: IPayrollRecord; cycleId: string }) {
+function RecordCard({ r, cycleId, complaints = 0 }: { r: IPayrollRecord; cycleId: string; complaints?: number }) {
   return (
     <Pressable
       onPress={() => router.push({ pathname: '/admin/payroll-record' as any, params: { recordId: r.id, userName: r.userName, finalized: String(r.isFinalized), cycleId } })}
@@ -54,7 +55,10 @@ function RecordCard({ r, cycleId }: { r: IPayrollRecord; cycleId: string }) {
       </View>
       <View className="flex-row items-center justify-between">
         <Text variant="caption" tone="muted">Cơ bản {fmtCompact(r.baseSalary)}{r.overtimeSalary > 0 ? ` · OT ${fmtCompact(r.overtimeSalary)}` : ''}</Text>
-        <Badge tone={r.isFinalized ? 'success' : 'warning'}>{r.isFinalized ? 'Đã chốt' : 'Tạm tính'}</Badge>
+        <View className="flex-row items-center gap-1">
+          {complaints > 0 ? <Badge tone="error">Khiếu nại</Badge> : null}
+          <Badge tone={r.isFinalized ? 'success' : 'warning'}>{r.isFinalized ? 'Đã chốt' : 'Tạm tính'}</Badge>
+        </View>
       </View>
     </Pressable>
   );
@@ -73,6 +77,10 @@ function EmployeeAgenda({ records, cycleId, q, setQ }: { records: IPayrollRecord
       { key: 'done', label: 'Đã chốt', tone: 'success' as const, items: done },
     ].filter((g) => g.items.length > 0);
   }, [records, q]);
+  // Phiếu có khiếu nại chờ trả lời (chỉ người có payroll.complaint.review).
+  const { canReviewComplaints } = usePayrollAccess();
+  const complaintsQ = usePayrollComplaints('pending', canReviewComplaints);
+  const complaintsByRecord = useMemo(() => pendingByRecord(complaintsQ.data), [complaintsQ.data]);
 
   return (
     <Card className="p-4 gap-2">
@@ -97,7 +105,7 @@ function EmployeeAgenda({ records, cycleId, q, setQ }: { records: IPayrollRecord
             {g.items.map((r, i) => (
               <View key={r.id}>
                 {i > 0 ? <Divider /> : null}
-                <RecordCard r={r} cycleId={cycleId} />
+                <RecordCard r={r} cycleId={cycleId} complaints={complaintsByRecord.get(r.id)} />
               </View>
             ))}
           </View>

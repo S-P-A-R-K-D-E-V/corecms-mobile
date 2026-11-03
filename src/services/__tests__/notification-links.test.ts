@@ -10,6 +10,7 @@ describe('notificationAppRoute', () => {
     expect(notificationAppRoute('/dashboard/hr/leave')).toBe('/hr/leave');
     expect(notificationAppRoute('/dashboard/hr/performance?tab=mine')).toBe('/hr/performance');
     expect(notificationAppRoute('/dashboard/shift-pool/my-posts/')).toBe('/shift-pool');
+    expect(notificationAppRoute('/dashboard/payroll/complaints')).toBe('/(tabs)/admin/payroll-complaints');
   });
 
   it('không có màn tương ứng hoặc đường dẫn lạ → null', () => {
