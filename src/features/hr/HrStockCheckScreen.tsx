@@ -9,7 +9,7 @@ import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import { getMyShiftStockChecks, reviewShiftStockCheck, saveShiftStockCounts, submitShiftStockCheck } from 'src/api/hr';
 import { SHIFT_STOCK_CHECK_STATUS_LABEL, type IShiftStockCheck, type ShiftStockCheckStatus } from 'src/types/hr';
-import { parseCount, changedCounts } from './hr-rules';
+import { parseCount, changedCounts, crewNoteChange, CREW_NOTE_MAX } from './hr-rules';
 
 // ----------------------------------------------------------------------
 // Kiểm hàng khu vực mỗi ca (Quy chế Điều 24.3, Nội quy Điều 8 / 11): phiếu tự tạo khi ca bắt đầu cho khu Admin chọn. Người làm ca
@@ -28,6 +28,7 @@ const fmt = (n?: number | null) => (n == null ? '—' : n.toLocaleString('vi-VN'
 
 function CheckCard({ check, onChanged }: { check: IShiftStockCheck; onChanged: (c: IShiftStockCheck) => void }) {
   const [texts, setTexts] = useState<Record<string, string>>({});
+  const [note, setNote] = useState('');
   const [busy, setBusy] = useState<'save' | 'submit' | 'ack' | null>(null);
   const editable = check.status === 'Draft';
   const manager = !check.blind;
@@ -35,17 +36,24 @@ function CheckCard({ check, onChanged }: { check: IShiftStockCheck; onChanged: (
 
   useEffect(() => {
     setTexts(Object.fromEntries(lines.map((l) => [l.lineId, l.countedQuantity == null ? '' : String(l.countedQuantity)])));
+    setNote(check.crewNote ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [check]);
 
   const changed = changedCounts(lines, texts);
-  const invalid = changed.some((c) => c.quantity === undefined);
+  const noteChange = crewNoteChange(check.crewNote, note);
+  const noteTooLong = note.length > CREW_NOTE_MAX;
+  const invalid = changed.some((c) => c.quantity === undefined) || noteTooLong;
 
   async function save(): Promise<IShiftStockCheck | null> {
-    if (changed.length === 0) return check;
+    if (changed.length === 0 && noteChange === undefined) return check;
     setBusy('save');
     try {
-      const saved = await saveShiftStockCounts(check.id, changed.map((c) => ({ lineId: c.lineId, quantity: c.quantity ?? null })));
+      const saved = await saveShiftStockCounts(
+        check.id,
+        changed.map((c) => ({ lineId: c.lineId, quantity: c.quantity ?? null })),
+        noteChange,
+      );
       onChanged(saved);
       return saved;
     } catch (err) {
@@ -129,9 +137,30 @@ function CheckCard({ check, onChanged }: { check: IShiftStockCheck; onChanged: (
         </View>
       ))}
       {editable ? (
+        <TextField
+          label="Ghi chú cho quản lý (không bắt buộc)"
+          value={note}
+          onChangeText={setNote}
+          placeholder="Mã hàng tag hỏng, mất tag, sai giá… vd: NH01 tag hỏng"
+          multiline
+          error={noteTooLong ? `Tối đa ${CREW_NOTE_MAX} ký tự` : undefined}
+        />
+      ) : check.crewNote ? (
+        <View className="rounded-xl bg-warning-soft px-3 py-2">
+          <Text variant="caption" className="font-semibold text-warning-text">Ghi chú của ca</Text>
+          <Text variant="bodySmall">{check.crewNote}</Text>
+        </View>
+      ) : null}
+      {editable ? (
         <View className="flex-row gap-2">
           <View className="flex-1">
-            <Button size="sm" variant="outline" loading={busy === 'save'} disabled={!!busy || invalid || changed.length === 0} onPress={save}>
+            <Button
+              size="sm"
+              variant="outline"
+              loading={busy === 'save'}
+              disabled={!!busy || invalid || (changed.length === 0 && noteChange === undefined)}
+              onPress={save}
+            >
               Lưu số đếm
             </Button>
           </View>

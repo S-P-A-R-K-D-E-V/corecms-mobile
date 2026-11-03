@@ -3,6 +3,7 @@ import dayjs from 'dayjs';
 import {
   canRequestReview,
   changedCounts,
+  crewNoteChange,
   fCompactVnd,
   fVnd,
   hoursUntilShift,
@@ -121,6 +122,13 @@ describe('kiểm hàng ca: số đếm', () => {
       { lineId: 'b', quantity: 3 },
       { lineId: 'c', quantity: null },
     ]);
+  });
+
+  it('ghi chú (mã hàng tag hỏng): chỉ gửi khi đổi, xoá = chuỗi rỗng', () => {
+    expect(crewNoteChange(null, '')).toBeUndefined();
+    expect(crewNoteChange('NH01 tag hỏng', '  NH01 tag hỏng ')).toBeUndefined();
+    expect(crewNoteChange(null, ' NH01 tag hỏng ')).toBe('NH01 tag hỏng');
+    expect(crewNoteChange('NH01 tag hỏng', '   ')).toBe('');
   });
 });
 
