@@ -305,6 +305,17 @@ export interface IMyWeeklyBonus {
   deductionPoints?: number | null;
 }
 
+/** GET /sales-targets/weekly-bonus — thưởng tuần tính thử của cả cửa hàng (hr.target.manage). */
+export interface IStoreWeeklyBonus {
+  weekStart: string;
+  target: number;
+  /** Doanh thu tính thưởng của tuần tới hiện tại (bỏ đơn online / hàng xả theo luật cửa hàng). */
+  revenue: number;
+  achievementPct: number;
+  fund: number;
+  totalHours: number;
+}
+
 /** Điểm một người trong tháng (quản lý xem). */
 export interface IStaffPerformanceScore extends IPerformanceScore {
   userId: string;

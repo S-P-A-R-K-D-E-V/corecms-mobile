@@ -20,6 +20,7 @@ import type {
   ISupportShiftOpening,
   ICompensation,
   IMyWeeklyBonus,
+  IStoreWeeklyBonus,
   IMyQuarterBonus,
   IPerformanceMonth,
   IPayrollComplaint,
@@ -165,6 +166,12 @@ export async function getMyCompensations(): Promise<ICompensation[]> {
 /** Thưởng doanh số tuần của tôi trong các tuần chứa [from, to] (yyyy-MM-dd). */
 export async function getMyWeeklyBonus(from: string, to: string): Promise<IMyWeeklyBonus[]> {
   const response = await axios.get<IMyWeeklyBonus[]>(endpoints.hr.weeklyBonusMine, { params: { from, to } });
+  return response.data;
+}
+
+/** Target tuần + doanh thu tính thưởng + tỷ lệ đạt của cả cửa hàng cho các tuần chứa [from, to] — cần hr.target.manage. */
+export async function getStoreWeeklyBonus(from: string, to: string): Promise<IStoreWeeklyBonus[]> {
+  const response = await axios.get<IStoreWeeklyBonus[]>(endpoints.hr.weeklyBonusStore, { params: { from, to } });
   return response.data;
 }
 
