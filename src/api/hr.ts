@@ -11,6 +11,7 @@ import type {
   IHrRecord,
   IShiftLeave,
   IWorkTask,
+  WorkTaskStatus,
   ISalesTarget,
   IPolicyDocument,
   IPerformanceScore,
@@ -68,6 +69,23 @@ export async function getSalesTargets(from: string, to: string): Promise<ISalesT
 
 export async function getMyWorkTasks(month?: string): Promise<IWorkTask[]> {
   const response = await axios.get<IWorkTask[]>(endpoints.hr.tasksMine, { params: { month } });
+  return response.data;
+}
+
+/** Việc giao riêng của mọi người (hr.task.manage). `month` = ngày bất kỳ trong tháng giao (YYYY-MM-DD). */
+export async function getWorkTasks(params: { month?: string; status?: WorkTaskStatus; assigneeId?: string }): Promise<IWorkTask[]> {
+  const response = await axios.get<IWorkTask[]>(endpoints.hr.tasks, { params });
+  return response.data;
+}
+
+export async function getWorkTask(id: string): Promise<IWorkTask> {
+  const response = await axios.get<IWorkTask>(endpoints.hr.task(id));
+  return response.data;
+}
+
+/** Duyệt (Đạt) hoặc trả lại việc đã nộp; trả lại bắt buộc ghi chú (core-be kiểm). */
+export async function reviewWorkTask(id: string, approve: boolean, note: string | null): Promise<IWorkTask> {
+  const response = await axios.put<IWorkTask>(endpoints.hr.taskReview(id), { approve, note });
   return response.data;
 }
 

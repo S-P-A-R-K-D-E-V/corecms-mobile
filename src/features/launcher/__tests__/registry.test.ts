@@ -150,6 +150,16 @@ describe('công việc — một ô cho mọi nhân viên', () => {
     expect(keys(none, featureContext(none))).not.toContain('my-work');
   });
 
+  it('ô Chấm việc giao cho người có hr.task.manage ở cửa hàng có gói phân ca', () => {
+    const lead = { ...manager, permissions: [...manager.permissions, 'hr.task.manage'], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+    const admin = { ...owner, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+    const noPlan = { ...owner, enabledFeatures: [] };
+    expect(keys(lead, featureContext(lead))).toContain('work-task-review');
+    expect(keys(admin, featureContext(admin))).toContain('work-task-review');
+    expect(keys({ ...manager, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] })).not.toContain('work-task-review');
+    expect(keys(noPlan, featureContext(noPlan))).not.toContain('work-task-review');
+  });
+
   it('ghim cũ của ô đã bỏ không làm hỏng lưới Dùng nhanh', () => {
     expect(visiblePins(['cleaning-week', 'pos'], manager).map((f) => f.key)).toEqual(['pos']);
   });

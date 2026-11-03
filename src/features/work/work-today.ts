@@ -28,6 +28,17 @@ export const WORK_SOURCE: Record<WorkTodaySource, string> = {
   work_task: 'Giao riêng',
 };
 
+/** Bấm một việc mở màn nào: việc giao riêng → Chấm việc giao (cần hr.task.manage); loại khác chưa có màn → null. */
+export function itemRoute(
+  item: Pick<IWorkTodayItem, 'source' | 'id'>,
+  user: AuthUser | null | undefined,
+): { pathname: string; params: { id: string } } | null {
+  if (item.source === 'work_task' && hasAnyPermission(user, [PERMISSIONS.hr.taskManage])) {
+    return { pathname: '/manage/work-tasks', params: { id: item.id } };
+  }
+  return null;
+}
+
 /** % việc đã xong (kể cả chờ chấm) của một người, làm tròn; không có việc → 0. */
 export function donePct(p: Pick<IWorkTodayPerson, 'done' | 'total'>): number {
   return p.total > 0 ? Math.round((p.done / p.total) * 100) : 0;

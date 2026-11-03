@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
@@ -10,15 +11,16 @@ import { getWorkToday } from 'src/api/hr';
 import { useAuthContext } from 'src/auth/auth-context';
 import type { IWorkTodayPerson } from 'src/types/hr';
 
-import { WORK_STATUS, canSeeWorkToday, donePct, itemSubtitle, progressText } from './work-today';
+import { WORK_STATUS, canSeeWorkToday, donePct, itemRoute, itemSubtitle, progressText } from './work-today';
 
 // ----------------------------------------------------------------------
 // "Việc giao hôm nay" (dashboard chủ / quản lý): mỗi người bao nhiêu việc đã xong / chưa xong / quá hạn — việc trong ca, vệ sinh,
-// việc giao riêng. Bấm một người để xem từng việc. core-be chưa có /work-today (404) hoặc không có quyền → thẻ ẩn.
+// việc giao riêng. Bấm một người để xem từng việc; bấm việc giao riêng để xem và chấm. core-be chưa có /work-today (404) hoặc không có quyền → thẻ ẩn.
 // ----------------------------------------------------------------------
 
 function PersonRow({ person }: { person: IWorkTodayPerson }) {
   const [open, setOpen] = useState(false);
+  const { user } = useAuthContext();
   const pct = donePct(person);
   return (
     <View>
@@ -43,19 +45,28 @@ function PersonRow({ person }: { person: IWorkTodayPerson }) {
         <Icon name={open ? 'chevron-up' : 'chevron-down'} size={18} tone="muted" />
       </Pressable>
       {open
-        ? person.items.map((item) => (
-            <View key={`${item.source}:${item.id}`} className="flex-row items-center gap-2 pl-12 pb-2">
-              <View className="flex-1">
-                <Text variant="caption" className="font-semibold" numberOfLines={2}>
-                  {item.title}
-                </Text>
-                <Text variant="caption" tone="muted" numberOfLines={1}>
-                  {itemSubtitle(item)}
-                </Text>
-              </View>
-              <Badge tone={WORK_STATUS[item.status]?.tone ?? 'neutral'}>{WORK_STATUS[item.status]?.label ?? item.status}</Badge>
-            </View>
-          ))
+        ? person.items.map((item) => {
+            const route = itemRoute(item, user);
+            return (
+              <Pressable
+                key={`${item.source}:${item.id}`}
+                disabled={!route}
+                onPress={() => route && router.push(route as any)}
+                className="flex-row items-center gap-2 pl-12 pb-2"
+              >
+                <View className="flex-1">
+                  <Text variant="caption" className="font-semibold" numberOfLines={2}>
+                    {item.title}
+                  </Text>
+                  <Text variant="caption" tone="muted" numberOfLines={1}>
+                    {itemSubtitle(item)}
+                  </Text>
+                </View>
+                <Badge tone={WORK_STATUS[item.status]?.tone ?? 'neutral'}>{WORK_STATUS[item.status]?.label ?? item.status}</Badge>
+                {route ? <Icon name="chevron-right" size={16} tone="muted" /> : null}
+              </Pressable>
+            );
+          })
         : null}
     </View>
   );

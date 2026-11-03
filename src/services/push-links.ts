@@ -37,14 +37,14 @@ export function stockCheckPushRoute(data: unknown): string | null {
 
 /**
  * Push việc được giao (core-be NotificationCategory.Cleaning) → màn trong app. Người chấm (data.type "cleaning-review": việc
- * theo ca đã làm xong) → Theo dõi việc theo ca; người duyệt việc giao riêng ("work-task-review") duyệt trên web → không mở
- * màn nào; còn lại (việc mới, kết quả duyệt / chấm, phạt) → Việc của tôi. Loại khác → null.
+ * theo ca đã làm xong) → Theo dõi việc theo ca; người duyệt việc giao riêng ("work-task-review": nhân viên vừa nộp) → Chấm
+ * việc giao; còn lại (việc mới, kết quả duyệt / chấm, phạt) → Việc của tôi. Loại khác → null.
  */
 export function workPushRoute(data: unknown): string | null {
   const d = pushDataRecord(data);
   if (d.category !== 'Cleaning') return null;
   if (d.type === 'cleaning-review') return '/manage/cleaning';
-  if (d.type === 'work-task-review') return null;
+  if (d.type === 'work-task-review') return '/manage/work-tasks';
   return '/cleaning';
 }
 

@@ -14,7 +14,8 @@ import type { DraftPhoto } from 'src/features/inspection/inspection-draft';
 import { PhotoRules, PhotoStrip } from 'src/features/inspection/inspection-ui';
 
 // ----------------------------------------------------------------------
-// Việc giao riêng cho tôi (Việc được giao → cho một người): nộp kèm ảnh nghiệm thu chụp tại chỗ, quản lý duyệt trên web.
+// Việc giao riêng cho tôi (Việc được giao → cho một người): nộp kèm ảnh nghiệm thu chụp tại chỗ, quản lý chấm trên web hoặc
+// app (Chấm việc giao).
 // Nằm dưới việc theo ca trong màn Việc của tôi.
 // ----------------------------------------------------------------------
 
