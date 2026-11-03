@@ -105,6 +105,14 @@ export async function completeShiftWork(input: {
   return response.data;
 }
 
+/** Quản lý đánh dấu xong (không cần ảnh) hoặc gỡ một việc trong ca của một ngày — cần inspection.manage. */
+export async function manageShiftWork(
+  action: 'done' | 'remove',
+  input: { date: string; shiftScheduleId: string; branchKey: string; itemId: string }
+): Promise<void> {
+  await axios.post(action === 'done' ? endpoints.shiftWork.manageDone : endpoints.shiftWork.manageRemove, input);
+}
+
 // ── Sửa tận gốc giao cho tôi ───────────────────────────────────────────
 
 export async function getMyCorrectiveActions(): Promise<ICorrectiveAction[]> {

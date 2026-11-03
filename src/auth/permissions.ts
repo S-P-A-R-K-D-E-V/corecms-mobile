@@ -210,4 +210,6 @@ export const MANAGE_SCREEN_PERMISSIONS = {
   cleaningTemplates: [PERMISSIONS.cleaning.templateManage],
   /** Chấm việc giao riêng (xem việc của mọi người, Đạt / Trả lại). */
   workTaskReview: [PERMISSIONS.hr.taskManage],
+  /** Việc theo ngày: có MỘT trong ba là xem được (như GET /work-today); đánh dấu xong / gỡ theo quyền từng loại việc. */
+  workDay: [PERMISSIONS.hr.taskManage, PERMISSIONS.inspection.read, PERMISSIONS.cleaning.read],
 } as const satisfies Record<string, readonly string[]>;

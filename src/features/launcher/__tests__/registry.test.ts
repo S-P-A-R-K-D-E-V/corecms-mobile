@@ -160,6 +160,17 @@ describe('công việc — một ô cho mọi nhân viên', () => {
     expect(keys(noPlan, featureContext(noPlan))).not.toContain('work-task-review');
   });
 
+  it('Việc theo ngày: một trong các quyền xem của /work-today, gói phân ca', () => {
+    const viewer = { ...manager, permissions: ['cleaning.read'], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+    const none = { ...manager, permissions: [], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+    const admin = { ...owner, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+    const noPlan = { ...owner, enabledFeatures: [] };
+    expect(keys(viewer, featureContext(viewer))).toContain('work-day');
+    expect(keys(admin, featureContext(admin))).toContain('work-day');
+    expect(keys(none, featureContext(none))).not.toContain('work-day');
+    expect(keys(noPlan, featureContext(noPlan))).not.toContain('work-day');
+  });
+
   it('ghim cũ của ô đã bỏ không làm hỏng lưới Dùng nhanh', () => {
     expect(visiblePins(['cleaning-week', 'pos'], manager).map((f) => f.key)).toEqual(['pos']);
   });
