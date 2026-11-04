@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
-import { getAttendanceReport, getRevenueReport, getExpenseReport, getBreakEvenAnalysis } from 'src/api/reports';
+import { getAttendanceReport, getRevenueReport, getExpenseReport, getBreakEvenAnalysis, getOperatingCost } from 'src/api/reports';
 import { getAllUsers, getUserById, changeUserStatus, resetUserFace } from 'src/api/users';
 import { getAllRoles, assignRoles, getCustomRoles, getUserRoleAssignment, setUserCustomRoles } from 'src/api/roles';
 import { rangeLastDays } from 'src/features/admin-dashboard/hooks';
@@ -11,6 +11,7 @@ import type {
   IRevenueReport,
   IExpenseReport,
   IBreakEvenAnalysis,
+  IOperatingCostBreakdown,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -133,7 +134,15 @@ export type IFinancialOverview = {
   breakEven: IBreakEvenAnalysis;
   prevRevenue: IRevenueReport;
   prevExpense: IExpenseReport;
+  /** Chi phí vận hành của khoảng ngày, gồm lương (GET /reports/operating-cost). */
+  operatingCost: IOperatingCostBreakdown;
+  prevOperatingCost: IOperatingCostBreakdown;
 };
+
+/** Lợi nhuận ròng = lãi gộp − chi phí vận hành gồm lương (không dùng báo cáo chi phí đã nhập — thiếu lương). */
+export function netProfitOf(grossProfit: number, operatingCost: Pick<IOperatingCostBreakdown, 'total'> | null | undefined): number {
+  return grossProfit - (operatingCost?.total ?? 0);
+}
 
 /** Kỳ trước = khoảng cùng độ dài ngay trước [fromDate, toDate], để so sánh MoM. */
 function previousRange(fromDate: string, toDate: string) {
@@ -148,14 +157,17 @@ export function useFinancialOverview(fromDate: string, toDate: string) {
     queryKey: ['admin', 'financial-overview', fromDate, toDate],
     queryFn: async (): Promise<IFinancialOverview> => {
       const prev = previousRange(fromDate, toDate);
-      const [revenue, expense, breakEven, prevRevenue, prevExpense] = await Promise.all([
+      const [revenue, expense, breakEven, prevRevenue, prevExpense, operatingCost, prevOperatingCost] = await Promise.all([
         getRevenueReport({ fromDate, toDate, groupBy: 'day' }),
         getExpenseReport({ fromDate, toDate, groupBy: 'day' }),
         getBreakEvenAnalysis({ period: 'month', targetDate: toDate }),
         getRevenueReport({ ...prev, groupBy: 'day' }),
         getExpenseReport({ ...prev, groupBy: 'day' }),
+        // Chi phí vận hành gồm lương (cùng bộ ước tính với hoà vốn) — lợi nhuận ròng trừ cả lương.
+        getOperatingCost({ fromDate, toDate }),
+        getOperatingCost(prev),
       ]);
-      return { revenue, expense, breakEven, prevRevenue, prevExpense };
+      return { revenue, expense, breakEven, prevRevenue, prevExpense, operatingCost, prevOperatingCost };
     },
     staleTime: MINUTE,
   });

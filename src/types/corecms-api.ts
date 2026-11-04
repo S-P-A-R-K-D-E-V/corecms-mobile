@@ -1601,7 +1601,8 @@ export interface IOperatingCostLine {
   label: string;
   amount: number;
   isEstimated: boolean;
-  source: 'recorded' | 'recurring' | 'labor' | 'labor-estimated' | 'variable-estimated';
+  /** recorded | recurring | labor | labor-calculated | labor-attendance | labor-scheduled | labor-projected | labor-monthly-config | labor-*-bonus | variable-estimated | regular-estimated */
+  source: string;
 }
 
 export interface IOperatingCostBreakdown {
@@ -1617,6 +1618,10 @@ export interface IOperatingCostBreakdown {
   laborCost: number;
   otherCost: number;
   lines: IOperatingCostLine[];
+  /** Khoản hằng tháng chưa nhập (điện nước...), ước tính — đã nằm trong total. */
+  regularEstimated?: number;
+  /** Khoản chi danh mục lương không cộng vì tháng đó đã có bảng lương. */
+  payrollExpensesExcluded?: number;
 }
 
 export interface IBreakEvenAnalysis {

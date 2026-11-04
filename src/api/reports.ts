@@ -6,6 +6,7 @@ import type {
   IAttendanceReport,
   IExpenseReport,
   IBreakEvenAnalysis,
+  IOperatingCostBreakdown,
 } from 'src/types/corecms-api';
 
 // ----------------------------------------------------------------------
@@ -59,5 +60,11 @@ export async function getBreakEvenAnalysis(params: {
   targetDate: string;
 }): Promise<IBreakEvenAnalysis> {
   const response = await axios.get<IBreakEvenAnalysis>(endpoints.reports.breakEven, { params });
+  return response.data;
+}
+
+/** Chi phí hoạt động các ngày [fromDate, toDate] (gồm ngày cuối) — cùng bộ ước tính với Điểm hoà vốn, có lương. */
+export async function getOperatingCost(params: { fromDate: string; toDate: string }): Promise<IOperatingCostBreakdown> {
+  const response = await axios.get<IOperatingCostBreakdown>(endpoints.reports.operatingCost, { params });
   return response.data;
 }

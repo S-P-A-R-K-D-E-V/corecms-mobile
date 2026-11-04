@@ -7,7 +7,7 @@ import { Screen, AppHeader, EmptyState, ErrorView } from 'src/components/shared'
 import { Card, Text, Icon, Skeleton, Button, ProgressRing, Donut, Pressable } from 'src/components/ui';
 import { haptics } from 'src/services/haptics';
 import { fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
-import { useFinancialOverview, type IFinancialOverview } from './hooks';
+import { useFinancialOverview, netProfitOf, type IFinancialOverview } from './hooks';
 import { brand } from 'src/theme';
 
 // ----------------------------------------------------------------------
@@ -55,8 +55,8 @@ function MonthNav({ anchor, onChange }: { anchor: Dayjs; onChange: (next: Dayjs)
 }
 
 function KpiGrid({ overview }: { overview: IFinancialOverview }) {
-  const { revenue, expense } = overview;
-  const netProfit = revenue.grossProfit - expense.totalExpense;
+  const { revenue, operatingCost } = overview;
+  const netProfit = netProfitOf(revenue.grossProfit, operatingCost);
 
   return (
     <View className="gap-3">
@@ -77,7 +77,8 @@ function KpiGrid({ overview }: { overview: IFinancialOverview }) {
         </Card>
         <Card className="flex-1 p-4 gap-1">
           <Text variant="caption" tone="muted">Chi phí vận hành</Text>
-          <Text className="text-lg font-bold text-error">{fmtCompact(expense.totalExpense)}</Text>
+          <Text className="text-lg font-bold text-error">{fmtCompact(operatingCost.total)}</Text>
+          <Text variant="caption" tone="muted">Gồm lương {fmtCompact(operatingCost.laborCost)}</Text>
         </Card>
       </View>
       <Card className="p-4 gap-1">
@@ -224,18 +225,18 @@ function RunRateSection({ overview, toDate }: { overview: IFinancialOverview; to
 }
 
 function MomSection({ overview }: { overview: IFinancialOverview }) {
-  const { revenue, expense, prevRevenue, prevExpense } = overview;
+  const { revenue, operatingCost, prevRevenue, prevOperatingCost } = overview;
 
   const rows = useMemo(() => {
     const pct = (cur: number, prev: number) => (prev !== 0 ? ((cur - prev) / Math.abs(prev)) * 100 : null);
-    const curNet = revenue.grossProfit - expense.totalExpense;
-    const prevNet = prevRevenue.grossProfit - prevExpense.totalExpense;
+    const curNet = netProfitOf(revenue.grossProfit, operatingCost);
+    const prevNet = netProfitOf(prevRevenue.grossProfit, prevOperatingCost);
     return [
       { label: 'Doanh thu', cur: revenue.totalRevenue, prev: prevRevenue.totalRevenue, goodUp: true },
-      { label: 'Chi phí', cur: expense.totalExpense, prev: prevExpense.totalExpense, goodUp: false },
+      { label: 'Chi phí', cur: operatingCost.total, prev: prevOperatingCost.total, goodUp: false },
       { label: 'Lợi nhuận ròng', cur: curNet, prev: prevNet, goodUp: true },
     ].map((r) => ({ ...r, pct: pct(r.cur, r.prev) }));
-  }, [revenue, expense, prevRevenue, prevExpense]);
+  }, [revenue, operatingCost, prevRevenue, prevOperatingCost]);
 
   return (
     <Card className="p-4 gap-3">

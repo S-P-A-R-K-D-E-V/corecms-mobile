@@ -388,6 +388,7 @@ export const endpoints = {
     paymentMethods: '/reports/payment-methods',
     expenses: '/reports/expenses',
     breakEven: '/reports/break-even',
+    operatingCost: '/reports/operating-cost',
   },
   cleaning: {
     myChecklist: '/cleaning/my-checklist',
