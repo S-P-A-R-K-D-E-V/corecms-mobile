@@ -167,16 +167,25 @@ function Suggestions({ items, onPick }: { items: string[]; onPick: (q: string) =
  * Câu hỏi gợi ý lúc chưa có tin: theo tier của capabilities (server mới), chưa có thì theo vai trò như cũ.
  * Quản lý cửa hàng không có công cụ tiền → bỏ câu doanh thu.
  */
-export function starterQuestions(tier: string | null | undefined, ownerMode: boolean, tr: (k: string) => string): string[] {
-  const owner = ['ownerQ1', 'ownerQ2', 'ownerQ3', 'ownerQ4'];
-  const staff = ['staffQ1', 'staffQ2', 'staffQ3'];
+export function starterQuestions(
+  tier: string | null | undefined,
+  ownerMode: boolean,
+  tr: (k: string) => string,
+  isManager = false
+): string[] {
+  const owner = ['ownerQ1', 'ownerQ2', 'ownerQ3', 'ownerQ4', 'ownerQ5'];
+  const staff = ['staffQ1', 'staffQ2', 'staffQ3', 'staffQ4', 'staffQ5'];
+  // Quản lý CiCi (tầng cici_staff, agent "manager"): việc của nhóm trước, rồi việc của chính mình.
+  const manager = ['managerQ1', 'managerQ2', 'managerQ3', 'managerQ4', 'staffQ5'];
   const keys =
     tier === 'cici_admin' || tier === 'store_admin'
       ? owner
       : tier === 'store_manager'
         ? owner.slice(1)
         : tier === 'cici_staff'
-          ? staff
+          ? isManager
+            ? manager
+            : staff
           : ownerMode
             ? owner
             : staff;
@@ -230,7 +239,7 @@ export function AssistantScreen() {
   const last = messages[messages.length - 1];
   // Chip gợi ý chỉ dưới câu trả lời CUỐI cùng, đã xong.
   const suggestionsFor = last && last.role === 'assistant' && !last.streaming && last.status !== 'error' ? last.id : null;
-  const suggestions = starterQuestions(tier, ownerMode, t);
+  const suggestions = starterQuestions(tier, ownerMode, t, isManagerUser(user));
   // FlatList inverted: tin mới nhất ở đầu mảng. Giữ cùng mảng / cùng renderItem khi không đổi để ô không vẽ lại thừa.
   const listData = useMemo(() => [...messages].reverse(), [messages]);
   const renderItem = useCallback(

@@ -8,7 +8,16 @@ import { confirm } from 'src/components/overlay';
 import { getStorageUrl } from 'src/api/axios';
 import { ImageViewer } from 'src/features/chat/ImageViewer';
 import { openInAppBrowser } from './links';
-import type { UiBlock, UiImageBlock, UiLinkBlock, UiNavigateAction, UiSuggestion, UiSuggestionsBlock, UiToolAction } from './blocks';
+import type {
+  UiBlock,
+  UiCitationBlock,
+  UiImageBlock,
+  UiLinkBlock,
+  UiNavigateAction,
+  UiSuggestion,
+  UiSuggestionsBlock,
+  UiToolAction,
+} from './blocks';
 
 // ----------------------------------------------------------------------
 // Phần có cấu trúc dưới câu trả lời (đã qua normalizeBlocks): lưới ảnh (chạm để phóng to), thẻ link
@@ -74,6 +83,36 @@ function LinkCard({ block }: { block: UiLinkBlock }) {
         <Text variant="caption" tone="muted" numberOfLines={1}>{block.host}</Text>
       </View>
       <Icon name="open-in-new" size={16} tone="muted" />
+    </Pressable>
+  );
+}
+
+/**
+ * Thẻ nguồn của câu trả lời về nội quy / quy chế: tên văn bản · số Điều, tiêu đề Điều, bản + ngày đăng. Chữ do server
+ * điền từ văn bản thật. Chạm → màn Nội quy, quy chế (đọc toàn văn, xác nhận).
+ */
+export function CitationCard({ block }: { block: UiCitationBlock }) {
+  const meta = [block.version ? `Bản ${block.version}` : null, block.publishedOn].filter(Boolean).join(' · ');
+  return (
+    <Pressable
+      onPress={() => router.push('/hr/policies' as never)}
+      accessibilityRole="button"
+      accessibilityLabel={`${block.docTitle}, ${block.label}`}
+      className="flex-row items-center gap-2.5 px-3 py-2.5 rounded-xl bg-bg dark:bg-bg-dark border border-line dark:border-line-dark"
+    >
+      <View className="w-8 h-8 rounded-lg items-center justify-center bg-primary-soft">
+        <Icon name="file-document-outline" size={18} tone="primary" />
+      </View>
+      <View className="flex-1">
+        <Text variant="bodySmall" className="font-semibold" numberOfLines={1}>
+          {block.docTitle} · {block.label}
+        </Text>
+        {block.title ? (
+          <Text variant="caption" numberOfLines={2}>{block.title}</Text>
+        ) : null}
+        {meta ? <Text variant="caption" tone="muted" numberOfLines={1}>{meta}</Text> : null}
+      </View>
+      <Icon name="chevron-right" size={16} tone="muted" />
     </Pressable>
   );
 }
@@ -146,9 +185,13 @@ export function MessageBlocks({ blocks, busy, onSend }: { blocks: UiBlock[]; bus
   const images = blocks.filter((b): b is UiImageBlock => b.type === 'image');
   const links = blocks.filter((b): b is UiLinkBlock => b.type === 'link');
   const actions = blocks.filter((b): b is UiNavigateAction | UiToolAction => b.type === 'action');
-  if (!images.length && !links.length && !actions.length) return null;
+  const citations = blocks.filter((b): b is UiCitationBlock => b.type === 'citation');
+  if (!images.length && !links.length && !actions.length && !citations.length) return null;
   return (
     <View className="gap-2 mt-2">
+      {citations.map((c) => (
+        <CitationCard key={`${c.doc}/${c.number}`} block={c} />
+      ))}
       {images.length ? <ImageGrid uris={images.map(imageUri)} alts={images.map((b) => b.alt)} /> : null}
       {links.map((l) => (
         <LinkCard key={l.url} block={l} />

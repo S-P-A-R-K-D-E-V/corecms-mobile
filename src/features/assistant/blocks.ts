@@ -27,9 +27,28 @@ export type UiToolAction = {
 export type UiSuggestion = { label: string; prompt: string };
 export type UiSuggestionsBlock = { type: 'suggestions'; items: UiSuggestion[] };
 
-export type UiBlock = UiImageBlock | UiLinkBlock | UiNavigateAction | UiToolAction | UiSuggestionsBlock;
+/**
+ * Thẻ nguồn trích dẫn nội quy / quy chế. Server (AssistantBlockPolicy) đã tra văn bản đang hiệu lực và tự điền mọi chữ
+ * hiển thị — model chỉ ghi mã văn bản + số Điều. App vẫn kiểm kiểu / độ dài như mọi khối khác.
+ */
+export type UiCitationBlock = {
+  type: 'citation';
+  doc: string;
+  number: string;
+  docTitle: string;
+  /** "Điều 14b", "Phụ lục E"… */
+  label: string;
+  /** Tiêu đề Điều. */
+  title?: string;
+  documentId?: string;
+  version?: number;
+  /** "dd/MM/yyyy" giờ Việt Nam. */
+  publishedOn?: string;
+};
 
-export const BLOCK_LIMITS = { total: 12, image: 6, link: 4, action: 3, suggestions: 1, suggestionItems: 4 } as const;
+export type UiBlock = UiImageBlock | UiLinkBlock | UiNavigateAction | UiToolAction | UiSuggestionsBlock | UiCitationBlock;
+
+export const BLOCK_LIMITS = { total: 12, image: 6, link: 4, action: 3, suggestions: 1, suggestionItems: 4, citation: 3 } as const;
 
 const OBJECT_KEY = /^[A-Za-z0-9/_.-]{1,256}$/;
 // Vùng lưu trữ nhạy cảm / riêng tư — model không được trỏ ảnh tới đây.
@@ -105,11 +124,38 @@ function suggestionsBlock(b: Record<string, unknown>): UiSuggestionsBlock | null
   return items.length ? { type: 'suggestions', items } : null;
 }
 
+const CITATION_CODE = /^[a-z0-9-]{1,100}$/i;
+const DOCUMENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PUBLISHED_ON = /^\d{2}\/\d{2}\/\d{4}$/;
+
+function citationBlock(b: Record<string, unknown>): UiCitationBlock | null {
+  const doc = str(b.doc);
+  const number = str(b.number);
+  const docTitle = str(b.docTitle).slice(0, 200);
+  const label = str(b.label).slice(0, 120);
+  if (!CITATION_CODE.test(doc) || !number || number.length > 20 || !docTitle || !label) return null;
+  const documentId = str(b.documentId);
+  const publishedOn = str(b.publishedOn);
+  const version = typeof b.version === 'number' && Number.isInteger(b.version) && b.version > 0 ? b.version : undefined;
+  return {
+    type: 'citation',
+    doc,
+    number,
+    docTitle,
+    label,
+    title: str(b.title).slice(0, 200) || undefined,
+    documentId: DOCUMENT_ID.test(documentId) ? documentId : undefined,
+    version,
+    publishedOn: PUBLISHED_ON.test(publishedOn) ? publishedOn : undefined,
+  };
+}
+
 /** Khối thô (server / lịch sử) → khối hiển thị được cho người dùng này. Không phải mảng → []. */
 export function normalizeBlocks(raw: unknown, user: AuthUser | null | undefined): UiBlock[] {
   if (!Array.isArray(raw)) return [];
   const out: UiBlock[] = [];
-  const count = { image: 0, link: 0, action: 0, suggestions: 0 };
+  const count = { image: 0, link: 0, action: 0, suggestions: 0, citation: 0 };
+  const citationKeys = new Set<string>();
   // Model hay lặp cùng một link → một thẻ (url cũng là key khi vẽ).
   const linkUrls = new Set<string>();
   for (const b of raw) {
@@ -150,6 +196,17 @@ export function normalizeBlocks(raw: unknown, user: AuthUser | null | undefined)
         if (block) {
           out.push(block);
           count.suggestions++;
+        }
+        break;
+      }
+      case 'citation': {
+        if (count.citation >= BLOCK_LIMITS.citation) break;
+        const block = citationBlock(b);
+        const key = block ? `${block.doc.toLowerCase()}/${block.number.toLowerCase()}` : '';
+        if (block && !citationKeys.has(key)) {
+          citationKeys.add(key);
+          out.push(block);
+          count.citation++;
         }
         break;
       }
