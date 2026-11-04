@@ -42,6 +42,12 @@ export const ASSISTANT_ROUTES: Readonly<Record<string, AssistantRouteDef>> = {
   products: { pathname: '/(tabs)/products', roles: ALL },
   'product-detail': { pathname: '/products/[id]', params: id, roles: ALL, feature: 'products' },
   pos: { pathname: '/(tabs)/pos', roles: ALL },
+  // Nhân sự (khớp AssistantRouteCatalog phía server)
+  'hr-policies': { pathname: '/hr/policies', roles: ALL, feature: 'hr' },
+  'hr-violations': { pathname: '/hr/violations', roles: ALL, feature: 'hr' },
+  'hr-tasks': { pathname: '/hr/tasks', roles: ALL, feature: 'hr' },
+  'hr-performance': { pathname: '/hr/performance', roles: ALL, feature: 'hr' },
+  'hr-leave': { pathname: '/hr/leave', roles: ALL, feature: 'hr' },
 
   // Quản lý + Admin
   'team-schedule': { pathname: '/manage/schedule', roles: MANAGER },

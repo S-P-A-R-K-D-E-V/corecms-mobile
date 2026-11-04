@@ -1,6 +1,6 @@
 import type { AuthUser } from 'src/auth/auth-context';
 import { normalizeBlocks } from '../blocks';
-import { resolveRoute } from '../assistant-routes';
+import { ASSISTANT_ROUTES, resolveRoute } from '../assistant-routes';
 
 function user(roles: string[]): AuthUser {
   return {
@@ -155,5 +155,56 @@ describe('normalizeBlocks', () => {
       },
     ]);
     expect(out.length).toBeLessThanOrEqual(12);
+  });
+});
+
+describe('citation', () => {
+  const real = {
+    type: 'citation',
+    doc: 'quy-che-luonh',
+    number: '14b',
+    docTitle: 'Quy chế lương thưởng',
+    label: 'Điều 14b',
+    title: 'Ngưỡng điểm trừ trong tháng và điều kiện nhận thưởng',
+    documentId: 'cd3e6da1-3ab9-4455-ae85-45588958a77c',
+    version: 1,
+    publishedOn: '03/11/2026',
+  };
+
+  it('giữ thẻ đủ trường server điền, bỏ trùng, tối đa 3', () => {
+    const others = ['1', '2', '3'].map((n) => ({ ...real, number: n, label: `Điều ${n}` }));
+    const out = normalizeBlocks([real, { ...real }, ...others], staff);
+    const cites = out.filter((b) => b.type === 'citation');
+    expect(cites).toHaveLength(3);
+    expect(cites[0]).toEqual(real);
+  });
+
+  it('bỏ thẻ thiếu tên văn bản / nhãn hoặc mã lạ; trường phụ sai thì bỏ trường đó', () => {
+    const out = normalizeBlocks(
+      [
+        { ...real, docTitle: '' },
+        { ...real, label: '' },
+        { ...real, doc: '../x' },
+        { ...real, number: '2', documentId: 'không-phải-guid', version: -1, publishedOn: '2026-11-03' },
+      ],
+      staff
+    );
+    expect(out).toEqual([
+      { ...real, number: '2', documentId: undefined, version: undefined, publishedOn: undefined },
+    ]);
+  });
+
+  it('các màn Nhân sự có trong danh mục, đi theo tiện ích "Nhân sự" (ẩn khi cửa hàng không bật)', () => {
+    for (const [key, path] of [
+      ['hr-policies', '/hr/policies'],
+      ['hr-violations', '/hr/violations'],
+      ['hr-tasks', '/hr/tasks'],
+      ['hr-performance', '/hr/performance'],
+      ['hr-leave', '/hr/leave'],
+    ] as const) {
+      expect(ASSISTANT_ROUTES[key]).toMatchObject({ pathname: path, feature: 'hr' });
+    }
+    // Không có ngữ cảnh cửa hàng bật xếp ca → tiện ích Nhân sự ẩn → nút bị bỏ.
+    expect(resolveRoute('hr-policies', undefined, staff)).toBeNull();
   });
 });
