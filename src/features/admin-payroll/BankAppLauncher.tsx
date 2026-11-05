@@ -6,7 +6,7 @@ import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { prefs, PrefKeys } from 'src/services/storage';
 import { getWebOrigin } from 'src/services/store-config';
-import { buildBankDeeplink, getBankApps, type VietQrBankApp } from 'src/services/vietqr';
+import { buildBankDeeplink, deeplinkContent, getBankApps, type VietQrBankApp } from 'src/services/vietqr';
 
 // ----------------------------------------------------------------------
 // "Mở app ngân hàng" ở màn trả lương: chọn app ngân hàng CỦA NGƯỜI CHUYỂN (nhớ lần chọn trên máy), bấm là mở app qua
@@ -52,6 +52,9 @@ export function BankAppLauncher({
   }, [os]);
 
   const app = apps.find((a) => a.appId === appId) ?? null;
+  // Link mở app chỉ mang nội dung rút gọn (≤ 25 ký tự); báo cho người dùng khi bị rút.
+  const shortContent = useMemo(() => deeplinkContent(content), [content]);
+  const shortened = shortContent !== deeplinkContent(content, Number.MAX_SAFE_INTEGER);
   const href = useMemo(
     () =>
       app
@@ -106,6 +109,9 @@ export function BankAppLauncher({
           {app.autofill
             ? 'App sẽ điền sẵn số tài khoản, số tiền và nội dung — kiểm tra lại rồi xác nhận trong app.'
             : 'App này chưa hỗ trợ điền sẵn: app chỉ mở lên, hãy quét QR từ ảnh đã lưu hoặc dán số tài khoản đã chép.'}
+          {app.autofill && shortened
+            ? ` Nội dung điền sẵn được rút gọn thành «${shortContent}» (nội dung dài thì app không tự điền); mã QR vẫn giữ nội dung đầy đủ.`
+            : ''}
         </Text>
       ) : null}
     </View>
