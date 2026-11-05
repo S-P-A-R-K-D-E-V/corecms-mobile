@@ -58,8 +58,23 @@ describe('sanitizeTransferContent', () => {
 });
 
 describe('buildBankDeeplink', () => {
-  it('dựng link dl.vietqr.io với ba=STK@mã ngân hàng viết thường', () => {
-    const url = new URL(
+  it('trùng từng ký tự với link mẫu của VietQR (link mẫu tự điền được)', () => {
+    expect(
+      buildBankDeeplink({
+        appId: 'icb',
+        bankCode: 'MB',
+        account: '2000',
+        amount: 2000,
+        content: 'tra tien tra sua cho bo',
+        returnUrl: 'https://www.vietqr.io/deeplink',
+      })
+    ).toBe(
+      'https://dl.vietqr.io/pay?app=icb&am=2000&tn=tra+tien+tra+sua+cho+bo&ba=2000@mb&url=https://www.vietqr.io/deeplink'
+    );
+  });
+
+  it('ba=STK@mã viết thường, nội dung chỉ chữ / số, không gửi bn, url giữ :/ nhưng mã hoá ? & =', () => {
+    expect(
       buildBankDeeplink({
         appId: 'mb',
         bankCode: 'VCB',
@@ -67,16 +82,12 @@ describe('buildBankDeeplink', () => {
         amount: 5_000_000.2,
         content: 'CiCi thanh toan luong T11-2026 cho Đỗ Đức',
         accountName: 'Đỗ Đức',
-        returnUrl: 'https://cici.example/payroll',
-      })!
+        returnUrl: 'https://cici.example/payroll?tab=1&x=2',
+      })
+    ).toBe(
+      'https://dl.vietqr.io/pay?app=mb&am=5000001&tn=CiCi+thanh+toan+luong+T11+2026+cho+Do+Duc' +
+        '&ba=0011002233@vcb&url=https://cici.example/payroll%3Ftab%3D1%26x%3D2'
     );
-    expect(url.origin + url.pathname).toBe('https://dl.vietqr.io/pay');
-    expect(url.searchParams.get('app')).toBe('mb');
-    expect(url.searchParams.get('ba')).toBe('0011002233@vcb');
-    expect(url.searchParams.get('am')).toBe('5000001');
-    expect(url.searchParams.get('tn')).toBe('CiCi thanh toan luong T11-2026 cho Do Duc');
-    expect(url.searchParams.get('bn')).toBe('DO DUC');
-    expect(url.searchParams.get('url')).toBe('https://cici.example/payroll');
   });
 
   it('thiếu dữ liệu → null', () => {

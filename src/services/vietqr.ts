@@ -134,7 +134,7 @@ export function sortBankApps(apps: VietQrBankApp[]): VietQrBankApp[] {
 }
 
 /**
- * https://dl.vietqr.io/pay?app=&ba=STK@mã-NH&am=&tn=&bn=&url= — trang trung gian của VietQR mở app (intent:// trên
+ * https://dl.vietqr.io/pay?app=&am=&tn=&ba=STK@mã-NH&url= — trang trung gian của VietQR mở app (intent:// trên
  * Android, scheme trên iOS); app không có autofill thì chỉ mở app. `bankCode` là mã VietQR của NH nhận (MB, VCB…).
  * `returnUrl` PHẢI là https: thiếu hoặc dùng scheme app (sparkstore://) thì dl.vietqr.io bỏ qua STK / số tiền / nội dung,
  * chỉ mở app trống (thử 05/11/2026).
@@ -152,14 +152,12 @@ export function buildBankDeeplink(opts: {
   const code = opts.bankCode.trim().toLowerCase();
   const amount = Math.ceil(opts.amount);
   if (!acc || !/^[a-z0-9-]+$/.test(code) || !(amount > 0)) return null;
-  const params = new URLSearchParams({
-    app: opts.appId,
-    ba: `${acc}@${code}`,
-    am: String(amount),
-    tn: sanitizeTransferContent(opts.content),
-  });
-  const name = opts.accountName ? sanitizeTransferContent(opts.accountName).toUpperCase() : '';
-  if (name) params.set('bn', name);
-  params.set('url', opts.returnUrl);
-  return `https://dl.vietqr.io/pay?${params.toString()}`;
+  const tn = qrContent(opts.content);
+  if (!tn) return null;
+  // Dựng query giống hệt link mẫu của VietQR (app, am, tn, ba, url; '@' và ':/' để nguyên, khoảng trắng = '+',
+  // nội dung chỉ chữ / số): link dựng bằng URLSearchParams (ba=…%40…, url=https%3A%2F%2F…, tn có '-', kèm bn) mở
+  // được app nhưng KHÔNG tự điền (chủ thử 05/11/2026), link mẫu thì tự điền. Không gửi bn (tuỳ chọn).
+  const q = (v: string) => encodeURIComponent(v).replace(/%20/g, '+');
+  const back = q(opts.returnUrl).replace(/%3A/gi, ':').replace(/%2F/gi, '/');
+  return `https://dl.vietqr.io/pay?app=${q(opts.appId)}&am=${amount}&tn=${q(tn)}&ba=${acc}@${code}&url=${back}`;
 }
