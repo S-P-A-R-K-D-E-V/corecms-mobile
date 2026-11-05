@@ -1,6 +1,7 @@
 import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
-import { hasAnyRole, ADMIN_ROLES, SHIFT_CASH_ROLES, canUseAssistant, assistantEnabled } from 'src/auth/roles';
+import { hasAnyRole, ADMIN_ROLES, SHIFT_CASH_ROLES } from 'src/auth/roles';
+import { canOpenAssistant } from 'src/features/assistant/assistant-access';
 import {
   hasAllPermissions,
   hasAnyPermission,
@@ -155,7 +156,7 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'chat', label: 'Tin nhắn', icon: 'chat-outline', href: '/(tabs)/chat', tone: 'info', group: 'personal' },
   {
     key: 'assistant', label: 'Trợ lý AI', icon: 'robot-happy-outline', href: '/(tabs)/assistant', tone: 'secondary', group: 'personal',
-    visible: (u) => canUseAssistant(u) && assistantEnabled(u),
+    visible: (u) => canOpenAssistant(u),
   },
 
   // ── Quản lý (Manager/Admin) ────────────────────────────────────────
