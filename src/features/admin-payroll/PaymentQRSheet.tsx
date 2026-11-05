@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, Image } from 'react-native';
+import Svg, { Path, Rect } from 'react-native-svg';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -8,24 +9,41 @@ import { Button, Text, Badge, Icon, Spinner, TextField, Pressable } from 'src/co
 import { toast } from 'src/components/overlay';
 import { haptics } from 'src/services/haptics';
 import { extractApiError } from 'src/services/error';
+import { buildVietQrPayload, sanitizeTransferContent } from 'src/services/vietqr';
+import { QR_QUIET_ZONE, qrMatrix, qrSvgPath } from 'src/features/pos/qr-code';
 import type { IPreparePayrollPaymentResponse } from 'src/types/corecms-api';
 
 import { usePreparePayment, useMarkPaid, usePayrollPayment } from './hooks';
+import { BankAppLauncher } from './BankAppLauncher';
 
 // ----------------------------------------------------------------------
-// Thanh toán lương 1 nhân viên: dựng QR VietQR (ảnh img.vietqr.io) từ thông
-// tin `prepare`, tải/chia sẻ QR (expo-file-system + expo-sharing) và đánh dấu
-// đã thanh toán (mark-paid). BE không trả ảnh QR — client tự dựng như core-fe.
+// Thanh toán lương 1 nhân viên: QR VietQR vẽ tại chỗ từ chuỗi EMVCo (BIN do BE
+// trả trong prepare; không có BIN → ảnh img.vietqr.io như trước), nút mở thẳng
+// app ngân hàng (dl.vietqr.io), tải/chia sẻ ảnh QR (expo-file-system +
+// expo-sharing) và đánh dấu đã thanh toán (mark-paid).
 // ----------------------------------------------------------------------
 
 /** URL ảnh VietQR — khớp mẫu core-fe: {bank}-{account}-compact2.jpg?amount&addInfo&accountName */
 function vietQrUrl(p: IPreparePayrollPaymentResponse, content: string): string {
   const q = new URLSearchParams({
-    amount: String(Math.round(p.amount)),
-    addInfo: content,
+    // Làm tròn lên như mark-paid / web (trước đây Math.round).
+    amount: String(Math.ceil(p.amount)),
+    addInfo: sanitizeTransferContent(content),
     accountName: p.accountName ?? '',
   });
   return `https://img.vietqr.io/image/${p.bankCode}-${p.bankAccount}-compact2.jpg?${q.toString()}`;
+}
+
+function QrSvg({ payload, size }: { payload: string; size: number }) {
+  const matrix = useMemo(() => qrMatrix(payload), [payload]);
+  if (!matrix) return null;
+  const dim = matrix.size + QR_QUIET_ZONE * 2;
+  return (
+    <Svg width={size} height={size} viewBox={`0 0 ${dim} ${dim}`}>
+      <Rect x={0} y={0} width={dim} height={dim} fill="#ffffff" />
+      <Path d={qrSvgPath(matrix)} fill="#000000" />
+    </Svg>
+  );
 }
 
 function InfoRow({ label, value, onCopy }: { label: string; value?: string; onCopy?: () => void }) {
@@ -78,7 +96,10 @@ export function PaymentQRSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, recordId]);
 
-  const qrUrl = prep && prep.canPay ? vietQrUrl(prep, content || prep.suggestedContent) : null;
+  const qrContent = content.trim() || prep?.suggestedContent || '';
+  // Chuỗi EMVCo dựng lại theo nội dung đang sửa; ảnh img.vietqr.io vẫn dùng để tải / chia sẻ (file ảnh thật).
+  const qrPayload = prep?.canPay ? buildVietQrPayload(prep.bankBin, prep.bankAccount, prep.amount, qrContent) : null;
+  const qrUrl = prep && prep.canPay ? vietQrUrl(prep, qrContent) : null;
 
   async function shareQr() {
     if (!qrUrl) return;
@@ -112,7 +133,7 @@ export function PaymentQRSheet({
         data: {
           amount: prep.amount,
           computedAmount: prep.computedAmount,
-          content: content || prep.suggestedContent,
+          content: qrContent,
           transactionRef: txnRef.trim() || undefined,
         },
       });
@@ -195,7 +216,14 @@ export function PaymentQRSheet({
               </View>
             ) : (
               <>
-                {qrUrl ? (
+                {qrPayload ? (
+                  <View className="items-center gap-1">
+                    <View style={{ borderRadius: 12, overflow: 'hidden' }}>
+                      <QrSvg payload={qrPayload} size={232} />
+                    </View>
+                    <Text variant="caption" tone="muted">Quét bằng app ngân hàng bất kỳ (VietQR · NAPAS 247)</Text>
+                  </View>
+                ) : qrUrl ? (
                   <View className="items-center">
                     <Image source={{ uri: qrUrl }} style={{ width: 220, height: 220, borderRadius: 12 }} resizeMode="contain" />
                   </View>
@@ -205,7 +233,22 @@ export function PaymentQRSheet({
                   <InfoRow label="Số TK" value={prep.bankAccount} />
                   <InfoRow label="Chủ TK" value={prep.accountName} />
                 </View>
-                <TextField label="Nội dung chuyển khoản" value={content} onChangeText={setContent} placeholder={prep.suggestedContent} />
+                <TextField
+                  label="Nội dung chuyển khoản"
+                  value={content}
+                  // Không dấu, chỉ chữ / số / gạch nối, tối đa 50 ký tự — như web và nội dung VietQR.
+                  onChangeText={(v) => setContent(sanitizeTransferContent(v, false))}
+                  placeholder={prep.suggestedContent}
+                />
+                {!alreadyPaid && prep.bankCode && prep.bankAccount ? (
+                  <BankAppLauncher
+                    bankCode={prep.bankCode}
+                    account={prep.bankAccount}
+                    amount={prep.amount}
+                    content={qrContent}
+                    accountName={prep.accountName}
+                  />
+                ) : null}
                 {!alreadyPaid ? (
                   <TextField label="Mã giao dịch (tuỳ chọn)" value={txnRef} onChangeText={setTxnRef} placeholder="Vd: FT2607..." />
                 ) : null}

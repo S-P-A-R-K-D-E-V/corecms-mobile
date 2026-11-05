@@ -28,6 +28,7 @@ export const PrefKeys = {
   fnbDeviceId: 'pref.fnbDeviceId', // uuid của lần cài app này — deviceId gửi kèm mọi lệnh ghi F&B
   fnbQueue: 'pref.fnbQueue', // tiền tố — `pref.fnbQueue.<mã cửa hàng>`: hàng đợi lệnh ghi F&B chưa có kết quả
   inspectionDraft: 'pref.inspectionDraft', // tiền tố — `pref.inspectionDraft.<id lượt kiểm>`: kết quả + ảnh chưa gửi
+  payrollBankApp: 'pref.payrollBankApp', // app ngân hàng (appId VietQR) chọn lần trước ở màn trả lương
 } as const;
 
 export const secure = {

@@ -920,6 +920,10 @@ export interface IPreparePayrollPaymentResponse {
   suggestedContent: string;
   canPay: boolean;
   missingInfoReason?: string;
+  /** BIN 6 số ngân hàng nhận (core-be tra theo bankCode); null khi không tra được. */
+  bankBin?: string | null;
+  /** Chuỗi VietQR EMVCo cho số tiền + nội dung gợi ý. */
+  qrPayload?: string | null;
 }
 
 /** POST /payroll/{id}/mark-paid. */
