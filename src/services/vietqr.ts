@@ -39,6 +39,51 @@ function qrContent(text: string): string {
     .trimEnd();
 }
 
+/**
+ * Độ dài tối đa của nội dung (tn) trong link dl.vietqr.io để app ngân hàng còn tự điền.
+ * Chủ thử trên app MB 06/11/2026: nội dung 21–23 ký tự tự điền, 40+ ký tự thì app mở trống.
+ * Chưa biết ngưỡng chính xác nên giữ 25.
+ */
+export const DEEPLINK_MAX_CONTENT = 25;
+
+/**
+ * Nội dung rút gọn cho link mở app ngân hàng (mã QR vẫn giữ nội dung đầy đủ).
+ * Thứ tự: bỏ cụm "thanh toan" và chữ "cho"; bỏ chữ đứng trước kỳ lương (tên cửa hàng, "luong");
+ * bỏ tên đệm (chữ giữa kỳ lương và tên cuối); cuối cùng cắt theo ranh giới chữ.
+ * Ví dụ "CiCi thanh toan luong T10 2026 cho Tra My" → "luong T10 2026 Tra My",
+ * "Luong T11 2026 cho Nguyen Thi Thanh Huong" → "T11 2026 Nguyen Thi Huong".
+ */
+export function deeplinkContent(text: string, max: number = DEEPLINK_MAX_CONTENT): string {
+  let s = qrContent(text);
+  if (s.length <= max) return s;
+  s = s
+    .replace(/\bthanh toan\b/gi, ' ')
+    .replace(/\bcho\b/gi, ' ')
+    .replace(/ +/g, ' ')
+    .trim();
+  const words = s.split(' ').filter(Boolean);
+  const len = () => words.join(' ').length;
+  const firstDigit = words.findIndex((w) => /\d/.test(w));
+  if (firstDigit > 0) {
+    let drop = 0;
+    while (len() > max && drop < firstDigit) {
+      words.shift();
+      drop++;
+    }
+    let lastDigit = -1;
+    words.forEach((w, i) => {
+      if (/\d/.test(w)) lastDigit = i;
+    });
+    // Bỏ tên đệm: chữ ngay trước chữ cuối, chừa ít nhất 2 chữ tên sau kỳ lương.
+    while (len() > max && words.length - 1 - lastDigit > 2) words.splice(words.length - 2, 1);
+  }
+  s = words.join(' ');
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max + 1);
+  const sp = cut.lastIndexOf(' ');
+  return (sp > 0 ? cut.slice(0, sp) : s.slice(0, max)).trim();
+}
+
 function field(id: string, value: string): string {
   if (value.length === 0 || value.length > 99) throw new Error(`VietQR field ${id} length`);
   return `${id}${String(value.length).padStart(2, '0')}${value}`;
@@ -152,7 +197,7 @@ export function buildBankDeeplink(opts: {
   const code = opts.bankCode.trim().toLowerCase();
   const amount = Math.ceil(opts.amount);
   if (!acc || !/^[a-z0-9-]+$/.test(code) || !(amount > 0)) return null;
-  const tn = qrContent(opts.content);
+  const tn = deeplinkContent(opts.content);
   if (!tn) return null;
   // Dựng query giống hệt link mẫu của VietQR (app, am, tn, ba, url; '@' và ':/' để nguyên, khoảng trắng = '+',
   // nội dung chỉ chữ / số): link dựng bằng URLSearchParams (ba=…%40…, url=https%3A%2F%2F…, tn có '-', kèm bn) mở
