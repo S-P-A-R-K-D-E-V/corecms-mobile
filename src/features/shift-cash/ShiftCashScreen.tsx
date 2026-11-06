@@ -27,6 +27,8 @@ import { ReconcileSheet } from './ReconcileSheet';
 import { DENOMINATIONS, formatCurrency, computeTotalCash, vnToday } from './utils';
 import type { IShiftCashTransaction, IShiftCashFinalization, IShiftCashRevenue } from 'src/types/corecms-api';
 import { useResponsive } from 'src/hooks/use-responsive';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
+import { backToCounterMenu } from 'src/features/counter/counter-nav';
 
 // ── Lịch sử chốt ────────────────────────────────────────────────────────────
 // Hiển thị từng lần chốt: trước/sau chốt, chênh tiền mặt, và chênh tiền tổng
@@ -190,6 +192,7 @@ export function ShiftCashScreen() {
   const { isTablet, isLandscape, width } = useResponsive();
   const wide = (isTablet && isLandscape) || width >= 900;
   const { user } = useAuthContext();
+  const counterSession = useCounterSession();
   // Cùng luật với BE RequireShiftCashAccess: quyền sửa giám sát mới ghi ngày cũ / khoản của người khác. Người chỉ có
   // quyền xem vào thẳng (không qua kiểm ca) nên chỉ xem — ghi sẽ bị BE chặn vì không có ca.
   const canManageOversight = canManageShiftCashOversight(user);
@@ -514,6 +517,7 @@ export function ShiftCashScreen() {
         title="Kiểm tiền quầy"
         subtitle="Đối soát tiền mặt cuối ca"
         back
+        onBack={counterSession ? backToCounterMenu : undefined}
         actions={[{ icon: 'refresh', onPress: refetch }]}
       />
 

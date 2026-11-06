@@ -1,7 +1,15 @@
 // Máy quầy chỉ phục vụ bán hàng: route ngoài phạm vi bị đưa về Bán hàng, lưới tiện ích chỉ còn mục của quầy.
 
-import { isCounterPathAllowed } from '../counter-scope';
+import { COUNTER_HOME, COUNTER_MENU, isCounterPathAllowed } from '../counter-scope';
 import { availableFeatures, featureContext } from 'src/features/launcher/registry';
+
+describe('COUNTER_HOME', () => {
+  it('máy quầy vào thẳng Kiểm tiền quầy (chủ chốt 2026-11-06), và màn đó được mở ở quầy', () => {
+    expect(COUNTER_HOME).toBe('/shift-cash');
+    expect(isCounterPathAllowed(COUNTER_HOME)).toBe(true);
+    expect(isCounterPathAllowed(COUNTER_MENU.replace('/(tabs)', ''))).toBe(true);
+  });
+});
 
 describe('isCounterPathAllowed', () => {
   it.each(['/pos', '/products', '/products/12', '/invoices/abc', '/shift-cash', '/fnb/order/1', '/features', '/profile', '/settings/language', '/'])(

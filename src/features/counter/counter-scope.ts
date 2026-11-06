@@ -11,8 +11,11 @@ export const COUNTER_FEATURE_KEYS: ReadonlySet<string> = new Set(['pos', 'produc
 /** Tiện ích chỉ dành cho quản lý trên điện thoại nhưng ở máy quầy ai cũng cần (hoá đơn để in lại / trả hàng). */
 export const COUNTER_OPEN_TO_ALL: ReadonlySet<string> = new Set(['invoices']);
 
-/** Màn bắt đầu sau khi đăng nhập ở máy quầy. */
-export const COUNTER_HOME = '/(tabs)/pos';
+/**
+ * Màn bắt đầu sau khi đăng nhập ở máy quầy (và khi mở màn ngoài phạm vi): Kiểm tiền quầy — chủ chốt 2026-11-06,
+ * máy quầy không phải kiểm vị trí nên vào thẳng được. Nút quay lại ở đó về menu máy quầy (counter-nav.ts).
+ */
+export const COUNTER_HOME = '/shift-cash';
 
 /**
  * Menu máy quầy (tab Tiện ích: Bán hàng, Hàng hoá, Hoá đơn, Kiểm quầy, phiên đang dùng máy). Màn Bán hàng / sơ đồ bàn

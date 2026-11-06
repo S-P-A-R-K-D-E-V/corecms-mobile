@@ -11,6 +11,8 @@ import { useGpsGate, type Coords } from 'src/hooks/use-gps-gate';
 import { formatDistance } from 'src/services/geo';
 import { haptics } from 'src/services/haptics';
 import { useT } from 'src/i18n';
+import { useCounterSession } from 'src/features/counter/use-counter-session';
+import { backToCounterMenu } from 'src/features/counter/counter-nav';
 
 import {
   SHIFT_CASH_MAX_ACCURACY_M,
@@ -28,6 +30,7 @@ import { vnToday } from './utils';
 // Cổng vào Kiểm tiền quầy. Admin vào thẳng. Staff & Manager: có ca hôm nay (ngày VN) → đang ở cửa hàng
 // (GPS) → mới vào màn, và chỉ làm việc với ngày hôm nay. Toạ độ đã xác minh được màn con gửi kèm mọi
 // lệnh (header X-Geo-* + body audit). BE trả 403 ShiftCash.* → quay về cổng, hiện lý do + nút thử lại.
+// Máy quầy (chủ / quản lý đã ghép nối tại cửa hàng): vẫn cần ca hôm nay nhưng KHÔNG hỏi GPS, không gửi X-Geo-*.
 // ----------------------------------------------------------------------
 
 export type ShiftCashAccess = {
@@ -56,6 +59,7 @@ export function ShiftCashAccessGate({ children }: { children: React.ReactNode })
 function StaffAccessGate({ children }: { children: React.ReactNode }) {
   const t = useT();
   const qc = useQueryClient();
+  const atCounter = useCounterSession();
 
   // 1) Ca hôm nay — khoá 'shift-cash' để nút làm mới của màn kiểm quầy kiểm tra lại luôn.
   const today = vnToday();
@@ -65,19 +69,19 @@ function StaffAccessGate({ children }: { children: React.ReactNode }) {
   });
   const shift = shiftCheckFrom(shiftQ, today);
 
-  // 2) GPS — chỉ bắt đầu khi đã có ca (người không có ca không bị hỏi quyền vị trí).
+  // 2) GPS — chỉ bắt đầu khi đã có ca (người không có ca không bị hỏi quyền vị trí). Máy quầy: không bao giờ.
   const gps = useGpsGate({
     hardBlock: true,
     requireGeofence: true,
     maxAccuracy: SHIFT_CASH_MAX_ACCURACY_M,
     rejectMocked: true,
-    enabled: shift === 'ok',
+    enabled: shift === 'ok' && !atCounter,
   });
 
   // 3) BE từ chối (403 ShiftCash.*) → chặn tới khi người dùng bấm thử lại.
   const [denial, setDenial] = useState<ShiftCashDenial | null>(null);
 
-  const decision = decideShiftCashAccess({ bypass: false, serverDenied: denial != null, shift, gps });
+  const decision = decideShiftCashAccess({ bypass: false, serverDenied: denial != null, shift, gps, atCounter });
 
   const handleDenied = useCallback((err: unknown) => {
     const d = getShiftCashDenial(err);
@@ -98,14 +102,14 @@ function StaffAccessGate({ children }: { children: React.ReactNode }) {
 
   // Quay lại app (từ nền) → kiểm tra lại ca + lấy lại vị trí ngầm; ra khỏi cửa hàng thì bị chặn lại.
   // Đang chặn vì quyền/GPS tắt mà vừa bật trong Cài đặt (nút "Mở Cài đặt") → tự kiểm tra lại, khỏi bấm thử lại.
-  const latest = useRef({ refetch: shiftQ.refetch, revalidate: gps.revalidate });
-  latest.current = { refetch: shiftQ.refetch, revalidate: gps.revalidate };
+  const latest = useRef({ refetch: shiftQ.refetch, revalidate: gps.revalidate, atCounter });
+  latest.current = { refetch: shiftQ.refetch, revalidate: gps.revalidate, atCounter };
   useEffect(() => {
     let prev = AppState.currentState;
     const sub = AppState.addEventListener('change', (next) => {
       if (next === 'active' && prev === 'background') {
         latest.current.refetch();
-        latest.current.revalidate();
+        if (!latest.current.atCounter) latest.current.revalidate();
       }
       prev = next;
     });
@@ -113,8 +117,8 @@ function StaffAccessGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   const access = useMemo<ShiftCashAccess>(
-    () => ({ geo: gps.coords, todayOnly: true, handleDenied }),
-    [gps.coords, handleDenied]
+    () => ({ geo: atCounter ? null : gps.coords, todayOnly: true, handleDenied }),
+    [atCounter, gps.coords, handleDenied]
   );
 
   if (decision.state === 'allow') {
@@ -131,6 +135,7 @@ function StaffAccessGate({ children }: { children: React.ReactNode }) {
       heading={view.heading}
       message={view.message}
       checking={decision.state === 'checking'}
+      onBack={atCounter ? backToCounterMenu : undefined}
     >
       {decision.state === 'blocked' ? (
         <View className="items-center gap-2">
@@ -209,6 +214,7 @@ function GateScreen({
   heading,
   message,
   checking,
+  onBack,
   children,
 }: {
   title: string;
@@ -216,6 +222,7 @@ function GateScreen({
   heading: string;
   message: string;
   checking: boolean;
+  onBack?: () => void;
   children?: React.ReactNode;
 }) {
   // Nhịp "đang kiểm tra" — đứng yên khi đã bị chặn.
@@ -237,7 +244,7 @@ function GateScreen({
 
   return (
     <Screen tabBarInset={false} edges={['top', 'bottom']}>
-      <AppHeader title={title} back />
+      <AppHeader title={title} back onBack={onBack} />
       <View className="flex-1 items-center justify-center px-6 gap-5">
         <BrandGradient className="rounded-full" variant="brand" style={{ backgroundColor: 'transparent' }}>
           <Animated.View style={{ width: 112, height: 112, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pulse }] }}>

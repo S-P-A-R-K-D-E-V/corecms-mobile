@@ -94,18 +94,22 @@ export type ShiftCashDecision =
 /**
  * Thứ tự: Admin → BE vừa từ chối → ca hôm nay → GPS. Kiểm tra ca TRƯỚC để người không có ca không bị
  * hỏi quyền vị trí. GPS chỉ cho qua khi đã có vị trí và không có lý do chặn nào.
+ * Máy quầy (`atCounter`): có ca là vào, không kiểm GPS — máy đã ghép nối tại cửa hàng (chủ chốt 2026-11-06;
+ * BE cũng bỏ geofence cho phiên có claim counter_device).
  */
 export function decideShiftCashAccess(input: {
   bypass: boolean;
   serverDenied: boolean;
   shift: ShiftCheck;
   gps: { status: GpsStatus; reason: GpsBlockReason | null };
+  atCounter?: boolean;
 }): ShiftCashDecision {
   if (input.bypass) return { state: 'allow' };
   if (input.serverDenied) return { state: 'blocked', reason: 'server' };
   if (input.shift === 'loading') return { state: 'checking', step: 'shift' };
   if (input.shift === 'error') return { state: 'blocked', reason: 'shift_error' };
   if (input.shift === 'none') return { state: 'blocked', reason: 'no_shift' };
+  if (input.atCounter) return { state: 'allow' };
   if (input.gps.reason) return { state: 'blocked', reason: input.gps.reason };
   if (input.gps.status !== 'ready') return { state: 'checking', step: 'location' };
   return { state: 'allow' };
