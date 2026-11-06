@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Text, Icon, Pressable, Avatar, BrandGradient, CountBadge, type IconName } from 'src/components/ui';
 import { usePullDistance } from 'src/components/shared';
 import { useAuthContext } from 'src/auth/auth-context';
-import { canUseAssistant, assistantEnabled } from 'src/auth/roles';
+import { useAssistantAccess } from 'src/features/assistant/assistant-access';
 import { getStore } from 'src/services/store-config';
 import { useMessengerStore } from 'src/store/messenger-store';
 import { getUnreadCount } from 'src/api/notifications';
@@ -69,7 +69,7 @@ export function HomeTopBar() {
 
   const chatUnread = useMessengerStore((s) => s.conversations.reduce((sum, c) => sum + (c.unreadCount ?? 0), 0));
   const notifQ = useQuery({ queryKey: ['notifications', 'unread-count'], queryFn: getUnreadCount, staleTime: 60_000 });
-  const showAssistant = canUseAssistant(user) && assistantEnabled(user);
+  const showAssistant = useAssistantAccess(user).allowed;
 
   return (
     <BrandGradient horizontal style={{ paddingTop: insets.top + 10, paddingBottom: 12, paddingHorizontal: 16 }}>

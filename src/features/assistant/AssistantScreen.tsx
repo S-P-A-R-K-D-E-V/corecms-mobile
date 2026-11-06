@@ -15,6 +15,7 @@ import { useT } from 'src/i18n';
 import { useAuthContext, type AuthUser } from 'src/auth/auth-context';
 import { getStorageUrl } from 'src/api/axios';
 import { assistantEnabled, isManagerUser } from 'src/auth/roles';
+import { canOpenAssistant } from './assistant-access';
 import { getStore, isMultiStore } from 'src/services/store-config';
 import { RichText, hasWideContent } from './RichText';
 import { useAssistantCapabilities, useAssistantChat } from './use-assistant-chat';
@@ -197,7 +198,8 @@ export function AssistantScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthContext();
 
-  const featureOn = assistantEnabled(user);
+  // Nhân viên thường: máy chủ đã nói dùng được (assistant-access) thì bật, kể cả khi enabledFeatures không ghi ai.assistant.
+  const featureOn = assistantEnabled(user) || canOpenAssistant(user);
   const caps = useAssistantCapabilities(featureOn);
   const capabilities = caps.capabilities;
   // Server mới báo tắt (chưa cấu hình / gói không có / vai trò không dùng được) → không hiện ô soạn.
