@@ -38,6 +38,21 @@ describe('decideShiftCashAccess', () => {
     expect(decideShiftCashAccess({ bypass: false, serverDenied: false, shift: 'ok', gps: ready })).toEqual({ state: 'allow' });
   });
 
+  it('máy quầy: có ca là vào, không chờ / không xét GPS', () => {
+    const idle = { status: 'idle' as const, reason: null };
+    expect(decideShiftCashAccess({ bypass: false, serverDenied: false, shift: 'ok', gps: idle, atCounter: true })).toEqual({ state: 'allow' });
+    expect(
+      decideShiftCashAccess({ bypass: false, serverDenied: false, shift: 'ok', gps: { status: 'ready', reason: 'outside' }, atCounter: true })
+    ).toEqual({ state: 'allow' });
+  });
+
+  it('máy quầy vẫn cần ca hôm nay và vẫn nghe BE từ chối', () => {
+    const idle = { status: 'idle' as const, reason: null };
+    expect(decideShiftCashAccess({ bypass: false, serverDenied: false, shift: 'none', gps: idle, atCounter: true })).toEqual({ state: 'blocked', reason: 'no_shift' });
+    expect(decideShiftCashAccess({ bypass: false, serverDenied: false, shift: 'loading', gps: idle, atCounter: true })).toEqual({ state: 'checking', step: 'shift' });
+    expect(decideShiftCashAccess({ bypass: false, serverDenied: true, shift: 'ok', gps: idle, atCounter: true })).toEqual({ state: 'blocked', reason: 'server' });
+  });
+
   it('BE vừa từ chối → chặn dù phía app đã đạt', () => {
     expect(decideShiftCashAccess({ bypass: false, serverDenied: true, shift: 'ok', gps: ready })).toEqual({ state: 'blocked', reason: 'server' });
   });
