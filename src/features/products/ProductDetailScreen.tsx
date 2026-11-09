@@ -14,6 +14,7 @@ import type { IProductChild, IProductInventory } from 'src/types/erp';
 import { InfoRow, ProductThumb, StockBadge, avgCost, childStock, fmtQty, money, stockOf } from 'src/features/erp/shared';
 import { useCart, lineFromProduct, lineFromVariant } from 'src/features/pos/cart-store';
 import { productDetailAccessFor } from './access';
+import { canEditProductImages } from './product-images';
 import { useProduct } from './hooks';
 import { StockAdjustSheet, adjustableInventories, type StockTarget } from './StockAdjustSheet';
 import { StockAdjustmentHistory } from './StockAdjustmentHistory';
@@ -107,6 +108,8 @@ export function ProductDetailScreen() {
   // Theo quyền products.cost.read / inventory.* — máy quầy chỉ xem tồn (kể cả quản lý đăng nhập ở quầy).
   const { seeCost, seeAdjustments, canAdjust: mayAdjust } = productDetailAccessFor(user, counterSession);
   const [adjust, setAdjust] = useState<{ target: StockTarget; branchId?: number } | null>(null);
+  // Ảnh sản phẩm + mô tả bán online (sửa được cả hàng KiotViet).
+  const editImages = canEditProductImages(user, counterSession);
 
   function sell(line: Parameters<typeof add>[0]) {
     haptics.light();
@@ -165,6 +168,12 @@ export function ProductDetailScreen() {
           <View className="flex-row"><StockBadge stock={stock} min={p.minQuantity} productType={p.productType} itemKind={p.itemKind} /></View>
         </View>
       </View>
+
+      {editImages ? (
+        <Button variant="soft" size="sm" icon="image-edit-outline" onPress={() => router.push(`/products/images/${p.id}` as any)}>
+          {t('erp.images.entry')}
+        </Button>
+      ) : null}
 
       <SectionCard title={t('erp.price')} icon="tag-outline" bodyClassName="pt-0">
         <Text className="text-[28px] leading-[34px] font-bold" tone="primary">{money(p.basePrice)}</Text>
