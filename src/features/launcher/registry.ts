@@ -176,6 +176,12 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
     key: 'work-day', label: 'Việc theo ngày', icon: 'calendar-check-outline', href: '/manage/work-day', tone: 'primary', group: 'manage',
     visible: (u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE) && hasAnyPermission(u, MANAGE_SCREEN_PERMISSIONS.workDay),
   },
+  // Ghi vi phạm: mở thẳng form ghi tay ở Vi phạm & điểm trừ (tab Cả cửa hàng) — người có hr.violation.manage, gói phân ca như Nhân sự.
+  {
+    key: 'record-violation', label: 'Ghi vi phạm', icon: 'alert-octagon-outline', href: '/hr/violations?record=1', tone: 'warning', group: 'manage',
+    allPermissions: [PERMISSIONS.hr.violationManage],
+    visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
+  },
 
   // ── Quản trị (Admin) — báo cáo theo quyền analytics.* (vai trò tuỳ chỉnh "Kế toán" thấy được) ─────────
   { key: 'dashboard', label: 'Dashboard', icon: 'view-dashboard', href: '/(tabs)/admin', tone: 'primary', group: 'admin', roles: ADMIN_ROLES },
@@ -239,6 +245,6 @@ export type LauncherVariant = 'staff' | 'admin';
  * thấy bán hàng + ca, Manager/Admin-kiêm-ca thấy thêm việc quản lý.
  */
 export const DEFAULT_PINS: Record<LauncherVariant, string[]> = {
-  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'shift-cash', 'shift-pool', 'my-work', 'notifications', 'assign-shift'],
-  admin: ['purchase-orders', 'revenue-report', 'break-even-report', 'team-schedule', 'approvals', 'payroll-cycle', 'attendance-report', 'users'],
+  staff: ['pos', 'products', 'shift-register', 'shift-swap', 'team-schedule', 'approvals', 'record-violation', 'shift-cash', 'shift-pool', 'my-work', 'notifications', 'assign-shift'],
+  admin: ['purchase-orders', 'revenue-report', 'break-even-report', 'team-schedule', 'approvals', 'record-violation', 'payroll-cycle', 'attendance-report', 'users'],
 };

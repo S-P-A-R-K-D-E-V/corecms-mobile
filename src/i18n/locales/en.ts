@@ -444,6 +444,7 @@ export const en: Dict = {
     approvals: 'Approvals',
     'assign-shift': 'Assign shifts',
     'cover-shift': 'Cover shifts',
+    'record-violation': 'Record violation',
     dashboard: 'Dashboard',
     'revenue-report': 'Revenue',
     'financial-overview': 'Financial overview',
