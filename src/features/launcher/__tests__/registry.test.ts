@@ -38,6 +38,28 @@ const manager = {
 } as any;
 const owner = { role: 'Admin', roles: ['Admin'] } as any;
 
+describe('Ghi vi phạm (lối tắt)', () => {
+  const plan = { enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
+  const keysOf = (u: any) => availableFeatures(u, featureContext(u)).map((f) => f.key);
+
+  it('hiện cho chủ cửa hàng và người có hr.violation.manage khi gói có phân ca', () => {
+    expect(keysOf({ ...owner, ...plan })).toContain('record-violation');
+    expect(keysOf({ ...manager, ...plan, permissions: [...manager.permissions, 'hr.violation.manage'] })).toContain('record-violation');
+  });
+
+  it('ẩn với nhân viên, quản lý thiếu quyền và cửa hàng chưa có gói phân ca', () => {
+    expect(keysOf({ ...staff, ...plan })).not.toContain('record-violation');
+    expect(keysOf({ ...manager, ...plan })).not.toContain('record-violation');
+    expect(keysOf(owner)).not.toContain('record-violation');
+  });
+
+  it('nằm trong Dùng nhanh mặc định của chủ cửa hàng và mở thẳng form ghi', () => {
+    const u = { ...owner, ...plan };
+    expect(visiblePins(DEFAULT_PINS.admin, u, featureContext(u)).map((f) => f.key)).toContain('record-violation');
+    expect(FEATURE_REGISTRY.find((f) => f.key === 'record-violation')?.href).toBe('/hr/violations?record=1');
+  });
+});
+
 describe('Dùng nhanh — tối đa 8 ghim', () => {
   it('chỉ hiện mục được phép, giữ thứ tự ghim và cắt ở 8', () => {
     const keys = ['users', 'pos', 'approvals', 'shift-swap', 'products', 'shift-register', 'shift-pool', 'shift-cash', 'notifications', 'chat', 'schedule'];

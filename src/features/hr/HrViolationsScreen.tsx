@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Switch, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
@@ -428,17 +429,20 @@ function TeamTab({
   canManage,
   canEditPolicy,
   canAdjust,
+  openCreate = false,
 }: {
   month: string;
   canManage: boolean;
   canEditPolicy: boolean;
   canAdjust: boolean;
+  /** Vào từ lối tắt "Ghi vi phạm" (trang chủ) → mở sẵn form ghi tay. */
+  openCreate?: boolean;
 }) {
   const qc = useQueryClient();
   const summaryQuery = useQuery({ queryKey: ['hr', 'violations', 'summary', month], queryFn: () => getViolationSummary(month) });
   const entriesQuery = useQuery({ queryKey: ['hr', 'violations', 'list', month], queryFn: () => getViolations(month) });
   const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(openCreate && canManage);
   const [cancelling, setCancelling] = useState<IViolationEntry | null>(null);
   const rows = summaryQuery.data?.rows ?? [];
   // Khiếu nại đang chờ trả lời lên đầu, còn lại giữ thứ tự.
@@ -588,6 +592,9 @@ export function HrViolationsScreen() {
   const canSeeTeam = canManage || hasPermission(user, PERMISSIONS.hr.performanceRead);
   const canEditPolicy = hasPermission(user, PERMISSIONS.hr.ruleManage);
   const canAdjust = hasPermission(user, PERMISSIONS.attendance.adjust);
+  // ?record=1: lối tắt "Ghi vi phạm" ở Dùng nhanh — mở tab cả cửa hàng với form ghi tay.
+  const { record } = useLocalSearchParams<{ record?: string }>();
+  const openCreate = record === '1' && canManage;
   // Quản lý vào từ thông báo khiếu nại thì thấy ngay danh sách cả cửa hàng, như trên web.
   const [tab, setTab] = useState<'mine' | 'team'>(canManage ? 'team' : 'mine');
   const [month, setMonth] = useState(monthOf());
@@ -611,7 +618,7 @@ export function HrViolationsScreen() {
       ) : null}
       <MonthSwitch month={month} onChange={setMonth} />
       {tab === 'team' && canSeeTeam ? (
-        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} canAdjust={canAdjust} />
+        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} canAdjust={canAdjust} openCreate={openCreate} />
       ) : (
         <MineTab month={month} />
       )}

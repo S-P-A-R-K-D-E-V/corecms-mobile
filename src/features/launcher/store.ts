@@ -14,7 +14,17 @@ type Pins = Record<LauncherVariant, string[]>;
 
 // v2: trang chủ kiểu MB (tối đa 8 ghim, thêm nhóm Bán hàng) — bộ ghim cũ (11–12 mục, chưa có Bán hàng)
 // không còn hợp, nạp lại mặc định một lần.
-const PINS_VERSION = 2;
+// v3: thêm "Ghi vi phạm" vào bộ ghim đã tuỳ chỉnh (giữ các ghim cũ) — người không có quyền thì ô tự ẩn.
+const PINS_VERSION = 3;
+
+/** Ghim thêm khi nâng từ v2 → v3, chèn ngay sau "Duyệt yêu cầu" (không có thì lên đầu). */
+const V3_ADDED_PIN = 'record-violation';
+
+export function migrateV2Pins(keys: string[]): string[] {
+  if (keys.includes(V3_ADDED_PIN)) return keys;
+  const at = keys.indexOf('approvals');
+  return at < 0 ? [V3_ADDED_PIN, ...keys] : [...keys.slice(0, at + 1), V3_ADDED_PIN, ...keys.slice(at + 1)];
+}
 
 type LauncherState = {
   pins: Pins;
@@ -38,6 +48,15 @@ export const useLauncherStore = create<LauncherState>((set, get) => ({
       const raw = await prefs.get(PrefKeys.launcherPins);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<Pins> & { v?: number };
+        if (parsed.v === 2) {
+          const pins: Pins = {
+            staff: parsed.staff ? migrateV2Pins(parsed.staff) : DEFAULT_PINS.staff,
+            admin: parsed.admin ? migrateV2Pins(parsed.admin) : DEFAULT_PINS.admin,
+          };
+          set({ pins, hydrated: true });
+          persist(pins);
+          return;
+        }
         if (parsed.v !== PINS_VERSION) {
           set({ hydrated: true });
           return;

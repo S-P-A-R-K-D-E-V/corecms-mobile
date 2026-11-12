@@ -445,6 +445,7 @@ export const vi = {
     approvals: 'Duyệt yêu cầu',
     'assign-shift': 'Xếp ca',
     'cover-shift': 'Đổi ca hộ',
+    'record-violation': 'Ghi vi phạm',
     dashboard: 'Dashboard',
     'revenue-report': 'Doanh thu',
     'financial-overview': 'Tổng quan tài chính',
