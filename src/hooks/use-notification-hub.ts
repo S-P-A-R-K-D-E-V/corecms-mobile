@@ -13,6 +13,18 @@ import type { NotificationPreferences } from './use-notification-settings';
 
 // ----------------------------------------------------------------------
 
+/**
+ * Loại thông báo không bật thông báo hệ điều hành khi app đang mở — khớp core-be
+ * `PersistedInAppNotificationService.NoPushCategories` (không gửi push Expo). Đồng bộ KiotViet báo từng mốc, một lượt là
+ * cả chục thông báo: vẫn hiện trong danh sách thông báo, chỉ không rung / không bật lên.
+ */
+const SILENT_CATEGORIES = new Set(['sync']);
+
+export function isSilentNotification(notification: Pick<INotification, 'category' | 'type'>): boolean {
+  const category = String(notification.category ?? notification.type ?? '').toLowerCase();
+  return SILENT_CATEGORIES.has(category);
+}
+
 export function useNotificationHub(options?: {
   onNewNotification?: (n: INotification) => void;
   preferences?: NotificationPreferences;
@@ -45,8 +57,9 @@ export function useNotificationHub(options?: {
       conn.on('NewNotification', (notification: INotification) => {
         const prefs = prefsRef.current;
 
-        // Respect notification preferences if provided
-        if (prefs) {
+        // Respect notification preferences if provided. Thông báo im lặng (đồng bộ KiotViet) chỉ vào danh sách, không
+        // rung / không bật thông báo hệ điều hành.
+        if (prefs && !isSilentNotification(notification)) {
           if (!prefs.globalEnabled) return;
           const cat = (notification.category ?? notification.type) as keyof typeof prefs.categories;
           if (prefs.categories[cat] === false) return;
