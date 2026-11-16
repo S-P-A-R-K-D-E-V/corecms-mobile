@@ -176,9 +176,9 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
     key: 'work-day', label: 'Việc theo ngày', icon: 'calendar-check-outline', href: '/manage/work-day', tone: 'primary', group: 'manage',
     visible: (u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE) && hasAnyPermission(u, MANAGE_SCREEN_PERMISSIONS.workDay),
   },
-  // Ghi vi phạm: mở thẳng form ghi tay ở Vi phạm & điểm trừ (tab Cả cửa hàng) — người có hr.violation.manage, gói phân ca như Nhân sự.
+  // Ghi vi phạm: mở thẳng màn ghi vi phạm (chọn người, lỗi, ảnh minh chứng) — người có hr.violation.manage, gói phân ca như Nhân sự.
   {
-    key: 'record-violation', label: 'Ghi vi phạm', icon: 'alert-octagon-outline', href: '/hr/violations?record=1', tone: 'warning', group: 'manage',
+    key: 'record-violation', label: 'Ghi vi phạm', icon: 'alert-octagon-outline', href: '/hr/violation-new', tone: 'warning', group: 'manage',
     allPermissions: [PERMISSIONS.hr.violationManage],
     visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
   },
