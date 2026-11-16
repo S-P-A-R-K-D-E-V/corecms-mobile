@@ -8,6 +8,8 @@ import type {
   IViolationShift,
   IViolationMonth,
   IViolationPolicy,
+  IViolationStaff,
+  ViolationComponent,
   IHrRecord,
   IShiftLeave,
   IWorkTask,
@@ -339,12 +341,52 @@ export async function getViolations(month: string): Promise<IViolationEntry[]> {
   return response.data;
 }
 
+export async function getViolationCatalog(): Promise<{ policy: IViolationPolicy | null; rules: IViolationRule[] }> {
+  const response = await axios.get<{ policy: IViolationPolicy | null; rules: IViolationRule[] }>(endpoints.hr.violationCatalog);
+  return response.data;
+}
+
+/** Nhân viên để chọn khi ghi vi phạm: ảnh, ca ngày `date`, điểm trừ tháng đó; người đang trong ca lên trước. */
+export async function getViolationStaff(date: string): Promise<IViolationStaff[]> {
+  const response = await axios.get<IViolationStaff[]>(endpoints.hr.violationStaff, { params: { date } });
+  return response.data;
+}
+
+export type ViolationPhotoSource = 'Camera' | 'Library';
+
+/**
+ * Tải một ảnh trên máy lên kho riêng tư (presigned PUT, không qua API). Trả photoId (để bỏ ảnh) + objectKey (gửi kèm lần
+ * ghi nhận). Ảnh không gắn vào lần ghi nhận nào trong 24 giờ thì server tự xoá.
+ */
+export async function uploadViolationPhoto(
+  photo: { uri: string; type: string },
+  source: ViolationPhotoSource,
+): Promise<{ photoId: string; objectKey: string }> {
+  const presign = await axios.post<{ photoId: string; objectKey: string; uploadUrl: string }[]>(endpoints.hr.violationPhotoPresign, {
+    files: [{ contentType: photo.type, source }],
+  });
+  const [target] = presign.data;
+  await putFileToPresignedUrl(target.uploadUrl, photo.uri, photo.type);
+  return { photoId: target.photoId, objectKey: target.objectKey };
+}
+
+/** Bỏ ảnh chưa gắn khỏi form (server xoá khỏi R2 ngay). */
+export async function removeViolationPhoto(photoId: string): Promise<void> {
+  await axios.delete(endpoints.hr.violationPhoto(photoId));
+}
+
 export async function createViolations(body: {
-  ruleId: string;
+  /** Luật có sẵn; bỏ trống khi gửi newRule. */
+  ruleId?: string | null;
   userIds: string[];
   occurredOn: string;
   quantity: number;
   note: string;
+  photoKeys?: string[];
+  /** Ca — chỉ khi ghi một người. */
+  shiftAssignmentId?: string | null;
+  /** Loại vi phạm mới, lưu vào danh mục (cần hr.rule.manage). */
+  newRule?: { groupName?: string | null; name: string; points: number; component?: ViolationComponent } | null;
 }): Promise<IViolationEntry[]> {
   const response = await axios.post<IViolationEntry[]>(endpoints.hr.violations, body);
   return response.data;

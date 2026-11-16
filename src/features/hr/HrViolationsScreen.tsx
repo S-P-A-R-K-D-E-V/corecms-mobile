@@ -1,19 +1,17 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Switch, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
 
 import { Screen, AppHeader, SectionCard, Sheet } from 'src/components/shared';
-import { Text, Button, Badge, Chip, TextField, SegmentedControl, Pressable } from 'src/components/ui';
+import { Text, Button, Badge, TextField, SegmentedControl, Pressable } from 'src/components/ui';
 import { toast } from 'src/components/overlay';
 import { extractApiError } from 'src/services/error';
 import {
   cancelViolation,
   complainViolation,
-  createViolations,
   getMyViolations,
-  getViolationRules,
   getViolations,
   getViolationShift,
   getViolationSummary,
@@ -27,18 +25,18 @@ import {
   VIOLATION_STATUS_LABEL,
   type IViolationEntry,
   type IViolationPolicy,
-  type IViolationRule,
   type IViolationSummary,
   type ViolationEntryStatus,
 } from 'src/types/hr';
-import { bonusText, canComplain, fVnd, monthOf, occurrenceText, ruleMoney } from './hr-rules';
+import { bonusText, canComplain, fVnd, monthOf, occurrenceText } from './hr-rules';
+import { ViolationPhotoStrip } from './ViolationPhotoStrip';
 
 // ----------------------------------------------------------------------
 // Vi phạm & điểm trừ: mỗi lần vi phạm trừ điểm theo danh mục của cửa hàng; tiền phạt hiện kèm trừ vào lương,
 // tổng điểm tháng quyết định % thưởng được nhận. Nhân viên xem điểm trừ tháng
 // của mình, từng lần (hệ thống tự ghi hoặc quản lý ghi kèm căn cứ) và khiếu nại trong hạn. Quản lý (hr.violation.manage /
-// hr.performance.read) xem điểm cả cửa hàng; người có hr.violation.manage ghi tay, huỷ, trả lời khiếu nại và sửa chấm công đúng ca
-// bị khiếu nại (cần thêm attendance.adjust). Sửa danh mục: web.
+// hr.performance.read) xem điểm cả cửa hàng; người có hr.violation.manage ghi tay (màn RecordViolationScreen, kèm ảnh minh
+// chứng), huỷ, trả lời khiếu nại và sửa chấm công đúng ca bị khiếu nại (cần thêm attendance.adjust). Sửa danh mục: web.
 // ----------------------------------------------------------------------
 
 const STATUS_TONE: Record<ViolationEntryStatus, 'error' | 'warning' | 'neutral'> = {
@@ -169,6 +167,7 @@ function EntryCard({
         </Text>
       ) : null}
       {e.note ? <Text variant="bodySmall">Căn cứ: {e.note}</Text> : null}
+      <ViolationPhotoStrip photos={e.photos} />
       <Text variant="caption" tone="muted">{e.isAuto ? 'Hệ thống tự ghi' : 'Quản lý ghi'}</Text>
       {e.complaintText ? <Text variant="caption" tone="warning">Khiếu nại: {e.complaintText}</Text> : null}
       {e.resolutionNote ? <Text variant="caption" tone="muted">Trả lời: {e.resolutionNote}</Text> : null}
@@ -294,155 +293,22 @@ function MineTab({ month }: { month: string }) {
   );
 }
 
-function CreateSheet({
-  visible,
-  staff,
-  perPoint,
-  onClose,
-  onCreated,
-}: {
-  visible: boolean;
-  staff: { id: string; name: string }[];
-  /** Tiền phạt mỗi điểm của cửa hàng. */
-  perPoint?: number | null;
-  onClose: () => void;
-  onCreated: () => void;
-}) {
-  const rulesQuery = useQuery({ queryKey: ['hr', 'violations', 'rules'], queryFn: getViolationRules, enabled: visible });
-  const rules = (rulesQuery.data ?? []).filter((r) => r.isActive);
-  const groups = useMemo(() => [...new Set(rules.map((r) => r.groupName))], [rules]);
-  const [rule, setRule] = useState<IViolationRule | null>(null);
-  const [people, setPeople] = useState<string[]>([]);
-  const [daysAgo, setDaysAgo] = useState(0);
-  const [quantity, setQuantity] = useState('1');
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-  const qty = Number(quantity);
-  const valid = !!rule && people.length > 0 && Number.isInteger(qty) && qty >= 1 && qty <= 50 && !!note.trim();
-
-  function reset() {
-    setRule(null);
-    setPeople([]);
-    setDaysAgo(0);
-    setQuantity('1');
-    setNote('');
-  }
-
-  async function submit() {
-    if (!rule) return;
-    setBusy(true);
-    try {
-      await createViolations({
-        ruleId: rule.id,
-        userIds: people,
-        occurredOn: dayjs().subtract(daysAgo, 'day').format('YYYY-MM-DD'),
-        quantity: qty,
-        note: note.trim(),
-      });
-      toast.success('Đã ghi nhận — nhân viên được báo.');
-      reset();
-      onCreated();
-    } catch (err) {
-      toast.error(extractApiError(err), 'Chưa ghi được');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Sheet
-      visible={visible}
-      title="Ghi vi phạm"
-      onClose={busy ? () => {} : onClose}
-      footer={
-        <Button loading={busy} disabled={busy || !valid} onPress={submit}>
-          {rule && valid
-            ? `Ghi nhận (trừ ${rule.points * qty} điểm / người${(ruleMoney(rule, perPoint, qty) ?? 0) > 0 ? ` · phạt ${fVnd(ruleMoney(rule, perPoint, qty))}` : ''})`
-            : 'Ghi nhận'}
-        </Button>
-      }
-    >
-      <View className="gap-3">
-        <Text variant="caption" tone="muted">Hành vi</Text>
-        {groups.map((g) => (
-          <View key={g} className="gap-1">
-            <Text variant="caption" className="font-semibold">{g}</Text>
-            <View className="flex-row flex-wrap gap-1.5">
-              {rules
-                .filter((r) => r.groupName === g)
-                .map((r) => (
-                  <Chip key={r.id} size="sm" label={`${r.name} (−${r.points})`} selected={rule?.id === r.id} color="primary" onPress={() => setRule(r)} />
-                ))}
-            </View>
-          </View>
-        ))}
-        {rule && rule.autoSource !== 'None' ? (
-          <Text variant="caption" tone="warning">Hành vi này hệ thống đã tự ghi theo dữ liệu — chỉ ghi tay khi hệ thống không có dữ liệu.</Text>
-        ) : null}
-        {rule?.escalationSteps ? (
-          <Text variant="caption" tone="muted">
-            Tái phạm trong {rule.escalationWindowMonths ?? 1} tháng: {rule.escalationSteps.split('\n').join('; ')} — hệ thống báo quản lý
-            khi chạm bậc.
-          </Text>
-        ) : null}
-        <Text variant="caption" tone="muted">Nhân viên</Text>
-        <View className="flex-row flex-wrap gap-1.5">
-          {staff.map((p) => (
-            <Chip
-              key={p.id}
-              size="sm"
-              label={p.name}
-              color="primary"
-              selected={people.includes(p.id)}
-              onPress={() => setPeople((cur) => (cur.includes(p.id) ? cur.filter((x) => x !== p.id) : [...cur, p.id]))}
-            />
-          ))}
-        </View>
-        <Text variant="caption" tone="muted">Ngày</Text>
-        <View className="flex-row flex-wrap gap-1.5">
-          {[0, 1, 2].map((d) => (
-            <Chip
-              key={d}
-              size="sm"
-              label={d === 0 ? 'Hôm nay' : d === 1 ? 'Hôm qua' : dayjs().subtract(d, 'day').format('DD/MM')}
-              selected={daysAgo === d}
-              color="primary"
-              onPress={() => setDaysAgo(d)}
-            />
-          ))}
-        </View>
-        <TextField label="Số lần" value={quantity} onChangeText={setQuantity} keyboardType="number-pad" />
-        <TextField
-          label="Căn cứ (nhân viên sẽ thấy)"
-          placeholder="Vd: camera quầy 19:10–19:25"
-          value={note}
-          onChangeText={setNote}
-          multiline
-        />
-      </View>
-    </Sheet>
-  );
-}
-
 function TeamTab({
   month,
   canManage,
   canEditPolicy,
   canAdjust,
-  openCreate = false,
 }: {
   month: string;
   canManage: boolean;
   canEditPolicy: boolean;
   canAdjust: boolean;
-  /** Vào từ lối tắt "Ghi vi phạm" (trang chủ) → mở sẵn form ghi tay. */
-  openCreate?: boolean;
 }) {
   const qc = useQueryClient();
+  const router = useRouter();
   const summaryQuery = useQuery({ queryKey: ['hr', 'violations', 'summary', month], queryFn: () => getViolationSummary(month) });
   const entriesQuery = useQuery({ queryKey: ['hr', 'violations', 'list', month], queryFn: () => getViolations(month) });
   const [selected, setSelected] = useState<string | null>(null);
-  const [creating, setCreating] = useState(openCreate && canManage);
   const [cancelling, setCancelling] = useState<IViolationEntry | null>(null);
   const rows = summaryQuery.data?.rows ?? [];
   // Khiếu nại đang chờ trả lời lên đầu, còn lại giữ thứ tự.
@@ -511,7 +377,7 @@ function TeamTab({
     <>
       {canEditPolicy && summaryQuery.data?.policy ? <BonusToggle policy={summaryQuery.data.policy} onChanged={refresh} /> : null}
       {canManage && summaryQuery.data?.policy ? (
-        <Button icon="plus" onPress={() => setCreating(true)}>Ghi vi phạm</Button>
+        <Button icon="plus" onPress={() => router.push('/hr/violation-new')}>Ghi vi phạm</Button>
       ) : null}
       {summaryQuery.data && !summaryQuery.data.policy ? (
         <Text variant="caption" tone="warning">Cửa hàng chưa có danh mục vi phạm — Admin thêm trên web.</Text>
@@ -547,16 +413,6 @@ function TeamTab({
           onResolve={canManage ? (keep) => setResolving({ entry: e, keep }) : undefined}
         />
       ))}
-      <CreateSheet
-        visible={creating}
-        staff={rows.map((r) => ({ id: r.userId, name: r.fullName }))}
-        perPoint={summaryQuery.data?.policy?.fineAmountPerPoint}
-        onClose={() => setCreating(false)}
-        onCreated={() => {
-          setCreating(false);
-          refresh();
-        }}
-      />
       <TextSheet
         visible={!!cancelling}
         title="Huỷ điểm trừ"
@@ -592,9 +448,12 @@ export function HrViolationsScreen() {
   const canSeeTeam = canManage || hasPermission(user, PERMISSIONS.hr.performanceRead);
   const canEditPolicy = hasPermission(user, PERMISSIONS.hr.ruleManage);
   const canAdjust = hasPermission(user, PERMISSIONS.attendance.adjust);
-  // ?record=1: lối tắt "Ghi vi phạm" ở Dùng nhanh — mở tab cả cửa hàng với form ghi tay.
+  // ?record=1: đường dẫn cũ của lối tắt "Ghi vi phạm" (ghim / thông báo cũ) → mở màn ghi vi phạm mới.
+  const router = useRouter();
   const { record } = useLocalSearchParams<{ record?: string }>();
-  const openCreate = record === '1' && canManage;
+  useEffect(() => {
+    if (record === '1' && canManage) router.push('/hr/violation-new');
+  }, [record, canManage, router]);
   // Quản lý vào từ thông báo khiếu nại thì thấy ngay danh sách cả cửa hàng, như trên web.
   const [tab, setTab] = useState<'mine' | 'team'>(canManage ? 'team' : 'mine');
   const [month, setMonth] = useState(monthOf());
@@ -618,7 +477,7 @@ export function HrViolationsScreen() {
       ) : null}
       <MonthSwitch month={month} onChange={setMonth} />
       {tab === 'team' && canSeeTeam ? (
-        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} canAdjust={canAdjust} openCreate={openCreate} />
+        <TeamTab month={month} canManage={canManage} canEditPolicy={canEditPolicy} canAdjust={canAdjust} />
       ) : (
         <MineTab month={month} />
       )}

@@ -56,7 +56,7 @@ describe('Ghi vi phạm (lối tắt)', () => {
   it('nằm trong Dùng nhanh mặc định của chủ cửa hàng và mở thẳng form ghi', () => {
     const u = { ...owner, ...plan };
     expect(visiblePins(DEFAULT_PINS.admin, u, featureContext(u)).map((f) => f.key)).toContain('record-violation');
-    expect(FEATURE_REGISTRY.find((f) => f.key === 'record-violation')?.href).toBe('/hr/violations?record=1');
+    expect(FEATURE_REGISTRY.find((f) => f.key === 'record-violation')?.href).toBe('/hr/violation-new');
   });
 });
 
