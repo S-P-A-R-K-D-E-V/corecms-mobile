@@ -310,6 +310,16 @@ export const endpoints = {
     approve: (id: string) => `/agent-actions/${id}/approve`,
     reject: (id: string) => `/agent-actions/${id}/reject`,
   },
+  /** Trung tâm Agent (K4 — bảng việc của đội agent): mọi API ở đây cần agent.approve. */
+  agentCenter: {
+    summary: '/agent-center/summary',
+    tasks: '/agent-center/tasks',
+    task: (id: string) => `/agent-center/tasks/${id}`,
+    notes: (id: string) => `/agent-center/tasks/${id}/notes`,
+    stop: (id: string) => `/agent-center/tasks/${id}/stop`,
+    retry: (id: string) => `/agent-center/tasks/${id}/retry`,
+    cancel: (id: string) => `/agent-center/tasks/${id}/cancel`,
+  },
   notifications: {
     list: '/notifications',
     unreadCount: '/notifications/unread-count',

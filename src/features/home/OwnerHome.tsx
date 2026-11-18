@@ -16,6 +16,7 @@ import { StaffRankingCard } from 'src/features/hr/HrScoreCards';
 import { StoreWeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
 import { WorkTodayCard } from 'src/features/work/WorkTodayCard';
 import { AgentApprovalsCard } from 'src/features/agent-approvals/AgentApprovalsCard';
+import { AgentTasksCard } from 'src/features/agent-tasks/AgentTasksCard';
 import { useDashboardSummary, useRevenueReport, fmtMoney, fmtCompact } from 'src/features/admin-dashboard/hooks';
 
 import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, EyeToggle, HERO_OVERLAP } from './HomeHero';
@@ -209,6 +210,7 @@ export function OwnerHome() {
       <View className="px-4 gap-3.5" style={{ marginTop: -HERO_OVERLAP - 14 }}>
         <FeatureGrid solid variant="admin" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
         <AgentApprovalsCard />
+        <AgentTasksCard />
         <LowStockBanner />
         <StoreWeeklyTargetCard />
         <WorkTodayCard />
