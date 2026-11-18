@@ -6,9 +6,11 @@ import { Button, Icon, Text, TextField } from 'src/components/ui';
 import type { AgentActionView } from 'src/api/agent-actions';
 
 import { agentLine } from './AgentActionCard';
+import { actionTitle } from './agent-action-format';
 
 // ----------------------------------------------------------------------
 // Xác nhận Duyệt / Từ chối một phiếu agent, kèm ghi chú (không bắt buộc). Duyệt: cảnh báo máy chủ chạy lệnh NGAY.
+// Từ chối: agent dừng hẳn việc, không làm lại (muốn agent sửa thì dùng "Yêu cầu sửa" — RevisionSheet).
 // ----------------------------------------------------------------------
 
 export type DecisionMode = 'approve' | 'reject';
@@ -63,17 +65,23 @@ export function DecisionSheet({
       {action ? (
         <>
           <Text variant="caption" tone="muted">{agentLine(action)}</Text>
-          <Text variant="body" className="font-semibold">{action.summary}</Text>
+          <Text variant="body" className="font-semibold">{actionTitle(action)}</Text>
           {approve ? (
             <View className="flex-row gap-2 rounded-xl bg-warning-soft px-3 py-2.5">
               <Icon name="alert-outline" size={18} tone="warning" />
               <Text variant="caption" tone="warning" className="flex-1">
                 Hệ thống chạy lệnh này ngay khi bạn bấm Duyệt, bạn là người thực hiện. Thay đổi đã chạy không tự hoàn tác — kiểm
-                tra lại tham số trước khi duyệt.
+                tra lại nội dung trước khi duyệt.
               </Text>
             </View>
           ) : (
-            <Text variant="caption" tone="muted">Lệnh sẽ không chạy. Lý do (nếu ghi) được lưu cùng phiếu.</Text>
+            <View className="flex-row gap-2 rounded-xl bg-error-soft px-3 py-2.5">
+              <Icon name="stop-circle-outline" size={18} tone="error" />
+              <Text variant="caption" tone="error" className="flex-1">
+                Agent sẽ dừng việc này, không làm lại. Lệnh không chạy; lý do (nếu ghi) được lưu cùng phiếu. Muốn agent sửa
+                rồi gửi lại thì chọn "Yêu cầu sửa".
+              </Text>
+            </View>
           )}
           <TextField
             label={approve ? 'Ghi chú (không bắt buộc)' : 'Lý do từ chối (không bắt buộc)'}

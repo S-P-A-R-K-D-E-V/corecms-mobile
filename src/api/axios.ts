@@ -309,6 +309,7 @@ export const endpoints = {
     detail: (id: string) => `/agent-actions/${id}`,
     approve: (id: string) => `/agent-actions/${id}/approve`,
     reject: (id: string) => `/agent-actions/${id}/reject`,
+    requestRevision: (id: string) => `/agent-actions/${id}/request-revision`,
   },
   /** Trung tâm Agent (K4 — bảng việc của đội agent): mọi API ở đây cần agent.approve. */
   agentCenter: {

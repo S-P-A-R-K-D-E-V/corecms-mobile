@@ -1,8 +1,8 @@
-import type { AgentActionView } from 'src/api/agent-actions';
+import type { AgentActionView, AgentPreviewChannel, AgentSocialPostPreview } from 'src/api/agent-actions';
 
 // ----------------------------------------------------------------------
 // Phần thuần của màn Duyệt việc agent (test được): nhãn trạng thái, thời gian còn lại, tham số của lệnh từ bodyJson,
-// kết quả chạy sau khi duyệt.
+// kết quả chạy sau khi duyệt, bản xem trước (tiêu đề, bài mạng xã hội), vòng "Yêu cầu sửa".
 // ----------------------------------------------------------------------
 
 type Tone = 'primary' | 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'secondary';
@@ -15,6 +15,7 @@ export const AGENT_ACTION_STATUS: Record<string, { label: string; tone: Tone }> 
   failed: { label: 'Chạy lỗi', tone: 'error' },
   rejected: { label: 'Đã từ chối', tone: 'neutral' },
   expired: { label: 'Hết hạn', tone: 'neutral' },
+  revision_requested: { label: 'Đã yêu cầu sửa', tone: 'secondary' },
 };
 
 export function statusInfo(status: string): { label: string; tone: Tone } {
@@ -157,4 +158,117 @@ export function resultMessage(resultBody: string | null | undefined, max = 600):
 /** Màn chi tiết phiếu trong app. */
 export function agentActionRoute(id: string): string {
   return `/agent/approvals/${id}`;
+}
+
+// ----------------------------------------------------------------------
+// Bản xem trước (BE dựng sẵn `title` / `preview`; BE cũ không có → quay về summary).
+// ----------------------------------------------------------------------
+
+/** "\\uD83E\\uDD14" còn sót dạng thoát trong chuỗi → ký tự thật (cặp surrogate ghép lại thành emoji 🤔). */
+export function decodeUnicodeEscapes(text: string): string {
+  return text.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+/** Tên việc agent xin làm: `title` → `preview.title` → summary (giải mã emoji) → "Tạo / gửi POST /path". */
+export function actionTitle(
+  action: Pick<AgentActionView, 'title' | 'preview' | 'summary' | 'method' | 'pathAndQuery'>,
+): string {
+  const title = action.title?.trim() || action.preview?.title?.trim();
+  if (title) return title;
+  const summary = action.summary?.trim();
+  if (summary) return decodeUnicodeEscapes(summary);
+  return `${methodLabel(action.method)} ${action.pathAndQuery}`;
+}
+
+/** Bài mạng xã hội của phiếu (preview kind social_post), không có → null. */
+export function socialPostOf(action: Pick<AgentActionView, 'preview'> | null | undefined): AgentSocialPostPreview | null {
+  const preview = action?.preview;
+  return preview?.kind === 'social_post' && preview.socialPost ? preview.socialPost : null;
+}
+
+/** Một dòng trích caption: gộp xuống dòng / khoảng trắng, cắt ở `max` ký tự (không cắt đôi emoji). */
+export function captionExcerpt(text: string | null | undefined, max = 120): string {
+  const flat = (text ?? '').replace(/\s+/g, ' ').trim();
+  const chars = Array.from(flat);
+  if (chars.length <= max) return flat;
+  return `${chars.slice(0, max - 1).join('').trimEnd()}…`;
+}
+
+/** "Bản 2" khi phiếu là bản sửa (version > 1); bản đầu → null (không hiện). */
+export function versionLabel(version: number | null | undefined): string | null {
+  return typeof version === 'number' && version > 1 ? `Bản ${version}` : null;
+}
+
+const PLATFORM_LABEL: Record<string, string> = {
+  threads: 'Threads',
+  facebook: 'Facebook',
+  instagram: 'Instagram',
+  tiktok: 'TikTok',
+  zalo: 'Zalo',
+  youtube: 'YouTube',
+  x: 'X',
+  twitter: 'X',
+};
+
+export function platformLabel(platform: string | null | undefined): string {
+  const key = (platform ?? '').trim().toLowerCase();
+  if (!key) return '';
+  return PLATFORM_LABEL[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/** Dòng phụ dưới tên kênh: "@cici.store · Threads" / "Threads". */
+export function channelHandle(channel: Pick<AgentPreviewChannel, 'username' | 'platform'>): string {
+  const user = channel.username?.trim().replace(/^@+/, '');
+  const platform = platformLabel(channel.platform);
+  return [user ? `@${user}` : '', platform].filter(Boolean).join(' · ');
+}
+
+// ----------------------------------------------------------------------
+// Vòng "Yêu cầu sửa".
+// ----------------------------------------------------------------------
+
+/** Chip ghi chú nhanh ở hộp Yêu cầu sửa — bấm là nối vào ghi chú. */
+export const REVISION_QUICK_NOTES = ['Ảnh đẹp / sáng hơn', 'Đổi nền khác', 'Viết ngắn lại', 'Giọng vui hơn', 'Đổi giờ đăng'] as const;
+
+/** Nối một chip vào ghi chú (mỗi ý một dòng); đã có rồi thì giữ nguyên. */
+export function appendQuickNote(note: string, chip: string): string {
+  const trimmed = note.trimEnd();
+  if (!trimmed) return chip;
+  if (trimmed.split('\n').some((line) => line.trim() === chip)) return note;
+  return `${trimmed}\n${chip}`;
+}
+
+/** Còn được Yêu cầu sửa không: null = không giới hạn theo việc; 0 = hết lượt. */
+export function canRequestRevision(action: Pick<AgentActionView, 'revisionsLeft'>): boolean {
+  const left = action.revisionsLeft;
+  return left === null || left === undefined || left > 0;
+}
+
+/** "Còn 2 lần yêu cầu sửa" / "Đã hết lượt yêu cầu sửa"; không giới hạn → ''. */
+export function revisionsLeftText(left: number | null | undefined): string {
+  if (left === null || left === undefined) return '';
+  return left > 0 ? `Còn ${left} lần yêu cầu sửa` : 'Đã hết lượt yêu cầu sửa';
+}
+
+/** Gửi được khi có ghi chú hoặc ít nhất một ảnh cần làm lại. */
+export function canSubmitRevision(note: string, imageUrls: readonly string[]): boolean {
+  return note.trim().length > 0 || imageUrls.length > 0;
+}
+
+const REDO_MARKER = 'Ảnh cần làm lại:';
+
+/**
+ * Ghi chú của phiếu bị Yêu cầu sửa (BE ghép: ghi chú + "Ảnh cần làm lại:" + "- url" từng dòng) → phần chữ và danh sách ảnh,
+ * để hiện ảnh thay vì in URL.
+ */
+export function splitRevisionNote(note: string | null | undefined): { text: string; imageUrls: string[] } {
+  const raw = note ?? '';
+  const at = raw.indexOf(REDO_MARKER);
+  if (at < 0) return { text: raw.trim(), imageUrls: [] };
+  const imageUrls = raw
+    .slice(at + REDO_MARKER.length)
+    .split('\n')
+    .map((line) => line.trim().replace(/^-\s*/, '').trim())
+    .filter((line) => /^https?:\/\//i.test(line));
+  return { text: raw.slice(0, at).trim(), imageUrls };
 }

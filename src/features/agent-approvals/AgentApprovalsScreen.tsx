@@ -11,7 +11,8 @@ import { useAgentActions, useNow } from './hooks';
 
 // ----------------------------------------------------------------------
 // Duyệt việc agent (K3 — cổng duyệt lệnh ghi): phiếu agent xin làm thay người, đang chờ duyệt; tab "Đã xử lý" là phiếu gần
-// đây đã duyệt / từ chối / hết hạn. Bấm phiếu → chi tiết để Duyệt (máy chủ chạy ngay) hoặc Từ chối. Quyền agent.approve.
+// đây đã duyệt / yêu cầu sửa / từ chối / hết hạn. Bấm phiếu → chi tiết để Duyệt (máy chủ chạy ngay), Yêu cầu sửa hoặc Từ
+// chối. Quyền agent.approve.
 // ----------------------------------------------------------------------
 
 type Tab = 'pending' | 'done';
@@ -35,8 +36,8 @@ export function AgentApprovalsScreen() {
       <AppHeader title="Duyệt việc agent" subtitle="Agent xin làm thay — bạn duyệt mới chạy" back />
 
       <Text variant="caption" tone="muted">
-        Duyệt là hệ thống chạy ngay đúng lệnh agent đã gửi, bạn là người thực hiện. Đọc kỹ tham số trước khi duyệt; phiếu quá hạn
-        tự huỷ.
+        Duyệt là hệ thống chạy ngay đúng lệnh agent đã gửi, bạn là người thực hiện. Chưa ưng thì bấm Yêu cầu sửa để agent làm
+        lại; phiếu quá hạn tự huỷ.
       </Text>
 
       <SegmentedControl segments={TABS} value={tab} onChange={(k) => setTab(k as Tab)} />
