@@ -301,3 +301,19 @@ describe('duyệt việc agent', () => {
     expect(FEATURE_REGISTRY.find((f) => f.key === 'agent-approvals')?.href).toBe('/agent/approvals');
   });
 });
+
+// Đội agent (K4): ô Việc của agent cùng quyền agent.approve, nằm ở nhóm Quản trị.
+describe('việc của agent', () => {
+  const keys = (u: any) => availableFeatures(u, featureContext(u)).map((f) => f.key);
+
+  it('chủ cửa hàng và người được cấp agent.approve thấy; thiếu quyền không thấy', () => {
+    expect(keys(owner)).toContain('agent-tasks');
+    expect(keys({ ...manager, permissions: [...manager.permissions, 'agent.approve'] })).toContain('agent-tasks');
+    expect(keys(manager)).not.toContain('agent-tasks');
+    expect(keys(staff)).not.toContain('agent-tasks');
+    const item = FEATURE_REGISTRY.find((f) => f.key === 'agent-tasks');
+    expect(item?.href).toBe('/agent/tasks');
+    expect(item?.group).toBe('admin');
+    expect(item?.label).toBe('Việc của agent');
+  });
+});

@@ -8,6 +8,8 @@ import { pushDataRecord } from './push-store';
 const APP_ROUTES: Record<string, string> = {
   // Agent xin duyệt lệnh ghi (K3); thông báo có data.agentActionId thì mở thẳng phiếu (notificationTargetRoute).
   '/dashboard/agent/approvals': '/agent/approvals',
+  // Trung tâm Agent (K4): việc chờ người / lỗi / xong; có mã việc (data.agentTaskId hoặc ?task=) thì mở thẳng việc đó.
+  '/dashboard/agent/center': '/agent/tasks',
   '/dashboard/attendance/assignments': '/manage/schedule',
   '/dashboard/attendance/face-enrollment': '/face-enrollment',
   '/dashboard/attendance/logs': '/(tabs)/admin/attendance-report',
@@ -81,12 +83,43 @@ export function agentActionIdOf(data: unknown): string | null {
   return typeof id === 'string' && GUID.test(id.trim()) ? id.trim() : null;
 }
 
+/** Mã việc của agent (K4) trong data (object hoặc chuỗi JSON) — core-be gửi data {"agentTaskId": "<id>"}; không phải GUID → null. */
+export function agentTaskIdOf(data: unknown): string | null {
+  const id = pushDataRecord(data).agentTaskId;
+  return typeof id === 'string' && GUID.test(id.trim()) ? id.trim() : null;
+}
+
+const AGENT_CENTER_PATH = '/dashboard/agent/center';
+
+/** Mã việc trong actionUrl /dashboard/agent/center?task=<id>; đường dẫn khác / không có / không phải GUID → null. */
+export function agentTaskIdFromUrl(actionUrl: unknown): string | null {
+  const url = dashboardPath(actionUrl);
+  if (!url) return null;
+  const [path, query = ''] = url.split('?');
+  if (path.replace(/\/+$/, '') !== AGENT_CENTER_PATH) return null;
+  for (const pair of query.split('&')) {
+    const [key, value = ''] = pair.split('=');
+    if (key !== 'task') continue;
+    let id = value;
+    try {
+      id = decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+    return GUID.test(id.trim()) ? id.trim() : null;
+  }
+  return null;
+}
+
 /**
- * Màn mở khi chạm thông báo (trong app hoặc push): phiếu agent xin duyệt → chi tiết phiếu; còn lại theo actionUrl
- * (notificationAppRoute). null = không có màn tương ứng.
+ * Màn mở khi chạm thông báo (trong app hoặc push), theo thứ tự: phiếu agent xin duyệt (data.agentActionId) → chi tiết phiếu;
+ * việc của agent (data.agentTaskId, hoặc actionUrl /dashboard/agent/center?task=<id>) → chi tiết việc; còn lại theo
+ * actionUrl (notificationAppRoute — /dashboard/agent/center không có mã việc → danh sách việc). null = không có màn tương ứng.
  */
 export function notificationTargetRoute(actionUrl: unknown, data?: unknown): string | null {
   const agentActionId = agentActionIdOf(data);
   if (agentActionId) return `/agent/approvals/${agentActionId}`;
+  const agentTaskId = agentTaskIdOf(data) ?? agentTaskIdFromUrl(actionUrl);
+  if (agentTaskId) return `/agent/tasks/${agentTaskId}`;
   return notificationAppRoute(actionUrl);
 }

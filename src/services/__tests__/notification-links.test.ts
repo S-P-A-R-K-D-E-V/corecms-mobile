@@ -4,6 +4,8 @@ import { join } from 'path';
 import {
   NOTIFICATION_APP_ROUTES,
   agentActionIdOf,
+  agentTaskIdFromUrl,
+  agentTaskIdOf,
   notificationAppRoute,
   notificationTargetRoute,
   notificationWebUrl,
@@ -71,5 +73,47 @@ describe('phiếu agent xin duyệt', () => {
     expect(notificationAppRoute('/dashboard/agent/approvals')).toBe('/agent/approvals');
     expect(notificationTargetRoute('/dashboard/hr/leave', { notificationId: 'n1' })).toBe('/hr/leave');
     expect(notificationTargetRoute('/dashboard/fnb/stock')).toBeNull();
+  });
+});
+
+// Trung tâm Agent (K4): core-be gửi data {"agentTaskId": "<id>"} + actionUrl /dashboard/agent/center?task=<id>.
+describe('việc của agent', () => {
+  const TASK = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+  const ACTION = '3f2b8c1e-1d2a-4c5b-9e8f-0a1b2c3d4e5f';
+
+  it('agentTaskIdOf: data object hoặc chuỗi JSON; không phải GUID → null', () => {
+    expect(agentTaskIdOf({ agentTaskId: TASK })).toBe(TASK);
+    expect(agentTaskIdOf(JSON.stringify({ agentTaskId: TASK }))).toBe(TASK);
+    expect(agentTaskIdOf({ agentTaskId: '../evil' })).toBeNull();
+    expect(agentTaskIdOf({ agentTaskId: 7 })).toBeNull();
+    expect(agentTaskIdOf(null)).toBeNull();
+  });
+
+  it('agentTaskIdFromUrl: chỉ đọc ?task= của /dashboard/agent/center, phải là GUID', () => {
+    expect(agentTaskIdFromUrl(`/dashboard/agent/center?task=${TASK}`)).toBe(TASK);
+    expect(agentTaskIdFromUrl(`/dashboard/agent/center?tab=board&task=${TASK}`)).toBe(TASK);
+    expect(agentTaskIdFromUrl('/dashboard/agent/center')).toBeNull();
+    expect(agentTaskIdFromUrl('/dashboard/agent/center?task=abc')).toBeNull();
+    expect(agentTaskIdFromUrl(`/dashboard/hr/leave?task=${TASK}`)).toBeNull();
+    expect(agentTaskIdFromUrl(`https://evil.example/dashboard/agent/center?task=${TASK}`)).toBeNull();
+  });
+
+  it('data.agentTaskId → chi tiết việc, với mọi actionUrl', () => {
+    expect(notificationTargetRoute(`/dashboard/agent/center?task=${TASK}`, { agentTaskId: TASK })).toBe(`/agent/tasks/${TASK}`);
+    expect(notificationTargetRoute(undefined, JSON.stringify({ agentTaskId: TASK }))).toBe(`/agent/tasks/${TASK}`);
+  });
+
+  it('chỉ có actionUrl /dashboard/agent/center: có ?task= → chi tiết việc, không có → danh sách việc', () => {
+    expect(notificationTargetRoute(`/dashboard/agent/center?task=${TASK}`, null)).toBe(`/agent/tasks/${TASK}`);
+    expect(notificationTargetRoute('/dashboard/agent/center', null)).toBe('/agent/tasks');
+    expect(notificationTargetRoute('/dashboard/agent/center?task=xyz', {})).toBe('/agent/tasks');
+    expect(notificationAppRoute('/dashboard/agent/center/')).toBe('/agent/tasks');
+  });
+
+  it('phiếu duyệt (agentActionId) vẫn được xét trước', () => {
+    expect(notificationTargetRoute(`/dashboard/agent/center?task=${TASK}`, { agentActionId: ACTION, agentTaskId: TASK })).toBe(
+      `/agent/approvals/${ACTION}`
+    );
+    expect(notificationTargetRoute('/dashboard/agent/approvals', { agentActionId: ACTION })).toBe(`/agent/approvals/${ACTION}`);
   });
 });

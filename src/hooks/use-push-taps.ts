@@ -46,7 +46,7 @@ function handleResponse(response: Notifications.NotificationResponse) {
       return;
     }
     // Push có đường dẫn tới trang tính năng (data.actionUrl): mở đúng màn đó, cụ thể hơn các quy tắc theo loại bên dưới.
-    // Agent xin duyệt lệnh ghi (data.agentActionId) → mở thẳng phiếu đó.
+    // Agent xin duyệt lệnh ghi (data.agentActionId) → mở thẳng phiếu đó; việc của agent (data.agentTaskId) → mở thẳng việc đó.
     const linkRoute = notificationTargetRoute(data.actionUrl, data);
     if (linkRoute) {
       router.push(linkRoute as any);
