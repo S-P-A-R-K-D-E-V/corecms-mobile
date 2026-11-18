@@ -302,6 +302,14 @@ export const endpoints = {
     myRegistrations: '/shift-registrations/my-registrations',
     lock: '/shift-registrations/lock',
   },
+  /** Phiếu agent xin làm lệnh ghi (K3 — cổng duyệt): quyền agent.approve. */
+  agentActions: {
+    list: '/agent-actions',
+    pendingCount: '/agent-actions/pending-count',
+    detail: (id: string) => `/agent-actions/${id}`,
+    approve: (id: string) => `/agent-actions/${id}/approve`,
+    reject: (id: string) => `/agent-actions/${id}/reject`,
+  },
   notifications: {
     list: '/notifications',
     unreadCount: '/notifications/unread-count',

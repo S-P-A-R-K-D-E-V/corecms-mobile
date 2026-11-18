@@ -1,7 +1,13 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
 
-import { NOTIFICATION_APP_ROUTES, notificationAppRoute, notificationWebUrl } from '../notification-links';
+import {
+  NOTIFICATION_APP_ROUTES,
+  agentActionIdOf,
+  notificationAppRoute,
+  notificationTargetRoute,
+  notificationWebUrl,
+} from '../notification-links';
 
 // Chạm thông báo: mở màn tương ứng trên app; không có màn thì trang chi tiết với nút mở trên web; không nhận link ra ngoài.
 
@@ -43,5 +49,27 @@ describe('notificationWebUrl', () => {
     expect(notificationWebUrl('/login', 'https://shop.vn')).toBeNull();
     expect(notificationWebUrl('/dashboard/fnb/stock', null)).toBeNull();
     expect(notificationWebUrl('/dashboard/fnb/stock', 'javascript:alert(1)')).toBeNull();
+  });
+});
+
+// Agent xin duyệt lệnh ghi (K3): core-be gửi actionUrl /dashboard/agent/approvals + data {"agentActionId": "<id>"}.
+describe('phiếu agent xin duyệt', () => {
+  const ID = '3f2b8c1e-1d2a-4c5b-9e8f-0a1b2c3d4e5f';
+
+  it('agentActionIdOf: data object hoặc chuỗi JSON; không phải GUID → null', () => {
+    expect(agentActionIdOf({ agentActionId: ID })).toBe(ID);
+    expect(agentActionIdOf(JSON.stringify({ agentActionId: ID }))).toBe(ID);
+    expect(agentActionIdOf({ agentActionId: '../../evil' })).toBeNull();
+    expect(agentActionIdOf({ agentActionId: 42 })).toBeNull();
+    expect(agentActionIdOf(undefined)).toBeNull();
+    expect(agentActionIdOf('not json')).toBeNull();
+  });
+
+  it('có mã phiếu → mở thẳng phiếu; chỉ có actionUrl → danh sách; thông báo khác như cũ', () => {
+    expect(notificationTargetRoute('/dashboard/agent/approvals', { agentActionId: ID, notificationId: 'n1' })).toBe(`/agent/approvals/${ID}`);
+    expect(notificationTargetRoute('/dashboard/agent/approvals', null)).toBe('/agent/approvals');
+    expect(notificationAppRoute('/dashboard/agent/approvals')).toBe('/agent/approvals');
+    expect(notificationTargetRoute('/dashboard/hr/leave', { notificationId: 'n1' })).toBe('/hr/leave');
+    expect(notificationTargetRoute('/dashboard/fnb/stock')).toBeNull();
   });
 });

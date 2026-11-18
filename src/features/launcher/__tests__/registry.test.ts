@@ -288,3 +288,16 @@ describe('nhân sự', () => {
     expect(keys({ ...staff, enabledFeatures: [] })).not.toContain('hr');
   });
 });
+
+// Đội agent (K3): ô Duyệt việc agent chỉ cho người có agent.approve (Admin có sẵn).
+describe('duyệt việc agent', () => {
+  const keys = (u: any) => availableFeatures(u, featureContext(u)).map((f) => f.key);
+
+  it('chủ cửa hàng và người được cấp agent.approve thấy; nhân viên / quản lý thiếu quyền không thấy', () => {
+    expect(keys(owner)).toContain('agent-approvals');
+    expect(keys({ ...manager, permissions: [...manager.permissions, 'agent.approve'] })).toContain('agent-approvals');
+    expect(keys(manager)).not.toContain('agent-approvals');
+    expect(keys(staff)).not.toContain('agent-approvals');
+    expect(FEATURE_REGISTRY.find((f) => f.key === 'agent-approvals')?.href).toBe('/agent/approvals');
+  });
+});

@@ -446,6 +446,7 @@ export const vi = {
     'assign-shift': 'Xếp ca',
     'cover-shift': 'Đổi ca hộ',
     'record-violation': 'Ghi vi phạm',
+    'agent-approvals': 'Duyệt việc agent',
     dashboard: 'Dashboard',
     'revenue-report': 'Doanh thu',
     'financial-overview': 'Tổng quan tài chính',

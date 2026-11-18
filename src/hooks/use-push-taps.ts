@@ -8,7 +8,7 @@ import { openInAppBrowser } from 'src/features/assistant/links';
 import { getStoreCode, getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 import { decidePushTap } from 'src/services/push-store';
 import { hrPushRoute, inspectionPushRoute, onlineOrderWebUrl, stockCheckPushRoute, workPushRoute } from 'src/services/push-links';
-import { notificationAppRoute } from 'src/services/notification-links';
+import { notificationTargetRoute } from 'src/services/notification-links';
 
 // ----------------------------------------------------------------------
 // Chạm vào thông báo đẩy (app đang mở / chạy nền / mở app từ thông báo).
@@ -46,7 +46,8 @@ function handleResponse(response: Notifications.NotificationResponse) {
       return;
     }
     // Push có đường dẫn tới trang tính năng (data.actionUrl): mở đúng màn đó, cụ thể hơn các quy tắc theo loại bên dưới.
-    const linkRoute = notificationAppRoute(data.actionUrl);
+    // Agent xin duyệt lệnh ghi (data.agentActionId) → mở thẳng phiếu đó.
+    const linkRoute = notificationTargetRoute(data.actionUrl, data);
     if (linkRoute) {
       router.push(linkRoute as any);
       return;

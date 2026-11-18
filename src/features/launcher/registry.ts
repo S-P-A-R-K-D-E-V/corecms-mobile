@@ -191,6 +191,8 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'attendance-report', label: 'Báo cáo công', icon: 'chart-box', href: '/admin/attendance-report', tone: 'primary', group: 'admin', allPermissions: [PERMISSIONS.attendance.read] },
   { key: 'payroll-cycle', label: 'Chu kỳ lương', icon: 'cash-sync', href: '/admin/payroll', tone: 'success', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead], platformFeature: PLATFORM_FEATURES.payroll },
   { key: 'payroll-complaints', label: 'Khiếu nại lương', icon: 'message-alert-outline', href: '/admin/payroll-complaints', tone: 'warning', group: 'admin', allPermissions: [PERMISSIONS.payroll.recordsRead, PERMISSIONS.payroll.complaintReview], platformFeature: PLATFORM_FEATURES.payroll },
+  // Đội agent (K3): phiếu agent xin làm lệnh ghi — duyệt là máy chủ chạy ngay (agent.approve, Admin có sẵn).
+  { key: 'agent-approvals', label: 'Duyệt việc agent', icon: 'robot-outline', href: '/agent/approvals', tone: 'secondary', group: 'admin', allPermissions: [PERMISSIONS.agent.approve] },
   { key: 'users', label: 'Người dùng', icon: 'account-group', href: '/admin/users', tone: 'secondary', group: 'admin', allPermissions: [PERMISSIONS.user.read] },
 ];
 

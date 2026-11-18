@@ -3,7 +3,11 @@
 // màn tương ứng trên app thì mở màn đó; không có thì mở trang chi tiết, ở đó có nút mở trên web của cửa hàng.
 // ----------------------------------------------------------------------
 
+import { pushDataRecord } from './push-store';
+
 const APP_ROUTES: Record<string, string> = {
+  // Agent xin duyệt lệnh ghi (K3); thông báo có data.agentActionId thì mở thẳng phiếu (notificationTargetRoute).
+  '/dashboard/agent/approvals': '/agent/approvals',
   '/dashboard/attendance/assignments': '/manage/schedule',
   '/dashboard/attendance/face-enrollment': '/face-enrollment',
   '/dashboard/attendance/logs': '/(tabs)/admin/attendance-report',
@@ -66,4 +70,23 @@ export function notificationWebUrl(actionUrl: unknown, webOrigin: string | null 
   const origin = (webOrigin ?? '').trim().replace(/\/+$/, '');
   if (!path || !/^https?:\/\/[^/?#\s]+$/i.test(origin)) return null;
   return `${origin}${path}`;
+}
+
+/** Mã phiếu agent (GUID) trong data của thông báo / push — core-be gửi data {"agentActionId": "<id>"}. */
+const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Mã phiếu agent xin duyệt trong data (object hoặc chuỗi JSON); không có / không phải GUID → null. */
+export function agentActionIdOf(data: unknown): string | null {
+  const id = pushDataRecord(data).agentActionId;
+  return typeof id === 'string' && GUID.test(id.trim()) ? id.trim() : null;
+}
+
+/**
+ * Màn mở khi chạm thông báo (trong app hoặc push): phiếu agent xin duyệt → chi tiết phiếu; còn lại theo actionUrl
+ * (notificationAppRoute). null = không có màn tương ứng.
+ */
+export function notificationTargetRoute(actionUrl: unknown, data?: unknown): string | null {
+  const agentActionId = agentActionIdOf(data);
+  if (agentActionId) return `/agent/approvals/${agentActionId}`;
+  return notificationAppRoute(actionUrl);
 }

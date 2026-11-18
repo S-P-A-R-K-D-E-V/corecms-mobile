@@ -9,7 +9,7 @@ import { Button, Text } from 'src/components/ui';
 import { getNotification, markAsRead } from 'src/api/notifications';
 import { openInAppBrowser } from 'src/features/assistant/links';
 import { extractApiError } from 'src/services/error';
-import { notificationAppRoute, notificationWebUrl } from 'src/services/notification-links';
+import { notificationTargetRoute, notificationWebUrl } from 'src/services/notification-links';
 import { getWebOrigin, isMultiStore, storeDomain } from 'src/services/store-config';
 
 // ----------------------------------------------------------------------
@@ -26,7 +26,7 @@ export function NotificationDetailScreen() {
     if (item && !item.isRead) markAsRead(item.id).catch(() => {});
   }, [item]);
 
-  const appRoute = notificationAppRoute(item?.actionUrl);
+  const appRoute = notificationTargetRoute(item?.actionUrl, item?.data);
   const webUrl = appRoute ? null : notificationWebUrl(item?.actionUrl, isMultiStore && !storeDomain() ? null : getWebOrigin());
 
   return (
