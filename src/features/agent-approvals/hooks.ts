@@ -7,6 +7,7 @@ import {
   getAgentActionPendingCount,
   getAgentActions,
   rejectAgentAction,
+  requestAgentActionRevision,
   type AgentActionScope,
   type AgentActionView,
 } from 'src/api/agent-actions';
@@ -70,6 +71,16 @@ export function useRejectAgentAction() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) => rejectAgentAction(id, note),
+    onSuccess: (view) => afterDecision(qc, view),
+  });
+}
+
+/** Yêu cầu sửa: lệnh không chạy, agent nhận ghi chú (+ ảnh cần làm lại) rồi gửi bản mới thành phiếu mới. */
+export function useRequestAgentActionRevision() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note, imageUrls }: { id: string; note?: string; imageUrls?: string[] }) =>
+      requestAgentActionRevision(id, { note, imageUrls }),
     onSuccess: (view) => afterDecision(qc, view),
   });
 }

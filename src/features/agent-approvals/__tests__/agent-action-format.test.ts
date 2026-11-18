@@ -1,7 +1,20 @@
 import {
   MAX_PARAMS,
+  REVISION_QUICK_NOTES,
   actionParams,
+  actionTitle,
   agentActionRoute,
+  appendQuickNote,
+  canRequestRevision,
+  canSubmitRevision,
+  captionExcerpt,
+  channelHandle,
+  decodeUnicodeEscapes,
+  platformLabel,
+  revisionsLeftText,
+  socialPostOf,
+  splitRevisionNote,
+  versionLabel,
   isActionable,
   isExpiringSoon,
   isResultSuccess,
@@ -10,6 +23,7 @@ import {
   statusInfo,
   timeLeftText,
 } from '../agent-action-format';
+import { revisionBody, type AgentActionPreview } from 'src/api/agent-actions';
 
 // Màn Duyệt việc agent: tham số đọc được từ bodyJson, thời gian còn lại, kết quả chạy sau khi duyệt.
 
@@ -107,6 +121,7 @@ describe('nhãn', () => {
   it('trạng thái lạ giữ nguyên chữ', () => {
     expect(statusInfo('pending')).toEqual({ label: 'Chờ duyệt', tone: 'warning' });
     expect(statusInfo('weird').label).toBe('weird');
+    expect(statusInfo('revision_requested').label).toBe('Đã yêu cầu sửa');
   });
 
   it('methodLabel + route', () => {
@@ -114,5 +129,109 @@ describe('nhãn', () => {
     expect(methodLabel('PATCH')).toBe('Sửa');
     expect(methodLabel('DELETE')).toBe('Xoá');
     expect(agentActionRoute('abc')).toBe('/agent/approvals/abc');
+  });
+});
+
+const SOCIAL: AgentActionPreview = {
+  kind: 'social_post',
+  title: 'Tạo bài đăng mạng xã hội',
+  socialPost: {
+    mode: 'schedule',
+    modeLabel: 'Hẹn đăng 19:30 hôm nay (18/11)',
+    scheduledAt: '2026-11-18T12:30:00Z',
+    text: 'Dòng 1 🤔\n\nDòng 2',
+    imageUrls: ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    channels: [{ id: 'c1', platform: 'threads', name: 'CiCi', username: 'cici.store', avatarUrl: null }],
+    products: [],
+  },
+  fields: [],
+};
+
+describe('bản xem trước', () => {
+  const base = { method: 'POST', pathAndQuery: '/api/internal/social/posts', summary: '' };
+
+  it('actionTitle: title → preview.title → summary (giải mã emoji) → method + path', () => {
+    expect(actionTitle({ ...base, title: 'Tạo bài đăng', preview: SOCIAL })).toBe('Tạo bài đăng');
+    expect(actionTitle({ ...base, title: '  ', preview: SOCIAL })).toBe('Tạo bài đăng mạng xã hội');
+    expect(actionTitle({ ...base, summary: 'Quyền social.write — "\\uD83E\\uDD14 hi"' })).toBe('Quyền social.write — "🤔 hi"');
+    expect(actionTitle(base)).toBe('Tạo / gửi /api/internal/social/posts');
+  });
+
+  it('decodeUnicodeEscapes ghép cặp surrogate thành emoji, giữ chữ thường', () => {
+    expect(decodeUnicodeEscapes('a \\uD83E\\uDD14 b \\u00e1')).toBe('a 🤔 b á');
+    expect(decodeUnicodeEscapes('không đổi')).toBe('không đổi');
+  });
+
+  it('socialPostOf chỉ nhận kind social_post có socialPost', () => {
+    expect(socialPostOf({ preview: SOCIAL })?.modeLabel).toBe('Hẹn đăng 19:30 hôm nay (18/11)');
+    expect(socialPostOf({ preview: { ...SOCIAL, kind: 'generic' } })).toBeNull();
+    expect(socialPostOf({ preview: { ...SOCIAL, socialPost: null } })).toBeNull();
+    expect(socialPostOf({ preview: null })).toBeNull();
+    expect(socialPostOf(undefined)).toBeNull();
+  });
+
+  it('captionExcerpt gộp dòng, cắt không vỡ emoji', () => {
+    expect(captionExcerpt('Dòng 1 🤔\n\nDòng 2')).toBe('Dòng 1 🤔 Dòng 2');
+    expect(captionExcerpt(null)).toBe('');
+    expect(captionExcerpt('🤔🤔🤔🤔🤔', 3)).toBe('🤔🤔…');
+    expect(captionExcerpt('abc', 3)).toBe('abc');
+  });
+
+  it('versionLabel chỉ hiện từ bản 2', () => {
+    expect(versionLabel(2)).toBe('Bản 2');
+    expect(versionLabel(1)).toBeNull();
+    expect(versionLabel(null)).toBeNull();
+    expect(versionLabel(undefined)).toBeNull();
+  });
+
+  it('platformLabel / channelHandle', () => {
+    expect(platformLabel('threads')).toBe('Threads');
+    expect(platformLabel('TikTok')).toBe('TikTok');
+    expect(platformLabel('lemon8')).toBe('Lemon8');
+    expect(platformLabel(null)).toBe('');
+    expect(channelHandle({ username: '@cici.store', platform: 'threads' })).toBe('@cici.store · Threads');
+    expect(channelHandle({ username: null, platform: 'facebook' })).toBe('Facebook');
+  });
+});
+
+describe('yêu cầu sửa', () => {
+  it('appendQuickNote nối mỗi ý một dòng, không lặp', () => {
+    expect(appendQuickNote('', REVISION_QUICK_NOTES[0])).toBe('Ảnh đẹp / sáng hơn');
+    expect(appendQuickNote('Ảnh 2 tối  ', 'Viết ngắn lại')).toBe('Ảnh 2 tối\nViết ngắn lại');
+    expect(appendQuickNote('Viết ngắn lại', 'Viết ngắn lại')).toBe('Viết ngắn lại');
+  });
+
+  it('canRequestRevision / revisionsLeftText', () => {
+    expect(canRequestRevision({ revisionsLeft: 2 })).toBe(true);
+    expect(canRequestRevision({ revisionsLeft: null })).toBe(true);
+    expect(canRequestRevision({})).toBe(true);
+    expect(canRequestRevision({ revisionsLeft: 0 })).toBe(false);
+    expect(revisionsLeftText(2)).toBe('Còn 2 lần yêu cầu sửa');
+    expect(revisionsLeftText(0)).toBe('Đã hết lượt yêu cầu sửa');
+    expect(revisionsLeftText(null)).toBe('');
+  });
+
+  it('canSubmitRevision cần ghi chú hoặc ảnh', () => {
+    expect(canSubmitRevision('  ', [])).toBe(false);
+    expect(canSubmitRevision('Sửa giờ', [])).toBe(true);
+    expect(canSubmitRevision('', ['https://cdn/a.jpg'])).toBe(true);
+  });
+
+  it('splitRevisionNote tách ghi chú và ảnh cần làm lại', () => {
+    expect(splitRevisionNote('Ảnh tối quá\nẢnh cần làm lại:\n- https://cdn/a.jpg\n- https://cdn/b.jpg')).toEqual({
+      text: 'Ảnh tối quá',
+      imageUrls: ['https://cdn/a.jpg', 'https://cdn/b.jpg'],
+    });
+    expect(splitRevisionNote('Ảnh cần làm lại:\n- https://cdn/a.jpg')).toEqual({ text: '', imageUrls: ['https://cdn/a.jpg'] });
+    expect(splitRevisionNote('Viết ngắn lại')).toEqual({ text: 'Viết ngắn lại', imageUrls: [] });
+    expect(splitRevisionNote(null)).toEqual({ text: '', imageUrls: [] });
+  });
+
+  it('revisionBody bỏ phần trống, bỏ ảnh trùng', () => {
+    expect(revisionBody({ note: '  ', imageUrls: [] })).toEqual({});
+    expect(revisionBody({ note: ' Sửa ', imageUrls: ['https://a', ' https://a ', ''] })).toEqual({
+      note: 'Sửa',
+      imageUrls: ['https://a'],
+    });
   });
 });

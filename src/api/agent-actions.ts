@@ -6,7 +6,68 @@ import axios, { endpoints } from './axios';
 // chạy NGAY đúng lệnh đã lưu (người duyệt là người thực hiện) rồi trả phiếu kèm kết quả; từ chối = không chạy.
 // ----------------------------------------------------------------------
 
-export type AgentActionStatus = 'pending' | 'approved' | 'executing' | 'executed' | 'failed' | 'rejected' | 'expired';
+export type AgentActionStatus =
+  | 'pending'
+  | 'approved'
+  | 'executing'
+  | 'executed'
+  | 'failed'
+  | 'rejected'
+  | 'expired'
+  /** Người duyệt bấm "Yêu cầu sửa": lệnh không chạy, agent nhận ghi chú rồi gửi bản mới (phiếu mới). */
+  | 'revision_requested';
+
+export interface AgentPreviewChannel {
+  id: string;
+  /** threads / facebook / instagram … */
+  platform: string;
+  name: string;
+  username: string | null;
+  avatarUrl: string | null;
+}
+
+export interface AgentPreviewProduct {
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  imageUrl: string | null;
+  inStock: boolean;
+}
+
+/** Bài mạng xã hội agent định đăng, dựng sẵn để hiện như bài thật. */
+export interface AgentSocialPostPreview {
+  /** draft | queue | schedule | now */
+  mode: string;
+  /** Câu cho người đọc, vd "Hẹn đăng 19:30 hôm nay (18/11)". */
+  modeLabel: string;
+  scheduledAt: string | null;
+  text: string | null;
+  imageUrls: string[];
+  channels: AgentPreviewChannel[];
+  products: AgentPreviewProduct[];
+}
+
+export interface AgentPreviewField {
+  label: string;
+  value: string;
+}
+
+/** Bản xem trước dễ đọc của phiếu (BE dựng lúc đọc). kind lạ → coi như generic. */
+export interface AgentActionPreview {
+  kind: 'social_post' | 'generic' | (string & {});
+  title: string;
+  socialPost: AgentSocialPostPreview | null;
+  fields: AgentPreviewField[];
+}
+
+/** Bản trước của cùng việc (phiếu bị "Yêu cầu sửa") — để so chữ / ảnh cũ và mới. */
+export interface AgentActionPrevious {
+  actionId: string;
+  note: string | null;
+  decidedByName: string | null;
+  preview: AgentActionPreview | null;
+}
 
 export interface AgentActionView {
   id: string;
@@ -31,6 +92,17 @@ export interface AgentActionView {
   executedAt: string | null;
   resultStatusCode: number | null;
   resultBody: string | null;
+  /** Tên thao tác tiếng Việt, vd "Tạo bài đăng mạng xã hội" (BE cũ: không có / rỗng → dùng summary). */
+  title?: string | null;
+  preview?: AgentActionPreview | null;
+  /** Phiếu do một việc trên bảng việc tạo (việc đang chờ phiếu này). */
+  taskId?: string | null;
+  taskTitle?: string | null;
+  /** Bản thứ mấy của việc (1 = lần đầu; tăng sau mỗi lần "Yêu cầu sửa"). */
+  version?: number | null;
+  previous?: AgentActionPrevious | null;
+  /** Còn mấy lần được "Yêu cầu sửa" (0 → khoá nút; null = không giới hạn theo việc). */
+  revisionsLeft?: number | null;
 }
 
 export type AgentActionScope = 'pending' | 'all';
@@ -65,5 +137,25 @@ export async function approveAgentAction(id: string, note?: string | null): Prom
 
 export async function rejectAgentAction(id: string, note?: string | null): Promise<AgentActionView> {
   const res = await axios.post<AgentActionView>(endpoints.agentActions.reject(id), decisionBody(note));
+  return res.data;
+}
+
+/** Body "Yêu cầu sửa": ghi chú bỏ khoảng trắng thừa, ảnh bỏ trùng / rỗng; phần trống thì không gửi. */
+export function revisionBody(input: { note?: string | null; imageUrls?: string[] | null }): { note?: string; imageUrls?: string[] } {
+  const body: { note?: string; imageUrls?: string[] } = decisionBody(input.note);
+  const images = Array.from(new Set((input.imageUrls ?? []).map((u) => u.trim()).filter(Boolean)));
+  if (images.length > 0) body.imageUrls = images;
+  return body;
+}
+
+/**
+ * Yêu cầu sửa: lệnh KHÔNG chạy, agent nhận ghi chú (+ ảnh cần làm lại — phải là ảnh của chính phiếu) rồi gửi bản mới.
+ * 400 = thiếu ghi chú / ảnh lạ; 409 = quá số lần sửa hoặc phiếu đã được xử lý.
+ */
+export async function requestAgentActionRevision(
+  id: string,
+  input: { note?: string | null; imageUrls?: string[] | null },
+): Promise<AgentActionView> {
+  const res = await axios.post<AgentActionView>(endpoints.agentActions.requestRevision(id), revisionBody(input));
   return res.data;
 }
