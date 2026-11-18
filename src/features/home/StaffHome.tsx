@@ -29,6 +29,7 @@ import { HomeHero, HomeTopBar, HeroLabel, HeroAmount, HeroStats, HeroChip, HERO_
 import { TeamTodayCard } from './TeamTodayCard';
 import { canSeeTeamToday } from './team-today';
 import { WorkTodayCard } from 'src/features/work/WorkTodayCard';
+import { AgentApprovalsCard } from 'src/features/agent-approvals/AgentApprovalsCard';
 import {
   useAmountVisibility,
   useMyEstimate,
@@ -427,6 +428,7 @@ export function StaffHome() {
 
       <View className="px-4 gap-3.5" style={{ marginTop: -HERO_OVERLAP - 14 }}>
         <FeatureGrid solid variant="staff" title={t('home.quickActions')} onSeeAll={() => router.push('/(tabs)/features' as any)} />
+        <AgentApprovalsCard />
         <TodayShiftCard />
         <InspectionCard />
         <HrCard />

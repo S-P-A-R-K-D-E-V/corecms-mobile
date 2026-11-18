@@ -7,6 +7,7 @@ import {
   hasAnyPermission,
   canOverseeShiftCash,
   canManageShiftCashOversight,
+  canApproveAgentActions,
 } from '../permissions';
 
 // Quyền hiệu lực lấy từ GET /users/me → permissions; Admin có mọi quyền như API ("*").
@@ -65,5 +66,20 @@ describe('giám sát Kiểm quầy', () => {
         })
       )
     ).toBe(true);
+  });
+});
+
+// Đội agent (K3): duyệt phiếu agent xin làm — agent.approve; Admin có sẵn.
+describe('canApproveAgentActions', () => {
+  it('Admin hoặc người được cấp agent.approve', () => {
+    expect(canApproveAgentActions(owner)).toBe(true);
+    expect(canApproveAgentActions({ ...staff, permissions: [PERMISSIONS.agent.approve] })).toBe(true);
+    expect(PERMISSIONS.agent.approve).toBe('agent.approve');
+  });
+
+  it('người khác / chưa đăng nhập → không', () => {
+    expect(canApproveAgentActions(staff)).toBe(false);
+    expect(canApproveAgentActions(accountant)).toBe(false);
+    expect(canApproveAgentActions(null)).toBe(false);
   });
 });

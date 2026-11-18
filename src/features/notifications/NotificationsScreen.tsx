@@ -14,7 +14,7 @@ import { getNotifications, markAsRead, markAllAsRead, deleteNotification, delete
 import { useNotificationHub } from 'src/hooks/use-notification-hub';
 import { useNotificationSettings } from 'src/hooks/use-notification-settings';
 import { confirm, toast } from 'src/components/overlay';
-import { notificationAppRoute } from 'src/services/notification-links';
+import { notificationTargetRoute } from 'src/services/notification-links';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -106,7 +106,7 @@ export function NotificationsScreen() {
   // Có màn tính năng tương ứng thì mở thẳng, không thì mở trang chi tiết.
   const handleOpen = useCallback((item: INotification) => {
     if (!item.isRead) handleRead(item.id);
-    router.push((notificationAppRoute(item.actionUrl) ?? `/notification/${item.id}`) as any);
+    router.push((notificationTargetRoute(item.actionUrl, item.data) ?? `/notification/${item.id}`) as any);
   }, [handleRead]);
 
   const handleReadAll = useCallback(async () => {

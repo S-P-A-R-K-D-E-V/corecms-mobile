@@ -144,6 +144,8 @@ export const PERMISSIONS = {
     /** Giao, duyệt việc giao riêng; xem việc của mọi người (mặc định Admin + Quản lý). */
     taskManage: 'hr.task.manage',
   },
+  /** Đội agent (K3): xem + duyệt / từ chối phiếu agent xin làm lệnh ghi — duyệt là máy chủ chạy lệnh ngay. Admin có sẵn. */
+  agent: { approve: 'agent.approve' },
 } as const;
 
 const A = PERMISSIONS.analytics;
@@ -189,6 +191,11 @@ export function canViewShiftCashRevenue(user: AuthUser | null | undefined): bool
     hasPermission(user, PERMISSIONS.shiftCash.revenueRead) ||
     hasPermission(user, PERMISSIONS.shiftCash.oversightRead)
   );
+}
+
+/** Xem + duyệt phiếu agent xin làm (màn Duyệt việc agent, thẻ ở trang chủ, chạm thông báo) — khớp core-be agent.approve. */
+export function canApproveAgentActions(user: AuthUser | null | undefined): boolean {
+  return hasPermission(user, PERMISSIONS.agent.approve);
 }
 
 /** Ghi ngày cũ, sửa / xoá khoản thu chi của người khác. */
