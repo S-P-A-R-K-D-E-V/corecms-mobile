@@ -11,10 +11,16 @@ import {
 import {
   cardActionLook,
   cardErrorInfo,
+  cardKindInfo,
+  cardOpenLabel,
   cardState,
   cardStatusText,
   cardTargetRoute,
+  confirmOpsCount,
+  confirmPromptText,
+  confirmResultInfo,
   dashedGuid,
+  isConfirmCard,
   parseCardTime,
   visibleCardActions,
 } from '../message-card-format';
@@ -59,6 +65,32 @@ function questionCard(over: Partial<MessageCard> = {}): MessageCard {
       { key: 'open', label: 'Mở việc', style: 'default' },
     ],
     updatedAt: null,
+    ...over,
+  };
+}
+
+const PROPOSAL_ID = 'b7c8d9e0-1234-4567-89ab-cdef01234567';
+
+function confirmCard(over: Partial<MessageCard> = {}): MessageCard {
+  return {
+    kind: 'confirm',
+    refId: PROPOSAL_ID,
+    title: 'CEO đề xuất: duyệt 2 phiếu Marketing',
+    lines: ['1. Duyệt phiếu 702eb2ee — Tạo bài đăng mạng xã hội', '2. Duyệt phiếu 81aa0c11 — Hẹn giờ lịch đăng', 'Lý do: đúng lịch tuần'],
+    link: '/dashboard/agent/approvals',
+    status: 'open',
+    statusText: null,
+    expiresAt: null,
+    actions: [
+      { key: 'confirm', label: 'Xác nhận', style: 'primary' },
+      { key: 'cancel', label: 'Huỷ', style: 'default' },
+      { key: 'open', label: 'Xem phiếu', style: 'default' },
+    ],
+    updatedAt: null,
+    ops: [
+      { type: 'approve_action', refId: ACTION_ID, label: 'Duyệt phiếu 702eb2ee' },
+      { type: 'approve_action', refId: TASK_ID, label: 'Duyệt phiếu 81aa0c11' },
+    ],
     ...over,
   };
 }
@@ -228,5 +260,96 @@ describe('nhóm hệ thống + người gửi hệ thống', () => {
     expect(senderDisplayName('u1', { fullName: 'Lan' })).toBe('Lan');
     expect(senderDisplayName('u2', undefined)).toBeNull();
     expect(excludeSystemUsers([{ id: SYSTEM_USER_ID }, { id: 'u1' }, { id: 'u3', isSystem: true }]).map((u) => u.id)).toEqual(['u1']);
+  });
+});
+
+describe('thẻ CEO đề xuất (A2 — kind confirm)', () => {
+  it('normalizeMessageCard: giữ ops (bỏ phần tử hỏng), thẻ confirm nhận tới 12 dòng; thẻ khác vẫn 6', () => {
+    const raw = {
+      ...confirmCard(),
+      lines: Array.from({ length: 14 }, (_, i) => `dòng ${i + 1}`),
+      ops: [{ type: 'stop_task', refId: TASK_ID, label: 'Dừng việc' }, null, 'x', { type: 'enable_schedule' }],
+    };
+    const card = normalizeMessageCard(raw)!;
+    expect(card.kind).toBe('confirm');
+    expect(card.lines).toHaveLength(12);
+    expect(card.ops).toEqual([
+      { type: 'stop_task', refId: TASK_ID, label: 'Dừng việc' },
+      { type: 'enable_schedule', refId: '', label: '' },
+    ]);
+    expect(normalizeMessageCard({ ...raw, kind: 'task_result' })!.lines).toHaveLength(6);
+    expect(normalizeMessageCard(approvalCard())!.ops).toBeUndefined();
+  });
+
+  it('nút: có quyền → Xác nhận / Huỷ / Xem; không quyền → chỉ Xem; đã xử lý → không nút', () => {
+    expect(keys(confirmCard(), true)).toEqual(['confirm', 'cancel', 'open']);
+    expect(keys(confirmCard(), false)).toEqual(['open']);
+    expect(keys(confirmCard({ status: 'done', statusText: 'Đã huỷ bởi Lan' }), true)).toEqual([]);
+    expect(cardStatusText(confirmCard({ status: 'done', statusText: 'Đã huỷ bởi Lan' }), NOW)).toBe('Đã huỷ bởi Lan');
+  });
+
+  it('nút confirm / cancel trên thẻ loại khác bị bỏ (gọi nhầm API đề xuất)', () => {
+    const card = approvalCard({
+      actions: [
+        { key: 'confirm', label: 'Xác nhận', style: 'primary' },
+        { key: 'cancel', label: 'Huỷ', style: 'default' },
+        { key: 'open', label: 'Mở phiếu', style: 'default' },
+      ],
+    });
+    expect(keys(card, true)).toEqual(['open']);
+  });
+
+  it('loại thẻ: nhãn "CEO đề xuất", icon bóng đèn; mở theo link (không theo refId)', () => {
+    expect(isConfirmCard(confirmCard())).toBe(true);
+    expect(isConfirmCard(approvalCard())).toBe(false);
+    expect(cardKindInfo('confirm')).toEqual({ label: t('chat.card.kindConfirm'), icon: 'lightbulb-on-outline', tone: 'warning' });
+    expect(cardOpenLabel(confirmCard())).toBe(t('chat.card.openProposal'));
+    expect(cardTargetRoute(confirmCard())).toBe('/agent/approvals');
+    expect(cardTargetRoute(confirmCard({ link: `/dashboard/agent/center?task=${TASK_ID}` }))).toBe(`/agent/tasks/${TASK_ID}`);
+    expect(cardTargetRoute(confirmCard({ link: null }))).toBe('/agent/approvals');
+  });
+
+  it('hỏi lại: "Chạy {n} thao tác này?" theo ops; thiếu ops → câu chung', () => {
+    expect(confirmOpsCount(confirmCard())).toBe(2);
+    expect(confirmPromptText(confirmCard())).toBe(t('chat.card.confirmPrompt', { n: 2 }));
+    expect(confirmPromptText(confirmCard())).toContain('2');
+    expect(confirmOpsCount(confirmCard({ ops: undefined }))).toBeNull();
+    expect(confirmOpsCount(confirmCard({ ops: [] }))).toBeNull();
+    expect(confirmPromptText(confirmCard({ ops: undefined }))).toBe(t('chat.card.confirmPromptGeneric'));
+  });
+
+  it('kết quả: statusText của máy chủ; thao tác lỗi liệt kê thêm, ok = false', () => {
+    expect(confirmResultInfo({ statusText: 'Đã xác nhận bởi Lan — 2/2 thao tác chạy', results: [{ label: 'a', ok: true }] }, 'fb')).toEqual({
+      message: 'Đã xác nhận bởi Lan — 2/2 thao tác chạy',
+      ok: true,
+    });
+    const partial = confirmResultInfo(
+      {
+        statusText: 'Đã xác nhận bởi Lan — 1/2 thao tác chạy',
+        results: [
+          { label: 'Duyệt phiếu 702eb2ee', ok: true, message: null },
+          { label: 'Tắt lịch Báo cáo sáng', ok: false, message: 'Cần quyền agent.manage' },
+        ],
+      },
+      'fb',
+    );
+    expect(partial.ok).toBe(false);
+    expect(partial.message).toBe('Đã xác nhận bởi Lan — 1/2 thao tác chạy\n✗ Tắt lịch Báo cáo sáng: Cần quyền agent.manage');
+    expect(confirmResultInfo({ statusText: null }, 'Đã huỷ')).toEqual({ message: 'Đã huỷ', ok: true });
+    expect(confirmResultInfo(null, 'fb').message).toBe('fb');
+  });
+
+  it('lỗi 409 / 404 / 400 → câu của máy chủ; 409 / 404 nạp lại thẻ', () => {
+    expect(cardErrorInfo({ status: 409, message: 'Đề xuất đã được xử lý.' })).toEqual({
+      message: 'Đề xuất đã được xử lý.',
+      reload: true,
+      changed: true,
+    });
+    expect(cardErrorInfo({ status: 404, message: 'Không tìm thấy đề xuất.' }).reload).toBe(true);
+    expect(cardErrorInfo({ status: 400, message: 'Không phải thẻ xác nhận.' })).toEqual({
+      message: 'Không phải thẻ xác nhận.',
+      reload: false,
+      changed: false,
+    });
   });
 });

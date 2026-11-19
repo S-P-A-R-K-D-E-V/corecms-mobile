@@ -26,6 +26,7 @@ import {
   sourceLabel,
   stepKindInfo,
   taskStatusInfo,
+  waitingChildrenText,
   totalTokens,
 } from './agent-task-format';
 import {
@@ -62,6 +63,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function HeaderCard({ task, now }: { task: AgentTaskView; now: number }) {
   const status = taskStatusInfo(task.status);
   const elapsed = elapsedMs(task, now);
+  const children = waitingChildrenText(task);
   const [showInstruction, setShowInstruction] = useState(false);
 
   return (
@@ -72,6 +74,12 @@ function HeaderCard({ task, now }: { task: AgentTaskView; now: number }) {
       bodyClassName="pt-0 gap-2"
     >
       <Text variant="body" className="font-semibold" selectable>{task.title || '(Chưa đặt tên)'}</Text>
+      {children ? (
+        <View className="flex-row items-center gap-1.5">
+          <Icon name="source-branch" size={16} tone="primary" />
+          <Text variant="bodySmall" tone="primary" className="font-semibold flex-1">{children}</Text>
+        </View>
+      ) : null}
       {task.currentStepLabel ? (
         <Text variant="bodySmall" tone={isLiveStatus(task.status) ? 'primary' : 'muted'}>{task.currentStepLabel}</Text>
       ) : null}

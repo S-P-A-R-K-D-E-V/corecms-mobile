@@ -11,6 +11,8 @@ import {
   type AgentActionScope,
   type AgentActionView,
 } from 'src/api/agent-actions';
+import { cancelAdminGroupProposal, confirmAdminGroupProposal } from 'src/api/agent-center';
+import { AGENT_CENTER_KEY, AGENT_CENTER_SUMMARY_KEY } from 'src/features/agent-tasks/hooks';
 
 // ----------------------------------------------------------------------
 // Query / mutation của màn Duyệt việc agent. Khoá gốc 'agent-actions'; số phiếu chờ dùng khoá 'home' để kéo làm mới trang
@@ -82,6 +84,32 @@ export function useRequestAgentActionRevision() {
     mutationFn: ({ id, note, imageUrls }: { id: string; note?: string; imageUrls?: string[] }) =>
       requestAgentActionRevision(id, { note, imageUrls }),
     onSuccess: (view) => afterDecision(qc, view),
+  });
+}
+
+/** Sau Xác nhận / Huỷ đề xuất của CEO: thao tác có thể đã duyệt / từ chối phiếu, dừng / chạy lại việc → nạp lại cả hai. */
+function afterProposal(qc: QueryClient) {
+  qc.invalidateQueries({ queryKey: AGENT_ACTIONS_KEY });
+  qc.invalidateQueries({ queryKey: AGENT_PENDING_COUNT_KEY });
+  qc.invalidateQueries({ queryKey: AGENT_CENTER_KEY });
+  qc.invalidateQueries({ queryKey: AGENT_CENTER_SUMMARY_KEY });
+}
+
+/** Thẻ "CEO đề xuất" (A2): Xác nhận → máy chủ chạy các thao tác bằng quyền + tên người bấm. */
+export function useConfirmAgentProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (refId: string) => confirmAdminGroupProposal(refId),
+    onSuccess: () => afterProposal(qc),
+  });
+}
+
+/** Thẻ "CEO đề xuất" (A2): Huỷ → không thao tác nào chạy. */
+export function useCancelAgentProposal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (refId: string) => cancelAdminGroupProposal(refId),
+    onSuccess: () => afterProposal(qc),
   });
 }
 

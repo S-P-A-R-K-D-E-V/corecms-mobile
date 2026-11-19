@@ -13,16 +13,18 @@ import {
   listRefreshMs,
   planProgress,
   runningCardCounts,
+  sourceLabel,
   taskSegment,
   taskStatusInfo,
   totalTokens,
+  waitingChildrenText,
 } from '../agent-task-format';
 
 // Việc của agent (K4): nhóm theo tab, tiến độ, thời gian, token, nhịp làm mới, thao tác được phép.
 
 describe('trạng thái → tab', () => {
   it('Đang làm / Xong / Lỗi – Dừng; trạng thái lạ → Đang làm', () => {
-    for (const s of ['queued', 'running', 'waiting_approval', 'waiting_human']) expect(taskSegment(s)).toBe('active');
+    for (const s of ['queued', 'running', 'waiting_children', 'waiting_approval', 'waiting_human']) expect(taskSegment(s)).toBe('active');
     expect(taskSegment('done')).toBe('done');
     for (const s of ['failed', 'stopped', 'cancelled']) expect(taskSegment(s)).toBe('ended');
     expect(taskSegment('paused_new')).toBe('active');
@@ -30,10 +32,36 @@ describe('trạng thái → tab', () => {
 
   it('mọi trạng thái của hợp đồng thuộc đúng một tab và có nhãn', () => {
     const all = [...SEGMENT_STATUSES.active, ...SEGMENT_STATUSES.done, ...SEGMENT_STATUSES.ended];
-    expect(new Set(all).size).toBe(8);
+    expect(new Set(all).size).toBe(9);
     for (const s of all) expect(taskStatusInfo(s).label).not.toBe(s);
     expect(taskStatusInfo('waiting_human').label).toBe('Chờ người');
     expect(taskStatusInfo('lạ').label).toBe('lạ');
+  });
+});
+
+describe('A2 — chờ việc con / nguồn nhóm quản trị', () => {
+  it('nhãn "Chờ việc con", thuộc tab Đang làm', () => {
+    expect(taskStatusInfo('waiting_children').label).toBe('Chờ việc con');
+    expect(taskSegment('waiting_children')).toBe('active');
+  });
+
+  it('dòng tiến độ "Chờ x/y việc con" chỉ khi đang chờ và có số', () => {
+    expect(waitingChildrenText({ status: 'waiting_children', childrenTotal: 3, childrenDone: 1 })).toBe('Chờ 1/3 việc con');
+    expect(waitingChildrenText({ status: 'waiting_children', childrenTotal: 2, childrenDone: 0 })).toBe('Chờ 0/2 việc con');
+    expect(waitingChildrenText({ status: 'waiting_children', childrenTotal: 2, childrenDone: 5 })).toBe('Chờ 2/2 việc con');
+    expect(waitingChildrenText({ status: 'waiting_children', childrenTotal: 0, childrenDone: 0 })).toBeNull();
+    expect(waitingChildrenText({ status: 'running', childrenTotal: 3, childrenDone: 1 })).toBeNull();
+  });
+
+  it('Dừng được, không huỷ / chạy lại được; làm mới chi tiết 15 giây', () => {
+    expect(canStopTask('waiting_children')).toBe(true);
+    expect(canCancelTask('waiting_children')).toBe(false);
+    expect(canRetryTask('waiting_children')).toBe(false);
+    expect(detailRefreshMs('waiting_children', true)).toBe(15_000);
+  });
+
+  it('nguồn chat → "Nhóm quản trị"', () => {
+    expect(sourceLabel('chat')).toBe('Nhóm quản trị');
   });
 });
 
@@ -115,7 +143,7 @@ describe('thẻ trang chủ', () => {
     paused: false,
     runnerEnabled: true,
     agents: 1,
-    counts: { queued: 0, running, waiting_approval: 0, waiting_human, done_today: 0, failed_today: 0 },
+    counts: { queued: 0, running, waiting_approval: 0, waiting_human, waiting_children: 0, done_today: 0, failed_today: 0 },
   });
 
   it('ẩn khi cả hai bằng 0 hoặc lỗi (null)', () => {

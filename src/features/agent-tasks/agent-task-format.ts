@@ -13,6 +13,7 @@ export const AGENT_TASK_STATUS: Record<string, { label: string; tone: Tone; icon
   running: { label: 'Đang chạy', tone: 'primary', icon: 'robot-outline' },
   waiting_approval: { label: 'Chờ duyệt', tone: 'warning', icon: 'shield-check-outline' },
   waiting_human: { label: 'Chờ người', tone: 'warning', icon: 'account-voice' },
+  waiting_children: { label: 'Chờ việc con', tone: 'info', icon: 'source-branch' },
   done: { label: 'Xong', tone: 'success', icon: 'check-circle-outline' },
   failed: { label: 'Lỗi', tone: 'error', icon: 'alert-circle-outline' },
   stopped: { label: 'Đã dừng', tone: 'neutral', icon: 'stop-circle-outline' },
@@ -34,7 +35,7 @@ export const TASK_SEGMENTS: { key: TaskSegment; label: string }[] = [
 
 /** Trạng thái gửi lên máy chủ cho từng tab (`status` nối bằng dấu phẩy). */
 export const SEGMENT_STATUSES: Record<TaskSegment, readonly string[]> = {
-  active: ['queued', 'running', 'waiting_approval', 'waiting_human'],
+  active: ['queued', 'running', 'waiting_children', 'waiting_approval', 'waiting_human'],
   done: ['done'],
   ended: ['failed', 'stopped', 'cancelled'],
 };
@@ -51,9 +52,24 @@ export function isLiveStatus(status: string): boolean {
   return status === 'running' || status === 'queued';
 }
 
-/** Đang chờ người (duyệt phiếu / trả lời) — đổi chậm hơn. */
+/**
+ * Đang chờ (người duyệt phiếu / trả lời, hoặc việc con — A2) — đổi chậm hơn. Việc chờ việc con vẫn dừng được (máy chủ dừng
+ * ngay, như chờ người), không huỷ / chạy lại được.
+ */
 export function isWaitingStatus(status: string): boolean {
-  return status === 'waiting_approval' || status === 'waiting_human';
+  return status === 'waiting_approval' || status === 'waiting_human' || status === 'waiting_children';
+}
+
+/**
+ * Dòng tiến độ việc con của việc đang "Chờ việc con": "Chờ 1/3 việc con". Trạng thái khác hoặc máy chủ chưa gửi số
+ * (childrenTotal = 0) → null.
+ */
+export function waitingChildrenText(task: Pick<AgentTaskView, 'status' | 'childrenTotal' | 'childrenDone'>): string | null {
+  if (task.status !== 'waiting_children') return null;
+  const total = Number(task.childrenTotal) || 0;
+  if (total <= 0) return null;
+  const done = Math.min(Math.max(Number(task.childrenDone) || 0, 0), total);
+  return `Chờ ${done}/${total} việc con`;
 }
 
 // ── Nhịp làm mới ─────────────────────────────────────────────────────────
@@ -175,6 +191,7 @@ export const SOURCE_LABEL: Record<string, string> = {
   schedule: 'Theo lịch',
   agent: 'Agent khác giao',
   event: 'Theo sự kiện',
+  chat: 'Nhóm quản trị',
 };
 
 export function sourceLabel(source: string): string {

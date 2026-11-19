@@ -7,14 +7,20 @@ import { notificationAppRoute, notificationTargetRoute } from 'src/services/noti
 // ----------------------------------------------------------------------
 // Phần thuần của thẻ hành động trong nhóm "Quản trị – Đội agent" (test được): trạng thái thẻ (mở / đã xử lý / hết hạn),
 // nút nào được hiện cho người đang xem, nút → kiểu hiển thị, thẻ mở màn nào trên app, lỗi khi bấm nút → câu báo.
-// Hợp đồng: docs/cici/plans/a1-nhom-quan-tri-api-contract.md mục 2.
+// Hợp đồng: docs/cici/plans/a1-nhom-quan-tri-api-contract.md mục 2; thẻ `confirm` (CEO đề xuất):
+// docs/cici/plans/a2-agent-ceo-api-contract.md mục 3.
 // ----------------------------------------------------------------------
 
 export type CardState = 'open' | 'done' | 'expired';
 
-/** Nút cần quyền agent.approve (duyệt / sửa / từ chối phiếu, trả lời việc). "open" chỉ điều hướng. */
-export const CARD_DECISION_KEYS = ['approve', 'revise', 'reject', 'reply'] as const;
+/**
+ * Nút cần quyền agent.approve (duyệt / sửa / từ chối phiếu, trả lời việc, xác nhận / huỷ đề xuất của CEO). "open" chỉ
+ * điều hướng.
+ */
+export const CARD_DECISION_KEYS = ['approve', 'revise', 'reject', 'reply', 'confirm', 'cancel'] as const;
 const KNOWN_KEYS: readonly string[] = [...CARD_DECISION_KEYS, 'open'];
+/** Nút chỉ có nghĩa trên thẻ `confirm` (gọi API theo id đề xuất) — thẻ loại khác gửi nhầm thì bỏ. */
+const CONFIRM_ONLY_KEYS: readonly string[] = ['confirm', 'cancel'];
 
 /** Độ dài tối đa câu trả lời gửi agent (POST agent-center/tasks/{id}/notes). */
 export const CARD_REPLY_MAX = 4000;
@@ -54,7 +60,7 @@ export function cardStatusText(card: Pick<MessageCard, 'status' | 'statusText' |
  * khi có quyền agent.approve; bỏ nút trùng khoá. Thứ tự giữ như máy chủ gửi.
  */
 export function visibleCardActions(
-  card: Pick<MessageCard, 'status' | 'expiresAt' | 'actions'>,
+  card: Pick<MessageCard, 'status' | 'expiresAt' | 'actions'> & Partial<Pick<MessageCard, 'kind'>>,
   opts: { canApprove: boolean; now?: number },
 ): MessageCardAction[] {
   if (cardState(card, opts.now ?? Date.now()) !== 'open') return [];
@@ -63,6 +69,7 @@ export function visibleCardActions(
   for (const action of card.actions ?? []) {
     const key = action?.key;
     if (!key || !KNOWN_KEYS.includes(key) || seen.has(key)) continue;
+    if (CONFIRM_ONLY_KEYS.includes(key) && card.kind !== 'confirm') continue;
     if (!opts.canApprove && (CARD_DECISION_KEYS as readonly string[]).includes(key)) continue;
     seen.add(key);
     out.push(action);
@@ -81,6 +88,36 @@ export function isApprovalCard(card: Pick<MessageCard, 'kind'>): boolean {
   return card.kind === 'approval';
 }
 
+export function isConfirmCard(card: Pick<MessageCard, 'kind'>): boolean {
+  return card.kind === 'confirm';
+}
+
+/** Số thao tác của thẻ `confirm` (theo `ops`); thiếu / rỗng → null (hỏi lại bằng câu chung). */
+export function confirmOpsCount(card: Pick<MessageCard, 'ops'>): number | null {
+  const n = Array.isArray(card.ops) ? card.ops.length : 0;
+  return n > 0 ? n : null;
+}
+
+/** Câu hỏi lại trước khi Xác nhận: "Chạy 2 thao tác này?" / câu chung khi không biết số thao tác. */
+export function confirmPromptText(card: Pick<MessageCard, 'ops'>): string {
+  const n = confirmOpsCount(card);
+  return n !== null ? t('chat.card.confirmPrompt', { n }) : t('chat.card.confirmPromptGeneric');
+}
+
+/**
+ * Kết quả Xác nhận / Huỷ → câu báo: statusText của máy chủ (thiếu → câu chung) + từng thao tác lỗi ("✗ nhãn: lý do").
+ * `ok` = không thao tác nào lỗi.
+ */
+export function confirmResultInfo(
+  result: { statusText?: string | null; results?: { label: string; ok: boolean; message?: string | null }[] } | null | undefined,
+  fallback: string,
+): { message: string; ok: boolean } {
+  const failed = (result?.results ?? []).filter((r) => !r.ok);
+  const head = result?.statusText?.trim() || fallback;
+  const lines = failed.map((r) => `✗ ${r.label || '—'}${r.message ? `: ${r.message}` : ''}`);
+  return { message: [head, ...lines].join('\n'), ok: failed.length === 0 };
+}
+
 /** Guid dạng 32 ký tự liền (.NET "N") → dạng có gạch; dạng khác giữ nguyên. */
 export function dashedGuid(id: string | null | undefined): string {
   const value = (id ?? '').trim();
@@ -93,6 +130,8 @@ export function dashedGuid(id: string | null | undefined): string {
  * refId hỏng → đổi `link` (đường dẫn web) bằng notificationAppRoute; vẫn không được → danh sách Duyệt / Việc của agent.
  */
 export function cardTargetRoute(card: Pick<MessageCard, 'kind' | 'refId' | 'link'>): string {
+  // Thẻ confirm: refId là id đề xuất (không có màn riêng) → theo `link` (thường /dashboard/agent/approvals), không được → Duyệt.
+  if (isConfirmCard(card)) return notificationTargetRoute(card.link, null) ?? '/agent/approvals';
   const approval = isApprovalCard(card);
   const id = dashedGuid(card.refId);
   const data = approval ? { agentActionId: id } : { agentTaskId: id };
@@ -112,6 +151,8 @@ export function cardKindInfo(kind: string): { label: string; icon: IconName; ton
       return { label: t('chat.card.kindQuestion'), icon: 'help-circle-outline', tone: 'info' };
     case 'task_failed':
       return { label: t('chat.card.kindFailed'), icon: 'alert-circle-outline', tone: 'error' };
+    case 'confirm':
+      return { label: t('chat.card.kindConfirm'), icon: 'lightbulb-on-outline', tone: 'warning' };
     default:
       return { label: t('chat.card.kindResult'), icon: 'clipboard-check-outline', tone: 'success' };
   }
@@ -119,12 +160,14 @@ export function cardKindInfo(kind: string): { label: string; icon: IconName; ton
 
 /** Nhãn nút "Mở" khi máy chủ không gửi nút open: phiếu → "Mở phiếu", việc → "Mở việc". */
 export function cardOpenLabel(card: Pick<MessageCard, 'kind'>): string {
+  if (isConfirmCard(card)) return t('chat.card.openProposal');
   return isApprovalCard(card) ? t('chat.card.openApproval') : t('chat.card.openTask');
 }
 
 /**
- * Lỗi khi bấm nút → câu báo + có nạp lại tin không. 403 → "Bạn không có quyền duyệt agent"; 409 (phiếu đã xử lý / hết hạn)
- * và 404 → câu của máy chủ (detail / title / message), nạp lại; lỗi khác → câu chung, không nạp lại.
+ * Lỗi khi bấm nút → câu báo + có nạp lại tin không. 403 → "Bạn không có quyền duyệt agent"; 409 (phiếu / đề xuất đã xử lý /
+ * hết hạn) và 404 → câu của máy chủ (detail / title / message), nạp lại; lỗi khác (vd 400) → câu của máy chủ nếu có
+ * (extractApiError), không nạp lại.
  */
 export function cardErrorInfo(err: unknown): { message: string; reload: boolean; changed: boolean } {
   const status = err && typeof err === 'object' ? (err as { status?: unknown }).status : undefined;

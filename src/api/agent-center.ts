@@ -11,6 +11,8 @@ export type AgentTaskStatus =
   | 'running'
   | 'waiting_approval'
   | 'waiting_human'
+  /** A2: việc cha giao việc con kèm wait=true, đang chờ các con xong (vẫn là việc chưa kết thúc). */
+  | 'waiting_children'
   | 'done'
   | 'failed'
   | 'stopped'
@@ -31,7 +33,7 @@ export interface AgentTaskView {
   agentName: string;
   title: string;
   instruction: string;
-  /** "manual" | "schedule" | "agent" | "event". */
+  /** "manual" | "schedule" | "agent" | "event" | "chat" (A2: tin @CEO trong nhóm quản trị). */
   source: string;
   sourceRef: string | null;
   parentTaskId: string | null;
@@ -53,6 +55,10 @@ export interface AgentTaskView {
   inputTokens: number;
   outputTokens: number;
   toolCalls: number;
+  /** A2: số việc con đang được chờ (0 khi không chờ). */
+  childrenTotal: number;
+  /** A2: số việc con trong đó đã xong / lỗi / dừng / chờ người. */
+  childrenDone: number;
 }
 
 export type AgentStepKind = 'model' | 'tool' | 'plan' | 'note' | 'approval' | 'system';
@@ -87,6 +93,7 @@ export interface AgentCenterCounts {
   running: number;
   waiting_approval: number;
   waiting_human: number;
+  waiting_children: number;
   done_today: number;
   failed_today: number;
 }
@@ -138,6 +145,8 @@ export function normalizeTask(raw: any): AgentTaskView {
     inputTokens: num(t.inputTokens),
     outputTokens: num(t.outputTokens),
     toolCalls: num(t.toolCalls),
+    childrenTotal: num(t.childrenTotal),
+    childrenDone: num(t.childrenDone),
   } as AgentTaskView;
 }
 
@@ -164,6 +173,7 @@ const EMPTY_COUNTS: AgentCenterCounts = {
   running: 0,
   waiting_approval: 0,
   waiting_human: 0,
+  waiting_children: 0,
   done_today: 0,
   failed_today: 0,
 };
@@ -220,4 +230,46 @@ export async function retryAgentTask(id: string): Promise<AgentTaskView> {
 export async function cancelAgentTask(id: string): Promise<AgentTaskView> {
   const res = await axios.post<any>(endpoints.agentCenter.cancel(id));
   return normalizeTask(res.data);
+}
+
+// ── Thẻ "CEO đề xuất" (A2 — hợp đồng docs/cici/plans/a2-agent-ceo-api-contract.md mục 3) ─────────────
+
+export interface AdminGroupConfirmResultItem {
+  label: string;
+  ok: boolean;
+  message: string | null;
+}
+
+export interface AdminGroupConfirmResult {
+  /** "done" sau khi xác nhận / huỷ. */
+  status: string;
+  /** vd "Đã xác nhận bởi Xuân Bình · 10:42 19/11 — 2/2 thao tác chạy". */
+  statusText: string | null;
+  /** Kết quả từng thao tác (chỉ khi xác nhận; huỷ → []). */
+  results: AdminGroupConfirmResultItem[];
+}
+
+export function normalizeConfirmResult(raw: any): AdminGroupConfirmResult {
+  const d = raw ?? {};
+  const results = Array.isArray(d.results)
+    ? d.results
+        .filter((r: unknown): r is Record<string, unknown> => !!r && typeof r === 'object')
+        .map((r: Record<string, unknown>) => ({ label: String(r.label ?? ''), ok: r.ok === true, message: str(r.message) }))
+    : [];
+  return { status: String(d.status ?? 'done'), statusText: str(d.statusText), results };
+}
+
+/**
+ * Xác nhận đề xuất của CEO: máy chủ chạy lần lượt các thao tác bằng quyền + tên người bấm. 409 = thẻ đã xử lý / không còn,
+ * 404 = không có, 400 = không phải thẻ confirm, 403 = không có agent.approve.
+ */
+export async function confirmAdminGroupProposal(refId: string): Promise<AdminGroupConfirmResult> {
+  const res = await axios.post<any>(endpoints.agentCenter.adminGroupConfirm(refId), {});
+  return normalizeConfirmResult(res.data);
+}
+
+/** Huỷ đề xuất của CEO (không chạy thao tác nào). */
+export async function cancelAdminGroupProposal(refId: string): Promise<AdminGroupConfirmResult> {
+  const res = await axios.post<any>(endpoints.agentCenter.adminGroupConfirmCancel(refId), {});
+  return normalizeConfirmResult(res.data);
 }
