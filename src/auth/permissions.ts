@@ -226,4 +226,6 @@ export const MANAGE_SCREEN_PERMISSIONS = {
   workTaskReview: [PERMISSIONS.hr.taskManage],
   /** Việc theo ngày: có MỘT trong ba là xem được (như GET /work-today); đánh dấu xong / gỡ theo quyền từng loại việc. */
   workDay: [PERMISSIONS.hr.taskManage, PERMISSIONS.inspection.read, PERMISSIONS.cleaning.read],
+  /** Trung tâm việc (T3): có MỘT trong ba — mỗi nguồn (agent / việc giao / vệ sinh) chỉ tải khi có quyền của nó. */
+  workCenter: [PERMISSIONS.agent.approve, PERMISSIONS.hr.taskManage, PERMISSIONS.cleaning.review],
 } as const satisfies Record<string, readonly string[]>;
