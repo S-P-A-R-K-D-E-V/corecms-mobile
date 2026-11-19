@@ -25,6 +25,8 @@ export type ConversationSummary = {
   unreadCount: number;
   /** Khác null = hội thoại do hệ thống quản lý: "admin-alerts" (Cảnh báo hệ thống), "agent-admin" (Quản trị – Đội agent). */
   systemKey?: string | null;
+  /** Người tạo nhóm (A4): chỉ người này gỡ được người khác khỏi nhóm thường. Máy chủ cũ chưa trả → thiếu. */
+  createdById?: string | null;
 };
 
 export type Conversation = {

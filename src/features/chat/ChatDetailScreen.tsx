@@ -76,6 +76,7 @@ import {
   systemConversationName,
   systemConversationSubtitle,
 } from './messenger-system';
+import { hasMembersPanel, peopleCount, typingLabel } from './group-members';
 
 /** Mở tệp (không phải ảnh) trong trình xem in-app (SFSafariVC / Custom Tabs). */
 function openFileInApp(url: string) {
@@ -151,6 +152,9 @@ export function ChatDetailScreen() {
   const systemKey = conv?.systemKey ?? null;
   const headerName = name || conv?.name || systemConversationName(systemKey) || other?.fullName || 'Chat';
   const systemSubtitle = systemConversationSubtitle(systemKey);
+  // Nhóm thường + nhóm Quản trị có màn Thành viên; tin riêng / kênh Cảnh báo hệ thống (tự đồng bộ) thì không.
+  const membersPanel = hasMembersPanel(conv);
+  const typingText = typingLabel(typing, { currentUserId: user?.id, conversation: conv, userCache });
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -334,8 +338,8 @@ export function ChatDetailScreen() {
         />
         <View className="flex-1">
           <Text variant="subtitle" numberOfLines={1}>{headerName}</Text>
-          {typing.length > 0 ? (
-            <Text variant="caption" tone="primary">Đang nhập...</Text>
+          {typingText ? (
+            <Text variant="caption" tone="primary" numberOfLines={1}>{typingText}</Text>
           ) : systemSubtitle ? (
             <Text variant="caption" tone="muted" numberOfLines={1}>{systemSubtitle}</Text>
           ) : isPrivate ? (
@@ -344,6 +348,18 @@ export function ChatDetailScreen() {
             </Text>
           ) : null}
         </View>
+        {membersPanel && conv ? (
+          <Pressable
+            onPress={() => router.push({ pathname: '/(tabs)/chat/members/[id]', params: { id: conv.id } } as any)}
+            accessibilityLabel={t('chat.members.title')}
+            className="h-9 pl-2 pr-1 flex-row items-center gap-1 rounded-full"
+          >
+            <Icon name="account-group-outline" size={22} tone="primary" />
+            <Text variant="caption" tone="primary" className="font-semibold">
+              {peopleCount(conv.participantIds, userCache)}
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
         {loading ? (
@@ -357,7 +373,7 @@ export function ChatDetailScreen() {
             contentContainerClassName="px-3 py-2"
             onEndReached={loadMore}
             onEndReachedThreshold={0.3}
-            ListHeaderComponent={typing.length > 0 ? <TypingBubble /> : null}
+            ListHeaderComponent={typingText ? <TypingBubble /> : null}
             ListFooterComponent={loadingMore ? <View className="py-2"><Spinner /></View> : null}
             renderItem={({ item, index }) => {
               const older = reversed[index + 1];

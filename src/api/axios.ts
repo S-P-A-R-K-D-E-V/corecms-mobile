@@ -340,6 +340,8 @@ export const endpoints = {
     stop: (id: string) => `/agent-center/tasks/${id}/stop`,
     retry: (id: string) => `/agent-center/tasks/${id}/retry`,
     cancel: (id: string) => `/agent-center/tasks/${id}/cancel`,
+    /** A1 / A4: thông tin nhóm quản trị — `approverIds` = thành viên có agent.approve (giao việc được cho CEO). */
+    adminGroup: '/agent-center/admin-group',
     /** A2: thẻ "CEO đề xuất" trong nhóm quản trị. */
     adminGroupConfirm: (refId: string) => `/agent-center/admin-group/confirm/${refId}`,
     adminGroupConfirmCancel: (refId: string) => `/agent-center/admin-group/confirm/${refId}/cancel`,

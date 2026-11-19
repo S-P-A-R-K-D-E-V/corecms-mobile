@@ -281,3 +281,31 @@ export async function cancelAdminGroupProposal(refId: string): Promise<AdminGrou
   const res = await axios.post<any>(endpoints.agentCenter.adminGroupConfirmCancel(refId), {});
   return normalizeConfirmResult(res.data);
 }
+
+// ── Nhóm quản trị (A1 / A4 — GET agent-center/admin-group) ─────────────────────────────────────────
+
+export interface AgentAdminGroupInfo {
+  conversationId: string | null;
+  enabled: boolean;
+  name: string | null;
+  /** Thành viên có agent.approve = giao việc được cho CEO; null = máy chủ cũ chưa trả. */
+  approverIds: string[] | null;
+}
+
+export function normalizeAdminGroupInfo(raw: any): AgentAdminGroupInfo {
+  const d = raw ?? {};
+  return {
+    conversationId: str(d.conversationId),
+    enabled: d.enabled === true,
+    name: str(d.name),
+    approverIds: Array.isArray(d.approverIds)
+      ? d.approverIds.filter((id: unknown): id is string => typeof id === 'string')
+      : null,
+  };
+}
+
+/** Cần agent.approve (không có → 403); tính năng tắt → 404. */
+export async function getAgentAdminGroup(): Promise<AgentAdminGroupInfo> {
+  const res = await axios.get<any>(endpoints.agentCenter.adminGroup);
+  return normalizeAdminGroupInfo(res.data);
+}

@@ -145,7 +145,8 @@ export const PERMISSIONS = {
     taskManage: 'hr.task.manage',
   },
   /** Đội agent (K3): xem + duyệt / từ chối phiếu agent xin làm lệnh ghi — duyệt là máy chủ chạy lệnh ngay. Admin có sẵn. */
-  agent: { approve: 'agent.approve' },
+  /** agent.manage: quản lý đội agent (cấu hình, thêm / gỡ người khác ở nhóm Quản trị – Đội agent); luôn kèm agent.approve. */
+  agent: { approve: 'agent.approve', manage: 'agent.manage' },
   /**
    * Hộp thư khách (Messenger / bình luận fanpage): xem; trả lời + giành / trả quyền + nhãn / ghi chú / đóng; giành từ người
    * khác + giao việc + mẫu trả lời nhanh. Mặc định read + reply cho Quản lý + Admin, manage cho Admin.
