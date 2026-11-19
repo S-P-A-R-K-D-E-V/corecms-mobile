@@ -66,8 +66,9 @@ export type DirectMessage = {
 
 // Thẻ trong tin của nhóm "Quản trị – Đội agent" — hợp đồng docs/cici/plans/a1-nhom-quan-tri-api-contract.md mục 2.
 // Chuỗi lạ (BE thêm loại / nút mới) vẫn giữ để không vỡ; màn chỉ vẽ nút nó biết (message-card.ts).
-export type MessageCardKind = 'approval' | 'task_question' | 'task_failed' | 'task_result';
-export type MessageCardActionKey = 'approve' | 'revise' | 'reject' | 'reply' | 'open';
+// A2 (a2-agent-ceo-api-contract.md mục 3): thẻ `confirm` — CEO đề xuất thao tác, người bấm Xác nhận / Huỷ.
+export type MessageCardKind = 'approval' | 'task_question' | 'task_failed' | 'task_result' | 'confirm';
+export type MessageCardActionKey = 'approve' | 'revise' | 'reject' | 'reply' | 'confirm' | 'cancel' | 'open';
 
 export type MessageCardAction = {
   key: MessageCardActionKey | (string & {});
@@ -76,9 +77,17 @@ export type MessageCardAction = {
   style?: string | null;
 };
 
+/** Một thao tác trong thẻ `confirm` (A2) — chỉ dùng để đếm khi hỏi lại "Chạy {n} thao tác này?". */
+export type MessageCardOp = {
+  /** approve_action | reject_action | stop_task | retry_task | enable_schedule | disable_schedule. */
+  type: string;
+  refId: string;
+  label: string;
+};
+
 export type MessageCard = {
   kind: MessageCardKind | (string & {});
-  /** approval → id phiếu agent; task_* → id việc của agent. */
+  /** approval → id phiếu agent; task_* → id việc của agent; confirm → id đề xuất của CEO. */
   refId: string;
   title: string;
   lines: string[];
@@ -90,6 +99,8 @@ export type MessageCard = {
   expiresAt?: string | null;
   actions: MessageCardAction[];
   updatedAt?: string | null;
+  /** Thẻ `confirm`: các thao tác sẽ chạy khi Xác nhận (thiếu → không biết số thao tác). */
+  ops?: MessageCardOp[];
 };
 
 /** Sự kiện SignalR `messageUpdated`: thẻ của một tin đổi trạng thái → thay tại chỗ. */
@@ -109,8 +120,10 @@ export function normalizeMessageCard(raw: unknown): MessageCard | null {
   const kind = optString(c.kind);
   const refId = optString(c.refId);
   if (!kind || !refId) return null;
+  // A1 hứa 0–6 dòng; thẻ `confirm` (A2) liệt kê tới 10 thao tác + lý do → nới 12 dòng cho riêng loại này.
+  const maxLines = kind === 'confirm' ? 12 : 6;
   const lines = Array.isArray(c.lines)
-    ? c.lines.filter((l): l is string => typeof l === 'string' && l.trim() !== '').slice(0, 6)
+    ? c.lines.filter((l): l is string => typeof l === 'string' && l.trim() !== '').slice(0, maxLines)
     : [];
   const actions = Array.isArray(c.actions)
     ? c.actions
@@ -121,6 +134,15 @@ export function normalizeMessageCard(raw: unknown): MessageCard | null {
           style: optString(a.style),
         }))
     : [];
+  const ops = Array.isArray(c.ops)
+    ? c.ops
+        .filter((o): o is Record<string, unknown> => !!o && typeof o === 'object' && !Array.isArray(o))
+        .map((o) => ({
+          type: typeof o.type === 'string' ? o.type : '',
+          refId: typeof o.refId === 'string' ? o.refId : '',
+          label: typeof o.label === 'string' ? o.label : '',
+        }))
+    : undefined;
   return {
     kind,
     refId: refId.trim(),
@@ -132,6 +154,7 @@ export function normalizeMessageCard(raw: unknown): MessageCard | null {
     expiresAt: optString(c.expiresAt),
     actions,
     updatedAt: optString(c.updatedAt),
+    ...(ops ? { ops } : {}),
   };
 }
 

@@ -9,7 +9,9 @@ jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: j
 import axios from '../axios';
 import {
   addAgentTaskNote,
+  cancelAdminGroupProposal,
   cancelAgentTask,
+  confirmAdminGroupProposal,
   getAgentCenterSummary,
   getAgentTask,
   getAgentTasks,
@@ -58,16 +60,17 @@ beforeEach(() => {
 describe('agent-center API', () => {
   it('tóm tắt: đọc counts snake_case; thiếu / sai → 0', async () => {
     get.mockResolvedValueOnce({
-      data: { paused: false, runnerEnabled: true, counts: { queued: 1, running: 2, waiting_approval: 0, waiting_human: 3, done_today: 4, failed_today: 'x' }, agents: 2 },
+      data: { paused: false, runnerEnabled: true, counts: { queued: 1, running: 2, waiting_approval: 0, waiting_human: 3, waiting_children: 5, done_today: 4, failed_today: 'x' }, agents: 2 },
     });
     const s = await getAgentCenterSummary();
     expect(get).toHaveBeenCalledWith('/agent-center/summary');
-    expect(s.counts).toEqual({ queued: 1, running: 2, waiting_approval: 0, waiting_human: 3, done_today: 4, failed_today: 0 });
+    expect(s.counts).toEqual({ queued: 1, running: 2, waiting_approval: 0, waiting_human: 3, waiting_children: 5, done_today: 4, failed_today: 0 });
     expect(s.agents).toBe(2);
 
     get.mockResolvedValueOnce({ data: {} });
     const empty = await getAgentCenterSummary();
     expect(empty.counts.running).toBe(0);
+    expect(empty.counts.waiting_children).toBe(0);
     expect(empty.paused).toBe(false);
   });
 
@@ -128,5 +131,41 @@ describe('agent-center API', () => {
     expect(t.outputTokens).toBe(0);
     expect(t.result).toBeNull();
     expect(t.stopRequested).toBe(false);
+    expect(t.childrenTotal).toBe(0);
+    expect(t.childrenDone).toBe(0);
+  });
+
+  it('normalizeTask (A2): đọc childrenTotal / childrenDone, nguồn chat giữ nguyên', () => {
+    const t = normalizeTask({ ...TASK, status: 'waiting_children', source: 'chat', childrenTotal: 3, childrenDone: '1' });
+    expect(t.status).toBe('waiting_children');
+    expect(t.source).toBe('chat');
+    expect(t.childrenTotal).toBe(3);
+    expect(t.childrenDone).toBe(1);
+  });
+
+  it('thẻ CEO đề xuất (A2): xác nhận / huỷ POST {} đúng đường dẫn, chuẩn hoá kết quả', async () => {
+    post.mockResolvedValueOnce({
+      data: {
+        status: 'done',
+        statusText: 'Đã xác nhận bởi Lan · 10:42 19/11 — 1/2 thao tác chạy',
+        results: [
+          { label: 'Duyệt phiếu 702eb2ee', ok: true, message: null },
+          { label: 'Tắt lịch Báo cáo sáng', ok: false, message: 'Cần quyền agent.manage' },
+          null,
+        ],
+      },
+    });
+    const r = await confirmAdminGroupProposal(ID);
+    expect(post).toHaveBeenLastCalledWith(`/agent-center/admin-group/confirm/${ID}`, {});
+    expect(r.statusText).toContain('1/2');
+    expect(r.results).toEqual([
+      { label: 'Duyệt phiếu 702eb2ee', ok: true, message: null },
+      { label: 'Tắt lịch Báo cáo sáng', ok: false, message: 'Cần quyền agent.manage' },
+    ]);
+
+    post.mockResolvedValueOnce({ data: { status: 'done', statusText: 'Đã huỷ bởi Lan' } });
+    const c = await cancelAdminGroupProposal(ID);
+    expect(post).toHaveBeenLastCalledWith(`/agent-center/admin-group/confirm/${ID}/cancel`, {});
+    expect(c).toEqual({ status: 'done', statusText: 'Đã huỷ bởi Lan', results: [] });
   });
 });

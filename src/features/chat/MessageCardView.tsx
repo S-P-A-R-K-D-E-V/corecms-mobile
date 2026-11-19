@@ -18,6 +18,8 @@ import { isResultSuccess, resultMessage, timeLeftText } from 'src/features/agent
 import {
   useAgentAction,
   useApproveAgentAction,
+  useCancelAgentProposal,
+  useConfirmAgentProposal,
   useNow,
   useRejectAgentAction,
   useRequestAgentActionRevision,
@@ -32,6 +34,8 @@ import {
   cardState,
   cardStatusText,
   cardTargetRoute,
+  confirmPromptText,
+  confirmResultInfo,
   isApprovalCard,
   parseCardTime,
   visibleCardActions,
@@ -43,6 +47,8 @@ import { useAddAgentTaskNote } from 'src/features/agent-tasks/hooks';
 // phiếu agent xin duyệt / việc agent đang hỏi / việc lỗi / kết quả việc. Nút gọi đúng API của màn Duyệt / Việc của agent
 // bằng phiên của người bấm; người không có agent.approve chỉ thấy nút Mở. Thẻ đổi trạng thái tới qua sự kiện
 // messageUpdated (messenger-provider). 409 / 404 → báo câu của máy chủ rồi nạp lại thẻ; 403 → không có quyền.
+// A2 (a2-agent-ceo-api-contract.md mục 3): thẻ `confirm` — CEO đề xuất thao tác; Xác nhận hỏi lại "Chạy {n} thao tác này?"
+// rồi POST agent-center/admin-group/confirm/{refId}; Huỷ → …/cancel. Thẻ tự đổi qua messageUpdated, ở đây chỉ báo kết quả.
 // ----------------------------------------------------------------------
 
 type InputMode = 'revise' | 'reject' | 'reply';
@@ -152,6 +158,8 @@ export function MessageCardView({
   const rejectM = useRejectAgentAction();
   const revisionM = useRequestAgentActionRevision();
   const noteM = useAddAgentTaskNote();
+  const confirmM = useConfirmAgentProposal();
+  const cancelM = useCancelAgentProposal();
   const [mode, setMode] = useState<InputMode | null>(null);
   const [showPreview, setShowPreview] = useState(false);
 
@@ -160,7 +168,8 @@ export function MessageCardView({
   const actions = visibleCardActions(card, { canApprove, now });
   const kind = cardKindInfo(card.kind);
   const approval = isApprovalCard(card);
-  const busy = approveM.isPending || rejectM.isPending || revisionM.isPending || noteM.isPending;
+  const busy =
+    approveM.isPending || rejectM.isPending || revisionM.isPending || noteM.isPending || confirmM.isPending || cancelM.isPending;
   const expires = parseCardTime(card.expiresAt);
   const expiresIso = expires !== null ? new Date(expires).toISOString() : null;
 
@@ -201,6 +210,45 @@ export function MessageCardView({
     }
   }
 
+  async function confirmProposal() {
+    const ok = await confirm({
+      title: t('chat.card.confirmTitle'),
+      message: `${confirmPromptText(card)}\n\n${t('chat.card.confirmHint')}`,
+      confirmText: t('chat.card.confirmConfirm'),
+    });
+    if (!ok) return;
+    try {
+      const result = await confirmM.mutateAsync(card.refId);
+      const info = confirmResultInfo(result, t('chat.card.confirmedOk'));
+      if (info.ok) {
+        haptics.success();
+        toast.success(info.message, t('chat.card.confirmedTitle'));
+      } else {
+        haptics.error();
+        toast.warning(info.message, t('chat.card.confirmedPartialTitle'));
+      }
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  async function cancelProposal() {
+    const ok = await confirm({
+      title: t('chat.card.cancelProposalTitle'),
+      message: t('chat.card.cancelProposalMessage'),
+      confirmText: t('chat.card.cancelProposalConfirm'),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      const result = await cancelM.mutateAsync(card.refId);
+      haptics.success();
+      toast.success(confirmResultInfo(result, t('chat.card.cancelledOk')).message, t('chat.card.cancelledTitle'));
+    } catch (e) {
+      fail(e);
+    }
+  }
+
   async function submitInput(text: string) {
     if (!mode) return;
     try {
@@ -226,6 +274,12 @@ export function MessageCardView({
     switch (action.key) {
       case 'approve':
         approve();
+        break;
+      case 'confirm':
+        confirmProposal();
+        break;
+      case 'cancel':
+        cancelProposal();
         break;
       case 'revise':
       case 'reject':
@@ -308,7 +362,11 @@ export function MessageCardView({
                   action={look.action}
                   fullWidth={false}
                   disabled={busy}
-                  loading={action.key === 'approve' && approveM.isPending}
+                  loading={
+                    (action.key === 'approve' && approveM.isPending) ||
+                    (action.key === 'confirm' && confirmM.isPending) ||
+                    (action.key === 'cancel' && cancelM.isPending)
+                  }
                   onPress={() => press(action)}
                 >
                   {action.label}
