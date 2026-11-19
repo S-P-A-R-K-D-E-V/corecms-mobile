@@ -4,14 +4,15 @@ import * as signalR from '@microsoft/signalr';
 import { getHostApi } from 'src/api/axios';
 import { currentAccessToken } from 'src/api/session';
 import { useAuthContext } from 'src/auth/auth-context';
-import { fetchConversations, fetchUsers } from 'src/api/messenger';
+import { fetchConversations, fetchUsers, normalizeMessage, normalizeMessageCard } from 'src/api/messenger';
+import { senderDisplayName } from 'src/features/chat/messenger-system';
 import { isMultiStore } from 'src/services/store-config';
 import { useMessengerStore } from 'src/store/messenger-store';
 
 // ----------------------------------------------------------------------
 // Một kết nối SignalR dùng chung cho toàn app (mount ở tab layout khi đã đăng nhập).
 // Khớp đúng tên event/hub method mà BE phát (xem MessengerHub / MessengerHubNotifier):
-//   events:  message | conversationTouched | conversationUpdated | userTyping | readReceipt | userOnline | userOffline
+//   events:  message | messageUpdated | conversationTouched | conversationUpdated | userTyping | readReceipt | userOnline | userOffline
 //   invoke:  JoinConversation | LeaveConversation | TypingAsync | ReadReceiptAsync
 // ----------------------------------------------------------------------
 
@@ -81,8 +82,9 @@ export function MessengerProvider({ children }: { children: React.ReactNode }) {
 
       const store = () => useMessengerStore.getState();
 
-      conn.on('message', (ev: any) => {
+      conn.on('message', (raw: any) => {
         const s = store();
+        const ev = normalizeMessage(raw ?? {});
         s.addMessage(ev);
         s.setTyping(ev.conversationId, ev.senderId, false);
 
@@ -93,12 +95,19 @@ export function MessengerProvider({ children }: { children: React.ReactNode }) {
           const sender = s.userCache[ev.senderId];
           const preview =
             (ev.content && String(ev.content).trim()) ||
+            ev.card?.title ||
             (ev.attachments?.length
               ? ev.attachments[0].kind === 'image' ? '📷 Hình ảnh' : '📎 Tệp đính kèm'
               : '');
-          const name = sender?.fullName ?? 'Tin nhắn mới';
+          const name = senderDisplayName(ev.senderId, sender) ?? 'Tin nhắn mới';
           s.pushInAppNotif({ id: ev.id, convId: ev.conversationId, title: name, name, preview, at: Date.now() });
         }
+      });
+
+      // Thẻ của một tin đổi trạng thái (đã duyệt / từ chối / yêu cầu sửa / đã trả lời / dừng) → thay tại chỗ.
+      conn.on('messageUpdated', (ev: any) => {
+        if (!ev || typeof ev.id !== 'string' || typeof ev.conversationId !== 'string') return;
+        store().updateMessageCard({ id: ev.id, conversationId: ev.conversationId, card: normalizeMessageCard(ev.card) });
       });
 
       conn.on('conversationTouched', (ev: any) => {

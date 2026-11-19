@@ -15,6 +15,7 @@ import { useMessengerStore } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { NewConversationSheet } from './NewConversationSheet';
 import { ChatAvatar } from './ChatAvatar';
+import { excludeSystemUsers, systemConversationIcon, systemConversationName } from './messenger-system';
 
 dayjs.extend(isToday);
 dayjs.extend(isYesterday);
@@ -35,7 +36,9 @@ function ConversationRow({ conv }: { conv: ConversationSummary }) {
   const isGroup = isGroupConversation(conv.type);
   const otherId = conv.participantIds.find((id) => id !== user?.id) ?? '';
   const other = userCache[otherId];
-  const name = isGroup ? conv.name ?? 'Nhóm chat' : other?.fullName ?? 'Người dùng';
+  const name = isGroup
+    ? conv.name || systemConversationName(conv.systemKey) || 'Nhóm chat'
+    : other?.fullName ?? 'Người dùng';
   const online = other?.online ?? false;
   const unread = conv.unreadCount > 0;
 
@@ -49,6 +52,7 @@ function ConversationRow({ conv }: { conv: ConversationSummary }) {
         avatarUrl={!isGroup ? other?.avatarUrl : null}
         size={48}
         online={!isGroup && online}
+        icon={systemConversationIcon(conv.systemKey)}
       />
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center gap-2">
@@ -71,7 +75,7 @@ function OnlineRow({ onOpen }: { onOpen: (id: string, name: string) => void }) {
   const { userCache } = useMessengerStore();
   const { user } = useAuthContext();
   const online = useMemo(
-    () => Object.values(userCache).filter((u) => u.online && u.id !== user?.id),
+    () => excludeSystemUsers(Object.values(userCache)).filter((u) => u.online && u.id !== user?.id),
     [userCache, user?.id]
   );
   const [busy, setBusy] = useState(false);

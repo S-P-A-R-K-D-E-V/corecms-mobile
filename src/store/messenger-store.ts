@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 
-import type { ConversationSummary, DirectMessage, InternalUser } from 'src/api/messenger';
+import type { ConversationSummary, DirectMessage, InternalUser, MessageCardUpdate } from 'src/api/messenger';
 
 // ----------------------------------------------------------------------
 // Ported directly from core-fe/src/store/messenger-store.ts
@@ -37,6 +37,8 @@ type Actions = {
   setMessages: (convId: string, msgs: DirectMessage[]) => void;
   prependMessages: (convId: string, msgs: DirectMessage[]) => void;
   addMessage: (msg: DirectMessage) => void;
+  /** Thay thẻ của một tin tại chỗ (sự kiện `messageUpdated`); tin chưa tải về máy thì bỏ qua. */
+  updateMessageCard: (ev: MessageCardUpdate) => void;
   applyReadReceipt: (convId: string, userId: string, readAt: string) => void;
   clearUnread: (convId: string) => void;
   setTyping: (convId: string, userId: string, active: boolean) => void;
@@ -108,6 +110,12 @@ export const useMessengerStore = create<State & Actions>()(
         if (!list.find((m) => m.id === msg.id)) {
           s.messagesByConv[msg.conversationId] = [...list, msg];
         }
+      }),
+
+    updateMessageCard: (ev) =>
+      set((s) => {
+        const msg = s.messagesByConv[ev.conversationId]?.find((m) => m.id === ev.id);
+        if (msg) msg.card = ev.card;
       }),
 
     applyReadReceipt: (convId, userId, readAt) =>

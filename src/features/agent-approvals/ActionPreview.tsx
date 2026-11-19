@@ -5,13 +5,14 @@ import { Avatar, Badge, Chip, Divider, Icon, Pressable, Text } from 'src/compone
 import { ImageViewer } from 'src/features/chat/ImageViewer';
 import { formatMoney } from 'src/i18n/format';
 import type {
+  AgentActionView,
   AgentPreviewField,
   AgentPreviewProduct,
   AgentSocialBatchItem,
   AgentSocialPostPreview,
 } from 'src/api/agent-actions';
 
-import { channelHandle } from './agent-action-format';
+import { actionParams, channelHandle, socialBatchOf, socialPostOf } from './agent-action-format';
 
 // ----------------------------------------------------------------------
 // Bản xem trước của phiếu agent: bài mạng xã hội trông như bài Threads thật (kênh, giờ đăng, caption, ảnh trượt ngang —
@@ -178,6 +179,21 @@ export function SocialBatchPreview({ items }: { items: AgentSocialBatchItem[] })
       ))}
     </View>
   );
+}
+
+/**
+ * Phần thân bản xem trước của một phiếu, không khung — dùng ở chỗ khác màn chi tiết (thẻ trong nhóm "Quản trị – Đội agent"):
+ * bài mạng xã hội / lịch đăng / bảng nhãn — giá trị; BE cũ không có preview → tham số đọc từ bodyJson.
+ */
+export function ActionPreviewContent({ action }: { action: AgentActionView }) {
+  const post = socialPostOf(action);
+  if (post) return <SocialPostPreview post={post} />;
+  const batch = socialBatchOf(action);
+  if (batch) return <SocialBatchPreview items={batch} />;
+  if (action.preview) return <PreviewFields fields={action.preview.fields ?? []} />;
+  const params = actionParams(action.bodyJson);
+  if (params === null) return <Text variant="bodySmall" selectable>{action.bodyJson}</Text>;
+  return <PreviewFields fields={params.map((p) => ({ label: p.key, value: p.value }))} />;
 }
 
 /** Lệnh khác: từng dòng "nhãn — giá trị" (BE đã dịch nhãn, đổi id thành tên). */

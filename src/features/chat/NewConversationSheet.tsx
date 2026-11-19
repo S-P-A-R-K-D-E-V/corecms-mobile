@@ -8,6 +8,7 @@ import { fetchUsers, openPrivateConversation, type InternalUser } from 'src/api/
 import { useMessengerStore } from 'src/store/messenger-store';
 import { useAuthContext } from 'src/auth/auth-context';
 import { ChatAvatar } from './ChatAvatar';
+import { excludeSystemUsers } from './messenger-system';
 
 type Props = {
   visible: boolean;
@@ -34,7 +35,7 @@ export function NewConversationSheet({ visible, onClose, onOpened }: Props) {
   }, [visible, setUserCache]);
 
   const users = useMemo(() => {
-    const all = Object.values(userCache).filter((u) => u.id !== user?.id);
+    const all = excludeSystemUsers(Object.values(userCache)).filter((u) => u.id !== user?.id);
     const q = search.trim().toLowerCase();
     const filtered = q
       ? all.filter((u) => u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))

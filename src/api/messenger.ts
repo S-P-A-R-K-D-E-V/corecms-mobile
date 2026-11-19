@@ -23,6 +23,8 @@ export type ConversationSummary = {
   lastMessageSenderId: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+  /** Khác null = hội thoại do hệ thống quản lý: "admin-alerts" (Cảnh báo hệ thống), "agent-admin" (Quản trị – Đội agent). */
+  systemKey?: string | null;
 };
 
 export type Conversation = {
@@ -31,6 +33,7 @@ export type Conversation = {
   name: string | null;
   participantIds: string[];
   createdById: string;
+  systemKey?: string | null;
   lastMessageId?: string | null;
   lastMessagePreview?: string | null;
   lastMessageSenderId?: string | null;
@@ -57,7 +60,85 @@ export type DirectMessage = {
   isDeleted?: boolean;
   attachments?: MessageAttachment[];
   readBy?: { userId: string; readAt: string }[];
+  /** Thẻ hành động (phiếu duyệt / việc của đội agent) — null / thiếu với tin thường; `content` vẫn có chữ đầy đủ. */
+  card?: MessageCard | null;
 };
+
+// Thẻ trong tin của nhóm "Quản trị – Đội agent" — hợp đồng docs/cici/plans/a1-nhom-quan-tri-api-contract.md mục 2.
+// Chuỗi lạ (BE thêm loại / nút mới) vẫn giữ để không vỡ; màn chỉ vẽ nút nó biết (message-card.ts).
+export type MessageCardKind = 'approval' | 'task_question' | 'task_failed' | 'task_result';
+export type MessageCardActionKey = 'approve' | 'revise' | 'reject' | 'reply' | 'open';
+
+export type MessageCardAction = {
+  key: MessageCardActionKey | (string & {});
+  label: string;
+  /** primary | default | danger. */
+  style?: string | null;
+};
+
+export type MessageCard = {
+  kind: MessageCardKind | (string & {});
+  /** approval → id phiếu agent; task_* → id việc của agent. */
+  refId: string;
+  title: string;
+  lines: string[];
+  /** Đường dẫn web (/dashboard/...) — app đổi sang màn của app (message-card.cardTargetRoute). */
+  link?: string | null;
+  /** open | done. */
+  status: string;
+  statusText?: string | null;
+  expiresAt?: string | null;
+  actions: MessageCardAction[];
+  updatedAt?: string | null;
+};
+
+/** Sự kiện SignalR `messageUpdated`: thẻ của một tin đổi trạng thái → thay tại chỗ. */
+export type MessageCardUpdate = { id: string; conversationId: string; card: MessageCard | null };
+
+function optString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value : null;
+}
+
+/**
+ * Thẻ từ máy chủ → dạng màn dùng, chịu được thiếu trường: không phải object / thiếu kind hoặc refId → null (hiện như
+ * tin chữ thường); lines / actions luôn là mảng (bỏ phần tử hỏng); status thiếu → "open".
+ */
+export function normalizeMessageCard(raw: unknown): MessageCard | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+  const kind = optString(c.kind);
+  const refId = optString(c.refId);
+  if (!kind || !refId) return null;
+  const lines = Array.isArray(c.lines)
+    ? c.lines.filter((l): l is string => typeof l === 'string' && l.trim() !== '').slice(0, 6)
+    : [];
+  const actions = Array.isArray(c.actions)
+    ? c.actions
+        .filter((a): a is Record<string, unknown> => !!a && typeof a === 'object' && !!optString((a as any).key))
+        .map((a) => ({
+          key: String(a.key),
+          label: optString(a.label) ?? String(a.key),
+          style: optString(a.style),
+        }))
+    : [];
+  return {
+    kind,
+    refId: refId.trim(),
+    title: typeof c.title === 'string' ? c.title : '',
+    lines,
+    link: optString(c.link),
+    status: optString(c.status) ?? 'open',
+    statusText: optString(c.statusText),
+    expiresAt: optString(c.expiresAt),
+    actions,
+    updatedAt: optString(c.updatedAt),
+  };
+}
+
+/** Tin từ máy chủ (REST / SignalR): chuẩn hoá `card` (thiếu → null). */
+export function normalizeMessage<T extends { card?: unknown }>(raw: T): T & { card: MessageCard | null } {
+  return { ...raw, card: normalizeMessageCard(raw?.card) };
+}
 
 // Đính kèm qua presigned URL (khớp core-be):
 // POST …/attachments/presign {files:[{fileName,contentType,size}]} → {expiresAt, files:[{objectKey,uploadUrl,method,headers,maxBytes}]}
@@ -82,6 +163,8 @@ export type InternalUser = {
   email: string;
   avatarUrl: string | null;
   online: boolean;
+  /** Tài khoản hệ thống "Trợ lý hệ thống" (người gửi tin cảnh báo / thẻ agent) — không phải người để nhắn. */
+  isSystem?: boolean;
 };
 
 // ----------------------------------------------------------------------
@@ -118,7 +201,7 @@ export async function fetchMessages(
   const res = await axios.get(endpoints.messenger.messages(conversationId), {
     params: { limit: opts?.limit ?? 50, before: opts?.before },
   });
-  return res.data;
+  return Array.isArray(res.data) ? res.data.map((m: DirectMessage) => normalizeMessage(m)) : [];
 }
 
 export async function sendMessage(conversationId: string, content: string): Promise<DirectMessage> {
