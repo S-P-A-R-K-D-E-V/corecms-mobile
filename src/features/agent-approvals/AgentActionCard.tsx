@@ -11,6 +11,7 @@ import {
   isExpiringSoon,
   isResultSuccess,
   methodLabel,
+  socialBatchOf,
   socialPostOf,
   statusInfo,
   timeLeftText,
@@ -66,7 +67,8 @@ export function AgentActionCard({ action, now, onPress }: { action: AgentActionV
   const pending = action.status === 'pending';
   const soon = pending && isExpiringSoon(action.expiresAt, now);
   const title = actionTitle(action);
-  const post = socialPostOf(action);
+  const batch = socialBatchOf(action);
+  const post = socialPostOf(action) ?? batch?.[0]?.post ?? null;
   const version = versionLabel(action.version);
   const firstImage = post?.imageUrls[0];
   const excerpt = post ? captionExcerpt(post.text) : '';
@@ -114,6 +116,11 @@ export function AgentActionCard({ action, now, onPress }: { action: AgentActionV
                 <Text variant="caption" className="font-semibold" numberOfLines={1}>
                   {channel.name}
                   {post.channels.length > 1 ? ` +${post.channels.length - 1} kênh` : ''}
+                </Text>
+              ) : null}
+              {batch ? (
+                <Text variant="caption" className="font-semibold" numberOfLines={1}>
+                  Lịch {batch.length} bài · bài đầu:
                 </Text>
               ) : null}
               <Text variant="caption" numberOfLines={2}>{excerpt || '(Bài không có chữ)'}</Text>

@@ -4,7 +4,12 @@ import { Image, ScrollView, View } from 'react-native';
 import { Avatar, Badge, Chip, Divider, Icon, Pressable, Text } from 'src/components/ui';
 import { ImageViewer } from 'src/features/chat/ImageViewer';
 import { formatMoney } from 'src/i18n/format';
-import type { AgentPreviewField, AgentPreviewProduct, AgentSocialPostPreview } from 'src/api/agent-actions';
+import type {
+  AgentPreviewField,
+  AgentPreviewProduct,
+  AgentSocialBatchItem,
+  AgentSocialPostPreview,
+} from 'src/api/agent-actions';
 
 import { channelHandle } from './agent-action-format';
 
@@ -149,6 +154,28 @@ export function SocialPostPreview({ post }: { post: AgentSocialPostPreview }) {
           ))}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+/** Lịch đăng bài: từng bài theo giờ, bài đã sửa / không còn được đánh dấu. */
+export function SocialBatchPreview({ items }: { items: AgentSocialBatchItem[] }) {
+  return (
+    <View className="gap-3">
+      <Text variant="bodySmall" tone="muted">
+        {items.length} bài — duyệt một lần là cả lịch tự đăng đúng giờ.
+      </Text>
+      {items.map((item, i) => (
+        <View key={item.postId} className="gap-2" style={item.missing ? { opacity: 0.6 } : undefined}>
+          {i > 0 ? <Divider /> : null}
+          <View className="flex-row flex-wrap items-center gap-2">
+            <Text variant="bodySmall" className="font-semibold">Bài {i + 1}</Text>
+            {item.changed ? <Badge tone="warning">Đã sửa sau khi gửi — sẽ không hẹn</Badge> : null}
+            {item.missing ? <Badge tone="error">Bài không còn</Badge> : null}
+          </View>
+          {!item.missing ? <SocialPostPreview post={item.post} /> : null}
+        </View>
+      ))}
     </View>
   );
 }

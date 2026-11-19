@@ -12,8 +12,10 @@ import {
   decodeUnicodeEscapes,
   platformLabel,
   revisionsLeftText,
+  socialBatchOf,
   socialPostOf,
   splitRevisionNote,
+  actionImages,
   versionLabel,
   isActionable,
   isExpiringSoon,
@@ -168,6 +170,27 @@ describe('bản xem trước', () => {
     expect(socialPostOf({ preview: { ...SOCIAL, socialPost: null } })).toBeNull();
     expect(socialPostOf({ preview: null })).toBeNull();
     expect(socialPostOf(undefined)).toBeNull();
+  });
+
+  it('socialBatchOf / actionImages: lịch nhiều bài → các bài + ảnh của mọi bài', () => {
+    const post = SOCIAL.socialPost!;
+    const batch: AgentActionPreview = {
+      kind: 'social_batch',
+      title: 'Lịch đăng bài',
+      socialPost: null,
+      fields: [],
+      socialBatch: {
+        items: [
+          { postId: 'a', scheduledAt: null, changed: false, missing: false, post: { ...post, imageUrls: ['https://i/1.jpg'] } },
+          { postId: 'b', scheduledAt: null, changed: true, missing: false, post: { ...post, imageUrls: ['https://i/2.jpg'] } },
+        ],
+      },
+    };
+    expect(socialBatchOf({ preview: batch })?.map((i) => i.postId)).toEqual(['a', 'b']);
+    expect(actionImages({ preview: batch })).toEqual(['https://i/1.jpg', 'https://i/2.jpg']);
+    expect(socialBatchOf({ preview: SOCIAL })).toBeNull();
+    expect(actionImages({ preview: SOCIAL })).toEqual(post.imageUrls);
+    expect(socialBatchOf({ preview: { ...batch, socialBatch: { items: [] } } })).toBeNull();
   });
 
   it('captionExcerpt gộp dòng, cắt không vỡ emoji', () => {

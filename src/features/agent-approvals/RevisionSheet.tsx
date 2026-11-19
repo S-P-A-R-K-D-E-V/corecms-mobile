@@ -8,12 +8,12 @@ import type { AgentActionView } from 'src/api/agent-actions';
 import { agentLine } from './AgentActionCard';
 import {
   REVISION_QUICK_NOTES,
+  actionImages,
   actionTitle,
   appendQuickNote,
   canRequestRevision,
   canSubmitRevision,
   revisionsLeftText,
-  socialPostOf,
 } from './agent-action-format';
 
 // ----------------------------------------------------------------------
@@ -50,7 +50,7 @@ export function RevisionSheet({
     }
   }, [open, action?.id]);
 
-  const post = socialPostOf(action);
+  const actionImageUrls = actionImages(action);
   const allowed = action ? canRequestRevision(action) : false;
   const ready = canSubmitRevision(note, images);
   const leftText = revisionsLeftText(action?.revisionsLeft);
@@ -128,13 +128,13 @@ export function RevisionSheet({
             ))}
           </View>
 
-          {post && post.imageUrls.length > 0 ? (
+          {actionImageUrls.length > 0 ? (
             <View className="gap-1.5">
               <Text variant="caption" tone="muted">
                 Chọn ảnh cần làm lại{images.length > 0 ? ` (đã chọn ${images.length})` : ''}
               </Text>
               <View className="flex-row flex-wrap gap-2">
-                {post.imageUrls.map((url, i) => {
+                {actionImageUrls.map((url, i) => {
                   const selected = images.includes(url);
                   return (
                     <Pressable
