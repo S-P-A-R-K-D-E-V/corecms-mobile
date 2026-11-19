@@ -6,6 +6,7 @@ import {
   agentActionIdOf,
   agentTaskIdFromUrl,
   agentTaskIdOf,
+  inboxConversationIdFromUrl,
   notificationAppRoute,
   notificationTargetRoute,
   notificationWebUrl,
@@ -115,5 +116,25 @@ describe('việc của agent', () => {
       `/agent/approvals/${ACTION}`
     );
     expect(notificationTargetRoute('/dashboard/agent/approvals', { agentActionId: ACTION })).toBe(`/agent/approvals/${ACTION}`);
+  });
+});
+
+// Hộp thư khách: thông báo loại Conversation (11) có actionUrl /dashboard/inbox?c=<id> → mở thẳng hội thoại trên app.
+describe('hộp thư khách', () => {
+  const CONV = '7d3c2b1a-0f9e-4d8c-b7a6-5e4f3d2c1b0a';
+
+  it('inboxConversationIdFromUrl: chỉ đọc ?c= của /dashboard/inbox, phải là GUID', () => {
+    expect(inboxConversationIdFromUrl(`/dashboard/inbox?c=${CONV}`)).toBe(CONV);
+    expect(inboxConversationIdFromUrl(`/dashboard/inbox/?tab=all&c=${CONV}`)).toBe(CONV);
+    expect(inboxConversationIdFromUrl('/dashboard/inbox')).toBeNull();
+    expect(inboxConversationIdFromUrl('/dashboard/inbox?c=abc')).toBeNull();
+    expect(inboxConversationIdFromUrl(`/dashboard/hr/leave?c=${CONV}`)).toBeNull();
+    expect(inboxConversationIdFromUrl(`https://evil.example/dashboard/inbox?c=${CONV}`)).toBeNull();
+  });
+
+  it('có mã hội thoại → /inbox/<id>; không có → danh sách hộp thư', () => {
+    expect(notificationTargetRoute(`/dashboard/inbox?c=${CONV}`, null)).toBe(`/inbox/${CONV}`);
+    expect(notificationTargetRoute('/dashboard/inbox', null)).toBe('/inbox');
+    expect(notificationAppRoute(`/dashboard/inbox?c=${CONV}`)).toBe('/inbox');
   });
 });

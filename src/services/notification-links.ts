@@ -28,6 +28,8 @@ const APP_ROUTES: Record<string, string> = {
   '/dashboard/hr/records': '/hr/records',
   '/dashboard/hr/targets': '/hr',
   '/dashboard/hr/violations': '/hr/violations',
+  // Hộp thư khách (thông báo loại Conversation): có ?c=<mã hội thoại> thì mở thẳng hội thoại (notificationTargetRoute).
+  '/dashboard/inbox': '/inbox',
   '/dashboard/inspection': '/inspection',
   '/dashboard/inspection/my-faults': '/inspection/faults',
   '/dashboard/late-cover/my-requests': '/shift-pool',
@@ -111,9 +113,32 @@ export function agentTaskIdFromUrl(actionUrl: unknown): string | null {
   return null;
 }
 
+const INBOX_PATH = '/dashboard/inbox';
+
+/** Mã hội thoại trong actionUrl /dashboard/inbox?c=<id> (thông báo loại Conversation); khác / không phải GUID → null. */
+export function inboxConversationIdFromUrl(actionUrl: unknown): string | null {
+  const url = dashboardPath(actionUrl);
+  if (!url) return null;
+  const [path, query = ''] = url.split('?');
+  if (path.replace(/\/+$/, '') !== INBOX_PATH) return null;
+  for (const pair of query.split('&')) {
+    const [key, value = ''] = pair.split('=');
+    if (key !== 'c') continue;
+    let id = value;
+    try {
+      id = decodeURIComponent(value);
+    } catch {
+      return null;
+    }
+    return GUID.test(id.trim()) ? id.trim() : null;
+  }
+  return null;
+}
+
 /**
  * Màn mở khi chạm thông báo (trong app hoặc push), theo thứ tự: phiếu agent xin duyệt (data.agentActionId) → chi tiết phiếu;
- * việc của agent (data.agentTaskId, hoặc actionUrl /dashboard/agent/center?task=<id>) → chi tiết việc; còn lại theo
+ * việc của agent (data.agentTaskId, hoặc actionUrl /dashboard/agent/center?task=<id>) → chi tiết việc; hội thoại hộp thư
+ * khách (actionUrl /dashboard/inbox?c=<id>) → hội thoại; còn lại theo
  * actionUrl (notificationAppRoute — /dashboard/agent/center không có mã việc → danh sách việc). null = không có màn tương ứng.
  */
 export function notificationTargetRoute(actionUrl: unknown, data?: unknown): string | null {
@@ -121,5 +146,7 @@ export function notificationTargetRoute(actionUrl: unknown, data?: unknown): str
   if (agentActionId) return `/agent/approvals/${agentActionId}`;
   const agentTaskId = agentTaskIdOf(data) ?? agentTaskIdFromUrl(actionUrl);
   if (agentTaskId) return `/agent/tasks/${agentTaskId}`;
+  const conversationId = inboxConversationIdFromUrl(actionUrl);
+  if (conversationId) return `/inbox/${conversationId}`;
   return notificationAppRoute(actionUrl);
 }

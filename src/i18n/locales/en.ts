@@ -457,6 +457,7 @@ export const en: Dict = {
     products: 'Products',
     invoices: 'Invoices',
     'purchase-orders': 'Purchasing',
+    inbox: 'Customer inbox',
     chat: 'Messages',
     assistant: 'AI assistant',
     'my-work': 'Work',
