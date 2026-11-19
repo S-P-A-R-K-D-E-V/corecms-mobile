@@ -53,12 +53,25 @@ export interface AgentPreviewField {
   value: string;
 }
 
+/** Một dòng của lịch đăng bài (phiếu social_batch). */
+export interface AgentSocialBatchItem {
+  postId: string;
+  scheduledAt: string | null;
+  /** Bài đã bị sửa sau khi gửi duyệt — dòng này sẽ không được hẹn. */
+  changed: boolean;
+  /** Bài không còn (đã xoá). */
+  missing: boolean;
+  post: AgentSocialPostPreview;
+}
+
 /** Bản xem trước dễ đọc của phiếu (BE dựng lúc đọc). kind lạ → coi như generic. */
 export interface AgentActionPreview {
-  kind: 'social_post' | 'generic' | (string & {});
+  kind: 'social_post' | 'social_batch' | 'generic' | (string & {});
   title: string;
   socialPost: AgentSocialPostPreview | null;
   fields: AgentPreviewField[];
+  /** Chỉ có khi kind = social_batch: các bài theo giờ đăng. */
+  socialBatch?: { items: AgentSocialBatchItem[] } | null;
 }
 
 /** Bản trước của cùng việc (phiếu bị "Yêu cầu sửa") — để so chữ / ảnh cũ và mới. */

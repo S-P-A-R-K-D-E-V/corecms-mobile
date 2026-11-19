@@ -1,4 +1,9 @@
-import type { AgentActionView, AgentPreviewChannel, AgentSocialPostPreview } from 'src/api/agent-actions';
+import type {
+  AgentActionView,
+  AgentPreviewChannel,
+  AgentSocialBatchItem,
+  AgentSocialPostPreview,
+} from 'src/api/agent-actions';
 
 // ----------------------------------------------------------------------
 // Phần thuần của màn Duyệt việc agent (test được): nhãn trạng thái, thời gian còn lại, tham số của lệnh từ bodyJson,
@@ -184,6 +189,20 @@ export function actionTitle(
 export function socialPostOf(action: Pick<AgentActionView, 'preview'> | null | undefined): AgentSocialPostPreview | null {
   const preview = action?.preview;
   return preview?.kind === 'social_post' && preview.socialPost ? preview.socialPost : null;
+}
+
+/** Lịch đăng bài của phiếu (preview kind social_batch), không có / rỗng → null. */
+export function socialBatchOf(action: Pick<AgentActionView, 'preview'> | null | undefined): AgentSocialBatchItem[] | null {
+  const preview = action?.preview;
+  const items = preview?.kind === 'social_batch' ? preview.socialBatch?.items ?? [] : [];
+  return items.length > 0 ? items : null;
+}
+
+/** Ảnh của phiếu (bài lẻ hoặc mọi bài trong lịch) — để chọn ảnh cần làm lại. */
+export function actionImages(action: Pick<AgentActionView, 'preview'> | null | undefined): string[] {
+  const post = socialPostOf(action);
+  if (post) return post.imageUrls;
+  return (socialBatchOf(action) ?? []).flatMap((i) => i.post.imageUrls ?? []);
 }
 
 /** Một dòng trích caption: gộp xuống dòng / khoảng trắng, cắt ở `max` ký tự (không cắt đôi emoji). */

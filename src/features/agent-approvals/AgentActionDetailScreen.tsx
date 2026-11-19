@@ -11,7 +11,7 @@ import { extractApiError, hasApiErrorCode } from 'src/services/error';
 import type { AgentActionView } from 'src/api/agent-actions';
 import { agentTaskRoute } from 'src/features/agent-tasks/agent-task-format';
 
-import { ImageStrip, PreviewFields, SocialPostPreview } from './ActionPreview';
+import { ImageStrip, PreviewFields, SocialBatchPreview, SocialPostPreview } from './ActionPreview';
 import {
   actionParams,
   actionTitle,
@@ -22,6 +22,7 @@ import {
   methodLabel,
   resultMessage,
   revisionsLeftText,
+  socialBatchOf,
   socialPostOf,
   splitRevisionNote,
   statusInfo,
@@ -80,6 +81,14 @@ function PreviewCard({ action }: { action: AgentActionView }) {
     return (
       <SectionCard title="Bài sẽ đăng" icon="post-outline">
         <SocialPostPreview post={post} />
+      </SectionCard>
+    );
+  }
+  const batch = socialBatchOf(action);
+  if (batch) {
+    return (
+      <SectionCard title={`Lịch đăng (${batch.length} bài)`} icon="calendar-clock">
+        <SocialBatchPreview items={batch} />
       </SectionCard>
     );
   }
