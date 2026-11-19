@@ -27,6 +27,11 @@ export function isSystemConversation(conversation: { systemKey?: string | null }
   return !!conversation?.systemKey;
 }
 
+/** Nhóm "Quản trị – Đội agent" (A1): thẻ phiếu / việc của đội agent + CEO trả lời trong nhóm. */
+export function isAgentAdminConversation(conversation: { systemKey?: string | null } | null | undefined): boolean {
+  return conversation?.systemKey === SYSTEM_KEYS.agentAdmin;
+}
+
 /** Tên của người gửi: hệ thống luôn có tên dù danh bạ không có mục của nó. */
 export function senderDisplayName(userId: string, user: { fullName?: string | null; isSystem?: boolean } | null | undefined): string | null {
   if (isSystemUserId(userId) || user?.isSystem) return user?.fullName?.trim() || t('chat.system.sender');
