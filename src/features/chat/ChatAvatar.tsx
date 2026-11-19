@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Image } from 'react-native';
 
-import { Text } from 'src/components/ui';
+import { Icon, Text, type IconName } from 'src/components/ui';
 import { getStorageUrl } from 'src/api/axios';
 
 function initialsOf(name: string) {
@@ -13,10 +13,12 @@ type Props = {
   avatarUrl?: string | null;
   size?: number;
   online?: boolean;
+  /** Hội thoại / người gửi hệ thống: icon (robot / chuông) thay ảnh và chữ cái đầu. */
+  icon?: IconName | null;
 };
 
-/** Avatar nhân viên: hiện ảnh từ R2 (objectKey → /media), fallback chữ cái đầu. */
-export function ChatAvatar({ name, avatarUrl, size = 48, online }: Props) {
+/** Avatar nhân viên: hiện ảnh từ R2 (objectKey → /media), fallback chữ cái đầu; hệ thống hiện icon. */
+export function ChatAvatar({ name, avatarUrl, size = 48, online, icon }: Props) {
   const [failed, setFailed] = useState(false);
   const uri = avatarUrl ? getStorageUrl(avatarUrl) : '';
   const showImage = !!uri && !failed;
@@ -24,7 +26,14 @@ export function ChatAvatar({ name, avatarUrl, size = 48, online }: Props) {
 
   return (
     <View style={{ width: size, height: size }}>
-      {showImage ? (
+      {icon ? (
+        <View
+          className="rounded-full bg-secondary-soft items-center justify-center"
+          style={{ width: size, height: size }}
+        >
+          <Icon name={icon} size={Math.round(size * 0.52)} tone="secondary" />
+        </View>
+      ) : showImage ? (
         <Image
           source={{ uri }}
           onError={() => setFailed(true)}

@@ -69,6 +69,13 @@ import { AttachmentOutboxBar } from './AttachmentOutboxBar';
 import { useAttachmentOutbox } from './useAttachmentOutbox';
 import { imagePickerQuality, pickedImage, type PickedAttachment } from './attachment-prepare';
 import { DOCUMENT_PICKER_TYPES, MAX_FILES_PER_MESSAGE, formatBytes } from './attachment-rules';
+import { MessageCardView } from './MessageCardView';
+import {
+  senderDisplayName,
+  systemConversationIcon,
+  systemConversationName,
+  systemConversationSubtitle,
+} from './messenger-system';
 
 /** Mở tệp (không phải ảnh) trong trình xem in-app (SFSafariVC / Custom Tabs). */
 function openFileInApp(url: string) {
@@ -133,7 +140,7 @@ export function ChatDetailScreen() {
 
   const messages = useMessengerStore(selectMessages(conversationId!));
   const typing = useMessengerStore(selectTyping(conversationId!));
-  const { setMessages, prependMessages, clearUnread, setActiveConversation } = useMessengerStore();
+  const { setMessages, prependMessages, clearUnread, setActiveConversation, updateMessageCard } = useMessengerStore();
 
   // Đối tác trò chuyện (để hiện avatar + trạng thái trên header).
   const conv = useMessengerStore((s) => s.conversations.find((c) => c.id === conversationId));
@@ -141,7 +148,9 @@ export function ChatDetailScreen() {
   const isPrivate = !isGroupConversation(conv?.type);
   const otherId = conv?.participantIds.find((id) => id !== user?.id);
   const other = otherId ? userCache[otherId] : undefined;
-  const headerName = name || other?.fullName || 'Chat';
+  const systemKey = conv?.systemKey ?? null;
+  const headerName = name || conv?.name || systemConversationName(systemKey) || other?.fullName || 'Chat';
+  const systemSubtitle = systemConversationSubtitle(systemKey);
 
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -217,6 +226,19 @@ export function ChatDetailScreen() {
       setLoadingMore(false);
     }
   }, [hasMore, loadingMore, messages, conversationId, prependMessages]);
+
+  /**
+   * Nạp lại thẻ của các tin mới nhất (sau 409 / 404 khi bấm nút thẻ, hoặc lỡ sự kiện messageUpdated): chỉ thay `card` tại
+   * chỗ, không thay danh sách — giữ các trang tin cũ đã cuộn tải.
+   */
+  const reloadCards = useCallback(async () => {
+    try {
+      const latest = await fetchMessages(conversationId!, { limit: 50 });
+      for (const m of latest) {
+        if (m.card) updateMessageCard({ id: m.id, conversationId: conversationId!, card: m.card });
+      }
+    } catch {}
+  }, [conversationId, updateMessageCard]);
 
   async function handleSend() {
     const content = text.trim();
@@ -308,11 +330,14 @@ export function ChatDetailScreen() {
           avatarUrl={isPrivate ? other?.avatarUrl : null}
           size={40}
           online={isPrivate && (other?.online ?? false)}
+          icon={systemConversationIcon(systemKey)}
         />
         <View className="flex-1">
           <Text variant="subtitle" numberOfLines={1}>{headerName}</Text>
           {typing.length > 0 ? (
             <Text variant="caption" tone="primary">Đang nhập...</Text>
+          ) : systemSubtitle ? (
+            <Text variant="caption" tone="muted" numberOfLines={1}>{systemSubtitle}</Text>
           ) : isPrivate ? (
             <Text variant="caption" tone={other?.online ? 'primary' : 'muted'}>
               {other?.online ? 'Đang hoạt động' : 'Ngoại tuyến'}
@@ -340,7 +365,16 @@ export function ChatDetailScreen() {
               return (
                 <>
                   {showDate ? <DayChip iso={item.createdAt} /> : null}
-                  <Bubble msg={item} isMine={item.senderId === user?.id} onOpenImage={openImage} />
+                  {item.card ? (
+                    <MessageCardView
+                      card={item.card}
+                      createdAt={item.createdAt}
+                      senderName={senderDisplayName(item.senderId, userCache[item.senderId]) ?? t('chat.system.sender')}
+                      onReload={reloadCards}
+                    />
+                  ) : (
+                    <Bubble msg={item} isMine={item.senderId === user?.id} onOpenImage={openImage} />
+                  )}
                 </>
               );
             }}
