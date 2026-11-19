@@ -60,6 +60,7 @@ function VariantRow({
   onSell,
   seeCost,
   onEditStock,
+  onPhotos,
   itemKind,
 }: {
   child: IProductChild;
@@ -67,12 +68,33 @@ function VariantRow({
   itemKind?: string;
   seeCost: boolean;
   onEditStock?: () => void;
+  /** Mở màn Ảnh của riêng mẫu này (mỗi mẫu một bộ ảnh); không có quyền sửa ảnh → không hiện. */
+  onPhotos?: () => void;
 }) {
   const stock = childStock(child);
   const cost = seeCost ? avgCost(child.inventories) : null;
   const attrs = (child.attributes ?? []).map((a) => a.attributeValue).join(' · ');
   return (
     <View className="flex-row items-center gap-3 py-2.5">
+      {onPhotos ? (
+        <Pressable
+          onPress={onPhotos}
+          accessibilityLabel={`${t('erp.images.entry')} ${attrs || child.name}`}
+          className="items-center gap-0.5"
+          style={{ width: 52 }}
+        >
+          {child.coverImageUrl ? (
+            <ProductThumb uri={child.coverImageUrl} name={child.name} size={44} />
+          ) : (
+            <View style={{ width: 44, height: 44, borderRadius: 12 }} className="border border-dashed border-line dark:border-line-dark items-center justify-center">
+              <Icon name="camera-plus-outline" size={18} tone="muted" />
+            </View>
+          )}
+          {!child.coverImageUrl ? (
+            <Text variant="caption" tone="muted" numberOfLines={1} style={{ fontSize: 9 }}>{t('erp.images.noPhoto')}</Text>
+          ) : null}
+        </Pressable>
+      ) : null}
       <View className="flex-1">
         <Text variant="bodySmall" className="font-semibold" numberOfLines={1}>{attrs || child.name}</Text>
         <Text variant="caption" tone="muted" numberOfLines={1}>
@@ -197,7 +219,14 @@ export function ProductDetailScreen() {
           {children.map((c, i) => (
             <View key={c.id}>
               {i > 0 ? <Divider /> : null}
-              <VariantRow child={c} itemKind={p.itemKind} seeCost={seeCost} onSell={() => sell(lineFromVariant(p, c))} onEditStock={editChild(c)} />
+              <VariantRow
+                child={c}
+                itemKind={p.itemKind}
+                seeCost={seeCost}
+                onSell={() => sell(lineFromVariant(p, c))}
+                onEditStock={editChild(c)}
+                onPhotos={editImages ? () => router.push(`/products/images/${c.id}` as any) : undefined}
+              />
             </View>
           ))}
         </SectionCard>

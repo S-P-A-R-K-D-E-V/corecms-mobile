@@ -5,6 +5,7 @@ import {
   defaultPreset,
   makePrimary,
   move,
+  nextVariant,
   remove,
   sameOrder,
   toggleTag,
@@ -45,5 +46,20 @@ describe('bộ ảnh sản phẩm', () => {
     expect(canEditProductImages(owner, false)).toBe(true);
     expect(canEditProductImages(owner, true)).toBe(false);
     expect(canEditProductImages({ permissions: [] } as any, false)).toBe(false);
+  });
+});
+
+describe('nextVariant (Lưu & sang mẫu tiếp)', () => {
+  const v = (id: string, cover: string | null = null) => ({ id, coverUrl: cover });
+
+  it('jumps to the next variant without a photo, wrapping around', () => {
+    const list = [v('18k'), v('25k', 'a.jpg'), v('50k'), v('70k', 'b.jpg')];
+    expect(nextVariant(list, '25k')?.id).toBe('50k');
+    expect(nextVariant(list, '50k')?.id).toBe('18k');
+  });
+
+  it('falls back to the very next variant when all have photos, none when alone', () => {
+    expect(nextVariant([v('a', 'x'), v('b', 'y')], 'a')?.id).toBe('b');
+    expect(nextVariant([v('a')], 'a')).toBeNull();
   });
 });
