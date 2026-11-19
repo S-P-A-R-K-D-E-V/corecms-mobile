@@ -25,6 +25,8 @@ const TYPE_ICON: Record<string, { icon: IconName; color: string }> = {
   Shift: { icon: 'calendar-clock', color: brand.info },
   Leave: { icon: 'calendar-remove-outline', color: brand.warning },
   System: { icon: 'cog-outline', color: brand.secondary },
+  // Hộp thư khách: tin khách mới (Messenger / bình luận fanpage).
+  Conversation: { icon: 'facebook-messenger', color: '#0A7CFF' },
   default: { icon: 'bell-outline', color: brand.muted },
 };
 

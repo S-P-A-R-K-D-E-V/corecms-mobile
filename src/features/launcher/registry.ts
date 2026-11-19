@@ -62,6 +62,9 @@ export const SHIFT_SCHEDULING_FEATURE = 'workforce.shift-scheduling';
 /** Việc được giao (việc theo ca của core-be CleaningController RequireFeature). */
 export const CLEANING_FEATURE = 'workforce.cleaning';
 
+/** Bán hàng qua mạng xã hội (đăng bài, Hộp thư khách — core-be PlanFeatureKeys.SocialSelling). */
+export const SOCIAL_SELLING_FEATURE = 'social.selling';
+
 /** Khoá tính năng bán hàng F&B của gói cửa hàng. */
 export const FNB_POS_FEATURE = 'commerce.fnb.pos';
 
@@ -121,6 +124,12 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'products', label: 'Hàng hoá', icon: 'package-variant-closed', href: '/(tabs)/products', tone: 'info', group: 'sales' },
   { key: 'invoices', label: 'Hoá đơn', icon: 'receipt', href: '/(tabs)/invoices', tone: 'success', group: 'sales', allPermissions: [PERMISSIONS.sales.orderRead] },
   { key: 'purchase-orders', label: 'Nhập hàng', icon: 'truck-delivery-outline', href: '/purchase-orders', tone: 'warning', group: 'sales', allPermissions: [PERMISSIONS.purchase.read] },
+  // Hộp thư khách: tin nhắn Messenger + bình luận fanpage (conversation.read; core-be RequireFeature social.selling).
+  {
+    key: 'inbox', label: 'Hộp thư khách', icon: 'facebook-messenger', href: '/inbox', tone: 'info', group: 'sales',
+    allPermissions: [PERMISSIONS.conversation.read],
+    visible: (_u, ctx) => hasStoreFeature(ctx, SOCIAL_SELLING_FEATURE),
+  },
 
   // ── Cá nhân (mọi nhân viên) ────────────────────────────────────────
   { key: 'checkin', label: 'Điểm danh', icon: 'fingerprint', href: '/(tabs)/checkin', tone: 'primary', group: 'personal' },

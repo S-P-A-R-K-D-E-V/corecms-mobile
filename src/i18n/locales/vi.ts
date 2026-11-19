@@ -458,6 +458,7 @@ export const vi = {
     products: 'Hàng hoá',
     invoices: 'Hoá đơn',
     'purchase-orders': 'Nhập hàng',
+    inbox: 'Hộp thư khách',
     chat: 'Tin nhắn',
     assistant: 'Trợ lý AI',
     'my-work': 'Công việc',

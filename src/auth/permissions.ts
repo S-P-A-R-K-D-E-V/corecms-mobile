@@ -146,6 +146,11 @@ export const PERMISSIONS = {
   },
   /** Đội agent (K3): xem + duyệt / từ chối phiếu agent xin làm lệnh ghi — duyệt là máy chủ chạy lệnh ngay. Admin có sẵn. */
   agent: { approve: 'agent.approve' },
+  /**
+   * Hộp thư khách (Messenger / bình luận fanpage): xem; trả lời + giành / trả quyền + nhãn / ghi chú / đóng; giành từ người
+   * khác + giao việc + mẫu trả lời nhanh. Mặc định read + reply cho Quản lý + Admin, manage cho Admin.
+   */
+  conversation: { read: 'conversation.read', reply: 'conversation.reply', manage: 'conversation.manage' },
 } as const;
 
 const A = PERMISSIONS.analytics;

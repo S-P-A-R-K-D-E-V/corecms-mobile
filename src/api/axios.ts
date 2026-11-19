@@ -311,6 +311,24 @@ export const endpoints = {
     reject: (id: string) => `/agent-actions/${id}/reject`,
     requestRevision: (id: string) => `/agent-actions/${id}/request-revision`,
   },
+  /** Hộp thư khách (Messenger / bình luận fanpage — docs/cici/plans/fb-inbox-api-contract.md): quyền conversation.*. */
+  inbox: {
+    summary: '/conversations/summary',
+    list: '/conversations',
+    detail: (id: string) => `/conversations/${id}`,
+    messages: (id: string) => `/conversations/${id}/messages`,
+    hide: (id: string, messageId: string) => `/conversations/${id}/messages/${messageId}/hide`,
+    privateReply: (id: string) => `/conversations/${id}/private-reply`,
+    take: (id: string) => `/conversations/${id}/take`,
+    release: (id: string) => `/conversations/${id}/release`,
+    read: (id: string) => `/conversations/${id}/read`,
+    unread: (id: string) => `/conversations/${id}/unread`,
+    tags: (id: string) => `/conversations/${id}/tags`,
+    status: (id: string) => `/conversations/${id}/status`,
+    customer: (id: string) => `/conversations/${id}/customer`,
+    images: '/conversations/images',
+    quickReplies: '/conversation-quick-replies',
+  },
   /** Trung tâm Agent (K4 — bảng việc của đội agent): mọi API ở đây cần agent.approve. */
   agentCenter: {
     summary: '/agent-center/summary',

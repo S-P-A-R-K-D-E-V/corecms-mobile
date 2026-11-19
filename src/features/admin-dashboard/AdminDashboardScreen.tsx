@@ -13,6 +13,7 @@ import { StoreWeeklyTargetCard } from 'src/features/hr/StaffBonusCards';
 import { WorkTodayCard } from 'src/features/work/WorkTodayCard';
 import { AgentApprovalsCard } from 'src/features/agent-approvals/AgentApprovalsCard';
 import { AgentTasksCard } from 'src/features/agent-tasks/AgentTasksCard';
+import { InboxCard } from 'src/features/inbox/InboxCard';
 
 import { RevenueChart } from './RevenueChart';
 import {
@@ -288,6 +289,7 @@ export function AdminDashboardScreen() {
 
       <AgentApprovalsCard />
       <AgentTasksCard />
+      <InboxCard />
       <KpiGrid />
       <RevenueSection days={days} />
       <StoreWeeklyTargetCard />
