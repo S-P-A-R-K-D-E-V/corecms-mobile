@@ -58,3 +58,14 @@ export function toggleTag(selected: string[], id: string): string[] {
 export function defaultPreset(presets: ImagePreset[]): string | null {
   return presets.find((p) => p.group === 'lifestyle')?.id ?? presets[0]?.id ?? null;
 }
+
+/**
+ * Mẫu kế tiếp cho "Lưu & sang mẫu tiếp": mẫu chưa có ảnh đứng sau mẫu đang mở (vòng lại từ đầu), hết mẫu chưa có ảnh thì
+ * mẫu ngay sau. null = không có mẫu nào khác.
+ */
+export function nextVariant<T extends { id: string; coverUrl: string | null }>(variants: T[], currentId: string): T | null {
+  if (variants.length < 2) return null;
+  const at = Math.max(0, variants.findIndex((v) => v.id === currentId));
+  const ordered = [...variants.slice(at + 1), ...variants.slice(0, at)];
+  return ordered.find((v) => !v.coverUrl) ?? ordered[0] ?? null;
+}

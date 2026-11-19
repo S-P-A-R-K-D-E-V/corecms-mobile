@@ -38,6 +38,9 @@ export interface IProductChild {
   isActive: boolean;
   inventories?: IProductInventory[] | null;
   attributes?: IProductAttribute[] | null;
+  /** Ảnh đầu của bộ ẢNH HỆ THỐNG của mẫu này (chỉ có ở chi tiết hàng); null = chưa có ảnh. */
+  coverImageUrl?: string | null;
+  hasSystemImages?: boolean;
 }
 
 /** 1 combo, 2 hàng hoá thường, 3 dịch vụ. */

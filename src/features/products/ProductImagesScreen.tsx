@@ -11,6 +11,7 @@ import { t } from 'src/i18n';
 import { extractApiError } from 'src/services/error';
 import {
   analyzeProductImage,
+  copyProductImages,
   frameProductImage,
   generateProductImage,
   getProductImageCatalog,
@@ -19,7 +20,9 @@ import {
   uploadProductImage,
   type ImageAnalysis,
   type ImageResult,
+  type ProductImageVariant,
 } from 'src/api/productImages';
+import { money } from 'src/features/erp/shared';
 import { imagePickerQuality, pickedImage, prepareAttachment } from 'src/features/chat/attachment-prepare';
 
 import {
@@ -28,6 +31,7 @@ import {
   defaultPreset,
   makePrimary,
   move,
+  nextVariant,
   remove,
   sameOrder,
   toggleTag,
@@ -43,15 +47,20 @@ type Mode = 'keep' | 'ai';
 
 export function ProductImagesScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  // Chuyển mẫu (router.replace sang id khác) → dựng lại màn từ đầu: bộ ảnh / mô tả nạp theo đúng mẫu mới.
+  return <ProductImagesEditor key={id} id={id!} />;
+}
+
+function ProductImagesEditor({ id }: { id: string }) {
   const qc = useQueryClient();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['erp', 'product-images', id],
-    queryFn: () => getProductImages(id!),
+    queryFn: () => getProductImages(id),
     enabled: !!id,
   });
   const { data: catalog } = useQuery({
     queryKey: ['erp', 'product-image-catalog', id],
-    queryFn: () => getProductImageCatalog(id!),
+    queryFn: () => getProductImageCatalog(id),
     enabled: !!id,
     staleTime: 3_600_000,
   });
@@ -73,6 +82,10 @@ export function ProductImagesScreen() {
   const [picked, setPicked] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // "Dùng ảnh này cho mẫu khác…": chọn nhiều mẫu cùng nhóm.
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copyTargets, setCopyTargets] = useState<string[]>([]);
+  const [copying, setCopying] = useState(false);
 
   const loaded = useRef(false);
   useEffect(() => {
@@ -89,7 +102,7 @@ export function ProductImagesScreen() {
     if (!url) return;
     setAnalyzing(true);
     try {
-      const result = await analyzeProductImage(id!, url);
+      const result = await analyzeProductImage(id, url);
       setAnalyses((prev) => ({ ...prev, [url]: result }));
       setPreset(defaultPreset(result.presets));
       setTags([]);
@@ -141,7 +154,7 @@ export function ProductImagesScreen() {
       // Tuần tự: mỗi ảnh giải mã tốn nhiều RAM.
       for (const asset of result.assets) {
         const prepared = await prepareAttachment(pickedImage(asset));
-        added.push(await uploadProductImage(id!, { uri: prepared.uri, name: prepared.name, contentType: prepared.contentType }));
+        added.push(await uploadProductImage(id, { uri: prepared.uri, name: prepared.name, contentType: prepared.contentType }));
       }
     } catch (err) {
       toast.error(extractApiError(err));
@@ -164,8 +177,8 @@ export function ProductImagesScreen() {
     setRunning(n);
     const jobs = Array.from({ length: n }, () =>
       (mode === 'keep'
-        ? frameProductImage(id!, { sourceUrl: source, background, aspect: 'square' })
-        : generateProductImage(id!, { sourceUrl: source, preset: preset!, tags: tags.length ? tags : undefined, note: note.trim() || undefined })
+        ? frameProductImage(id, { sourceUrl: source, background, aspect: 'square' })
+        : generateProductImage(id, { sourceUrl: source, preset: preset!, tags: tags.length ? tags : undefined, note: note.trim() || undefined })
       ).then((r) => {
         setResults((prev) => [r, ...prev]);
         setViewing(r);
@@ -187,19 +200,30 @@ export function ProductImagesScreen() {
     toast.success(t('erp.images.added', { n: toAdd.length - next.dropped }));
   }
 
-  async function save() {
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: ['erp', 'product'] });
+    qc.invalidateQueries({ queryKey: ['erp', 'products'] });
+    // Cả nhóm: dải mẫu của các mẫu khác hiện lại dấu "đã có ảnh".
+    qc.invalidateQueries({ queryKey: ['erp', 'product-images'] });
+  }
+
+  function openVariant(v: ProductImageVariant) {
+    router.replace(`/products/images/${v.id}` as any);
+  }
+
+  /** Lưu rồi quay lại, hoặc sang mẫu {@link next} ("Lưu & sang mẫu tiếp"). */
+  async function save(next?: ProductImageVariant | null) {
     if (!data) return;
     setSaving(true);
     try {
-      await saveProductImages(id!, {
+      await saveProductImages(id, {
         urls: sameOrder(gallery, data.images) ? undefined : gallery,
         onlineDescription: description.trim(),
       });
-      qc.invalidateQueries({ queryKey: ['erp', 'product'] });
-      qc.invalidateQueries({ queryKey: ['erp', 'products'] });
-      qc.invalidateQueries({ queryKey: ['erp', 'product-images', id] });
+      invalidate();
       toast.success(t('erp.images.saved'));
-      router.back();
+      if (next) openVariant(next);
+      else router.back();
     } catch (err) {
       toast.error(extractApiError(err));
     } finally {
@@ -208,6 +232,35 @@ export function ProductImagesScreen() {
   }
 
   const dirty = !!data && (!sameOrder(gallery, data.images) || description.trim() !== (data.onlineDescription ?? '').trim());
+  const busy = running > 0 || uploading || saving;
+
+  function switchTo(v: ProductImageVariant) {
+    if (v.id === id || busy) return;
+    if (!dirty) {
+      openVariant(v);
+      return;
+    }
+    Alert.alert(t('erp.images.switchTitle'), t('erp.images.switchBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      { text: t('erp.images.discard'), style: 'destructive', onPress: () => openVariant(v) },
+    ]);
+  }
+
+  async function copy() {
+    if (copyTargets.length === 0) return;
+    setCopying(true);
+    try {
+      const { copied } = await copyProductImages(id, copyTargets);
+      invalidate();
+      toast.success(t('erp.images.copyDone', { n: copied }));
+      setCopyOpen(false);
+      setCopyTargets([]);
+    } catch (err) {
+      toast.error(extractApiError(err));
+    } finally {
+      setCopying(false);
+    }
+  }
 
   function leave() {
     if (!dirty) {
@@ -237,12 +290,81 @@ export function ProductImagesScreen() {
     );
   }
 
-  const busy = running > 0 || uploading || saving;
   const pickedNew = picked.filter((u) => !gallery.includes(u));
+  const variants = data.variants ?? [];
+  const next = nextVariant(variants, id);
+  const others = variants.filter((v) => v.id !== id);
+  // Chỉ dùng cho mẫu khác được bộ ẢNH HỆ THỐNG đã lưu (ảnh KiotViet thì không).
+  const canCopy = data.images.length > 0 && (data.imagesCustomized || !data.kiotVietLinked) && !dirty;
+  const subtitle = [data.name, data.price ? money(data.price) : null, data.code].filter(Boolean).join(' · ');
 
   return (
     <Screen scroll tabBarInset={false}>
-      <AppHeader back onBack={leave} title={t('erp.images.title')} subtitle={data.name} />
+      <AppHeader back onBack={leave} title={t('erp.images.title')} subtitle={subtitle} />
+
+      {/* ---------- Các mẫu cùng nhóm (KiotViet: mỗi giá một mã, một bộ ảnh — vd Squishy 18k…140k) ---------- */}
+      {variants.length > 1 ? (
+        <SectionCard title={t('erp.images.variants', { n: variants.length })} icon="shape-outline">
+          <Text variant="caption" tone="muted">{t('erp.images.variantsHint')}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 8 }}>
+            {variants.map((v) => (
+              <Pressable
+                key={v.id}
+                onPress={() => switchTo(v)}
+                accessibilityLabel={`${v.label} ${money(v.price)}`}
+                style={{ width: 84 }}
+                className={`rounded-xl p-1 gap-1 ${v.id === id ? 'border-[3px] border-primary' : 'border border-line dark:border-line-dark'}`}
+              >
+                <View style={{ width: 74, height: 74 }} className="rounded-lg overflow-hidden bg-ink/5 dark:bg-white/10 items-center justify-center">
+                  {v.coverUrl ? (
+                    <Image source={{ uri: v.coverUrl }} style={{ width: 74, height: 74 }} resizeMode="cover" />
+                  ) : (
+                    <Icon name="camera-plus-outline" size={22} tone="muted" />
+                  )}
+                </View>
+                <Text variant="caption" className="font-semibold" numberOfLines={1}>{money(v.price)}</Text>
+                <Text variant="caption" tone="muted" numberOfLines={1}>{v.coverUrl ? v.label : t('erp.images.noPhoto')}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Button
+            variant="outline"
+            size="sm"
+            icon="content-copy"
+            disabled={busy || copying}
+            onPress={() => (canCopy ? setCopyOpen((o) => !o) : toast.info(t('erp.images.copySaveFirst')))}
+          >
+            {t('erp.images.copy')}
+          </Button>
+          {copyOpen ? (
+            <View className="gap-2">
+              <Text variant="caption" tone="muted">{t('erp.images.copyHint')}</Text>
+              <View className="flex-row flex-wrap gap-2">
+                {others.map((v) => (
+                  <Chip
+                    key={v.id}
+                    size="sm"
+                    color="primary"
+                    variant="outlined"
+                    icon={v.coverUrl ? 'image-outline' : undefined}
+                    label={`${money(v.price)} · ${v.code}`}
+                    selected={copyTargets.includes(v.id)}
+                    onPress={() =>
+                      setCopyTargets((cur) => (cur.includes(v.id) ? cur.filter((x) => x !== v.id) : [...cur, v.id]))
+                    }
+                  />
+                ))}
+              </View>
+              <Pressable onPress={() => setCopyTargets(others.filter((v) => !v.coverUrl).map((v) => v.id))}>
+                <Text variant="caption" tone="primary">{t('erp.images.copyAll')}</Text>
+              </Pressable>
+              <Button size="sm" icon="check" loading={copying} disabled={copyTargets.length === 0} onPress={copy}>
+                {t('erp.images.copyConfirm', { n: copyTargets.length })}
+              </Button>
+            </View>
+          ) : null}
+        </SectionCard>
+      ) : null}
 
       {data.kiotVietLinked ? (
         <Text variant="caption" tone="muted">
@@ -453,9 +575,19 @@ export function ProductImagesScreen() {
         <Text variant="caption" tone="muted">{t('erp.images.descriptionHint')}</Text>
       </SectionCard>
 
-      <Button icon="content-save-outline" loading={saving} disabled={!dirty || running > 0 || uploading} onPress={save}>
+      <Button icon="content-save-outline" loading={saving} disabled={!dirty || running > 0 || uploading} onPress={() => save()}>
         {t('erp.images.save')}
       </Button>
+      {next ? (
+        <Button
+          variant="soft"
+          icon="arrow-right"
+          disabled={running > 0 || uploading || saving}
+          onPress={() => (dirty ? save(next) : openVariant(next))}
+        >
+          {`${t('erp.images.saveNext')} (${money(next.price)})`}
+        </Button>
+      ) : null}
     </Screen>
   );
 }

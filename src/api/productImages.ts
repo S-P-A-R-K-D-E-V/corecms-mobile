@@ -16,7 +16,14 @@ export type ProductImages = {
   images: string[];
   description: string | null;
   onlineDescription: string | null;
+  /** Giá bán của mẫu đang mở (core-be cũ không trả). */
+  price?: number;
+  /** Mã cha + các mẫu con cùng nhóm, theo giá; rỗng / thiếu = hàng không có mẫu. */
+  variants?: ProductImageVariant[] | null;
 };
+
+/** Một mẫu cùng nhóm. coverUrl = ảnh đầu của bộ ẢNH HỆ THỐNG (null = chưa có ảnh; ảnh KiotViet không tính). */
+export type ProductImageVariant = { id: string; code: string; label: string; price: number; isMaster: boolean; coverUrl: string | null };
 
 export type ImagePreset = { id: string; label: string; group: 'studio' | 'lifestyle'; hint: string };
 export type ImageTag = { id: string; label: string };
@@ -46,6 +53,11 @@ export async function getProductImageCatalog(id: string) {
 
 export async function saveProductImages(id: string, input: { urls?: string[]; onlineDescription?: string }) {
   return (await axios.put<ProductImages>(root(id), input)).data;
+}
+
+/** Dùng bộ ảnh hệ thống của mẫu này cho các mẫu cùng nhóm (thay bộ ảnh cũ của các mẫu đó). */
+export async function copyProductImages(id: string, targetIds: string[]) {
+  return (await axios.post<{ copied: number }>(`${root(id)}/copy`, { targetIds })).data;
 }
 
 /** Ảnh đã chuẩn bị (vẽ lại bỏ EXIF/GPS, JPEG) → presigned URL → PUT lên R2. Trả URL công khai (chưa gắn vào sản phẩm). */
