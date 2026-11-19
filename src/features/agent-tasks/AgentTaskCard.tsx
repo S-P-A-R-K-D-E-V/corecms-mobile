@@ -12,6 +12,7 @@ import {
   planProgress,
   taskStatusInfo,
   totalTokens,
+  waitingChildrenText,
 } from './agent-task-format';
 
 // ----------------------------------------------------------------------
@@ -24,6 +25,7 @@ export function AgentTaskCard({ task, now, onPress }: { task: AgentTaskView; now
   const elapsed = elapsedMs(task, now);
   const live = isLiveStatus(task.status);
   const tokens = totalTokens(task);
+  const children = waitingChildrenText(task);
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${task.agentName}: ${task.title}, ${status.label}`}>
@@ -47,6 +49,15 @@ export function AgentTaskCard({ task, now, onPress }: { task: AgentTaskView; now
         <Text variant="body" className="font-semibold" numberOfLines={2}>
           {task.title || '(Chưa đặt tên)'}
         </Text>
+
+        {children ? (
+          <View className="flex-row items-center gap-1">
+            <Icon name="source-branch" size={14} tone="primary" />
+            <Text variant="caption" tone="primary" className="font-semibold" numberOfLines={1}>
+              {children}
+            </Text>
+          </View>
+        ) : null}
 
         {task.currentStepLabel ? (
           <Text variant="caption" tone={live ? 'primary' : 'muted'} numberOfLines={2}>
