@@ -329,6 +329,8 @@ export const endpoints = {
     images: '/conversations/images',
     quickReplies: '/conversation-quick-replies',
   },
+  /** Trung tâm việc (T2): việc giao nhân viên + vệ sinh theo ca, lọc theo quyền người xem (hr.task.manage / cleaning.read). */
+  workHub: { items: '/work-hub/items' },
   /** Trung tâm Agent (K4 — bảng việc của đội agent): mọi API ở đây cần agent.approve. */
   agentCenter: {
     summary: '/agent-center/summary',

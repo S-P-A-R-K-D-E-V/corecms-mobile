@@ -2,6 +2,7 @@ import type { IconName } from 'src/components/ui';
 import type { AuthUser } from 'src/auth/auth-context';
 import { hasAnyRole, ADMIN_ROLES, SHIFT_CASH_ROLES } from 'src/auth/roles';
 import { canOpenAssistant } from 'src/features/assistant/assistant-access';
+import { canSeeWorkCenter } from 'src/features/work-center/work-center';
 import {
   hasAllPermissions,
   hasAnyPermission,
@@ -174,6 +175,12 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', tone: 'warning', group: 'manage', visible: (user) => hasAnyPermission(user, MANAGE_SCREEN_PERMISSIONS.approvals) },
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', tone: 'info', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.assignShift },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.coverShift },
+  // Trung tâm việc (T3): việc agent + việc giao nhân viên + vệ sinh theo ca — Cần xử lý / Đang làm / Xong hôm nay. Có MỘT trong
+  // agent.approve / hr.task.manage / cleaning.review; mỗi nguồn tải theo quyền riêng.
+  {
+    key: 'work-center', label: 'Trung tâm việc', icon: 'view-dashboard-variant-outline', href: '/manage/work-center', tone: 'primary', group: 'manage',
+    visible: (u) => canSeeWorkCenter(u),
+  },
   // Chấm việc giao riêng (hr.task.manage, gói phân ca như core-be); giao / huỷ việc vẫn ở web.
   {
     key: 'work-task-review', label: 'Chấm việc giao', icon: 'clipboard-check-multiple-outline', href: '/manage/work-tasks', tone: 'warning', group: 'manage',

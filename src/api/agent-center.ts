@@ -187,10 +187,18 @@ export async function getAgentCenterSummary(): Promise<AgentCenterSummary> {
   return { paused: d.paused === true, runnerEnabled: d.runnerEnabled !== false, counts, agents: num(d.agents) };
 }
 
-/** Danh sách việc (mới trước). `statuses` rỗng = máy chủ trả mọi trạng thái của 7 ngày gần nhất + mọi việc chưa xong. */
-export async function getAgentTasks(statuses: readonly string[] = [], take = 100): Promise<AgentTaskView[]> {
-  const params: Record<string, string | number> = { take };
+/**
+ * Danh sách việc (mới trước). `statuses` rỗng = máy chủ trả mọi trạng thái của 7 ngày gần nhất + mọi việc chưa xong.
+ * `hideConversation`: bỏ việc agent CSKH theo từng tin khách (trừ khi lỗi / chờ người) — Trung tâm việc dùng.
+ */
+export async function getAgentTasks(
+  statuses: readonly string[] = [],
+  take = 100,
+  opts: { hideConversation?: boolean } = {}
+): Promise<AgentTaskView[]> {
+  const params: Record<string, string | number | boolean> = { take };
   if (statuses.length > 0) params.status = statuses.join(',');
+  if (opts.hideConversation) params.hideConversation = true;
   const res = await axios.get<unknown>(endpoints.agentCenter.tasks, { params });
   return Array.isArray(res.data) ? res.data.map(normalizeTask) : [];
 }
