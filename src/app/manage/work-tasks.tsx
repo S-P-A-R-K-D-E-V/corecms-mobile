@@ -1,12 +1,9 @@
-import { RoleGuard } from 'src/auth/role-guard';
-import { MANAGE_SCREEN_PERMISSIONS } from 'src/auth/permissions';
-import { WorkTaskReviewScreen } from 'src/features/work/WorkTaskReviewScreen';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-// Chấm việc giao riêng theo quyền hr.task.manage (Core-be; mặc định Manager / Admin).
-export default function ManageWorkTasks() {
-  return (
-    <RoleGuard permissions={MANAGE_SCREEN_PERMISSIONS.workTaskReview}>
-      <WorkTaskReviewScreen />
-    </RoleGuard>
-  );
+import { legacyWorkRedirect } from 'src/features/work-center/work-center';
+
+// Màn cũ đã gộp vào Công việc (docs/cici/plans/cong-viec-mot-cho-plan.md) — giữ route để link / thông báo / ghim cũ vẫn mở đúng.
+export default function LegacyWorkTasks() {
+  const params = useLocalSearchParams();
+  return <Redirect href={legacyWorkRedirect('work-tasks', params) as any} />;
 }

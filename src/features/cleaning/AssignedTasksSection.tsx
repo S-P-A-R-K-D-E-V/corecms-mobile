@@ -37,7 +37,15 @@ function TaskCard({ task, onSubmit }: { task: IWorkTask; onSubmit: () => void })
       right={<Badge tone={STATUS_TONE[task.status]}>{WORK_TASK_STATUS_LABEL[task.status]}</Badge>}
       bodyClassName="pt-0 gap-1.5"
     >
-      {task.description ? <Text variant="bodySmall">{task.description}</Text> : null}
+      {task.sourceTemplateId ? (
+        // Việc lặp từ Lịch tuần (người làm cố định): mô tả = nhóm của việc định kỳ.
+        <View className="flex-row flex-wrap gap-1.5">
+          <Badge tone="secondary">Lặp hằng tuần</Badge>
+          {task.description ? <Badge tone="neutral">{task.description}</Badge> : null}
+        </View>
+      ) : task.description ? (
+        <Text variant="bodySmall">{task.description}</Text>
+      ) : null}
       {task.dueAt ? (
         <Text variant="caption" tone="muted">Hạn {dayjs(task.dueAt).format('HH:mm DD/MM')}</Text>
       ) : null}

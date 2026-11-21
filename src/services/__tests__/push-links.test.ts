@@ -62,8 +62,8 @@ describe('workPushRoute', () => {
   });
 
   it('người chấm, người duyệt việc riêng, loại khác', () => {
-    expect(workPushRoute({ category: 'Cleaning', type: 'cleaning-review' })).toBe('/manage/cleaning');
-    expect(workPushRoute({ category: 'Cleaning', type: 'work-task-review' })).toBe('/manage/work-tasks');
+    expect(workPushRoute({ category: 'Cleaning', type: 'cleaning-review' })).toBe('/manage/work-center?tab=board&source=schedule');
+    expect(workPushRoute({ category: 'Cleaning', type: 'work-task-review' })).toBe('/manage/work-center/task-review');
     expect(workPushRoute({ category: 'Hr' })).toBeNull();
     expect(workPushRoute(null)).toBeNull();
   });

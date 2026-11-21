@@ -95,6 +95,19 @@ export interface IWorkTask {
   submissionNote?: string | null;
   reviewedAt?: string | null;
   onTime?: boolean;
+  /** Việc lặp tự sinh từ việc định kỳ có người làm cố định (Lịch tuần); null = giao tay. */
+  sourceTemplateId?: string | null;
+  /** Ngày của việc lặp (yyyy-MM-dd). */
+  sourceDate?: string | null;
+}
+
+/** Giao việc cho một người (POST /work-tasks, hr.task.manage). Nhóm bỏ trống = Other. */
+export interface IAssignWorkTaskRequest {
+  title: string;
+  description?: string | null;
+  assigneeId: string;
+  /** ISO; bỏ trống = không hạn. */
+  dueAt?: string | null;
 }
 
 export type HrRecordType = 'CashDiscrepancy' | 'StockDiscrepancy' | 'Violation' | 'Warning';

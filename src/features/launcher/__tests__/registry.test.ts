@@ -172,25 +172,22 @@ describe('công việc — một ô cho mọi nhân viên', () => {
     expect(keys(none, featureContext(none))).not.toContain('my-work');
   });
 
-  it('ô Chấm việc giao cho người có hr.task.manage ở cửa hàng có gói phân ca', () => {
-    const lead = { ...manager, permissions: [...manager.permissions, 'hr.task.manage'], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
-    const admin = { ...owner, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
-    const noPlan = { ...owner, enabledFeatures: [] };
-    expect(keys(lead, featureContext(lead))).toContain('work-task-review');
-    expect(keys(admin, featureContext(admin))).toContain('work-task-review');
-    expect(keys({ ...manager, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] })).not.toContain('work-task-review');
-    expect(keys(noPlan, featureContext(noPlan))).not.toContain('work-task-review');
-  });
-
-  it('Việc theo ngày: một trong các quyền xem của /work-today, gói phân ca', () => {
+  it('ô Quản lý công việc (Công việc) cho người có quyền giao / xem / chấm việc; ô Chấm việc giao + Việc theo ngày đã gộp vào', () => {
+    const lead = { ...manager, permissions: ['hr.task.manage'], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
     const viewer = { ...manager, permissions: ['cleaning.read'], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
     const none = { ...manager, permissions: [], enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
     const admin = { ...owner, enabledFeatures: [SHIFT_SCHEDULING_FEATURE] };
-    const noPlan = { ...owner, enabledFeatures: [] };
-    expect(keys(viewer, featureContext(viewer))).toContain('work-day');
-    expect(keys(admin, featureContext(admin))).toContain('work-day');
-    expect(keys(none, featureContext(none))).not.toContain('work-day');
-    expect(keys(noPlan, featureContext(noPlan))).not.toContain('work-day');
+    expect(keys(lead, featureContext(lead))).toContain('work-center');
+    expect(keys(viewer, featureContext(viewer))).toContain('work-center');
+    expect(keys(admin, featureContext(admin))).toContain('work-center');
+    expect(keys(none, featureContext(none))).not.toContain('work-center');
+    for (const user of [lead, viewer, admin]) {
+      ['work-task-review', 'work-day'].forEach((k) => expect(keys(user, featureContext(user))).not.toContain(k));
+    }
+  });
+
+  it('ghim cũ Chấm việc giao / Việc theo ngày tự bỏ', () => {
+    expect(visiblePins(['work-task-review', 'work-day', 'pos'], owner).map((f) => f.key)).toEqual(['pos']);
   });
 
   it('ghim cũ của ô đã bỏ không làm hỏng lưới Dùng nhanh', () => {

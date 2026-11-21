@@ -1,12 +1,9 @@
-import { RoleGuard } from 'src/auth/role-guard';
-import { MANAGE_SCREEN_PERMISSIONS } from 'src/auth/permissions';
-import { WorkDayScreen } from 'src/features/work/WorkDayScreen';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-// Việc theo ngày: xem như GET /work-today; đánh dấu xong / gỡ theo quyền của từng loại việc (kiểm trong màn).
-export default function ManageWorkDay() {
-  return (
-    <RoleGuard permissions={MANAGE_SCREEN_PERMISSIONS.workDay}>
-      <WorkDayScreen />
-    </RoleGuard>
-  );
+import { legacyWorkRedirect } from 'src/features/work-center/work-center';
+
+// Màn cũ đã gộp vào Công việc (docs/cici/plans/cong-viec-mot-cho-plan.md) — giữ route để link / thông báo / ghim cũ vẫn mở đúng.
+export default function LegacyWorkDay() {
+  const params = useLocalSearchParams();
+  return <Redirect href={legacyWorkRedirect('work-day', params) as any} />;
 }

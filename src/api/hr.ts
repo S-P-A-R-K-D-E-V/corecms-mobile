@@ -13,6 +13,7 @@ import type {
   IHrRecord,
   IShiftLeave,
   IWorkTask,
+  IAssignWorkTaskRequest,
   WorkTaskStatus,
   ISalesTarget,
   IPolicyDocument,
@@ -102,6 +103,18 @@ export async function completeWorkTask(id: string): Promise<IWorkTask> {
 /** Huỷ (gỡ) việc giao riêng — không báo người được giao. */
 export async function cancelWorkTask(id: string): Promise<IWorkTask> {
   const response = await axios.put<IWorkTask>(endpoints.hr.taskCancel(id));
+  return response.data;
+}
+
+/** Giao việc cho một người (hr.task.manage) — core-be báo người được giao. */
+export async function assignWorkTask(data: IAssignWorkTaskRequest): Promise<IWorkTask> {
+  const response = await axios.post<IWorkTask>(endpoints.hr.tasks, data);
+  return response.data;
+}
+
+/** Đổi người làm — chỉ việc Đã giao / Trả lại (hr.task.manage); core-be báo người mới. */
+export async function reassignWorkTask(id: string, assigneeId: string): Promise<IWorkTask> {
+  const response = await axios.put<IWorkTask>(endpoints.hr.taskReassign(id), { assigneeId });
   return response.data;
 }
 

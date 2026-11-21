@@ -1670,6 +1670,59 @@ export interface ICleaningTaskInstance {
   reviewedAt?: string | null;
   reviewNote?: string | null;
   penalties: ICleaningPenalty[];
+  /** Nhóm tự đặt của việc định kỳ ("Vệ sinh", "Mở – đóng cửa"…); core-be cũ không trả. */
+  group?: string | null;
+  /** false = tick "Đã làm" không cần ảnh (vd mở / đóng cửa). Không có (core-be cũ) = cần ảnh. */
+  requiresPhoto?: boolean;
+  /** Hết ngày còn "Chưa làm" thì tự ghi vi phạm cho trưởng ca. */
+  autoViolation?: boolean;
+}
+
+// --- Việc định kỳ theo chuỗi (Lịch tuần của màn Công việc) ---
+/** 0 = Chủ nhật … 6 = Thứ bảy (như Date.getDay / System.DayOfWeek). */
+export interface ICleaningSeriesCell {
+  dayOfWeek: number;
+  block: CleaningShiftBlock;
+  templateId: string;
+}
+
+export interface ICleaningSeries {
+  seriesId: string;
+  name: string;
+  area?: string | null;
+  group?: string | null;
+  requiresPhoto: boolean;
+  autoViolation: boolean;
+  /** Người làm cố định — có thì mỗi ngày áp dụng sinh một việc giao riêng cho người đó (ca của ô bỏ qua). */
+  assigneeUserId?: string | null;
+  assigneeName?: string | null;
+  fromDate: string; // "yyyy-MM-dd"
+  toDate?: string | null;
+  sortOrder?: number;
+  cells: ICleaningSeriesCell[];
+}
+
+export interface ICleaningSeriesCellRequest {
+  dayOfWeek: number;
+  /** Bỏ trống khi có người làm cố định. */
+  block?: CleaningShiftBlock | null;
+}
+
+export interface ICreateCleaningSeriesRequest {
+  name: string;
+  area?: string | null;
+  group?: string | null;
+  requiresPhoto: boolean;
+  autoViolation: boolean;
+  assigneeUserId?: string | null;
+  fromDate: string;
+  toDate?: string | null;
+  cells: ICleaningSeriesCellRequest[];
+}
+
+export interface IUpdateCleaningSeriesRequest extends Omit<ICreateCleaningSeriesRequest, 'fromDate'> {
+  /** Áp dụng từ ngày này (≥ hôm nay); việc đã sinh của ngày trước đó giữ nguyên. */
+  effectiveFrom: string;
 }
 
 export interface IMyCleaningChecklist {

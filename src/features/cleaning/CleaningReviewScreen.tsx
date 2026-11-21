@@ -71,7 +71,9 @@ function TaskRow({ task, mayReview, mayPenalize, onPass, onFail, onPenalty, onVi
         <View className="flex-1">
           <Text className="font-semibold text-[13px]">{task.name}</Text>
           <Text variant="caption" tone="muted">
-            {[task.area, task.completedByUserName].filter(Boolean).join(' · ') || '—'}
+            {[task.group, task.area, task.completedByUserName, task.requiresPhoto === false ? 'không cần ảnh' : null]
+              .filter(Boolean)
+              .join(' · ') || '—'}
           </Text>
         </View>
         <Badge tone={STATUS_TONE[task.status]}>{STATUS_LABEL[task.status]}</Badge>
@@ -168,6 +170,7 @@ export function CleaningReviewScreen() {
   function invalidate() {
     qc.invalidateQueries({ queryKey: ['cleaning', 'review-checklist'] });
     qc.invalidateQueries({ queryKey: ['cleaning', 'week-overview'] });
+    qc.invalidateQueries({ queryKey: ['work-center'] });
   }
 
   async function handlePass(task: ICleaningTaskInstance) {

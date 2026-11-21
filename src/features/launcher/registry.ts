@@ -175,22 +175,12 @@ export const FEATURE_REGISTRY: FeatureItem[] = [
   { key: 'approvals', label: 'Duyệt yêu cầu', icon: 'check-decagram', href: '/manage/approvals', tone: 'warning', group: 'manage', visible: (user) => hasAnyPermission(user, MANAGE_SCREEN_PERMISSIONS.approvals) },
   { key: 'assign-shift', label: 'Xếp ca', icon: 'calendar-edit', href: '/manage/assign', tone: 'info', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.assignShift },
   { key: 'cover-shift', label: 'Đổi ca hộ', icon: 'account-switch', href: '/manage/cover', tone: 'secondary', group: 'manage', allPermissions: MANAGE_SCREEN_PERMISSIONS.coverShift },
-  // Trung tâm việc (T3): việc agent + việc giao nhân viên + vệ sinh theo ca — Cần xử lý / Đang làm / Xong hôm nay. Có MỘT trong
-  // agent.approve / hr.task.manage / cleaning.review; mỗi nguồn tải theo quyền riêng.
+  // Công việc (quản lý): mọi nhiệm vụ một chỗ — Bảng việc (agent + việc giao + việc theo ca + từ kiểm tra), Lịch tuần, Giao việc.
+  // Có MỘT trong agent.approve / hr.task.manage / cleaning.*; mỗi tab, mỗi nguồn theo quyền riêng. Ô "Chấm việc giao" và "Việc
+  // theo ngày" cũ đã gộp vào đây (route cũ chuyển hướng; ghim cũ tự bỏ).
   {
-    key: 'work-center', label: 'Trung tâm việc', icon: 'view-dashboard-variant-outline', href: '/manage/work-center', tone: 'primary', group: 'manage',
+    key: 'work-center', label: 'Quản lý công việc', icon: 'view-dashboard-variant-outline', href: '/manage/work-center', tone: 'primary', group: 'manage',
     visible: (u) => canSeeWorkCenter(u),
-  },
-  // Chấm việc giao riêng (hr.task.manage, gói phân ca như core-be); giao / huỷ việc vẫn ở web.
-  {
-    key: 'work-task-review', label: 'Chấm việc giao', icon: 'clipboard-check-multiple-outline', href: '/manage/work-tasks', tone: 'warning', group: 'manage',
-    allPermissions: MANAGE_SCREEN_PERMISSIONS.workTaskReview,
-    visible: (_u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE),
-  },
-  // Việc theo ngày: mọi việc của một ngày theo người, đánh dấu xong / gỡ (một trong các quyền xem của GET /work-today).
-  {
-    key: 'work-day', label: 'Việc theo ngày', icon: 'calendar-check-outline', href: '/manage/work-day', tone: 'primary', group: 'manage',
-    visible: (u, ctx) => hasStoreFeature(ctx, SHIFT_SCHEDULING_FEATURE) && hasAnyPermission(u, MANAGE_SCREEN_PERMISSIONS.workDay),
   },
   // Ghi vi phạm: mở thẳng màn ghi vi phạm (chọn người, lỗi, ảnh minh chứng) — người có hr.violation.manage, gói phân ca như Nhân sự.
   {

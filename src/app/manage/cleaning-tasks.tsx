@@ -1,12 +1,9 @@
-import { RoleGuard } from 'src/auth/role-guard';
-import { MANAGE_SCREEN_PERMISSIONS } from 'src/auth/permissions';
-import { CleaningTaskLibraryScreen } from 'src/features/cleaning/CleaningTaskLibraryScreen';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-// Vệ sinh theo quyền cleaning.* (Core-be; mặc định Manager / Admin, vai trò tuỳ chỉnh được cấp thêm).
-export default function ManageCleaningTasks() {
-  return (
-    <RoleGuard permissions={MANAGE_SCREEN_PERMISSIONS.cleaningTemplates}>
-      <CleaningTaskLibraryScreen />
-    </RoleGuard>
-  );
+import { legacyWorkRedirect } from 'src/features/work-center/work-center';
+
+// Màn cũ đã gộp vào Công việc (docs/cici/plans/cong-viec-mot-cho-plan.md) — giữ route để link / thông báo / ghim cũ vẫn mở đúng.
+export default function LegacyCleaningTasks() {
+  const params = useLocalSearchParams();
+  return <Redirect href={legacyWorkRedirect('cleaning-tasks', params) as any} />;
 }
