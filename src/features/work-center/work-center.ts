@@ -4,25 +4,38 @@ import type { AuthUser } from 'src/auth/auth-context';
 import { PERMISSIONS, hasAnyPermission } from 'src/auth/permissions';
 import type { IconName } from 'src/components/ui';
 import type { AgentTaskView } from 'src/api/agent-center';
-import type { WorkHubItem } from 'src/api/work-hub';
+import type { WorkHubItem, WorkHubKind, WorkHubSource } from 'src/api/work-hub';
 
 import { agentTaskRoute, taskStatusInfo } from 'src/features/agent-tasks/agent-task-format';
 
 // ----------------------------------------------------------------------
-// Trung tâm việc trên app (T3 — docs/cici/plans/trung-tam-viec-ui-plan.md), phần thuần test được: gộp việc agent (AG-), việc
-// giao nhân viên (CV-) và vệ sinh theo ca (VS-) về cột chung như bảng web, chia 3 tab:
+// Công việc (trước là Trung tâm việc — docs/cici/plans/cong-viec-mot-cho-plan.md mục 2), phần thuần test được. Bảng việc gộp
+// việc agent (AG-), việc giao một người (CV-), việc theo ca (VS-), lỗi phải sửa (LO-) và sửa tận gốc (STG-) về cột chung như
+// bảng web, chia 3 nhóm:
 //   Cần xử lý = chờ duyệt / chờ người + lỗi / trả lại / quá hạn (việc đã đóng chỉ từ hôm qua, bỏ việc huỷ)
 //   Đang làm  = chờ làm + đang chạy
 //   Xong      = xong hôm nay
-// Ca vệ sinh trước hôm qua chưa làm / chưa chấm không đưa lên (như web — xem ở màn Chấm vệ sinh).
+// Ca trước hôm qua chưa làm / chưa chấm không đưa lên (như web). Lọc theo nguồn: Agent / Lịch tuần / Được giao / Từ kiểm tra.
 // ----------------------------------------------------------------------
 
 type Tone = 'primary' | 'success' | 'warning' | 'error' | 'info' | 'neutral' | 'secondary';
 
-export type WorkKind = 'agent' | 'work' | 'cleaning';
+export type WorkKind = 'agent' | WorkHubKind;
+export type WorkSource = WorkHubSource;
 export type WorkColumn = 'queued' | 'running' | 'waiting' | 'done' | 'ended';
 export type WorkSegment = 'todo' | 'doing' | 'done';
-export type KindFilter = 'all' | WorkKind;
+export type SourceFilter = 'all' | WorkSource;
+/** Tab của màn Công việc. */
+export type WorkTab = 'board' | 'schedule' | 'assign';
+
+/** Gói vệ sinh / việc theo ca của cửa hàng (core-be RequireFeature WorkforceCleaning cho mọi API cleaning/*). */
+const CLEANING_PLAN_FEATURE = 'workforce.cleaning';
+
+export const WORK_TABS: { key: WorkTab; label: string }[] = [
+  { key: 'board', label: 'Bảng việc' },
+  { key: 'schedule', label: 'Lịch tuần' },
+  { key: 'assign', label: 'Giao việc' },
+];
 
 export const WORK_SEGMENTS: { key: WorkSegment; label: string }[] = [
   { key: 'todo', label: 'Cần xử lý' },
@@ -30,55 +43,127 @@ export const WORK_SEGMENTS: { key: WorkSegment; label: string }[] = [
   { key: 'done', label: 'Xong hôm nay' },
 ];
 
-export const KIND_FILTERS: { key: KindFilter; label: string; icon?: IconName }[] = [
+export const SOURCE_FILTERS: { key: SourceFilter; label: string; icon?: IconName }[] = [
   { key: 'all', label: 'Tất cả' },
   { key: 'agent', label: 'Agent', icon: 'robot-outline' },
-  { key: 'work', label: 'Việc giao', icon: 'clipboard-account-outline' },
-  { key: 'cleaning', label: 'Vệ sinh', icon: 'broom' },
+  { key: 'schedule', label: 'Lịch tuần', icon: 'calendar-sync' },
+  { key: 'assigned', label: 'Được giao', icon: 'clipboard-account-outline' },
+  { key: 'inspection', label: 'Từ kiểm tra', icon: 'clipboard-search-outline' },
 ];
 
 export const KIND_ICON: Record<WorkKind, IconName> = {
   agent: 'robot-outline',
   work: 'clipboard-account-outline',
   cleaning: 'broom',
+  fault: 'alert-circle-outline',
+  corrective: 'wrench-outline',
 };
 
 export interface WorkEntry {
   key: string;
   kind: WorkKind;
+  source: WorkSource;
   id: string;
   code: string;
   title: string;
-  /** Agent: tên agent; việc giao / vệ sinh: người làm. */
+  /** Agent: tên agent; việc khác: người làm / người phụ trách. */
   who: string | null;
   note: string | null;
   column: WorkColumn;
   statusLabel: string;
   tone: Tone;
-  /** Chưa đóng (agent chưa xong; việc giao Đã giao / Chờ duyệt / Trả lại; ca chưa làm / chưa chấm). */
+  /** Chưa đóng (agent chưa xong; việc giao Đã giao / Chờ duyệt / Trả lại; ca chưa làm / chưa chấm; lỗi chưa sửa…). */
   open: boolean;
   cancelled: boolean;
   dueAt: string | null;
   overdue: boolean;
   sortAt: string;
-  /** Ngày của ca vệ sinh (yyyy-MM-dd). */
+  /** Ngày của ca (yyyy-MM-dd). */
   date: string | null;
   block: string | null;
   progress: { passed: number; total: number; failed: number } | null;
 }
 
-/** Ai thấy Trung tâm việc trên app: một trong ba quyền (khớp MANAGE_SCREEN_PERMISSIONS.workCenter). */
+/** Quyền vào màn Công việc (khớp MANAGE_SCREEN_PERMISSIONS.workCenter). */
+const WORK_CENTER_PERMISSIONS = [
+  PERMISSIONS.agent.approve,
+  PERMISSIONS.hr.taskManage,
+  PERMISSIONS.cleaning.read,
+  PERMISSIONS.cleaning.review,
+  PERMISSIONS.cleaning.templateManage,
+];
+
+/** Ai thấy màn Công việc (quản lý): một trong các quyền xem / giao / chấm việc. */
 export function canSeeWorkCenter(user: AuthUser | null | undefined): boolean {
-  return hasAnyPermission(user, [PERMISSIONS.agent.approve, PERMISSIONS.hr.taskManage, PERMISSIONS.cleaning.review]);
+  return hasAnyPermission(user, WORK_CENTER_PERMISSIONS);
 }
 
-/** Nguồn nào được tải theo quyền — tránh gọi API sẽ trả 403. */
-export function workSources(user: AuthUser | null | undefined): { agent: boolean; work: boolean; cleaning: boolean } {
+export interface WorkAccess {
+  /** Việc agent (agent.approve). */
+  agent: boolean;
+  /** Việc giao của mọi người + giao một người + đổi người (hr.task.manage). */
+  work: boolean;
+  /** Việc theo ca trên bảng (cleaning.read). */
+  cleaning: boolean;
+  /** Lỗi phải sửa + sửa tận gốc của mọi người (inspection.read). */
+  inspection: boolean;
+  /** Xem Lịch tuần (cleaning.read + gói vệ sinh / việc theo ca). */
+  schedule: boolean;
+  /** Thêm / sửa / dừng việc định kỳ + giao cả ca (cleaning.template.manage + gói). */
+  editSchedule: boolean;
+}
+
+/** Nguồn nào được tải / nút nào hiện theo quyền — tránh gọi API sẽ trả 403. */
+export function workSources(user: AuthUser | null | undefined): WorkAccess {
+  const plan = (user?.enabledFeatures ?? []).includes(CLEANING_PLAN_FEATURE);
+  const read = hasAnyPermission(user, [PERMISSIONS.cleaning.read]);
   return {
     agent: hasAnyPermission(user, [PERMISSIONS.agent.approve]),
     work: hasAnyPermission(user, [PERMISSIONS.hr.taskManage]),
-    cleaning: hasAnyPermission(user, [PERMISSIONS.cleaning.review]),
+    cleaning: read,
+    inspection: hasAnyPermission(user, [PERMISSIONS.inspection.read]),
+    schedule: plan && read,
+    editSchedule: plan && hasAnyPermission(user, [PERMISSIONS.cleaning.templateManage]),
   };
+}
+
+/** Các loại việc gọi /work-hub/items theo quyền. */
+export function hubKinds(access: WorkAccess): WorkHubKind[] {
+  return [
+    ...(access.work ? (['work'] as const) : []),
+    ...(access.cleaning ? (['cleaning'] as const) : []),
+    ...(access.inspection ? (['fault', 'corrective'] as const) : []),
+  ];
+}
+
+/** Tab hiện được: Bảng việc luôn có; Lịch tuần khi xem được lịch; Giao việc khi giao được cả ca hoặc một người. */
+export function availableTabs(access: WorkAccess): WorkTab[] {
+  return WORK_TABS.map((t) => t.key).filter(
+    (k) => k === 'board' || (k === 'schedule' && access.schedule) || (k === 'assign' && (access.work || access.editSchedule))
+  );
+}
+
+/** Tab mở từ tham số `?tab=` (link cũ, thông báo); lạ / không có quyền → Bảng việc. */
+export function resolveTab(raw: unknown, access: WorkAccess): WorkTab {
+  const tabs = availableTabs(access);
+  return typeof raw === 'string' && (tabs as string[]).includes(raw) ? (raw as WorkTab) : 'board';
+}
+
+/** Bộ lọc nguồn mở từ `?source=`; lạ → Tất cả. */
+export function resolveSource(raw: unknown): SourceFilter {
+  return SOURCE_FILTERS.some((f) => f.key === raw) ? (raw as SourceFilter) : 'all';
+}
+
+/** Chip lọc nguồn hiện theo quyền (chỉ nguồn có thể có việc). */
+export function sourceFilters(access: WorkAccess): typeof SOURCE_FILTERS {
+  return SOURCE_FILTERS.filter(
+    (f) =>
+      f.key === 'all' ||
+      (f.key === 'agent' && access.agent) ||
+      (f.key === 'schedule' && (access.cleaning || access.work)) ||
+      (f.key === 'assigned' && access.work) ||
+      (f.key === 'inspection' && access.inspection)
+  );
 }
 
 const AGENT_COLUMN: Record<string, WorkColumn> = {
@@ -104,6 +189,7 @@ export function fromAgentTask(t: AgentTaskView): WorkEntry {
   return {
     key: `agent:${t.id}`,
     kind: 'agent',
+    source: 'agent',
     id: t.id,
     code: `AG-${t.id.replace(/-/g, '').slice(0, 6).toUpperCase()}`,
     title: t.title || '(Chưa đặt tên)',
@@ -132,14 +218,23 @@ const COLUMN_TONE: Record<WorkColumn, Tone> = {
 };
 
 const OPEN_WORK = ['Assigned', 'Submitted', 'Rejected'];
+/** Lỗi / sửa tận gốc còn phải làm (gợi ý chưa nhận cũng tính là mở). */
+const OPEN_INSPECTION = ['open', 'overdue', 'suggested'];
+
+function isOpen(i: WorkHubItem, column: WorkColumn): boolean {
+  if (i.kind === 'cleaning') return column === 'queued' || column === 'waiting';
+  if (i.kind === 'work') return OPEN_WORK.includes(i.status);
+  return OPEN_INSPECTION.includes(i.status);
+}
 
 export function fromHubItem(i: WorkHubItem): WorkEntry {
   const column = (['queued', 'running', 'waiting', 'done', 'ended'].includes(i.column) ? i.column : 'queued') as WorkColumn;
   const cleaning = i.kind === 'cleaning';
-  const cancelled = !cleaning && i.status === 'Cancelled';
+  const cancelled = (i.kind === 'work' && i.status === 'Cancelled') || (i.kind === 'corrective' && i.status === 'dismissed');
   return {
     key: `${i.kind}:${i.id}`,
     kind: i.kind,
+    source: i.source,
     id: i.id,
     code: i.code,
     title: i.title,
@@ -148,7 +243,7 @@ export function fromHubItem(i: WorkHubItem): WorkEntry {
     column,
     statusLabel: i.statusLabel,
     tone: cancelled ? 'neutral' : COLUMN_TONE[column],
-    open: cleaning ? column === 'queued' || column === 'waiting' : OPEN_WORK.includes(i.status),
+    open: isOpen(i, column),
     cancelled,
     dueAt: i.dueAt,
     overdue: i.overdue,
@@ -165,7 +260,7 @@ export function segmentOf(column: WorkColumn): WorkSegment {
   return 'doing';
 }
 
-/** Mục có hiện trên bảng không (theo mốc `now`): việc huỷ, việc đóng trước hôm qua, ca vệ sinh cũ chưa xong → không. */
+/** Mục có hiện trên bảng không (theo mốc `now`): việc huỷ / bỏ, việc đóng trước hôm qua, ca cũ chưa xong → không. */
 export function isOnBoard(e: WorkEntry, now: number): boolean {
   if (e.cancelled) return false;
   const today = dayjs(now).startOf('day');
@@ -176,7 +271,7 @@ export function isOnBoard(e: WorkEntry, now: number): boolean {
   return true;
 }
 
-/** Thứ tự trong tab Cần xử lý: chờ duyệt trước lỗi; trong cùng cột mới trước. */
+/** Thứ tự trong nhóm Cần xử lý: chờ duyệt trước lỗi; trong cùng cột mới trước. */
 const COLUMN_ORDER: Record<WorkColumn, number> = { waiting: 0, ended: 1, running: 2, queued: 3, done: 4 };
 
 export function buildWorkCenter(
@@ -191,19 +286,34 @@ export function buildWorkCenter(
   return { lists, counts: { todo: lists.todo.length, doing: lists.doing.length, done: lists.done.length } };
 }
 
-export function filterKind(entries: readonly WorkEntry[], kind: KindFilter): WorkEntry[] {
-  return kind === 'all' ? [...entries] : entries.filter((e) => e.kind === kind);
+export function filterSource(entries: readonly WorkEntry[], source: SourceFilter): WorkEntry[] {
+  return source === 'all' ? [...entries] : entries.filter((e) => e.source === source);
 }
 
 export type WorkRoute = string | { pathname: string; params: Record<string, string> };
 
-/** Bấm mục mở màn nào (theo quyền) — không đủ quyền → null (thẻ không bấm được). */
+/** Màn chấm việc giao (một người) — dưới Công việc. */
+export const TASK_REVIEW_PATH = '/manage/work-center/task-review';
+/** Màn chấm việc theo ca của một ca — dưới Công việc. */
+export const SHIFT_REVIEW_PATH = '/manage/work-center/shift-review';
+
+/** Bấm mục mở màn nào (theo quyền) — không đủ quyền / chưa có màn trên app → null (thẻ không bấm được). */
 export function workEntryRoute(e: WorkEntry, user: AuthUser | null | undefined): WorkRoute | null {
   const src = workSources(user);
-  if (e.kind === 'agent') return src.agent ? agentTaskRoute(e.id) : null;
-  if (e.kind === 'work') return src.work ? { pathname: '/manage/work-tasks', params: { id: e.id } } : null;
-  if (!hasAnyPermission(user, [PERMISSIONS.cleaning.read]) || !e.date || !e.block) return null;
-  return { pathname: '/manage/cleaning-review', params: { date: e.date, block: e.block } };
+  switch (e.kind) {
+    case 'agent':
+      return src.agent ? agentTaskRoute(e.id) : null;
+    case 'work':
+      return src.work ? { pathname: TASK_REVIEW_PATH, params: { id: e.id } } : null;
+    case 'fault':
+      return src.inspection ? '/inspection/faults' : null;
+    case 'corrective':
+      // Sửa tận gốc của mọi người chỉ xử lý trên web.
+      return null;
+    default:
+      if (!src.cleaning || !e.date || !e.block) return null;
+      return { pathname: SHIFT_REVIEW_PATH, params: { date: e.date, block: e.block } };
+  }
 }
 
 /** Dòng phụ: người / agent · hạn (đỏ khi quá hạn do màn tự tô) hoặc giờ. */
@@ -217,4 +327,38 @@ export function entryMeta(e: WorkEntry, now: number): string {
     parts.push(dayjs(e.sortAt).format('HH:mm DD/MM'));
   }
   return parts.join(' · ');
+}
+
+// ---------------------------------------------------------------------- Màn cũ → Công việc
+
+/** Màn quản lý cũ đã gộp vào Công việc (route cũ giữ lại chỉ để chuyển hướng link / thông báo / ghim cũ). */
+export type LegacyWorkScreen = 'cleaning' | 'cleaning-builder' | 'cleaning-tasks' | 'cleaning-review' | 'work-tasks' | 'work-day';
+
+export const WORK_CENTER_PATH = '/manage/work-center';
+
+const str = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : Array.isArray(v) && typeof v[0] === 'string' ? v[0] : null);
+
+/** Đích chuyển hướng của một màn cũ (giữ tham số còn dùng được: ngày + ca của ca cần chấm, id việc giao). */
+export function legacyWorkRedirect(
+  screen: LegacyWorkScreen,
+  params: Record<string, unknown> = {}
+): { pathname: string; params: Record<string, string> } {
+  switch (screen) {
+    case 'cleaning':
+      return { pathname: WORK_CENTER_PATH, params: { tab: 'board', source: 'schedule' } };
+    case 'cleaning-builder':
+    case 'cleaning-tasks':
+      return { pathname: WORK_CENTER_PATH, params: { tab: 'schedule' } };
+    case 'cleaning-review': {
+      const date = str(params.date);
+      const block = str(params.block);
+      return { pathname: SHIFT_REVIEW_PATH, params: { ...(date ? { date } : {}), ...(block ? { block } : {}) } };
+    }
+    case 'work-tasks': {
+      const id = str(params.id);
+      return id ? { pathname: TASK_REVIEW_PATH, params: { id } } : { pathname: WORK_CENTER_PATH, params: { tab: 'assign' } };
+    }
+    default:
+      return { pathname: WORK_CENTER_PATH, params: { tab: 'board' } };
+  }
 }

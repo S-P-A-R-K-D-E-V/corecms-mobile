@@ -5,16 +5,19 @@ import { Badge, Card, Icon, Pressable, Text } from 'src/components/ui';
 import { KIND_ICON, entryMeta, type WorkEntry } from './work-center';
 
 // ----------------------------------------------------------------------
-// Một mục của Trung tâm việc: mã (AG- / CV- / VS-) + loại, trạng thái, tên, ghi chú (bước agent / lỗi / số lần trả lại),
-// thanh đạt của ca vệ sinh, người làm · hạn. Không bấm được (thiếu quyền mở màn chi tiết) thì không có mũi tên.
+// Một mục của Bảng việc (màn Công việc): mã (AG- / CV- / VS- / LO- / STG-) + loại, trạng thái, tên, ghi chú (bước agent /
+// lỗi / số lần trả lại / khu, ca của lỗi), thanh đạt của ca, người làm · hạn. Không bấm được (thiếu quyền / chưa có màn chi
+// tiết trên app) thì không có mũi tên.
 // ----------------------------------------------------------------------
 
 const KIND_BG: Record<WorkEntry['kind'], string> = {
   agent: 'bg-secondary-soft',
   work: 'bg-warning-soft',
   cleaning: 'bg-success-soft',
+  fault: 'bg-error-soft',
+  corrective: 'bg-info-soft',
 };
-const KIND_TONE = { agent: 'secondary', work: 'warning', cleaning: 'success' } as const;
+const KIND_TONE = { agent: 'secondary', work: 'warning', cleaning: 'success', fault: 'error', corrective: 'info' } as const;
 
 export function WorkCenterCard({ entry, now, onPress }: { entry: WorkEntry; now: number; onPress: (() => void) | null }) {
   const meta = entryMeta(entry, now);

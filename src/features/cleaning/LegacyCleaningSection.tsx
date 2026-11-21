@@ -11,10 +11,12 @@ import { getMyCleaningChecklist, completeCleaningTask, type CleaningPhotoFile } 
 import { imagePickerQuality, pickedImage, prepareAttachment } from 'src/features/chat/attachment-prepare';
 import type { ICleaningTaskInstance, CleaningTaskStatus } from 'src/types/corecms-api';
 import { cleaningVideoFile, firstRejectedCleaningMedia, isAcceptedCleaningMedia } from './cleaning-media';
+import { needsPhoto, taskActionLabel } from './cleaning-task';
 
 // ----------------------------------------------------------------------
-// Việc theo lịch cũ (bảng Cleaning*): cửa hàng chưa chuyển lịch vệ sinh sang hạng mục công việc vẫn thấy và làm được
-// trong màn Việc của tôi. Không có việc nào trong ngày thì không hiện gì.
+// Việc theo ca (bảng Cleaning* — Lịch tuần của màn Công việc): việc của các ca tôi làm trong ngày. Việc cần ảnh: chụp / chọn
+// ảnh rồi hoàn thành, quản lý chấm; việc không cần ảnh (requiresPhoto = false, vd mở / đóng cửa): bấm "Đã làm" là xong. Không
+// có việc nào trong ngày thì không hiện gì.
 // ----------------------------------------------------------------------
 
 const MAX_PHOTOS = 5;
@@ -52,19 +54,29 @@ const STATUS_LABEL: Record<CleaningTaskStatus, string> = {
   Failed: 'Không đạt',
 };
 
-function TaskRow({ task, onOpenPicker }: {
+function TaskRow({ task, busy, onOpenPicker, onMarkDone }: {
   task: ICleaningTaskInstance;
+  busy: boolean;
   onOpenPicker: (task: ICleaningTaskInstance) => void;
+  onMarkDone: (task: ICleaningTaskInstance) => void;
 }) {
-  const canComplete = task.status === 'Pending' || task.status === 'Done';
+  const photo = needsPhoto(task);
+  // Việc không cần ảnh: chỉ bấm khi chưa làm; đã tick thì chờ chấm / tự tính xong.
+  const canComplete = task.status === 'Pending' || (photo && task.status === 'Done');
   const myPenalties = task.penalties.filter((p) => !p.voidedAt);
+  const action = taskActionLabel(task, MAX_PHOTOS);
 
   return (
     <View className="py-2.5 gap-1.5">
       <View className="flex-row items-center justify-between gap-2">
         <View className="flex-1">
           <Text className="font-semibold text-[13px]">{task.name}</Text>
-          {task.area ? <Text variant="caption" tone="muted">{task.area}</Text> : null}
+          {task.area || task.group ? (
+            <View className="flex-row flex-wrap items-center gap-1.5 mt-0.5">
+              {task.group ? <Badge tone="neutral">{task.group}</Badge> : null}
+              {task.area ? <Text variant="caption" tone="muted">{task.area}</Text> : null}
+            </View>
+          ) : null}
         </View>
         <Badge tone={STATUS_TONE[task.status]}>{STATUS_LABEL[task.status]}</Badge>
       </View>
@@ -72,6 +84,11 @@ function TaskRow({ task, onOpenPicker }: {
       {task.status === 'Done' && task.photoObjectKeys.length > 0 ? (
         <Text variant="caption" tone="primary">
           Đã gửi {task.photoObjectKeys.length} ảnh, đang chờ Quản lý chấm điểm.
+        </Text>
+      ) : null}
+      {task.status === 'Done' && !photo ? (
+        <Text variant="caption" tone="primary">
+          Đã đánh dấu làm{task.completedByUserName ? ` (${task.completedByUserName})` : ''}.
         </Text>
       ) : null}
 
@@ -93,10 +110,11 @@ function TaskRow({ task, onOpenPicker }: {
         <Button
           size="sm"
           variant={task.status === 'Done' ? 'outline' : 'solid'}
-          icon="camera-outline"
-          onPress={() => onOpenPicker(task)}
+          icon={photo ? 'camera-outline' : 'check'}
+          loading={busy}
+          onPress={() => (photo ? onOpenPicker(task) : onMarkDone(task))}
         >
-          {task.status === 'Done' ? 'Chụp lại ảnh' : `Chọn ảnh & hoàn thành (tối đa ${MAX_PHOTOS})`}
+          {action}
         </Button>
       ) : null}
     </View>
@@ -109,6 +127,7 @@ export function LegacyCleaningSection({ date, enabled = true }: { date: string; 
   const [pendingPhotos, setPendingPhotos] = useState<CleaningPhotoFile[]>([]);
   const [preparing, setPreparing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [markingId, setMarkingId] = useState<string | null>(null);
 
   const { data } = useQuery({
     queryKey: ['cleaning', 'my-checklist', date],
@@ -208,11 +227,25 @@ export function LegacyCleaningSection({ date, enabled = true }: { date: string; 
     }
   }
 
+  /** Việc không cần ảnh: gửi hoàn thành với danh sách ảnh rỗng, không mở camera. */
+  async function markDone(task: ICleaningTaskInstance) {
+    setMarkingId(task.id);
+    try {
+      await completeCleaningTask(task.id, []);
+      toast.success(`Đã ghi nhận: ${task.name}`);
+      qc.invalidateQueries({ queryKey: ['cleaning', 'my-checklist'] });
+    } catch (err: any) {
+      toast.error(extractApiError(err));
+    } finally {
+      setMarkingId(null);
+    }
+  }
+
   if (!enabled || shifts.length === 0) return null;
 
   return (
     <View className="gap-3">
-      <Text variant="subtitle">Việc theo lịch cũ</Text>
+      <Text variant="subtitle">Việc theo ca</Text>
       {shifts.map((shift) => (
         // Backend giờ có thể trả >1 entry cho cùng 1 shiftAssignmentId (mỗi
         // CleaningBlock liên kết với ca là 1 entry riêng) — dùng key ghép
@@ -227,7 +260,7 @@ export function LegacyCleaningSection({ date, enabled = true }: { date: string; 
             {shift.tasks.map((task, i) => (
               <View key={task.id}>
                 {i > 0 ? <View className="h-px bg-line/50 dark:bg-line-dark/50" /> : null}
-                <TaskRow task={task} onOpenPicker={openPicker} />
+                <TaskRow task={task} busy={markingId === task.id} onOpenPicker={openPicker} onMarkDone={markDone} />
               </View>
             ))}
           </View>

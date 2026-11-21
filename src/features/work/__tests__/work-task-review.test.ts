@@ -76,7 +76,7 @@ describe('bấm việc trên thẻ "Việc giao hôm nay"', () => {
   const viewer = { role: 'Manager', roles: ['Manager'], permissions: ['inspection.read'] } as any;
 
   it('việc giao riêng mở Chấm việc giao cho người có quyền giao việc', () => {
-    expect(itemRoute({ source: 'work_task', id: 'x' }, manager)).toEqual({ pathname: '/manage/work-tasks', params: { id: 'x' } });
+    expect(itemRoute({ source: 'work_task', id: 'x' }, manager)).toEqual({ pathname: '/manage/work-center/task-review', params: { id: 'x' } });
     expect(itemRoute({ source: 'work_task', id: 'x' }, { role: 'Admin', roles: ['Admin'] } as any)).not.toBeNull();
   });
 

@@ -28,13 +28,13 @@ export const WORK_SOURCE: Record<WorkTodaySource, string> = {
   work_task: 'Giao riêng',
 };
 
-/** Bấm một việc mở màn nào: việc giao riêng → Chấm việc giao (cần hr.task.manage); loại khác chưa có màn → null. */
+/** Bấm một việc mở màn nào: việc giao riêng → Công việc › Chấm việc giao (cần hr.task.manage); loại khác chưa có màn → null. */
 export function itemRoute(
   item: Pick<IWorkTodayItem, 'source' | 'id'>,
   user: AuthUser | null | undefined,
 ): { pathname: string; params: { id: string } } | null {
   if (item.source === 'work_task' && hasAnyPermission(user, [PERMISSIONS.hr.taskManage])) {
-    return { pathname: '/manage/work-tasks', params: { id: item.id } };
+    return { pathname: '/manage/work-center/task-review', params: { id: item.id } };
   }
   return null;
 }

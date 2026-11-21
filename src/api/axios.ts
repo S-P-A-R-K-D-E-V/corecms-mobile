@@ -451,6 +451,10 @@ export const endpoints = {
     templateDetails: (id: string) => `/cleaning/templates/${id}`,
     templateWeek: '/cleaning/templates/week',
     duplicateWeek: '/cleaning/templates/duplicate-week',
+    // Việc định kỳ theo chuỗi (Lịch tuần của màn Công việc) — một chuỗi = mọi ô thứ × ca của một việc.
+    series: '/cleaning/series',
+    seriesDetails: (id: string) => `/cleaning/series/${id}`,
+    seriesStop: (id: string) => `/cleaning/series/${id}/stop`,
   },
   // Kiểm tra cửa hàng (bảng kiểm do quản lý soạn trên web).
   inspections: {
@@ -500,6 +504,7 @@ export const endpoints = {
     taskReview: (id: string) => `/work-tasks/${id}/review`,
     taskComplete: (id: string) => `/work-tasks/${id}/complete`,
     taskCancel: (id: string) => `/work-tasks/${id}/cancel`,
+    taskReassign: (id: string) => `/work-tasks/${id}/reassign`,
     recordsMine: '/hr-records/mine',
     recordSign: (id: string) => `/hr-records/${id}/sign`,
     recordRefuse: (id: string) => `/hr-records/${id}/refuse`,

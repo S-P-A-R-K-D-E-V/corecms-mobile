@@ -1,14 +1,17 @@
 import axios, { endpoints } from './axios';
 import type {
   ICleaningPenalty,
+  ICleaningSeries,
   ICleaningTaskDefinition,
   ICleaningTaskInstance,
   ICleaningTaskTemplate,
   ICleaningTemplateWeekCell,
   ICleaningWeekCell,
   ICreateCleaningTaskDefinitionRequest,
+  ICreateCleaningSeriesRequest,
   ICreateCleaningTaskTemplateRequest,
   IMyCleaningChecklist,
+  IUpdateCleaningSeriesRequest,
   IShiftStaffForPenalty,
   IUpdateCleaningTaskDefinitionRequest,
 } from 'src/types/corecms-api';
@@ -55,7 +58,8 @@ export async function completeCleaningTask(
   id: string,
   photos: CleaningPhotoFile[]
 ): Promise<ICleaningTaskInstance> {
-  const presigned = await presignCleaningPhotos(id, photos);
+  // Việc không bắt ảnh (requiresPhoto = false): gửi danh sách rỗng, không xin presigned URL.
+  const presigned = photos.length > 0 ? await presignCleaningPhotos(id, photos) : [];
   await Promise.all(presigned.map((p, i) => uploadToPresignedUrl(p.uploadUrl, photos[i])));
 
   const response = await axios.post<ICleaningTaskInstance>(endpoints.cleaning.completeTask(id), {
@@ -169,4 +173,30 @@ export async function deleteCleaningTaskTemplate(id: string): Promise<void> {
 export async function duplicateCleaningWeek(weekStart: string): Promise<{ createdCount: number }> {
   const response = await axios.post<{ createdCount: number }>(endpoints.cleaning.duplicateWeek, { weekStart });
   return response.data;
+}
+
+// ----------------------------------------------------------------------
+// Việc định kỳ theo chuỗi (Lịch tuần của màn Công việc). Xem: cleaning.read; thêm / sửa / dừng: cleaning.template.manage.
+// Giao "cả ca một ngày" = tạo chuỗi fromDate = toDate = ngày đó, một ô.
+
+/** Mọi việc định kỳ còn hiệu lực từ `date` (yyyy-MM-dd). */
+export async function getCleaningSeries(date: string): Promise<ICleaningSeries[]> {
+  const response = await axios.get<ICleaningSeries[]>(endpoints.cleaning.series, { params: { date } });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function createCleaningSeries(data: ICreateCleaningSeriesRequest): Promise<ICleaningSeries> {
+  const response = await axios.post<ICleaningSeries>(endpoints.cleaning.series, data);
+  return response.data;
+}
+
+/** Sửa từ `effectiveFrom`: core-be dừng các dòng cũ từ ngày trước đó, tạo dòng mới cùng seriesId. */
+export async function updateCleaningSeries(seriesId: string, data: IUpdateCleaningSeriesRequest): Promise<ICleaningSeries> {
+  const response = await axios.put<ICleaningSeries>(endpoints.cleaning.seriesDetails(seriesId), data);
+  return response.data;
+}
+
+/** Dừng từ `fromDate`: việc đã sinh, chưa làm của ngày ≥ fromDate thành Bỏ. */
+export async function stopCleaningSeries(seriesId: string, fromDate: string): Promise<void> {
+  await axios.post(endpoints.cleaning.seriesStop(seriesId), { fromDate });
 }

@@ -11,12 +11,15 @@ import { extractApiError } from 'src/services/error';
 import { getWorkTask, getWorkTasks, reviewWorkTask } from 'src/api/hr';
 import { WORK_TASK_STATUS_LABEL, type IWorkTask, type WorkTaskStatus } from 'src/types/hr';
 import { PhotoStrip } from 'src/features/inspection/inspection-ui';
+import { ReassignSheet } from 'src/features/work-center/ReassignSheet';
+import { canReassign, isRecurringTask } from 'src/features/work-center/schedule';
 
 import { REVIEW_TABS, inTab, reviewNoteError, tabForStatus, taskSubtitle, type ReviewTab } from './work-task-review';
 
 // ----------------------------------------------------------------------
-// Chấm việc giao riêng (Việc được giao → Cho một người) trên app: xem việc của mọi người, ảnh nghiệm thu, ghi chú khi nộp,
-// lý do trễ; việc đã nộp thì Đạt hoặc Trả lại (bắt buộc lý do). Giao và huỷ việc vẫn ở web. Mở với ?id= (thẻ "Việc giao hôm
+// Chấm việc giao riêng (Công việc › Chấm việc giao) trên app: xem việc của mọi người, ảnh nghiệm thu, ghi chú khi nộp,
+// lý do trễ; việc đã nộp thì Đạt hoặc Trả lại (bắt buộc lý do); việc Đã giao / Trả lại thì Đổi người. Giao việc ở tab Giao
+// việc của màn Công việc; huỷ việc vẫn ở web. Mở với ?id= (thẻ "Việc giao hôm
 // nay", thông báo) thì nhảy tới tab và tháng của việc đó, việc đó lên đầu.
 // ----------------------------------------------------------------------
 
@@ -30,7 +33,17 @@ const STATUS_TONE: Record<WorkTaskStatus, 'info' | 'warning' | 'success' | 'erro
 
 type ReviewDraft = { task: IWorkTask; approve: boolean };
 
-function TaskCard({ task, focused, onReview }: { task: IWorkTask; focused: boolean; onReview: (approve: boolean) => void }) {
+function TaskCard({
+  task,
+  focused,
+  onReview,
+  onReassign,
+}: {
+  task: IWorkTask;
+  focused: boolean;
+  onReview: (approve: boolean) => void;
+  onReassign: () => void;
+}) {
   return (
     <SectionCard
       title={task.title}
@@ -38,7 +51,10 @@ function TaskCard({ task, focused, onReview }: { task: IWorkTask; focused: boole
       bodyClassName="pt-0 gap-1.5"
       className={focused ? 'border border-primary' : undefined}
     >
-      <Text variant="caption" tone="muted">{taskSubtitle(task)}</Text>
+      <Text variant="caption" tone="muted">
+        {isRecurringTask(task) ? 'Lặp hằng tuần · ' : ''}
+        {taskSubtitle(task)}
+      </Text>
       {task.description ? <Text variant="bodySmall">{task.description}</Text> : null}
       {task.submissionNote ? (
         <Text variant="caption">
@@ -76,6 +92,13 @@ function TaskCard({ task, focused, onReview }: { task: IWorkTask; focused: boole
               Trả lại
             </Button>
           </View>
+        </View>
+      ) : null}
+      {canReassign(task) ? (
+        <View className="flex-row pt-1">
+          <Button size="sm" variant="outline" icon="account-switch-outline" onPress={onReassign}>
+            Đổi người
+          </Button>
         </View>
       ) : null}
     </SectionCard>
@@ -139,6 +162,7 @@ export function WorkTaskReviewScreen() {
   const [tab, setTab] = useState<ReviewTab>('waiting');
   const [month, setMonth] = useState(() => dayjs().startOf('month').format('YYYY-MM-DD'));
   const [draft, setDraft] = useState<ReviewDraft | null>(null);
+  const [reassign, setReassign] = useState<IWorkTask | null>(null);
 
   // Mở cho một việc: nhảy tới tab + tháng giao của việc đó (một lần).
   const focus = useQuery({ queryKey: ['work-task-review', 'task', focusId], queryFn: () => getWorkTask(focusId!), enabled: !!focusId });
@@ -162,6 +186,7 @@ export function WorkTaskReviewScreen() {
     setDraft(null);
     qc.invalidateQueries({ queryKey: ['work-task-review'] });
     qc.invalidateQueries({ queryKey: ['home', 'work-today'] });
+    qc.invalidateQueries({ queryKey: ['work-center'] });
   }
 
   return (
@@ -209,17 +234,24 @@ export function WorkTaskReviewScreen() {
         <EmptyState
           icon="clipboard-check-outline"
           title={waiting ? 'Không có việc chờ chấm' : 'Không có việc nào'}
-          description={waiting ? 'Nhân viên nộp việc giao riêng thì việc hiện ở đây.' : 'Giao việc cho một người trên web.'}
+          description={waiting ? 'Nhân viên nộp việc giao riêng thì việc hiện ở đây.' : 'Giao việc ở Công việc › Giao việc.'}
         />
       ) : (
         <View className="gap-3 pt-1">
           {tasks.map((t) => (
-            <TaskCard key={t.id} task={t} focused={t.id === focusId} onReview={(approve) => setDraft({ task: t, approve })} />
+            <TaskCard
+              key={t.id}
+              task={t}
+              focused={t.id === focusId}
+              onReview={(approve) => setDraft({ task: t, approve })}
+              onReassign={() => setReassign(t)}
+            />
           ))}
         </View>
       )}
 
       <ReviewSheet draft={draft} onClose={() => setDraft(null)} onDone={reviewed} />
+      <ReassignSheet task={reassign} onClose={() => setReassign(null)} />
     </Screen>
   );
 }

@@ -11,12 +11,14 @@ import { getWorkToday } from 'src/api/hr';
 import { useAuthContext } from 'src/auth/auth-context';
 import type { IWorkTodayPerson } from 'src/types/hr';
 
+import { canSeeWorkCenter } from 'src/features/work-center/work-center';
+
 import { WORK_STATUS, canSeeWorkToday, donePct, itemRoute, itemSubtitle, progressText } from './work-today';
 
 // ----------------------------------------------------------------------
 // "Việc giao hôm nay" (dashboard chủ / quản lý): mỗi người bao nhiêu việc đã xong / chưa xong / quá hạn — việc trong ca, vệ sinh,
-// việc giao riêng. Bấm một người để xem từng việc; bấm việc giao riêng để xem và chấm; nút cuối mở Việc theo ngày (ngày khác,
-// đánh dấu xong / gỡ). core-be chưa có /work-today (404) hoặc không có quyền → thẻ ẩn.
+// việc giao riêng. Bấm một người để xem từng việc; bấm việc giao riêng để xem và chấm; nút cuối mở Công việc (bảng việc,
+// lịch tuần, giao việc). core-be chưa có /work-today (404) hoặc không có quyền → thẻ ẩn.
 // ----------------------------------------------------------------------
 
 function PersonRow({ person }: { person: IWorkTodayPerson }) {
@@ -124,9 +126,9 @@ export function WorkTodayCard() {
           ))}
         </>
       )}
-      {!isLoading && data ? (
-        <Button size="sm" variant="outline" icon="calendar-check-outline" onPress={() => router.push('/manage/work-day' as any)} className="mt-2">
-          Việc theo ngày · đánh dấu xong / gỡ
+      {!isLoading && data && canSeeWorkCenter(user) ? (
+        <Button size="sm" variant="outline" icon="view-dashboard-variant-outline" onPress={() => router.push('/manage/work-center' as any)} className="mt-2">
+          Mở Công việc · giao / chấm / lịch tuần
         </Button>
       ) : null}
     </SectionCard>
